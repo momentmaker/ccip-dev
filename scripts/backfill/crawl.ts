@@ -62,7 +62,7 @@ export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
       log(`depth wall at cursor ${state.cursor}; coverage_from = ${state.oldest}`);
       break;
     }
-    if (page.cursor !== null && (page.cursor === '' || page.cursor === state.cursor)) {
+    if (page.messages.length > 0 && page.cursor !== null && (page.cursor === '' || page.cursor === state.cursor)) {
       throw new Error(`cursor did not advance at ${state.cursor}: got "${page.cursor}"`);
     }
     await writeFile(path.join(opts.dir, 'pages', `${String(state.pages).padStart(5, '0')}.json`), JSON.stringify(page.raw));
@@ -86,10 +86,12 @@ export async function topUp(opts: {
   client: CrawlClient;
   limit?: number;
   maxPages?: number;
+  sleep?: (ms: number) => Promise<void>;
   log?: (line: string) => void;
 }): Promise<{ pages: number; messages: number; reachedCrawl: boolean }> {
   const limit = opts.limit ?? 1000;
   const maxPages = opts.maxPages ?? 500;
+  const sleep = opts.sleep ?? defaultSleep;
   const log = opts.log ?? (() => {});
   const firstPage = path.join(opts.dir, 'pages', '00000.json');
   if (!existsSync(firstPage)) throw new Error('No crawl found: run pnpm backfill:crawl first');
@@ -101,7 +103,8 @@ export async function topUp(opts: {
   let cursor: string | null = null;
   let messages = 0;
   for (let page = 0; page < maxPages; page++) {
-    const result = await opts.client.listMessages({ limit, cursor });
+    const result = await fetchPage(opts.client, cursor, limit, 3, sleep, log);
+    if (result === null) throw new Error(`top-up page fetch kept failing at cursor ${cursor}`);
     const fresh: unknown[] = [];
     let reachedCrawl = false;
     for (const [i, m] of result.messages.entries()) {
@@ -114,8 +117,9 @@ export async function topUp(opts: {
     await writeFile(path.join(outDir, `${String(page).padStart(5, '0')}.json`), JSON.stringify(fresh));
     messages += fresh.length;
     log(`top-up page ${page + 1}: ${fresh.length} new messages`);
-    if (reachedCrawl || result.cursor === null || result.messages.length === 0) {
-      return { pages: page + 1, messages, reachedCrawl };
+    if (reachedCrawl) return { pages: page + 1, messages, reachedCrawl };
+    if (result.cursor === null || result.messages.length === 0) {
+      throw new Error(`top-up ended at page ${page + 1} without reaching the crawl's first page; re-run pnpm backfill:crawl --top-up`);
     }
     cursor = result.cursor;
   }

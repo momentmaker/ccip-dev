@@ -36,6 +36,7 @@ describe('crawl', () => {
   it('resumes from the saved cursor instead of starting over', async () => {
     const dir = await tempDir();
     await crawl({ dir, client: fakeCcip({ messages: msgs }), limit: 2, maxPages: 1, sleep: noSleep });
+    expect(await readJson(path.join(dir, 'coverage.json'))).toMatchObject({ pages: 1, messages: 2, complete: false });
     const client = fakeCcip({ messages: msgs });
     await crawl({ dir, client, limit: 2, sleep: noSleep });
     expect(client.listCalls).toEqual(['2']);
@@ -103,6 +104,17 @@ describe('crawl', () => {
     expect(await readdir(path.join(dir, 'pages'))).toEqual(['00000.json']);
   });
 
+  it('ends on a final empty page even when it carries an empty cursor', async () => {
+    const dir = await tempDir();
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) =>
+        opts.cursor ? { messages: [], raw: [], cursor: '' } : { messages: [msgs[0]!], raw: [msgs[0]], cursor: 'c1' },
+    };
+    const state = await crawl({ dir, client, sleep: noSleep });
+    expect(state.done).toBe(true);
+    expect(await readJson(path.join(dir, 'coverage.json'))).toMatchObject({ complete: true, pages: 2, messages: 1 });
+  });
+
   it('ends on an empty page even if the API claims more', async () => {
     const dir = await tempDir();
     const client = {
@@ -126,5 +138,32 @@ describe('topUp', () => {
     expect(await readdir(path.join(dir, 'topup'))).toEqual(['00000.json', '00001.json']);
     expect((await readJson(path.join(dir, 'topup', '00000.json'))).map((m: { messageId: string }) => m.messageId)).toEqual(['m6', 'm5']);
     expect(await readJson(path.join(dir, 'topup', '00001.json'))).toEqual([]);
+  });
+
+  it('waits out a 429 while paging', async () => {
+    const dir = await tempDir();
+    await crawl({ dir, client: fakeCcip({ messages: msgs }), limit: 2, sleep: noSleep });
+    const inner = fakeCcip({ messages: msgs });
+    let calls = 0;
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        calls += 1;
+        if (calls === 1) throw new UpstreamHttpError('GET /messages', 429);
+        return inner.listMessages(opts);
+      },
+    };
+    const sleeps: number[] = [];
+    const result = await topUp({ dir, client, limit: 2, sleep: async (ms) => { sleeps.push(ms); } });
+    expect(result.reachedCrawl).toBe(true);
+    expect(sleeps).toEqual([30_000]);
+  });
+
+  it('fails loudly when the API runs out before reaching the crawl', async () => {
+    const dir = await tempDir();
+    await crawl({ dir, client: fakeCcip({ messages: msgs }), limit: 2, sleep: noSleep });
+    const unrelated = [listMessage({ id: 'x1', sendTs: '2026-10-08T10:00:00.000Z' })];
+    await expect(topUp({ dir, client: fakeCcip({ messages: unrelated }), limit: 2, sleep: noSleep })).rejects.toThrow(
+      'without reaching the crawl',
+    );
   });
 });
