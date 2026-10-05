@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -8,6 +8,8 @@ import {
   ListMessage, normalizeList, priceKeys, rollupDay, sanitize, sqlLiteral, toIsoUtc, toJsonl, TOTALS_CONFLICT,
   type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient,
 } from '@ccip-dev/core';
+import type { SkippedMessage } from './crawl';
+import type { SourceSummary, SourcesSummary } from './sources';
 
 export const MESSAGE_CONFLICT =
   'ON CONFLICT(message_id) DO UPDATE SET status = excluded.status, receipt_ts = excluded.receipt_ts, ' +
@@ -23,6 +25,11 @@ export const CHAIN_CONFLICT =
   'ON CONFLICT(selector) DO UPDATE SET first_seen = MIN(chains.first_seen, excluded.first_seen), ' +
   'last_seen = MAX(chains.last_seen, excluded.last_seen)';
 
+/** A day's spool buffer goes to disk once it holds more lines than this. */
+const DAY_BUFFER_LINES = 5_000;
+/** Every buffer goes to disk once they hold more lines than this together, so memory stays bounded however many days there are. */
+const SPOOL_BUFFER_LINES = 100_000;
+
 export interface BuildOptions {
   dir: string;
   liveStartDay: string;
@@ -36,6 +43,7 @@ export interface BuildResult {
   days: number;
   messages: number;
   unpricedMessages: number;
+  skippedMessages: number;
   sqlFiles: number;
   buildId: string;
 }
@@ -44,37 +52,41 @@ interface Coverage {
   coverage_from: string | null;
   complete: boolean;
   stopped_at_depth_wall?: boolean;
+  skipped?: SkippedMessage[];
+}
+
+interface CoveragePlan {
+  /** Days before this one get messages and archives but no rollups; null when every crawled day is complete. */
+  rollupFrom: string | null;
+  skipped: SkippedMessage[];
+}
+
+interface DayEntry {
+  raw: unknown;
+  message: ListMessage;
 }
 
 export async function build(opts: BuildOptions): Promise<BuildResult> {
   const log = opts.log ?? (() => {});
   const computedAt = (opts.now ?? (() => new Date()))().toISOString();
   const lastDay = addDays(opts.liveStartDay, -1);
-  const coverage = JSON.parse(await readFile(path.join(opts.dir, 'coverage.json'), 'utf8')) as Coverage;
-  if (coverage.complete !== true) {
-    throw new Error(
-      `The crawl is not complete (coverage.json complete: ${String(coverage.complete)}). Re-run pnpm backfill:crawl until it finishes.`,
-    );
-  }
-  const oldestDay = coverage.coverage_from ? dayOf(coverage.coverage_from) : lastDay;
-  const partialDay = coverage.stopped_at_depth_wall && coverage.coverage_from ? oldestDay : null;
-  const pageFiles = [...(await jsonFiles(opts.dir, 'topup')), ...(await jsonFiles(opts.dir, 'pages'))];
-  await assertReachesLiveStart(opts.dir, pageFiles, opts.liveStartDay);
+  const plan = await planCoverage(opts.dir);
+  const spooled = await spoolDays(opts.dir, lastDay);
+  log(`spooled ${spooled.days.length} days into ${path.join(opts.dir, 'days')}`);
+  assertReachesLiveStart(spooled.newest, opts.liveStartDay);
 
   await rm(path.join(opts.dir, 'sql'), { recursive: true, force: true });
   await rm(path.join(opts.dir, 'archive'), { recursive: true, force: true });
   const writer = new SqlWriter(path.join(opts.dir, 'sql'), opts.chunkSize ?? 20_000);
-  const prices = await PriceCache.open(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), oldestDay, lastDay);
+  const earliestDay = spooled.days[0];
+  const prices = await PriceCache.open(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), earliestDay ?? lastDay, lastDay);
   const firstSeen = new FirstSeen();
   const chains = new ChainHistory();
-  const buckets = new Map<string, Map<string, { raw: unknown; message: ListMessage }>>();
-  const flushed = new Set<string>();
-  const result: BuildResult = { days: 0, messages: 0, unpricedMessages: 0, sqlFiles: 0, buildId: '' };
+  const result: BuildResult = { days: 0, messages: 0, unpricedMessages: 0, skippedMessages: plan.skipped.length, sqlFiles: 0, buildId: '' };
 
-  const flush = async (day: string) => {
-    const entries = [...(buckets.get(day)?.values() ?? [])];
-    buckets.delete(day);
-    flushed.add(day);
+  const buildDay = async (day: string) => {
+    const entries = await readDay(path.join(opts.dir, 'days', `${day}.jsonl`));
+    const rollup = plan.rollupFrom === null || day >= plan.rollupFrom;
     const normalized = entries.map((e) => normalizeList(e.message));
     const lookup = await prices.lookupFor(day, normalized.flatMap(priceKeys));
     const { rows, tokens } = buildRows(normalized, lookup, () => ({ source: 'backfill' }));
@@ -84,7 +96,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
       ...rows.map((r) => insertSql('messages', r, MESSAGE_CONFLICT)),
       ...tokens.map((t) => insertSql('message_tokens', t, TOKEN_CONFLICT)),
     ];
-    if (day !== partialDay) {
+    if (rollup) {
       const { totals, breakdown } = rollupDay(day, rows, tokens);
       statements.push(
         insertSql('daily_totals', { ...totals, computed_at: computedAt }, TOTALS_CONFLICT),
@@ -99,48 +111,110 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     result.days += 1;
     result.messages += rows.length;
     result.unpricedMessages += rows.filter((r) => r.unpriced === 1).length;
-    log(`${day}: ${rows.length} messages${day === partialDay ? ' (partial day, no rollup)' : ''}`);
+    log(`${day}: ${rows.length} messages${rollup ? '' : ' (before coverage_from, no rollup)'}`);
   };
 
-  for (const file of pageFiles) {
-    const raws = JSON.parse(await readFile(path.join(opts.dir, file), 'utf8')) as unknown[];
-    let pageOldest: string | null = null;
-    for (const [index, raw] of raws.entries()) {
-      const parsed = ListMessage.safeParse(raw);
-      if (!parsed.success) {
-        throw new Error(`${file}[${index}] is not a valid CCIP list message (problem at ${issuePath(parsed.error)})`);
-      }
-      const day = dayOf(parsed.data.sendTimestamp);
-      if (day > lastDay) continue;
-      if (flushed.has(day)) {
-        throw new Error(
-          `${file}[${index}] (message ${parsed.data.messageId}) is on ${day}, a day the build already wrote. ` +
-            "The pages are more than a day out of time order; stopping rather than overwrite that day's rows, archive and rollup.",
-        );
-      }
-      if (pageOldest === null || day < pageOldest) pageOldest = day;
-      const bucket = buckets.get(day) ?? new Map<string, { raw: unknown; message: ListMessage }>();
-      bucket.set(parsed.data.messageId, { raw, message: parsed.data });
-      buckets.set(day, bucket);
-    }
-    if (pageOldest !== null) {
-      // The API is not strictly time-ordered, so the day after a page's oldest day stays open for stragglers.
-      const newestOpenDay = addDays(pageOldest, 1);
-      for (const day of [...buckets.keys()].filter((d) => d > newestOpenDay).sort().reverse()) await flush(day);
-    }
-  }
-  for (const day of [...buckets.keys()].sort().reverse()) await flush(day);
+  for (const day of spooled.days) await buildDay(day);
 
   // Token rows are not seeded: list data has no symbol or decimals, so they come from the hourly registry snapshot.
   await writer.add([...firstSeen.statements(), ...chains.statements()]);
-  if (coverage.coverage_from) {
-    const coverageFrom = partialDay ? addDays(partialDay, 1) : oldestDay;
+  const coverageFrom = plan.rollupFrom ?? earliestDay;
+  if (coverageFrom !== undefined) {
     await writer.add([insertSql('meta', { key: 'coverage_from', value: coverageFrom }, 'ON CONFLICT(key) DO UPDATE SET value = excluded.value')]);
   }
+  await writeFileAtomic(path.join(opts.dir, 'skipped.json'), `${JSON.stringify(plan.skipped, null, 2)}\n`);
   const written = await writer.finish();
   result.sqlFiles = written.files;
   result.buildId = written.id;
   return result;
+}
+
+/** Per-source crawls decide coverage when `sources/summary.json` exists; otherwise the global crawl's coverage.json does. */
+async function planCoverage(dir: string): Promise<CoveragePlan> {
+  const coverageFile = path.join(dir, 'coverage.json');
+  const coverage = existsSync(coverageFile) ? (JSON.parse(await readFile(coverageFile, 'utf8')) as Coverage) : null;
+  const summaryFile = path.join(dir, 'sources', 'summary.json');
+  if (existsSync(summaryFile)) {
+    if ((await jsonFiles(dir, 'pages')).length > 0) assertCrawlComplete(coverage);
+    const summary = JSON.parse(await readFile(summaryFile, 'utf8')) as SourcesSummary;
+    return planFromSources(summary, coverage?.skipped ?? []);
+  }
+  assertCrawlComplete(coverage);
+  const partialDay = coverage.stopped_at_depth_wall && coverage.coverage_from ? dayOf(coverage.coverage_from) : null;
+  return { rollupFrom: partialDay === null ? null : addDays(partialDay, 1), skipped: uniqueSkipped(coverage.skipped ?? []) };
+}
+
+function assertCrawlComplete(coverage: Coverage | null): asserts coverage is Coverage {
+  if (coverage === null) throw new Error('No coverage.json found: run pnpm backfill:crawl first');
+  if (coverage.complete !== true) {
+    throw new Error(
+      `The crawl is not complete (coverage.json complete: ${String(coverage.complete)}). Re-run pnpm backfill:crawl until it finishes.`,
+    );
+  }
+}
+
+function planFromSources(summary: SourcesSummary, globalSkipped: SkippedMessage[]): CoveragePlan {
+  const crawled = summary.sources.filter((s) => !s.unsupported);
+  if (crawled.length === 0) throw new Error('sources/summary.json lists no source that was crawled. Run pnpm backfill:sources first.');
+  const wallDays = crawled.map(wallDayOf).filter((day) => day !== null).sort();
+  const latestWallDay = wallDays.at(-1);
+  return {
+    rollupFrom: latestWallDay === undefined ? null : addDays(latestWallDay, 1),
+    skipped: uniqueSkipped([...globalSkipped, ...summary.sources.flatMap((s) => s.skipped)]),
+  };
+}
+
+/** The oldest, possibly partial, day of a source that stopped at a depth wall; null for a source crawled to its start. */
+function wallDayOf(source: SourceSummary): string | null {
+  const name = `Source ${source.selector} (${source.name})`;
+  const rerun = 'Re-run pnpm backfill:sources until every source finishes.';
+  if (source.error !== undefined) throw new Error(`${name} failed in the per-source crawl: ${source.error}. ${rerun}`);
+  if (!source.done) throw new Error(`${name} has not finished its per-source crawl (sources/summary.json done: false). ${rerun}`);
+  if (!source.stopped_at_depth_wall) return null;
+  if (source.coverage_from === null) {
+    throw new Error(
+      `${name} stopped at a depth wall before it crawled any message (coverage_from: null), so the days it covers are unknown. ${rerun}`,
+    );
+  }
+  return dayOf(source.coverage_from);
+}
+
+function uniqueSkipped(skipped: SkippedMessage[]): SkippedMessage[] {
+  const byId = new Map<string, SkippedMessage>();
+  for (const s of skipped) if (!byId.has(s.messageId)) byId.set(s.messageId, s);
+  return [...byId.values()];
+}
+
+/**
+ * Sorts every crawled message before live_start_day into `<dir>/days/YYYY-MM-DD.jsonl`, one raw message per line, in input
+ * order: global pages, top-up pages, then each source's pages. The last line for a message id is the freshest copy.
+ */
+async function spoolDays(dir: string, lastDay: string): Promise<{ days: string[]; newest: string | null }> {
+  const daysDir = path.join(dir, 'days');
+  await rm(daysDir, { recursive: true, force: true });
+  await mkdir(daysDir, { recursive: true });
+  const spool = new DaySpool(daysDir, { dayLines: DAY_BUFFER_LINES, totalLines: SPOOL_BUFFER_LINES });
+  let newest: string | null = null;
+  for (const file of await inputFiles(dir)) {
+    const raws = JSON.parse(await readFile(path.join(dir, file), 'utf8')) as unknown[];
+    for (const [index, raw] of raws.entries()) {
+      const message = parseListMessage(raw, `${file}[${index}]`);
+      if (newest === null || Date.parse(message.sendTimestamp) > Date.parse(newest)) newest = message.sendTimestamp;
+      const day = dayOf(message.sendTimestamp);
+      if (day <= lastDay) await spool.add(day, JSON.stringify(raw));
+    }
+  }
+  return { days: await spool.finish(), newest };
+}
+
+async function inputFiles(dir: string): Promise<string[]> {
+  const sourcesDir = path.join(dir, 'sources');
+  const selectors = existsSync(sourcesDir)
+    ? (await readdir(sourcesDir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort()
+    : [];
+  const files = [...(await jsonFiles(dir, 'pages')), ...(await jsonFiles(dir, 'topup'))];
+  for (const selector of selectors) files.push(...(await jsonFiles(dir, path.join('sources', selector, 'pages'))));
+  return files;
 }
 
 async function jsonFiles(dir: string, sub: string): Promise<string[]> {
@@ -151,16 +225,65 @@ async function jsonFiles(dir: string, sub: string): Promise<string[]> {
     .map((f) => path.join(sub, f));
 }
 
-async function assertReachesLiveStart(dir: string, files: string[], liveStartDay: string): Promise<void> {
-  for (const file of files) {
-    const newest = (JSON.parse(await readFile(path.join(dir, file), 'utf8')) as { sendTimestamp?: string }[])[0]?.sendTimestamp;
-    if (newest === undefined) continue;
-    if (Date.parse(newest) < Date.parse(dayStartIso(liveStartDay))) {
-      throw new Error(`The crawl ends at ${newest}, before live_start_day ${liveStartDay}. Run pnpm backfill:crawl --top-up first.`);
-    }
-    return;
+function parseListMessage(raw: unknown, where: string): ListMessage {
+  const parsed = ListMessage.safeParse(raw);
+  if (!parsed.success) throw new Error(`${where} is not a valid CCIP list message (problem at ${issuePath(parsed.error)})`);
+  return parsed.data;
+}
+
+/** One day's messages, deduplicated by id; the last line for an id wins. */
+async function readDay(file: string): Promise<DayEntry[]> {
+  const byId = new Map<string, DayEntry>();
+  const lines = (await readFile(file, 'utf8')).split('\n').filter((line) => line !== '');
+  for (const [index, line] of lines.entries()) {
+    const raw: unknown = JSON.parse(line);
+    const message = parseListMessage(raw, `${file}:${index + 1}`);
+    byId.set(message.messageId, { raw, message });
   }
-  throw new Error('No crawled messages found: run pnpm backfill:crawl first');
+  return [...byId.values()];
+}
+
+function assertReachesLiveStart(newest: string | null, liveStartDay: string): void {
+  if (newest === null) throw new Error('No crawled messages found: run pnpm backfill:sources or pnpm backfill:crawl first');
+  if (Date.parse(newest) < Date.parse(dayStartIso(liveStartDay))) {
+    throw new Error(`The crawl ends at ${newest}, before live_start_day ${liveStartDay}. Run pnpm backfill:crawl --top-up first.`);
+  }
+}
+
+/** Appends lines to one `YYYY-MM-DD.jsonl` file per day in `dir`, buffering in memory up to the given limits. */
+export class DaySpool {
+  private readonly buffers = new Map<string, string[]>();
+  private readonly written = new Set<string>();
+  private buffered = 0;
+
+  constructor(private readonly dir: string, private readonly limits: { dayLines: number; totalLines: number }) {}
+
+  async add(day: string, line: string): Promise<void> {
+    const buffer = this.buffers.get(day) ?? [];
+    buffer.push(line);
+    this.buffers.set(day, buffer);
+    this.buffered += 1;
+    if (buffer.length > this.limits.dayLines) await this.flush(day);
+    else if (this.buffered > this.limits.totalLines) await this.flushAll();
+  }
+
+  /** Writes what is still buffered and returns the spooled days, oldest first. */
+  async finish(): Promise<string[]> {
+    await this.flushAll();
+    return [...this.written].sort();
+  }
+
+  private async flushAll(): Promise<void> {
+    for (const day of [...this.buffers.keys()]) await this.flush(day);
+  }
+
+  private async flush(day: string): Promise<void> {
+    const lines = this.buffers.get(day) ?? [];
+    this.buffers.delete(day);
+    this.buffered -= lines.length;
+    await appendFile(path.join(this.dir, `${day}.jsonl`), lines.map((line) => `${line}\n`).join(''));
+    this.written.add(day);
+  }
 }
 
 export class SqlWriter {
