@@ -1,4 +1,4 @@
-import { dayOf, rollupDay, type DailyBreakdown, type Dim } from '@ccip-dev/core';
+import { dayOf, LINK_RESERVE, LINK_TOKEN, rollupDay, toUnits, type DailyBreakdown, type Dim } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
@@ -113,4 +113,31 @@ export async function publishStatus(c: RunContext, now: Date): Promise<void> {
     TTL.status,
     now,
   );
+}
+
+const DAY_MS = 86_400_000;
+
+function linkUnits(raw: string): number {
+  return Math.round(toUnits(raw, 18) * 100) / 100;
+}
+
+export async function publishRegistryFiles(c: RunContext): Promise<void> {
+  const now = c.deps.now();
+  const db = c.env.DB;
+  const series = await store.reserveSeries(db, new Date(now.getTime() - 90 * DAY_MS).toISOString());
+  const latest = series.at(-1);
+  await putJson(
+    c.env.PUBLIC,
+    'reserve.json',
+    {
+      token: LINK_TOKEN,
+      reserve: LINK_RESERVE,
+      latest: latest ? { ts: latest.ts, link: linkUnits(latest.link_balance) } : null,
+      series: series.map((s) => ({ ts: s.ts, link: linkUnits(s.link_balance) })),
+    },
+    TTL.reserve,
+    now,
+  );
+  await putJson(c.env.PUBLIC, 'chains.json', { chains: await store.registryChains(db) }, TTL.chains, now);
+  await putJson(c.env.PUBLIC, 'tokens.json', { tokens: await store.registryTokens(db) }, TTL.tokens, now);
 }

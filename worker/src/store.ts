@@ -1,4 +1,4 @@
-import type { MessageRow, PriceInfo, TokenRow } from '@ccip-dev/core';
+import { sanitize, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo, type TokenRow } from '@ccip-dev/core';
 
 const PARAM_CHUNK = 90;
 const BATCH_SIZE = 100;
@@ -219,4 +219,96 @@ export async function applyDetail(db: D1Database, row: MessageRow, tokens: Token
     db.prepare('DELETE FROM message_tokens WHERE message_id = ?').bind(row.message_id),
     ...tokens.map((t) => insertTokenStatement(db, t)),
   ]);
+}
+
+export async function countRows(db: D1Database, table: 'chains' | 'tokens'): Promise<number> {
+  const row = await db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export async function countArrivals(db: D1Database, kind: 'chain' | 'token' | 'lane'): Promise<number> {
+  const row = await db.prepare('SELECT COUNT(*) AS n FROM arrivals WHERE kind = ?').bind(kind).first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export async function upsertChains(db: D1Database, chains: NetworkInfo[], nowIso: string): Promise<void> {
+  const insert = db.prepare(
+    `INSERT INTO chains (selector, name, display_name, family, chain_id, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(selector) DO UPDATE SET name = excluded.name, display_name = excluded.display_name,
+       family = excluded.family, chain_id = excluded.chain_id, last_seen = excluded.last_seen`,
+  );
+  await runBatch(
+    db,
+    chains.map((ch) => insert.bind(ch.chainSelector, sanitize(ch.name), sanitize(ch.displayName), ch.chainFamily, ch.chainId, nowIso, nowIso)),
+  );
+}
+
+export async function upsertTokens(db: D1Database, tokens: NormalizedToken[], nowIso: string): Promise<void> {
+  const insert = db.prepare(
+    `INSERT INTO tokens (chain, address, symbol, name, decimals, group_id, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(chain, address) DO UPDATE SET symbol = excluded.symbol, name = excluded.name,
+       decimals = excluded.decimals, group_id = excluded.group_id, last_seen = excluded.last_seen`,
+  );
+  await runBatch(db, tokens.map((t) => insert.bind(t.chain, t.address, t.symbol, t.name, t.decimals, t.groupId, nowIso, nowIso)));
+}
+
+export async function insertArrivals(
+  db: D1Database,
+  kind: 'chain' | 'token',
+  keys: string[],
+  nowIso: string,
+  announcedAt: string | null,
+): Promise<void> {
+  const insert = db.prepare(
+    'INSERT INTO arrivals (kind, key, first_seen, announced_at) VALUES (?, ?, ?, ?) ON CONFLICT(kind, key) DO NOTHING',
+  );
+  await runBatch(db, keys.map((key) => insert.bind(kind, key, nowIso, announcedAt)));
+}
+
+export async function insertLaneArrivals(db: D1Database, sinceDay: string, baseline: boolean): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO arrivals (kind, key, first_seen, announced_at)
+       SELECT 'lane', src_chain || '>' || dst_chain, MIN(send_ts), CASE WHEN ?1 = 1 THEN MIN(send_ts) ELSE NULL END
+       FROM messages WHERE day >= ?2 GROUP BY src_chain, dst_chain
+       ON CONFLICT(kind, key) DO NOTHING`,
+    )
+    .bind(baseline ? 1 : 0, sinceDay)
+    .run();
+}
+
+export async function insertReserve(db: D1Database, ts: string, linkBalance: string): Promise<void> {
+  await db
+    .prepare('INSERT INTO reserve_snapshots (ts, link_balance) VALUES (?, ?) ON CONFLICT(ts) DO UPDATE SET link_balance = excluded.link_balance')
+    .bind(ts, linkBalance)
+    .run();
+}
+
+export async function reserveSeries(db: D1Database, sinceIso: string): Promise<{ ts: string; link_balance: string }[]> {
+  const { results } = await db
+    .prepare('SELECT ts, link_balance FROM reserve_snapshots WHERE ts >= ? ORDER BY ts')
+    .bind(sinceIso)
+    .all<{ ts: string; link_balance: string }>();
+  return results;
+}
+
+export async function registryChains(db: D1Database): Promise<Record<string, unknown>[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT c.selector, c.name, c.display_name, c.family, c.chain_id, COALESCE(a.first_seen, c.first_seen) AS first_seen
+       FROM chains c LEFT JOIN arrivals a ON a.kind = 'chain' AND a.key = c.selector ORDER BY c.name`,
+    )
+    .all<Record<string, unknown>>();
+  return results;
+}
+
+export async function registryTokens(db: D1Database): Promise<Record<string, unknown>[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT t.chain, t.address, t.symbol, t.name, t.decimals, t.group_id, COALESCE(a.first_seen, t.first_seen) AS first_seen
+       FROM tokens t LEFT JOIN arrivals a ON a.kind = 'token' AND a.key = t.chain || ':' || t.address
+       ORDER BY t.symbol, t.chain`,
+    )
+    .all<Record<string, unknown>>();
+  return results;
 }
