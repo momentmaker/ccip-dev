@@ -7,3 +7,4 @@ export * from './time';
 export * from './value';
 export * from './normalize';
 export * from './rows';
+export * from './rollup';
