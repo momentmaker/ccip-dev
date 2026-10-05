@@ -1,0 +1,40 @@
+name: watchdog
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Alert if status.json is stale, unreachable or reports ingest lag
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          status=$(curl -fsS --max-time 20 https://data.ccip.dev/v1/status.json || true)
+          updated=$(printf '%s' "${status}" | jq -r '.updated_at // empty' 2>/dev/null || true)
+          lag=$(printf '%s' "${status}" | jq -r 'if .lag_seconds == null then "null" else (.lag_seconds | floor | tostring) end' 2>/dev/null || echo 0)
+          if [ -z "${updated}" ]; then
+            age=999999
+          else
+            ts=$(date -u -d "${updated}" +%s 2>/dev/null || echo 0)
+            age=$(( $(date -u +%s) - ts ))
+          fi
+          echo "status.json age: ${age}s, ingest lag: ${lag}s"
+          reason=""
+          if [ "${age}" -gt 900 ]; then
+            reason="status.json is ${age}s old (or unreachable)"
+          elif [ "${lag}" = "null" ]; then
+            reason="ingest has never succeeded (lag_seconds is null)"
+          elif [ "${lag}" -gt 900 ]; then
+            reason="ingest lag is ${lag}s"
+          fi
+          if [ -n "${reason}" ]; then
+            curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_ALERT_CHAT_ID}" \
+              --data-urlencode "text=ccip.dev watchdog: ${reason}"
+          fi
