@@ -36,10 +36,16 @@ export async function runIngest(c: RunContext, options: IngestOptions = {}): Pro
     await store.setMeta(db, 'ingest_resume_cursor', head.nextCursor);
     await store.setMeta(db, 'ingest_resume_stop_id', newestBefore);
   } else if (resumeCursor !== null && maxPages - head.pagesUsed > 0) {
-    const tail = await walk(c, resumeCursor, { kind: 'id', id: resumeStopId }, floorMs, pageSize, maxPages - head.pagesUsed);
-    collected.push(...tail.messages);
-    await store.setMeta(db, 'ingest_resume_cursor', tail.exhausted ? tail.nextCursor : null);
-    if (!tail.exhausted) await store.setMeta(db, 'ingest_resume_stop_id', null);
+    try {
+      const tail = await walk(c, resumeCursor, { kind: 'id', id: resumeStopId }, floorMs, pageSize, maxPages - head.pagesUsed);
+      collected.push(...tail.messages);
+      await store.setMeta(db, 'ingest_resume_cursor', tail.exhausted ? tail.nextCursor : null);
+      if (!tail.exhausted) await store.setMeta(db, 'ingest_resume_stop_id', null);
+    } catch (error) {
+      await c.alert('ingest-resume', `ingest resume walk failed and was dropped: ${error instanceof Error ? error.message : String(error)}`);
+      await store.setMeta(db, 'ingest_resume_cursor', null);
+      await store.setMeta(db, 'ingest_resume_stop_id', null);
+    }
   }
 
   await storeListMessages(c, collected);

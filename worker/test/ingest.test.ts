@@ -52,6 +52,22 @@ describe('runIngest', () => {
     expect(await store.getMeta(env.DB, 'ingest_resume_cursor')).toBeNull();
   });
 
+  it('keeps ingesting and drops the resume cursor when the resume walk fails', async () => {
+    await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: six() }) }).c, { pageSize: 2, maxPages: 2 });
+    expect(await store.getMeta(env.DB, 'ingest_resume_cursor')).toBe('4');
+
+    const ccip = fakeCcip({ messages: [listMessage({ id: 'm7', sendTs: at(-0.5) }), ...six()], failCursors: new Set(['4']) });
+    const { c, alerts } = harness({ now: '2026-10-08T12:05:00.000Z', ccip });
+    await runIngest(c, { pageSize: 2, maxPages: 2 });
+
+    expect(await count()).toBe(5);
+    expect(await store.getMeta(env.DB, 'last_ingest_ok_at')).toBe('2026-10-08T12:05:00.000Z');
+    expect(await store.getMeta(env.DB, 'ingest_resume_cursor')).toBeNull();
+    expect(await store.getMeta(env.DB, 'ingest_resume_stop_id')).toBeNull();
+    expect(alerts.map((a) => a.signature)).toEqual(['ingest-resume']);
+    expect((await readPublic('live.json')).messages.map((m: { id: string }) => m.id)).toContain('m7');
+  });
+
   it('stores a message that appears on two consecutive pages only once', async () => {
     const m = six();
     const { c } = harness({ now: NOW, ccip: fakeCcip({ messages: [m[0]!, m[1]!, m[1]!, m[2]!] }) });
