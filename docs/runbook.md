@@ -66,3 +66,21 @@ Actions minutes: a paid plan is not unlimited. GitHub Pro includes 3,000 Actions
 - `curl -sI -H 'Origin: https://example.com' https://data.ccip.dev/v1/live.json | grep -i access-control-allow-origin` should show `*`.
 - `gh workflow run watchdog`, then `gh run list --workflow watchdog --limit 1` should show a success.
 - Archive privacy: `… wrangler r2 bucket domain list ccip-dev-archive` lists no domains, and `… wrangler r2 bucket dev-url get ccip-dev-archive` reports the r2.dev URL as disabled.
+
+## Backfill upload
+
+Run this once, after the Worker is deployed. The import makes D1 unavailable while each SQL file runs, so the Worker's jobs fail during the upload. Do it in one sitting, well away from 00:10 and 06:00 UTC (finalize), and expect `job-failed` and watchdog alerts while it runs.
+
+1. R2 API token: dashboard → R2 → Manage API tokens → Create. Give it **Object Read & Write** limited to the `ccip-dev-archive` bucket.
+2. Optional D1 token: `CF_BACKFILL_TOKEN`, a custom token with D1 edit only. Without it, your `wrangler login` session is used.
+3. Create `.env` in the repo root (gitignored). Type the values into the file locally; never paste them into chat. The variable names are:
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `R2_ACCESS_KEY_ID`
+   - `R2_SECRET_ACCESS_KEY`
+   - `CF_BACKFILL_TOKEN` (optional)
+4. Order:
+   1. Wait for the Worker's first hourly run, which snapshots the token registry. The upload refuses to start until it has.
+   2. `pnpm backfill:crawl --top-up`
+   3. `pnpm backfill:build --live-start <live_start_day>` (read it with `… wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'live_start_day'"`)
+   4. `pnpm backfill:upload`. Answer `y` if wrangler asks to confirm a remote import.
+5. If interrupted, re-run `pnpm backfill:upload`; it resumes from `.backfill/upload-state.json`. After a rebuild, the new build id makes it apply every SQL file and replace every archive again. The upserts only touch backfill rows.

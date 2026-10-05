@@ -9,7 +9,7 @@
     "canary": "tsx scripts/canary.ts",
     "backfill:crawl": "tsx scripts/backfill/crawl.ts",
     "backfill:build": "tsx scripts/backfill/build.ts",
-    "backfill:upload": "tsx scripts/backfill/upload.ts",
+    "backfill:upload": "tsx --env-file=.env scripts/backfill/upload.ts",
     "labels:build": "tsx scripts/build-labels.ts",
     "labels:check": "tsx scripts/build-labels.ts --check",
     "labels:refresh-chains": "tsx scripts/refresh-chains.ts",
