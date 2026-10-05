@@ -1,4 +1,4 @@
-import { dayOf, LINK_RESERVE, LINK_TOKEN, rollupDay, toUnits, type DailyBreakdown, type Dim } from '@ccip-dev/core';
+import { addDays, dayOf, LINK_RESERVE, LINK_TOKEN, rollupDay, toUnits, type DailyBreakdown, type Dim } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
@@ -140,4 +140,41 @@ export async function publishRegistryFiles(c: RunContext): Promise<void> {
   );
   await putJson(c.env.PUBLIC, 'chains.json', { chains: await store.registryChains(db) }, TTL.chains, now);
   await putJson(c.env.PUBLIC, 'tokens.json', { tokens: await store.registryTokens(db) }, TTL.tokens, now);
+}
+
+const DIMS: Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender'];
+
+export async function publishHistoryFiles(c: RunContext): Promise<void> {
+  const now = c.deps.now();
+  const db = c.env.DB;
+  const history = await store.dailyHistory(db);
+  const since = (await store.getMeta(db, 'coverage_from')) ?? history[0]?.day ?? null;
+  await putJson(
+    c.env.PUBLIC,
+    'history.json',
+    { since, days: history.map((d) => ({ ...d, usd_value: usd(d.usd_value), fee_usd: usd(d.fee_usd) })) },
+    TTL.history,
+    now,
+  );
+
+  const today = dayOf(now);
+  const lastDay = addDays(today, -1);
+  const names = await store.chainNames(db);
+  for (const dim of DIMS) {
+    const window = async (fromDay: string | null) =>
+      (await store.topBetween(db, dim, fromDay, lastDay, 100)).map((r) => ({
+        key: r.key,
+        messages: r.messages,
+        usd: usd(r.usd_value),
+        fee_usd: usd(r.fee_usd),
+        ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
+      }));
+    await putJson(
+      c.env.PUBLIC,
+      `top/${dim}.json`,
+      { dim, since, windows: { '7d': await window(addDays(today, -7)), '30d': await window(addDays(today, -30)), all: await window(null) } },
+      TTL.top,
+      now,
+    );
+  }
 }

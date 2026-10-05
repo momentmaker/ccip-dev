@@ -7,12 +7,22 @@ import * as store from '../store';
 
 const MINUTE = 60_000;
 
-export async function runDetails(c: RunContext, scope: { limit: number } | { day: string }): Promise<void> {
+export async function runDetails(
+  c: RunContext,
+  scope: { limit: number } | { day: string },
+  options: { deadline?: number } = {},
+): Promise<void> {
   const ids =
     'day' in scope
       ? await store.liveMissingDetail(c.env.DB, scope.day)
       : await store.dueForDetail(c.env.DB, c.deps.now().toISOString(), scope.limit);
-  for (const id of ids) await fillOne(c, id);
+  for (const id of ids) {
+    if (options.deadline !== undefined && c.deps.now().getTime() > options.deadline) {
+      console.warn(`detail fill stopped at its deadline; ${ids.length - ids.indexOf(id)} message(s) left for the per-minute job`);
+      return;
+    }
+    await fillOne(c, id);
+  }
 }
 
 async function fillOne(c: RunContext, id: string): Promise<void> {

@@ -1,4 +1,6 @@
-import { sanitize, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo, type TokenRow } from '@ccip-dev/core';
+import {
+  BREAKDOWN_CONFLICT, sanitize, TOTALS_CONFLICT, type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo, type TokenRow,
+} from '@ccip-dev/core';
 
 const PARAM_CHUNK = 90;
 const BATCH_SIZE = 100;
@@ -310,5 +312,57 @@ export async function registryTokens(db: D1Database): Promise<Record<string, unk
        ORDER BY t.symbol, t.chain`,
     )
     .all<Record<string, unknown>>();
+  return results;
+}
+
+export async function countForDay(db: D1Database, day: string): Promise<number> {
+  const row = await db.prepare('SELECT COUNT(*) AS n FROM messages WHERE day = ?').bind(day).first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export async function replaceDaily(db: D1Database, totals: DailyTotals, breakdown: DailyBreakdown[], computedAt: string): Promise<void> {
+  const insertBreakdown = db.prepare(
+    `INSERT INTO daily_breakdown (day, dim, key, messages, usd_value, fee_usd) VALUES (?, ?, ?, ?, ?, ?) ${BREAKDOWN_CONFLICT}`,
+  );
+  await runBatch(db, [
+    db
+      .prepare(
+        `INSERT INTO daily_totals (day, messages, token_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, computed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
+      )
+      .bind(
+        totals.day, totals.messages, totals.token_messages, totals.usd_value, totals.fee_usd, totals.unique_senders,
+        totals.median_delivery_s, totals.unpriced_messages, computedAt,
+      ),
+    db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
+    ...breakdown.map((b) => insertBreakdown.bind(b.day, b.dim, b.key, b.messages, b.usd_value, b.fee_usd)),
+  ]);
+}
+
+export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT day, messages, token_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages
+       FROM daily_totals ORDER BY day`,
+    )
+    .all<DailyTotals>();
+  return results;
+}
+
+export async function topBetween(
+  db: D1Database,
+  dim: Dim,
+  fromDay: string | null,
+  toDay: string,
+  limit: number,
+): Promise<{ key: string; messages: number; usd_value: number; fee_usd: number | null }[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+       FROM daily_breakdown WHERE dim = ? AND day >= ? AND day <= ?
+       GROUP BY key ORDER BY usd_value DESC, messages DESC LIMIT ?`,
+    )
+    .bind(dim, fromDay ?? '0000-00-00', toDay, limit)
+    .all<{ key: string; messages: number; usd_value: number; fee_usd: number | null }>();
   return results;
 }
