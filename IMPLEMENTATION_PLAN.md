@@ -20,7 +20,7 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Worker deployed with all five cron jobs publishing to data.ccip.dev, plus the external watchdog (Tasks 9–16).
 **Success Criteria**: Spec §2 criteria 2, 4 and 6 hold in production.
 **Tests**: store, alerts, publish, ingest, details, prices job (including the status.json refresh), hourly, finalize, index.
-**Status**: Not Started
+**Status**: In Progress
 
 ## Stage 4: Backfill load and verification
 **Goal**: Top up the crawl, rebuild, and load history before live_start_day into D1 and R2; cross-check recorded; 10–20 hand-written labels (Task 18).
