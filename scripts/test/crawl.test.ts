@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { UpstreamHttpError, UpstreamSchemaError } from '@ccip-dev/core';
+import { decodeCursor, UpstreamHttpError, UpstreamSchemaError } from '@ccip-dev/core';
 import { fakeCcip, fakeKeysetApi, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
 import { crawl, topUp } from '../backfill/crawl';
@@ -197,7 +197,12 @@ describe('crawl with skipPoison', () => {
     at('h6', '2026-01-11T23:59:59.000Z'),
   ];
   const poison = history[2]!;
-  const skipOf = (m: { messageId: string; sendTimestamp: string }) => ({ messageId: m.messageId, sendTimestamp: m.sendTimestamp });
+  type Msg = { messageId: string; sendTimestamp: string };
+  const skipOf = (m: Msg, after: Msg) => ({
+    messageId: m.messageId,
+    sendTimestamp: m.sendTimestamp,
+    after: { sendTimestamp: after.sendTimestamp, messageId: after.messageId },
+  });
   const idsOf = (messages: { messageId: string }[]) => messages.map((m) => m.messageId);
   const crawledIds = async (dir: string) => {
     const files = (await readdir(path.join(dir, 'pages'))).sort();
@@ -211,8 +216,28 @@ describe('crawl with skipPoison', () => {
     const state = await crawl({ dir, client: api, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
     expect(state).toMatchObject({ done: true, stoppedAtDepthWall: false, messages: 5 });
     expect(await crawledIds(dir)).toEqual(idsOf(history.filter((m) => m !== poison)));
-    expect(state.skipped).toEqual([skipOf(poison)]);
-    expect(await readJson(path.join(dir, 'coverage.json'))).toMatchObject({ complete: true, skipped: [skipOf(poison)] });
+  });
+
+  it('records each skip with the window it was found in: after the last message crawled before it', async () => {
+    const dir = await tempDir();
+    const api = fakeKeysetApi({ messages: history, poison: [poison.messageId] });
+    const state = await crawl({ dir, client: api, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(state.skipped).toEqual([skipOf(poison, history[1]!)]);
+    expect(await readJson(path.join(dir, 'coverage.json'))).toMatchObject({ complete: true, skipped: [skipOf(poison, history[1]!)] });
+  });
+
+  it('keeps an ordinary message between two poison messages 3 s apart, and records both', async () => {
+    const dir = await tempDir();
+    const [first, ordinary, second] = [
+      at('p1', '2026-01-15T01:28:06.000Z'),
+      at('n', '2026-01-15T01:28:05.000Z'),
+      at('p2', '2026-01-15T01:28:03.000Z'),
+    ];
+    const messages = [at('a', '2026-01-15T01:29:00.000Z'), at('c', '2026-01-15T01:28:20.000Z'), first!, ordinary!, second!, at('m', '2026-01-15T01:00:00.000Z')];
+    const api = fakeKeysetApi({ messages, poison: [first!.messageId, second!.messageId] });
+    const state = await crawl({ dir, client: api, limit: 2, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(await crawledIds(dir)).toEqual(idsOf(messages.filter((m) => m !== first && m !== second)));
+    expect(idsOf(state.skipped)).toEqual(idsOf([first!, second!]));
   });
 
   it('skips a poison message that shares the timestamp of the cursor message', async () => {
@@ -226,7 +251,7 @@ describe('crawl with skipPoison', () => {
     const state = await crawl({ dir, client: api, limit: 2, minLimit: 1, skipPoison: true, sleep: noSleep });
     expect(state).toMatchObject({ done: true, stoppedAtDepthWall: false });
     expect(await crawledIds(dir)).toEqual(idsOf(messages.filter((m) => m !== sameSecondPoison)));
-    expect(state.skipped).toEqual([skipOf(sameSecondPoison!)]);
+    expect(state.skipped).toEqual([skipOf(sameSecondPoison!, newest!)]);
   });
 
   it('skips adjacent poison messages as one run, keeping the messages around it and recording the oldest', async () => {
@@ -234,7 +259,7 @@ describe('crawl with skipPoison', () => {
     const api = fakeKeysetApi({ messages: history, poison: [history[2]!.messageId, history[3]!.messageId] });
     const state = await crawl({ dir, client: api, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
     expect(await crawledIds(dir)).toEqual(idsOf([history[0]!, history[1]!, history[4]!, history[5]!]));
-    expect(state.skipped).toEqual([skipOf(history[3]!)]);
+    expect(state.skipped).toEqual([skipOf(history[3]!, history[1]!)]);
   });
 
   it('goes back to the configured page size after the skip', async () => {
@@ -272,7 +297,7 @@ describe('crawl with skipPoison', () => {
     const api = fakeKeysetApi({ messages: history, poison: [poison.messageId] });
     const state = await crawl({ dir, client: api, limit: 1, minLimit: 1, skipPoison: true, maxPoisonProbes: 20, sleep: noSleep });
     expect(state).toMatchObject({ done: true, stoppedAtDepthWall: true, skipped: [], messages: 2 });
-    expect(api.listCalls).toHaveLength(2 + 3 + 20);
+    expect(api.listCalls).toHaveLength(2 + 3 + 1 + 20);
   });
 
   it('stops at the depth wall instead of guessing when the poison message timestamp has milliseconds', async () => {
@@ -300,7 +325,102 @@ describe('crawl with skipPoison', () => {
     };
     const state = await crawl({ dir, client, limit: 1, minLimit: 1, skipPoison: true, sleep: noSleep });
     expect(state).toMatchObject({ stoppedAtDepthWall: true, skipped: [] });
-    expect(calls).toBe(2 + 3 + 3);
+    expect(calls).toBe(2 + 3 + 1 + 3);
+  });
+
+  it('does not skip anything when an outage ends before the search, and carries on crawling', async () => {
+    const dir = await tempDir();
+    const api = fakeKeysetApi({ messages: history });
+    let outageCursor: string | null = null;
+    let failuresLeft = 5;
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        if (opts.cursor && opts.cursor === outageCursor && failuresLeft > 0) {
+          failuresLeft -= 1;
+          throw new UpstreamHttpError('GET /messages', 500);
+        }
+        const page = await api.listMessages(opts);
+        outageCursor ??= page.cursor;
+        return page;
+      },
+    };
+    const state = await crawl({ dir, client, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(state).toMatchObject({ done: true, stoppedAtDepthWall: false, skipped: [] });
+    expect(await crawledIds(dir)).toEqual(idsOf(history));
+  });
+
+  it('stops at the depth wall, without a search, when the cursor check fails with something other than HTTP 500', async () => {
+    const dir = await tempDir();
+    const api = fakeKeysetApi({ messages: history });
+    const calls: (string | null)[] = [];
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        calls.push(opts.cursor ?? null);
+        if (opts.cursor) throw new UpstreamHttpError('GET /messages', 503);
+        return api.listMessages(opts);
+      },
+    };
+    const state = await crawl({ dir, client, limit: 1, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(state).toMatchObject({ stoppedAtDepthWall: true, skipped: [] });
+    expect(new Set(calls.slice(1))).toEqual(new Set([state.cursor]));
+  });
+
+  it('never records a phantom poison message when a stray HTTP 500 hits the id search', async () => {
+    const dir = await tempDir();
+    const api = fakeKeysetApi({ messages: history, poison: [poison.messageId] });
+    let stray = true;
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        const page = await api.listMessages(opts);
+        const probedId = opts.cursor ? BigInt(decodeCursor(opts.cursor).get('oldestSeenMessageId') ?? 0) : 0n;
+        const isCrawledId = history.some((m) => BigInt(m.messageId) === probedId);
+        if (stray && opts.limit === 1 && probedId !== 0n && !isCrawledId) {
+          stray = false;
+          throw new UpstreamHttpError('GET /messages', 500);
+        }
+        return page;
+      },
+    };
+    const state = await crawl({ dir, client, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(stray).toBe(false);
+    expect(state).toMatchObject({ stoppedAtDepthWall: true, skipped: [] });
+  });
+
+  it('starts a re-run of a walled crawl at the configured page size', async () => {
+    const dir = await tempDir();
+    const api = fakeKeysetApi({ messages: history });
+    const down = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        if (opts.cursor) throw new UpstreamHttpError('GET /messages', 503);
+        return api.listMessages(opts);
+      },
+    };
+    const walled = await crawl({ dir, client: down, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(walled).toMatchObject({ stoppedAtDepthWall: true, limit: 1 });
+    const healthy = fakeKeysetApi({ messages: history });
+    await crawl({ dir, client: healthy, limit: 4, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(healthy.listCalls[0]!.limit).toBe(4);
+  });
+
+  it('grows the page size back to the configured one after a blip halves it', async () => {
+    const dir = await tempDir();
+    const messages = Array.from({ length: 20 }, (_, i) => at(`g${i}`, new Date(Date.UTC(2026, 0, 15, 3, 0, 0) - i * 60_000).toISOString()));
+    const api = fakeKeysetApi({ messages });
+    const limits: number[] = [];
+    let blip = true;
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        limits.push(opts.limit);
+        if (opts.cursor && blip) {
+          blip = false;
+          throw new UpstreamHttpError('GET /messages', 503);
+        }
+        return api.listMessages(opts);
+      },
+    };
+    const state = await crawl({ dir, client, limit: 8, minLimit: 1, skipPoison: true, sleep: noSleep });
+    expect(limits).toEqual([8, 8, 4, 8]);
+    expect(state).toMatchObject({ done: true, messages: 20, limit: 8 });
   });
 
   it('leaves a poison message as a depth wall without skipPoison', async () => {

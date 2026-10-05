@@ -19,6 +19,8 @@ export interface CrawlState {
 export interface SkippedMessage {
   messageId: string;
   sendTimestamp: string;
+  /** The last message crawled before the skip: other messages between it and this one may be missing too. */
+  after: { sendTimestamp: string; messageId: string };
 }
 
 export interface CrawlClient {
@@ -29,6 +31,8 @@ export interface CrawlClient {
   }>;
   getMessageRaw?(messageId: string): Promise<unknown>;
 }
+
+type Page = Awaited<ReturnType<CrawlClient['listMessages']>>;
 
 export interface CrawlOptions {
   dir: string;
@@ -45,7 +49,8 @@ export interface CrawlOptions {
 }
 
 const RATE_LIMIT_WAIT_MS = 30_000;
-const MAX_POISON_PROBES = 400;
+const MAX_POISON_PROBES = 500;
+const ONE_SECOND_STEPS = 60;
 
 const initialState = (): CrawlState => ({
   cursor: null, pages: 0, messages: 0, done: false, stoppedAtDepthWall: false, oldest: null, perDay: {}, skipped: [],
@@ -70,6 +75,8 @@ export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
     log(`retrying the depth wall at cursor ${state.cursor}`);
     state.done = false;
     state.stoppedAtDepthWall = false;
+    // Filtered crawls are fast at any depth, so a wall there was an outage or a poison message, not depth.
+    if (opts.skipPoison) state.limit = configuredLimit;
   }
 
   for (let fetched = 0; !state.done && (opts.maxPages === undefined || fetched < opts.maxPages); fetched++) {
@@ -80,7 +87,9 @@ export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
       page = await fetchPage(opts.client, state.cursor, size, atFloor ? maxFailures : 1, sleep, log);
       if (page !== null) break;
       if (atFloor) {
-        if (opts.skipPoison && (await skipPoison(opts, state, configuredLimit, search))) continue;
+        const outcome = opts.skipPoison ? await skipPoison(opts, state, configuredLimit, search) : 'wall';
+        if (outcome === 'skipped') continue;
+        if (outcome !== 'wall') page = outcome;
         break;
       }
       state.limit = Math.max(floor, Math.floor(size / 2));
@@ -105,6 +114,7 @@ export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
     state.pages += 1;
     state.messages += page.messages.length;
     state.cursor = page.cursor;
+    if (opts.skipPoison) state.limit = Math.min(configuredLimit, state.limit * 2);
     state.done = page.cursor === null || page.messages.length === 0;
     await saveState(opts.dir, state);
     log(`page ${state.pages}: ${page.messages.length} messages, oldest so far ${state.oldest}`);
@@ -195,12 +205,30 @@ interface PoisonSearch {
   log: (line: string) => void;
 }
 
-async function skipPoison(opts: CrawlOptions, state: CrawlState, configuredLimit: number, search: PoisonSearch): Promise<boolean> {
+/**
+ * Runs when the page at the cursor still fails at limit 1. Returns that page if it loads after all, 'skipped' once
+ * the poison message is skipped, or 'wall'. A poison message that is the newest message has no cursor to probe from,
+ * so it stays a depth wall.
+ */
+async function skipPoison(
+  opts: CrawlOptions,
+  state: CrawlState,
+  configuredLimit: number,
+  search: PoisonSearch,
+): Promise<Page | 'skipped' | 'wall'> {
   const cursor = state.cursor;
-  if (cursor === null) return false;
-  const poison = await findPoison(opts.client, cursor, search);
-  if (poison === null) return false;
-  const skipped = { messageId: poison.messageId, sendTimestamp: new Date(poison.timestampMs).toISOString() };
+  if (cursor === null) return 'wall';
+  const start = cursorPosition(cursor, search.log);
+  if (start === null) return 'wall';
+  const check = await checkCursorPage(opts.client, cursor, search.log);
+  if (check !== 'poison') return check;
+  const poison = await findPoison(opts.client, cursor, start, search);
+  if (poison === null) return 'wall';
+  const skipped = {
+    messageId: poison.messageId,
+    sendTimestamp: new Date(poison.timestampMs).toISOString(),
+    after: { sendTimestamp: new Date(start.timestampMs).toISOString(), messageId: start.messageId },
+  };
   state.skipped.push(skipped);
   state.cursor = cursorAt(cursor, poison.timestampMs, poison.messageId);
   // The poison message, not the depth, made the pages fail, so the full page size is worth trying again.
@@ -208,7 +236,20 @@ async function skipPoison(opts: CrawlOptions, state: CrawlState, configuredLimit
   await saveState(opts.dir, state);
   search.log(`skipped poison message ${skipped.messageId} sent at ${skipped.sendTimestamp}`);
   await savePoisonDetail(opts, skipped.messageId, search.log);
-  return true;
+  return 'skipped';
+}
+
+/** One more `limit: 1` try at the cursor itself, so that an outage that ended is not mistaken for a poison message. */
+async function checkCursorPage(client: CrawlClient, cursor: string, log: (line: string) => void): Promise<Page | 'poison' | 'wall'> {
+  try {
+    const page = await client.listMessages({ limit: 1, cursor });
+    log('the page at the cursor loads again: no poison message here');
+    return page;
+  } catch (err) {
+    if (err instanceof UpstreamHttpError && err.status === 500) return 'poison';
+    log(`poison check at the cursor failed: ${errorText(err)}`);
+    return 'wall';
+  }
 }
 
 async function savePoisonDetail(opts: CrawlOptions, messageId: string, log: (line: string) => void): Promise<void> {
@@ -242,14 +283,17 @@ interface Prober {
  * A probe at (T, I) holds the first message with `ts < T`, or `ts = T` and `id < I`. It fails exactly when
  * (T, I) is above the poison message, so the poison message's timestamp and then its id can be bisected.
  */
-async function findPoison(client: CrawlClient, cursor: string, search: PoisonSearch): Promise<PoisonPosition | null> {
-  const start = cursorPosition(cursor, search.log);
-  if (start === null) return null;
+async function findPoison(
+  client: CrawlClient,
+  cursor: string,
+  start: CursorPosition,
+  search: PoisonSearch,
+): Promise<PoisonPosition | null> {
   const prober = createProber(client, cursor, search);
   const timestampMs = await findPoisonTimestamp(prober, start.timestampMs, search.log);
   if (timestampMs === null) return null;
   // The cursor's own page holds the poison message, so at the cursor's timestamp its id is below the cursor's.
-  const idBound = timestampMs === start.timestampMs ? start.id : ID_SPACE;
+  const idBound = timestampMs === start.timestampMs ? BigInt(start.messageId) : ID_SPACE;
   const id = await findPoisonId(prober, timestampMs, idBound);
   if (id === null) return null;
   // Out of range when no probe confirmed the bound: a timestamp with milliseconds, or answers that contradict.
@@ -257,11 +301,21 @@ async function findPoison(client: CrawlClient, cursor: string, search: PoisonSea
     search.log(`poison search: no message id at ${new Date(timestampMs).toISOString()} holds the poison message`);
     return null;
   }
+  // Confirm the boundary, so that a stray HTTP 500 during the search cannot record a message that is not there.
+  if ((await prober.holds(timestampMs, id + 1n)) !== true || (await prober.holds(timestampMs, id)) !== false) {
+    search.log(`poison search: the boundary at ${formatId(id)} did not confirm`);
+    return null;
+  }
   search.log(`poison search: found it in ${prober.count()} probes`);
   return { timestampMs, messageId: formatId(id) };
 }
 
-function cursorPosition(cursor: string, log: (line: string) => void): { timestampMs: number; id: bigint } | null {
+interface CursorPosition {
+  timestampMs: number;
+  messageId: string;
+}
+
+function cursorPosition(cursor: string, log: (line: string) => void): CursorPosition | null {
   let params: URLSearchParams;
   try {
     params = decodeCursor(cursor);
@@ -275,7 +329,7 @@ function cursorPosition(cursor: string, log: (line: string) => void): { timestam
     log(`poison search: the cursor has no timestamp and message id (${params})`);
     return null;
   }
-  return { timestampMs: Number(timestamp), id: BigInt(id) };
+  return { timestampMs: Number(timestamp), messageId: id };
 }
 
 function createProber(client: CrawlClient, cursor: string, search: PoisonSearch): Prober {
@@ -305,12 +359,15 @@ function createProber(client: CrawlClient, cursor: string, search: PoisonSearch)
   };
 }
 
-/** Steps back 1 s, 2 s, 4 s, … from the cursor until a probe is past the poison message, then bisects whole seconds. */
+/**
+ * Steps back from the cursor until a probe is past the poison message, then bisects whole seconds. The first 60 s go
+ * one second at a time, so a gap between two nearby poison messages is not jumped over; after that the step doubles.
+ */
 async function findPoisonTimestamp(prober: Prober, startMs: number, log: (line: string) => void): Promise<number | null> {
   // One second ahead of the cursor holds the poison message without a probe: it is not newer than the cursor message.
   let holdingBack = -1;
   let clearBack: number | null = null;
-  for (let back = 1; clearBack === null; back *= 2) {
+  for (let back = 1; clearBack === null; back = back < ONE_SECOND_STEPS ? back + 1 : back * 2) {
     if (startMs - back * 1000 < 0) {
       log('poison search: every probe back to 1970 holds the poison message');
       return null;

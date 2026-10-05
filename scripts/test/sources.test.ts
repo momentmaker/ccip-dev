@@ -67,7 +67,13 @@ describe('crawlSources', () => {
           coverage_from: eth[3]!.sendTimestamp,
           messages: 3,
           pages: 2,
-          skipped: [{ messageId: poison.messageId, sendTimestamp: poison.sendTimestamp }],
+          skipped: [
+            {
+              messageId: poison.messageId,
+              sendTimestamp: poison.sendTimestamp,
+              after: { messageId: eth[0]!.messageId, sendTimestamp: eth[0]!.sendTimestamp },
+            },
+          ],
         },
       ],
     });

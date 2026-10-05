@@ -1,5 +1,6 @@
 // A CCIP API cursor is the base58 (Bitcoin alphabet) encoding of a UTF-8 query string such as
 // `environment=mainnet&oldestSeenTimestamp=<ms>&oldestSeenMessageId=0x…&totalCount=1000&isCountCapped=true`.
+// For the backfill only: the Worker never decodes or crafts cursors.
 
 const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
