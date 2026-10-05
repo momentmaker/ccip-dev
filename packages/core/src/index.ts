@@ -4,3 +4,4 @@ export * from './http';
 export * from './ccip/schemas';
 export * from './ccip/client';
 export * from './time';
+export * from './value';
