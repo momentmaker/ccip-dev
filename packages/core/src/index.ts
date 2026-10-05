@@ -11,3 +11,4 @@ export * from './rollup';
 export * from './prices';
 export * from './reserve';
 export * from './archive';
+export * from './labels';
