@@ -70,10 +70,13 @@ function retryAfterMs(res: Response): number | null {
   return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
 }
 
+export function issuePath(error: z.ZodError): string {
+  const issue = error.issues[0];
+  return issue && issue.path.length > 0 ? issue.path.map(String).join('.') : '(root)';
+}
+
 export function parseWith<S extends z.ZodType>(schema: S, json: unknown, endpoint: string): z.output<S> {
   const result = schema.safeParse(json);
   if (result.success) return result.data;
-  const issue = result.error.issues[0];
-  const path = issue && issue.path.length > 0 ? issue.path.map(String).join('.') : '(root)';
-  throw new UpstreamSchemaError(endpoint, path, (JSON.stringify(json) ?? '').slice(0, 300));
+  throw new UpstreamSchemaError(endpoint, issuePath(result.error), (JSON.stringify(json) ?? '').slice(0, 300));
 }

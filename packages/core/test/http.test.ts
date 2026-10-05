@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createThrottle, getJson, parseWith, UpstreamHttpError, UpstreamSchemaError, USER_AGENT } from '../src/http';
+import { createThrottle, getJson, issuePath, parseWith, UpstreamHttpError, UpstreamSchemaError, USER_AGENT } from '../src/http';
 import { fakeFetch, jsonResponse } from '../src/testing';
 
 function deps(fetchFn: typeof fetch) {
@@ -73,5 +73,17 @@ describe('parseWith', () => {
       expect(err).toBeInstanceOf(UpstreamSchemaError);
       expect((err as UpstreamSchemaError).path).toBe('data.0.id');
     }
+  });
+});
+
+describe('issuePath', () => {
+  it('joins the first issue path with dots', () => {
+    const result = z.object({ data: z.array(z.object({ id: z.string() })) }).safeParse({ data: [{ id: 1 }] });
+    expect(result.success ? null : issuePath(result.error)).toBe('data.0.id');
+  });
+
+  it('names the root when the value itself is wrong', () => {
+    const result = z.object({ id: z.string() }).safeParse('nope');
+    expect(result.success ? null : issuePath(result.error)).toBe('(root)');
   });
 });
