@@ -389,7 +389,7 @@ ccip-dev/
   .github/workflows/{ci,deploy,watchdog,label-candidates}.yml
 ```
 
-This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo stays private until launch, then goes public: the code under MIT, and `labels/` under CC BY 4.0.
+This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo is public (decided 2026-10-05; it was planned to stay private until launch): the code under MIT, and `labels/` under CC BY 4.0.
 
 ## 14. Configuration and secrets
 
@@ -408,9 +408,9 @@ This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo stays p
 
 Secrets are set by the owner with `wrangler secret put` or `gh secret set`, and are never committed or pasted into chat.
 
-**GitHub Actions hardening (the repo goes public at launch):**
+**GitHub Actions hardening (the repo is public):**
 - Workflows that use secrets (`deploy`, `watchdog`, `label-candidates`) run only on `schedule`, `workflow_dispatch` or a push to `main`. They never run on `pull_request_target` or on fork PRs.
 - `ci` on pull requests uses no secrets.
 - Every workflow declares least-privilege `permissions:`. The default is `contents: read`. Only `label-candidates` adds `contents: write` and `pull-requests: write`.
 - `.gitignore` covers `.env` and `.backfill/`.
-- GitHub secret scanning and push protection are switched on before the repo goes public.
+- GitHub secret scanning and push protection are switched on before the first push.
