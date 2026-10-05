@@ -21,7 +21,7 @@ export interface TokenPage {
 }
 
 export interface CcipClient {
-  listMessages(opts: { limit: number; cursor?: string | null }): Promise<MessagePage>;
+  listMessages(opts: { limit: number; cursor?: string | null; sourceChainSelector?: string }): Promise<MessagePage>;
   getMessageRaw(messageId: string): Promise<unknown>;
   listChains(): Promise<NetworkInfo[]>;
   listTokens(opts: { limit: number; cursor?: string | null }): Promise<TokenPage>;
@@ -34,9 +34,10 @@ export function createCcipClient(deps: HttpDeps, options: CcipClientOptions = {}
   const get = (path: string, endpoint: string) => getJson(deps, `${baseUrl}${path}`, { endpoint, maxRetries, throttle });
 
   return {
-    async listMessages({ limit, cursor }) {
+    async listMessages({ limit, cursor, sourceChainSelector }) {
       const query = new URLSearchParams({ environment: 'mainnet', limit: String(limit) });
       if (cursor) query.set('cursor', cursor);
+      else if (sourceChainSelector) query.set('sourceChainSelector', sourceChainSelector);
       const json = await get(`/messages?${query}`, 'GET /messages');
       const page = parseWith(ListPage, json, 'GET /messages');
       const next = page.pagination.hasNextPage ? (page.pagination.cursor ?? null) : null;

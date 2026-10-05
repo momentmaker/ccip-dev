@@ -22,6 +22,17 @@ describe('createCcipClient', () => {
     expect(page.cursor).toBe('CURSOR_PAGE_2');
   });
 
+  it('filters by source chain on the first page only, because later cursors carry the filter', async () => {
+    const f = fakeFetch(() => jsonResponse(listPage));
+    const client = createCcipClient(instantDeps(f), { minIntervalMs: 0 });
+    await client.listMessages({ limit: 4, sourceChainSelector: '5009297550715157269' });
+    await client.listMessages({ limit: 4, cursor: 'abc', sourceChainSelector: '5009297550715157269' });
+    const [first, next] = f.calls.map((c) => new URL(c.url).searchParams);
+    expect(first!.get('sourceChainSelector')).toBe('5009297550715157269');
+    expect(next!.has('sourceChainSelector')).toBe(false);
+    expect(next!.get('cursor')).toBe('abc');
+  });
+
   it('accepts a null destination displayName and returns the message with it null', async () => {
     const suiDest = { ...listPage.data[0]!.destNetworkInfo, name: 'sui-mainnet', displayName: null };
     const body = { ...listPage, data: [{ ...listPage.data[0], destNetworkInfo: suiDest }, ...listPage.data.slice(1)] };
