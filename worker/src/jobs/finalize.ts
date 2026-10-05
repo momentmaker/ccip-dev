@@ -4,7 +4,7 @@ import {
 import type { RunContext } from '../context';
 import { publishHistoryFiles } from '../publish';
 import * as store from '../store';
-import { tokenGroupsLoader } from '../token-groups';
+import { fallbackLoader } from '../price-fallback';
 import { runDetails } from './details';
 import { storeListMessages } from './ingest';
 
@@ -35,12 +35,12 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   if (days.length === 0) return;
 
   const buckets = await collectDays(c, days[0]!, yesterday);
-  const groups = tokenGroupsLoader(c);
+  const loader = fallbackLoader(c);
   const deadline = now.getTime() + DETAIL_BUDGET_MS;
   for (const day of days) {
     const bucket = buckets.get(day) ?? { messages: [], raw: [] };
-    await storeListMessages(c, bucket.messages, groups);
-    await runDetails(c, { day }, { deadline, groups });
+    await storeListMessages(c, bucket.messages, loader);
+    await runDetails(c, { day }, { deadline, fallback: loader });
     const { totals, breakdown } = rollupDay(day, await store.messagesForDay(db, day), await store.tokensForDay(db, day));
     await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
     if (mode === 'early') await store.setMeta(db, 'last_finalize_day', day);

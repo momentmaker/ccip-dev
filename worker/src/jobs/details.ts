@@ -4,30 +4,30 @@ import {
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import * as store from '../store';
-import { siblingFallback, tokenGroupsLoader, type TokenGroupsLoader } from '../token-groups';
+import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
 
 const MINUTE = 60_000;
 
 export async function runDetails(
   c: RunContext,
   scope: { limit: number } | { day: string },
-  options: { deadline?: number; groups?: TokenGroupsLoader } = {},
+  options: { deadline?: number; fallback?: FallbackLoader } = {},
 ): Promise<void> {
   const ids =
     'day' in scope
       ? await store.liveMissingDetail(c.env.DB, scope.day)
       : await store.dueForDetail(c.env.DB, c.deps.now().toISOString(), scope.limit);
-  const groups = options.groups ?? tokenGroupsLoader(c);
+  const loader = options.fallback ?? fallbackLoader(c);
   for (const id of ids) {
     if (options.deadline !== undefined && c.deps.now().getTime() > options.deadline) {
       console.warn(`detail fill stopped at its deadline; ${ids.length - ids.indexOf(id)} message(s) left for the per-minute job`);
       return;
     }
-    await fillOne(c, id, groups);
+    await fillOne(c, id, loader);
   }
 }
 
-async function fillOne(c: RunContext, id: string, groups: TokenGroupsLoader): Promise<void> {
+async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promise<void> {
   const db = c.env.DB;
   const now = c.deps.now();
   const later = (minutes: number) => new Date(now.getTime() + minutes * MINUTE).toISOString();
@@ -61,7 +61,7 @@ async function fillOne(c: RunContext, id: string, groups: TokenGroupsLoader): Pr
     }
   }
 
-  const { lookup, fallback } = await ensurePrices(c, message, groups);
+  const { lookup, fallback } = await ensurePrices(c, message, loader);
   const valuation = valueTokens(message.tokens, lookup, fallback);
   const next = scheduleNextCheck(message.status, message.readyForManualExec, message.sendTs, now);
   const row = toMessageRow({ ...message, status: next.status }, valuation, {
@@ -74,16 +74,16 @@ async function fillOne(c: RunContext, id: string, groups: TokenGroupsLoader): Pr
 }
 
 /**
- * Prices a message's own keys, then the group siblings of its tokens that are still unpriced. Siblings are stored and
- * marked seen like any other key, so the prices job keeps them fresh.
+ * Prices a message's own keys, then the group siblings of its tokens that are still unpriced, then the `coingecko:` keys
+ * of those its group cannot price. All are stored and marked seen like any other key, so the prices job keeps them fresh.
  */
 export async function ensurePrices(
   c: RunContext,
   message: NormalizedMessage,
-  groups: TokenGroupsLoader,
+  loader: FallbackLoader,
 ): Promise<{ lookup: PriceLookup; fallback: PriceFallback | undefined }> {
   const prices = await ensureKeys(c, priceKeys(message));
-  const fallback = await siblingFallback(groups, message.tokens, prices, (keys) => ensureKeys(c, keys));
+  const fallback = await priceFallback(loader, message.tokens, prices, (keys) => ensureKeys(c, keys));
   return { lookup: (key) => prices.get(key), fallback };
 }
 

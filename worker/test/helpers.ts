@@ -1,7 +1,9 @@
 import {
   firstCheckAt, normalizeList, normalizeRegistryToken, toMessageRow, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
 } from '@ccip-dev/core';
-import { fakeCcip, fakePrices, listMessage, type FakeCcip, type FakePrices, type ListMessageSpec } from '@ccip-dev/core/testing';
+import {
+  fakeCcip, fakeCoingecko, fakePrices, listMessage, type FakeCcip, type FakeCoingecko, type FakePrices, type ListMessageSpec,
+} from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import type { Alert } from '../src/alerts';
 import { createRunContext, type RunContext } from '../src/context';
@@ -10,7 +12,7 @@ import * as store from '../src/store';
 
 const TABLES = [
   'messages', 'message_tokens', 'daily_totals', 'daily_breakdown', 'chains', 'tokens', 'arrivals',
-  'reserve_snapshots', 'prices_latest', 'meta',
+  'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids',
 ];
 
 export async function resetStorage(): Promise<void> {
@@ -31,6 +33,7 @@ export function harness(opts: {
   now: string;
   ccip?: FakeCcip | RunContext['ccip'];
   prices?: FakePrices | RunContext['prices'];
+  coingecko?: FakeCoingecko | RunContext['coingecko'];
   labels?: LabelIndex;
   fetch?: typeof fetch;
   db?: D1Database;
@@ -49,6 +52,7 @@ export function harness(opts: {
   const c = createRunContext(opts.db ? { ...env, DB: opts.db } : env, deps, {
     ccip: opts.ccip ?? fakeCcip(),
     prices: opts.prices ?? fakePrices(),
+    coingecko: opts.coingecko ?? fakeCoingecko(),
     alert,
     labels: opts.labels ?? {},
   });
@@ -84,6 +88,9 @@ export function watchedDb(pattern: RegExp, options: { fail?: boolean } = {}): { 
 
 /** Matches only the token-group query, store.tokenGroups. */
 export const TOKEN_GROUPS_SQL = /FROM tokens t LEFT JOIN chains c/;
+
+/** Matches only the query that reads the CoinGecko id mapping, store.coingeckoIds. */
+export const COINGECKO_IDS_SQL = /SELECT chain, address, coin_id FROM coingecko_ids/;
 
 /** Stores registry chains and tokens as the hourly snapshot does. */
 export async function seedRegistry(chains: NetworkInfo[], tokens: RegistryToken[]): Promise<void> {

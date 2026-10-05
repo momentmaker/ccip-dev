@@ -1,9 +1,10 @@
+import { COIN_PRICE_DECIMALS, coingeckoKey } from '@ccip-dev/core';
 import { fakeCcip, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runIngest } from '../src/jobs/ingest';
 import * as store from '../src/store';
-import { harness, readPublic, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
+import { COINGECKO_IDS_SQL, harness, readPublic, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -110,6 +111,63 @@ describe('runIngest', () => {
       unpriced: 0,
     });
     expect(await env.DB.prepare('SELECT usd_value FROM message_tokens WHERE message_id = ?').bind('s').first()).toEqual({ usd_value: 10 });
+  });
+
+  describe('through a CoinGecko coin', () => {
+    const OWN = '0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
+    const SIBLING = '0xcccccccccccccccccccccccccccccccccccccccc';
+    const UNMAPPED = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    const registryToken = (network: typeof NETWORKS.base, address: string, decimals: number, groupId: string | null) => ({
+      chainSelector: network.chainSelector, address, symbol: 'TKN', name: 'Token', decimals, groupId,
+    });
+    const usdValue = (id: string) => env.DB.prepare('SELECT usd_value, unpriced FROM messages WHERE message_id = ?').bind(id).first();
+
+    async function seedCoin(groupId: string | null): Promise<void> {
+      await seedRegistry([NETWORKS.base, NETWORKS.ethereum], [
+        registryToken(NETWORKS.base, OWN, 6, groupId),
+        registryToken(NETWORKS.ethereum, SIBLING, 18, 'g'),
+      ]);
+      await store.replaceCoingeckoIds(env.DB, [{ chain: NETWORKS.base.chainSelector, address: OWN.toLowerCase(), coinId: 'tkn' }], NOW);
+      await store.upsertPrices(env.DB, new Map([[coingeckoKey('tkn'), { price: 2, decimals: COIN_PRICE_DECIMALS }]]), NOW);
+    }
+
+    it('values a token that neither its own key nor its group prices, with its registry decimals', async () => {
+      await seedCoin(null);
+      const m = listMessage({ id: 'c', sendTs: at(1), token: { address: OWN, amount: '5000000' } });
+      await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [m] }) }).c);
+      expect(await usdValue('c')).toEqual({ usd_value: 10, unpriced: 0 });
+    });
+
+    it('prefers a priced sibling to the coin', async () => {
+      await seedCoin('g');
+      await store.upsertPrices(env.DB, new Map([[`ethereum:${SIBLING}`, { price: 3, decimals: 18 }]]), NOW);
+      const m = listMessage({ id: 's', sendTs: at(1), token: { address: OWN, amount: '5000000' } });
+      await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [m] }) }).c);
+      expect(await usdValue('s')).toEqual({ usd_value: 15, unpriced: 0 });
+    });
+
+    it('reads the CoinGecko ids only when a token is still unpriced after its own key and its group', async () => {
+      await seedCoin('g');
+      await store.upsertPrices(env.DB, new Map([[`ethereum:${SIBLING}`, { price: 3, decimals: 18 }]]), NOW);
+      const siblingPriced = listMessage({ id: 's', sendTs: at(2), token: { address: OWN, amount: '1' } });
+      const unpriced = listMessage({ id: 'u', sendTs: at(1), token: { address: UNMAPPED, amount: '1' } });
+      const first = watchedDb(COINGECKO_IDS_SQL);
+      await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [siblingPriced] }), db: first.db }).c);
+      const second = watchedDb(COINGECKO_IDS_SQL);
+      await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [unpriced, siblingPriced] }), db: second.db }).c);
+      expect([first.prepared(), second.prepared()]).toEqual([0, 1]);
+    });
+
+    it('stores, publishes and alerts without the coin step when the CoinGecko ids cannot be read', async () => {
+      await seedCoin(null);
+      const m = listMessage({ id: 'c', sendTs: at(1), token: { address: OWN, amount: '5000000' } });
+      const { db } = watchedDb(COINGECKO_IDS_SQL, { fail: true });
+      const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ messages: [m] }), db });
+      await runIngest(c);
+      expect(await usdValue('c')).toEqual({ usd_value: 0, unpriced: 1 });
+      expect(await store.getMeta(env.DB, 'last_ingest_ok_at')).toBe(NOW);
+      expect(alerts.map((a) => a.signature)).toEqual(['coingecko-ids-read']);
+    });
   });
 
   it('stores, publishes and alerts without the fallback when the token groups cannot be read', async () => {

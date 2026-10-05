@@ -4,7 +4,7 @@ import {
 import type { RunContext } from '../context';
 import { publishLiveFiles } from '../publish';
 import * as store from '../store';
-import { siblingFallback, tokenGroupsLoader, type TokenGroupsLoader } from '../token-groups';
+import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
 
 export interface IngestOptions {
   maxPages?: number;
@@ -49,7 +49,7 @@ export async function runIngest(c: RunContext, options: IngestOptions = {}): Pro
     }
   }
 
-  await storeListMessages(c, collected, tokenGroupsLoader(c));
+  await storeListMessages(c, collected, fallbackLoader(c));
   await store.setMeta(db, 'last_ingest_ok_at', now.toISOString());
   await publishLiveFiles(c);
 }
@@ -84,11 +84,11 @@ async function walk(
   return { messages, pagesUsed: maxPages, exhausted: true, nextCursor: cursor };
 }
 
-export async function storeListMessages(c: RunContext, messages: ListMessage[], groups: TokenGroupsLoader): Promise<void> {
+export async function storeListMessages(c: RunContext, messages: ListMessage[], loader: FallbackLoader): Promise<void> {
   const db = c.env.DB;
   const unique = [...new Map(messages.map((m) => [m.messageId, m])).values()].map(normalizeList);
   const prices = await store.getPrices(db, [...new Set(unique.flatMap(priceKeys))]);
-  const fallback = await siblingFallback(groups, unique.flatMap((m) => m.tokens), prices, (keys) => store.getPrices(db, keys));
+  const fallback = await priceFallback(loader, unique.flatMap((m) => m.tokens), prices, (keys) => store.getPrices(db, keys));
   const { rows, tokens } = buildRows(
     unique,
     (key) => prices.get(key),

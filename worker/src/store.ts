@@ -1,6 +1,7 @@
 import {
-  BREAKDOWN_CONFLICT, buildTokenGroupIndex, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type DailyBreakdown, type DailyTotals, type Dim,
-  type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo, type TokenGroupIndex, type TokenRow,
+  BREAKDOWN_CONFLICT, buildTokenGroupIndex, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
+  type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
+  type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
 const PARAM_CHUNK = 90;
@@ -255,15 +256,19 @@ export async function upsertTokens(db: D1Database, tokens: NormalizedToken[], no
   await runBatch(db, tokens.map((t) => insert.bind(t.chain, t.address, t.symbol, t.name, t.decimals, t.groupId, nowIso, nowIso)));
 }
 
-/** The CCIP token groups for the price fallback; tokens without a group can never use it, so they are left out. */
+/**
+ * The CCIP token registry indexed for the price fallback. Tokens without a group are included too: the fallback's
+ * CoinGecko step values them with their registry decimals.
+ */
 export async function tokenGroups(db: D1Database): Promise<TokenGroupIndex> {
   const { results } = await db
     .prepare(
       `SELECT t.chain, t.address, t.decimals, t.group_id, c.family, c.chain_id
-       FROM tokens t LEFT JOIN chains c ON c.selector = t.chain
-       WHERE t.group_id IS NOT NULL`,
+       FROM tokens t LEFT JOIN chains c ON c.selector = t.chain`,
     )
-    .all<{ chain: string; address: string; decimals: number; group_id: string; family: string | null; chain_id: string | null }>();
+    .all<{
+      chain: string; address: string; decimals: number; group_id: string | null; family: string | null; chain_id: string | null;
+    }>();
   return buildTokenGroupIndex(
     results.map((r) =>
       tokenGroupEntry(
@@ -272,6 +277,39 @@ export async function tokenGroups(db: D1Database): Promise<TokenGroupIndex> {
       ),
     ),
   );
+}
+
+/** Registry tokens whose chain is known, with that chain's family and chain id, for mapping them to CoinGecko coins. */
+export async function registryTokenChains(
+  db: D1Database,
+): Promise<(Pick<ChainRef, 'selector' | 'family' | 'chainId'> & { address: string })[]> {
+  const { results } = await db
+    .prepare('SELECT t.chain, t.address, c.family, c.chain_id FROM tokens t JOIN chains c ON c.selector = t.chain')
+    .all<{ chain: string; address: string; family: string; chain_id: string }>();
+  return results.map((r) => ({ selector: r.chain, address: r.address, family: r.family, chainId: r.chain_id }));
+}
+
+/** Stores today's mapping: upserts every id, then deletes the rows this refresh did not write. */
+export async function replaceCoingeckoIds(
+  db: D1Database,
+  ids: { chain: string; address: string; coinId: string }[],
+  nowIso: string,
+): Promise<void> {
+  const upsert = db.prepare(
+    `INSERT INTO coingecko_ids (chain, address, coin_id, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(chain, address) DO UPDATE SET coin_id = excluded.coin_id, updated_at = excluded.updated_at`,
+  );
+  await runBatch(db, ids.map((id) => upsert.bind(id.chain, id.address, id.coinId, nowIso)));
+  await db.prepare('DELETE FROM coingecko_ids WHERE updated_at <> ?').bind(nowIso).run();
+}
+
+/** The registry tokens' CoinGecko coin ids, by chain selector and address. */
+export async function coingeckoIds(db: D1Database): Promise<CoingeckoIdLookup> {
+  const { results } = await db
+    .prepare('SELECT chain, address, coin_id FROM coingecko_ids')
+    .all<{ chain: string; address: string; coin_id: string }>();
+  const byToken = new Map(results.map((r) => [`${r.chain}|${r.address}`, r.coin_id]));
+  return (chain, address) => byToken.get(`${chain.selector}|${address}`);
 }
 
 export async function insertArrivals(

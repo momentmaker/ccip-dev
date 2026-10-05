@@ -1,4 +1,4 @@
-import { siblingKeys } from '@ccip-dev/core';
+import { chainRef, siblingKeys } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -70,7 +70,7 @@ describe('prices', () => {
 });
 
 describe('tokenGroups', () => {
-  it('indexes grouped registry tokens with llama keys from their chains', async () => {
+  it('indexes every registry token, so the fallback knows its decimals, and groups those with a group and a llama key', async () => {
     const token = (chainSelector: string, address: string, groupId: string | null) => ({
       chainSelector, address, symbol: 'TKN', name: 'Token', decimals: 18, groupId,
     });
@@ -84,6 +84,30 @@ describe('tokenGroups', () => {
     expect(siblingKeys(groups, NETWORKS.base.chainSelector, '0xdddddddddddddddddddddddddddddddddddddddd')).toEqual([
       'ethereum:0xcccccccccccccccccccccccccccccccccccccccc',
     ]);
-    expect(groups.byToken.size).toBe(3);
+    expect(groups.byToken.size).toBe(4);
+  });
+});
+
+describe('coingeckoIds', () => {
+  const ids = (...entries: [string, string][]) =>
+    entries.map(([address, coinId]) => ({ chain: NETWORKS.base.chainSelector, address, coinId }));
+  const chainOf = chainRef(NETWORKS.base);
+
+  it('reads the stored mapping by chain selector and address', async () => {
+    await store.replaceCoingeckoIds(env.DB, ids(['0xaaaa', 'coin-a']), '2026-10-08T00:00:00.000Z');
+    const coinIdOf = await store.coingeckoIds(env.DB);
+    expect([coinIdOf(chainOf, '0xaaaa'), coinIdOf(chainOf, '0xbbbb'), coinIdOf({ ...chainOf, selector: '1' }, '0xaaaa')]).toEqual([
+      'coin-a', undefined, undefined,
+    ]);
+  });
+
+  it('replaces the mapping: upserts the new ids and deletes the rows no longer mapped', async () => {
+    await store.replaceCoingeckoIds(env.DB, ids(['0xaaaa', 'coin-a'], ['0xbbbb', 'coin-b']), '2026-10-08T00:00:00.000Z');
+    await store.replaceCoingeckoIds(env.DB, ids(['0xaaaa', 'coin-a2'], ['0xcccc', 'coin-c']), '2026-10-09T00:00:00.000Z');
+    const rows = await env.DB.prepare('SELECT address, coin_id, updated_at FROM coingecko_ids ORDER BY address').all();
+    expect(rows.results).toEqual([
+      { address: '0xaaaa', coin_id: 'coin-a2', updated_at: '2026-10-09T00:00:00.000Z' },
+      { address: '0xcccc', coin_id: 'coin-c', updated_at: '2026-10-09T00:00:00.000Z' },
+    ]);
   });
 });

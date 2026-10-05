@@ -1,5 +1,5 @@
-import { UpstreamSchemaError } from '@ccip-dev/core';
-import { fakeCcip, fakeFetch, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
+import { UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
+import { fakeCcip, fakeCoingecko, fakeFetch, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runHourly } from '../src/jobs/hourly';
@@ -72,5 +72,55 @@ describe('runHourly', () => {
     expect(await store.countRows(env.DB, 'chains')).toBe(0);
     expect(await store.countRows(env.DB, 'tokens')).toBe(0);
     expect((await store.reserveSeries(env.DB, '2026-01-01T00:00:00.000Z')).length).toBe(1);
+  });
+});
+
+describe('runHourly CoinGecko ids', () => {
+  const ccip = () => fakeCcip({ chains: [NETWORKS.base, NETWORKS.ethereum], tokens: [LINK, USDC] });
+  const coingecko = (coins: CoingeckoCoin[]) =>
+    fakeCoingecko({ platforms: [{ id: 'base', chain_identifier: 8453 }, { id: 'ethereum', chain_identifier: 1 }], coins });
+  const bothMapped = () =>
+    coingecko([
+      { id: 'chainlink', platforms: { base: LINK.address, ethereum: '0x514910771af9ca656af840dff83e8264ecf986ca' } },
+      { id: 'usd-coin', platforms: { base: USDC.address.toLowerCase() } },
+    ]);
+  const mapped = async () =>
+    (await env.DB.prepare('SELECT chain, address, coin_id, updated_at FROM coingecko_ids ORDER BY address').all()).results;
+  const row = (token: typeof LINK, coinId: string, updatedAt: string) => ({
+    chain: token.chainSelector, address: token.address.toLowerCase(), coin_id: coinId, updated_at: updatedAt,
+  });
+
+  it('maps every registry token to its CoinGecko coin on its own platform', async () => {
+    await runHourly(harness({ now: NOW, ccip: ccip(), coingecko: bothMapped(), fetch: rpcOk(1n) }).c);
+    expect(await mapped()).toEqual([row(USDC, 'usd-coin', NOW), row(LINK, 'chainlink', NOW)]);
+  });
+
+  it('refreshes the mapping at most once a UTC day', async () => {
+    await runHourly(harness({ now: NOW, ccip: ccip(), coingecko: bothMapped(), fetch: rpcOk(1n) }).c);
+    const later = coingecko([]);
+    await runHourly(harness({ now: '2026-10-08T23:00:00.000Z', ccip: ccip(), coingecko: later, fetch: rpcOk(1n) }).c);
+    expect(later.calls).toBe(0);
+    expect(await mapped()).toHaveLength(2);
+  });
+
+  it('updates a changed coin and deletes a token no longer mapped on the next day', async () => {
+    await runHourly(harness({ now: NOW, ccip: ccip(), coingecko: bothMapped(), fetch: rpcOk(1n) }).c);
+    const nextDay = '2026-10-09T00:00:00.000Z';
+    const renamed = coingecko([{ id: 'chainlink-v2', platforms: { base: LINK.address } }]);
+    await runHourly(harness({ now: nextDay, ccip: ccip(), coingecko: renamed, fetch: rpcOk(1n) }).c);
+    expect(await mapped()).toEqual([row(LINK, 'chainlink-v2', nextDay)]);
+  });
+
+  it('keeps the mapping, alerts once and finishes the rest of the hour when CoinGecko fails', async () => {
+    await runHourly(harness({ now: NOW, ccip: ccip(), coingecko: bothMapped(), fetch: rpcOk(1n) }).c);
+    const down = fakeCoingecko({}, { fail: new UpstreamHttpError('GET /coins/list', 429) });
+    const h = harness({ now: '2026-10-09T00:00:00.000Z', ccip: ccip(), coingecko: down, fetch: rpcOk(7n) });
+    await runHourly(h.c);
+    h.setNow('2026-10-09T05:00:00.000Z');
+    await runHourly(h.c);
+    expect(await mapped()).toEqual([row(USDC, 'usd-coin', NOW), row(LINK, 'chainlink', NOW)]);
+    expect(h.alerts.map((a) => a.signature)).toEqual(['coingecko-ids']);
+    expect(down.calls).toBe(1);
+    expect(await readPublic('reserve.json')).toMatchObject({ latest: { ts: '2026-10-09T05:00:00.000Z', link: 7 } });
   });
 });

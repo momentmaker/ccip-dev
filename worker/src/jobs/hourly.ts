@@ -1,4 +1,6 @@
-import { addDays, dayOf, DEFAULT_RPC_URLS, listAllTokens, normalizeRegistryToken, readLinkBalance } from '@ccip-dev/core';
+import {
+  addDays, buildCoingeckoIdIndex, dayOf, DEFAULT_RPC_URLS, listAllTokens, normalizeRegistryToken, readLinkBalance,
+} from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import type { Env } from '../env';
 import { publishRegistryFiles } from '../publish';
@@ -10,6 +12,7 @@ export async function runHourly(c: RunContext): Promise<void> {
   await recordReserve(c);
   await snapshotRegistry(c);
   await publishRegistryFiles(c);
+  await refreshCoingeckoIds(c);
 }
 
 export function rpcUrls(env: Env): string[] {
@@ -52,4 +55,27 @@ async function snapshotRegistry(c: RunContext): Promise<void> {
 
   const laneBaseline = (await store.countArrivals(db, 'lane')) === 0;
   await store.insertLaneArrivals(db, addDays(dayOf(now), -2), laneBaseline);
+}
+
+/**
+ * Once a UTC day, maps the registry tokens to CoinGecko coin ids for the price fallback. A failure keeps the previous
+ * mapping and alerts; either way the day counts as done, so a CoinGecko outage alerts once a day, not every hour.
+ */
+async function refreshCoingeckoIds(c: RunContext): Promise<void> {
+  const db = c.env.DB;
+  const now = c.deps.now();
+  const today = dayOf(now);
+  if ((await store.getMeta(db, 'coingecko_ids_day')) === today) return;
+  try {
+    const coinIdOf = buildCoingeckoIdIndex(await c.coingecko.lists());
+    const ids = (await store.registryTokenChains(db)).flatMap((token) => {
+      const coinId = coinIdOf(token, token.address);
+      return coinId === undefined ? [] : [{ chain: token.selector, address: token.address, coinId }];
+    });
+    await store.replaceCoingeckoIds(db, ids, now.toISOString());
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    await c.alert('coingecko-ids', `CoinGecko ids could not be refreshed, so the previous mapping stays: ${detail}`);
+  }
+  await store.setMeta(db, 'coingecko_ids_day', today);
 }

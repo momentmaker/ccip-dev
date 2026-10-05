@@ -1,10 +1,11 @@
+import { COIN_PRICE_DECIMALS, coingeckoKey } from '@ccip-dev/core';
 import { fakeCcip, fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runDetails } from '../src/jobs/details';
 import * as store from '../src/store';
-import { harness, liveRow, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
+import { COINGECKO_IDS_SQL, harness, liveRow, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -89,6 +90,51 @@ describe('runDetails', () => {
 
     expect([allPriced.prepared(), needsFallback.prepared()]).toEqual([0, 1]);
     expect((await row('b'))!.usd_value).toBeCloseTo(48001.16045305375, 6);
+  });
+
+  describe('through a CoinGecko coin', () => {
+    const COIN_KEY = coingeckoKey('tkn');
+    const TOKEN = '0x9818b6c09f5ecc843060927e8587c427c7c93583';
+    const coinPrices = () => fakePrices({ latest: { [COIN_KEY]: { price: 2, decimals: COIN_PRICE_DECIMALS }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+
+    /** The detail fixture's base token, alone in the registry, mapped to the CoinGecko coin `tkn`. */
+    async function seedCoin(): Promise<void> {
+      await seedRegistry([NETWORKS.base], [
+        { chainSelector: NETWORKS.base.chainSelector, address: TOKEN, symbol: 'TKN', name: 'Token', decimals: 18, groupId: null },
+      ]);
+      await store.replaceCoingeckoIds(env.DB, [{ chain: NETWORKS.base.chainSelector, address: TOKEN, coinId: 'tkn' }], NOW);
+    }
+
+    it('fetches the coin\'s price for a token neither its own key nor a sibling prices, values it, and marks it seen', async () => {
+      await seedCoin();
+      await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+      const prices = coinPrices();
+      const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+      await runDetails(c, { limit: 10 });
+      expect(prices.latestCalls).toEqual([[TOKEN_KEY, FEE_KEY], [COIN_KEY]]);
+      expect(await row(detailToken.messageId)).toMatchObject({ unpriced: 0, usd_value: expect.closeTo(48001.16045305375, 6) });
+      expect(await seenAt(COIN_KEY)).toEqual({ seen_at: NOW });
+    });
+
+    it('reads the CoinGecko ids only when a fill is still unpriced after its group, once per run', async () => {
+      await seedTokenGroup();
+      await store.upsertListRows(env.DB, [due('priced')], []);
+      const siblingOnly = fakePrices({ latest: { [SIBLING_KEY]: { price: 2, decimals: 6 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+      const groupPriced = watchedDb(COINGECKO_IDS_SQL);
+      const pricedDetails = { priced: { ...detailToken, messageId: 'priced' } };
+      const groupRun = harness({ now: NOW, ccip: fakeCcip({ details: pricedDetails }), prices: siblingOnly, db: groupPriced.db });
+      await runDetails(groupRun.c, { limit: 10 });
+
+      await resetStorage();
+      await seedCoin();
+      await store.upsertListRows(env.DB, [due('a'), due('b', { next_check_at: '2026-10-05T11:17:00.000Z' })], []);
+      const details = { a: { ...detailToken, messageId: 'a' }, b: { ...detailToken, messageId: 'b' } };
+      const needsCoin = watchedDb(COINGECKO_IDS_SQL);
+      await runDetails(harness({ now: NOW, ccip: fakeCcip({ details }), prices: coinPrices(), db: needsCoin.db }).c, { limit: 10 });
+
+      expect([groupPriced.prepared(), needsCoin.prepared()]).toEqual([0, 1]);
+      expect((await row('b'))!.usd_value).toBeCloseTo(48001.16045305375, 6);
+    });
   });
 
   it('applies the detail unpriced and alerts when the token groups cannot be read', async () => {

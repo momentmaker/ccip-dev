@@ -1,5 +1,6 @@
 import {
-  buildRows, buildTokenGroupIndex, chainRef, groupFallback, gunzipText, normalizeList, normalizeRegistryToken, rollupDay, tokenGroupEntry,
+  buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS, coingeckoKey, groupFallback, gunzipText, normalizeList,
+  normalizeRegistryToken, rollupDay, tokenGroupEntry, type CoingeckoIdLookup,
 } from '@ccip-dev/core';
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
@@ -8,7 +9,7 @@ import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
 import * as store from '../src/store';
-import { tokenGroupsLoader } from '../src/token-groups';
+import { fallbackLoader } from '../src/price-fallback';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
@@ -118,29 +119,40 @@ describe('runFinalize', () => {
     const siblingPriced = listMessage({
       id: 'p4', sendTs: '2026-10-09T16:00:00.000Z', token: { address: '0xdddddddddddddddddddddddddddddddddddddddd', amount: '3000000' },
     });
+    const coinToken = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+    const coinPriced = listMessage({ id: 'p5', sendTs: '2026-10-09T18:00:00.000Z', token: { address: coinToken, amount: '1000000' } });
     const registry = [
       { chainSelector: NETWORKS.base.chainSelector, address: '0xdddddddddddddddddddddddddddddddddddddddd', symbol: 'TKN', name: 'Token', decimals: 6, groupId: 'g' },
       { chainSelector: NETWORKS.ethereum.chainSelector, address: '0xcccccccccccccccccccccccccccccccccccccccc', symbol: 'TKN', name: 'Token', decimals: 18, groupId: 'g' },
+      { chainSelector: NETWORKS.base.chainSelector, address: coinToken, symbol: 'CGT', name: 'Coin token', decimals: 6, groupId: null },
     ];
-    const unique = [priced, other, unpriced, siblingPriced];
-    const prices = new Map([[tokenKey, { price: 2, decimals: 6 }], [siblingKey, { price: 4, decimals: 18 }]]);
+    const unique = [priced, other, unpriced, siblingPriced, coinPriced];
+    const prices = new Map([
+      [tokenKey, { price: 2, decimals: 6 }],
+      [siblingKey, { price: 4, decimals: 18 }],
+      [coingeckoKey('cgt'), { price: 5, decimals: COIN_PRICE_DECIMALS }],
+    ]);
+    const coingeckoIdOf: CoingeckoIdLookup = (chain, address) =>
+      chain.selector === NETWORKS.base.chainSelector && address === coinToken ? 'cgt' : undefined;
 
     await store.setMeta(env.DB, 'live_start_day', day);
     await store.setMeta(env.DB, 'last_finalize_day', '2026-10-08');
     await store.upsertPrices(env.DB, prices, NOW);
     await seedRegistry([NETWORKS.base, NETWORKS.ethereum], registry);
-    const ccip = fakeCcip({ messages: [siblingPriced, unpriced, priced, other, { ...priced }] });
+    await store.replaceCoingeckoIds(env.DB, [{ chain: NETWORKS.base.chainSelector, address: coinToken, coinId: 'cgt' }], NOW);
+    const ccip = fakeCcip({ messages: [coinPriced, siblingPriced, unpriced, priced, other, { ...priced }] });
     const { c } = harness({ now: NOW, ccip });
-    await storeListMessages(c, [unpriced, priced, other, { ...priced }], tokenGroupsLoader(c));
+    await storeListMessages(c, [unpriced, priced, other, { ...priced }], fallbackLoader(c));
     await runFinalize(c, 'early');
 
     const chains = new Map([NETWORKS.base, NETWORKS.ethereum].map((n) => [n.chainSelector, chainRef(n)]));
     const groups = buildTokenGroupIndex(registry.map(normalizeRegistryToken).map((t) => tokenGroupEntry(t, chains.get(t.chain))));
     const lookup = (key: string) => prices.get(key);
-    const { rows, tokens } = buildRows(unique.map(normalizeList), lookup, () => ({ source: 'backfill' }), groupFallback(groups, lookup));
+    const fallback = groupFallback(groups, lookup, { coingeckoIdOf });
+    const { rows, tokens } = buildRows(unique.map(normalizeList), lookup, () => ({ source: 'backfill' }), fallback);
     const expected = rollupDay(day, rows, tokens).totals;
     const stored = (await store.dailyHistory(env.DB)).find((t) => t.day === day);
-    expect(expected).toMatchObject({ usd_value: 22, unpriced_messages: 1 });
+    expect(expected).toMatchObject({ usd_value: 27, unpriced_messages: 1 });
     expect(stored).toEqual(expected);
   });
 });
