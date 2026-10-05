@@ -11,6 +11,14 @@ describe('llamaKey', () => {
     );
   });
 
+  it.each([
+    ['964', '0xC5B6c1632d34901239396f5e1bde54b342900256', 'bittensor_evm'],
+    ['4663', '0xC6911796042b15d7fa4f6cde69e245ddcd3d9c31', 'robinhood'],
+    ['8217', '0x87e617c7484ade79fcd90db58beb82b057facb48', 'kaia'],
+  ])('prices chain %s tokens under its verified slug %s', (chainId, address, slug) => {
+    expect(llamaKey({ family: 'EVM', chainId }, address)).toBe(`${slug}:${address.toLowerCase()}`);
+  });
+
   it('keeps Solana mint addresses exactly as given (base58 is case-sensitive)', () => {
     expect(llamaKey(solana, 'So11111111111111111111111111111111111111112')).toBe(
       'solana:So11111111111111111111111111111111111111112',
