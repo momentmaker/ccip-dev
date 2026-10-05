@@ -4,9 +4,10 @@ import { appendFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } fro
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  addDays, archiveKey, BREAKDOWN_CONFLICT, buildRows, createPricesClient, dayOf, dayStartIso, gzipText, insertSql, issuePath,
-  ListMessage, normalizeList, priceKeys, rollupDay, sanitize, sqlLiteral, toIsoUtc, toJsonl, TOTALS_CONFLICT,
-  type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient,
+  addDays, archiveKey, BREAKDOWN_CONFLICT, buildRows, buildTokenGroupIndex, chainRef, createCcipClient, createPricesClient, dayOf,
+  dayStartIso, fallbackKeys, groupFallback, gzipText, insertSql, issuePath, listAllTokens, ListMessage, normalizeList,
+  normalizeRegistryToken, priceKeys, rollupDay, sanitize, sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT,
+  type CcipClient, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
 import type { Source, SourceSummary, SourcesSummary } from './sources';
@@ -30,10 +31,14 @@ const DAY_BUFFER_LINES = 5_000;
 /** Every buffer goes to disk once they hold more lines than this together, so memory stays bounded however many days there are. */
 const SPOOL_BUFFER_LINES = 100_000;
 
+export type RegistryClient = Pick<CcipClient, 'listChains' | 'listTokens'>;
+
 export interface BuildOptions {
   dir: string;
   liveStartDay: string;
   prices: PricesClient;
+  /** The CCIP token registry, fetched once per build for the token-group price fallback the Worker also uses. */
+  registry: RegistryClient;
   chunkSize?: number;
   now?: () => Date;
   log?: (line: string) => void;
@@ -81,6 +86,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const earliestDay = spooled.days[0];
   const coverageFrom = plan.rollupFrom ?? earliestDay;
   assertCompleteDayLeft(coverageFrom, opts.liveStartDay);
+  const groups = await fetchTokenGroups(opts.registry, path.join(opts.dir, 'registry'), spooled.networks);
 
   await rm(path.join(opts.dir, 'sql'), { recursive: true, force: true });
   await rm(path.join(opts.dir, 'archive'), { recursive: true, force: true });
@@ -94,8 +100,10 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     const entries = await readDay(path.join(daysDir, `${day}.jsonl`));
     const rollup = plan.rollupFrom === null || day >= plan.rollupFrom;
     const normalized = entries.map((e) => normalizeList(e.message));
-    const lookup = await prices.lookupFor(day, normalized.flatMap(priceKeys));
-    const { rows, tokens } = buildRows(normalized, lookup, () => ({ source: 'backfill' }));
+    await prices.ensure(normalized.flatMap(priceKeys));
+    const lookup = prices.lookupOn(day);
+    await prices.ensure(fallbackKeys(groups, normalized.flatMap((m) => m.tokens), lookup));
+    const { rows, tokens } = buildRows(normalized, lookup, () => ({ source: 'backfill' }), groupFallback(groups, lookup));
     normalized.forEach((m) => firstSeen.add(m));
     entries.forEach((e) => chains.add(e.message));
     const statements = [
@@ -226,22 +234,25 @@ function uniqueSkipped(skipped: SkippedMessage[]): SkippedMessage[] {
 
 /**
  * Sorts every crawled message before live_start_day into `<daysDir>/YYYY-MM-DD.jsonl`, one raw message per line, in the
- * order the pages were fetched. The last line for a message id is the most recently fetched copy.
+ * order the pages were fetched. The last line for a message id is the most recently fetched copy. Also returns every
+ * network the crawled messages name, by selector.
  */
 async function spoolDays(
   dir: string,
   daysDir: string,
   lastDay: string,
-): Promise<{ days: string[]; newest: string | null; sources: Set<string> }> {
+): Promise<{ days: string[]; newest: string | null; sources: Set<string>; networks: Map<string, NetworkInfo> }> {
   await rm(daysDir, { recursive: true, force: true });
   await mkdir(daysDir, { recursive: true });
   const spool = new DaySpool(daysDir, { dayLines: DAY_BUFFER_LINES, totalLines: SPOOL_BUFFER_LINES });
   let newest: string | null = null;
   const sources = new Set<string>();
+  const networks = new Map<string, NetworkInfo>();
   for (const file of await inputFiles(dir)) {
     const raws = JSON.parse(await readFile(path.join(dir, file), 'utf8')) as unknown[];
     for (const [index, raw] of raws.entries()) {
       const message = parseListMessage(raw, `${file}[${index}]`);
+      for (const network of [message.sourceNetworkInfo, message.destNetworkInfo]) networks.set(network.chainSelector, network);
       if (newest === null || Date.parse(message.sendTimestamp) > Date.parse(newest)) newest = message.sendTimestamp;
       const day = dayOf(message.sendTimestamp);
       if (day > lastDay) continue;
@@ -249,7 +260,27 @@ async function spoolDays(
       sources.add(message.sourceNetworkInfo.chainSelector);
     }
   }
-  return { days: await spool.finish(), newest, sources };
+  return { days: await spool.finish(), newest, sources, networks };
+}
+
+/**
+ * Fetches the whole CCIP token registry, keeps a copy in `registryDir`, and indexes its token groups. A token's chain comes
+ * from /chains, or from the crawled messages for a chain /chains no longer lists.
+ */
+async function fetchTokenGroups(client: RegistryClient, registryDir: string, crawled: Map<string, NetworkInfo>): Promise<TokenGroupIndex> {
+  const chains = await client.listChains();
+  const tokens = await listAllTokens(client);
+  await mkdir(registryDir, { recursive: true });
+  await writeFileAtomic(path.join(registryDir, 'chains.json'), `${JSON.stringify(chains, null, 2)}\n`);
+  await writeFileAtomic(path.join(registryDir, 'tokens.json'), `${JSON.stringify(tokens, null, 2)}\n`);
+  const networks = new Map(crawled);
+  for (const chain of chains) networks.set(chain.chainSelector, chain);
+  return buildTokenGroupIndex(
+    tokens.map(normalizeRegistryToken).map((t) => {
+      const network = networks.get(t.chain);
+      return tokenGroupEntry(t, network && chainRef(network));
+    }),
+  );
 }
 
 /** Every page file, least recently fetched (modified) first. */
@@ -471,7 +502,8 @@ class PriceCache {
     return new PriceCache(client, file, fromDay, toDay, data);
   }
 
-  async lookupFor(day: string, keys: string[]): Promise<PriceLookup> {
+  /** Fetches and caches the decimals and daily history of every key not cached yet. */
+  async ensure(keys: string[]): Promise<void> {
     const unique = [...new Set(keys)];
     let changed = false;
     const needDecimals = unique.filter((k) => !(k in this.data.decimals));
@@ -489,6 +521,10 @@ class PriceCache {
       await mkdir(path.dirname(this.file), { recursive: true });
       await writeFileAtomic(this.file, JSON.stringify(this.data));
     }
+  }
+
+  /** Prices on `day` from the cache, including keys ensured after this call. */
+  lookupOn(day: string): PriceLookup {
     return (key) => {
       const price = this.data.history[key]?.[day];
       const decimals = this.data.decimals[key];
@@ -519,12 +555,18 @@ async function main(): Promise<void> {
   if (!liveStartDay || !/^\d{4}-\d{2}-\d{2}$/.test(liveStartDay)) {
     throw new Error('usage: pnpm backfill:build --live-start YYYY-MM-DD (the Worker meta value live_start_day)');
   }
-  const prices = createPricesClient({
+  const deps: HttpDeps = {
     fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(60_000) }),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     clock: () => Date.now(),
+  };
+  const result = await build({
+    dir: '.backfill',
+    liveStartDay,
+    prices: createPricesClient(deps),
+    registry: createCcipClient(deps),
+    log: (line) => console.log(line),
   });
-  const result = await build({ dir: '.backfill', liveStartDay, prices, log: (line) => console.log(line) });
   console.log(JSON.stringify(result, null, 2));
 }
 

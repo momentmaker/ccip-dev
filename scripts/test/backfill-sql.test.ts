@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fakePrices, listMessage } from '@ccip-dev/core/testing';
+import { fakeCcip, fakePrices, listMessage } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
 import { build } from '../backfill/build';
 
@@ -43,7 +43,7 @@ describe('backfill SQL against a real database', () => {
     db.exec(await readFile(path.resolve(import.meta.dirname, '../../worker/migrations/0001_init.sql'), 'utf8'));
 
     const dir = await crawlDir();
-    await build({ dir, liveStartDay: '2026-10-08', prices: pricesAt(2), now: () => NOW });
+    await build({ dir, liveStartDay: '2026-10-08', prices: pricesAt(2), registry: fakeCcip(), now: () => NOW });
     const scratch = new DatabaseSync(':memory:');
     scratch.exec(await readFile(path.resolve(import.meta.dirname, '../../worker/migrations/0001_init.sql'), 'utf8'));
     await applyAll(scratch, dir);
@@ -70,7 +70,7 @@ describe('backfill SQL against a real database', () => {
     const firstTotal = totalOn();
 
     const rebuilt = await crawlDir();
-    await build({ dir: rebuilt, liveStartDay: '2026-10-08', prices: pricesAt(50), now: () => NOW });
+    await build({ dir: rebuilt, liveStartDay: '2026-10-08', prices: pricesAt(50), registry: fakeCcip(), now: () => NOW });
     await applyAll(db, rebuilt);
     expect(snapshot(db, 'a2')).toEqual(liveBefore);
     expect(totalOn()).toBeGreaterThan(firstTotal);
