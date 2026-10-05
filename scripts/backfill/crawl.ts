@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createCcipClient, dayOf, UpstreamHttpError } from '@ccip-dev/core';
@@ -61,6 +61,9 @@ export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
       await saveState(opts.dir, state);
       log(`depth wall at cursor ${state.cursor}; coverage_from = ${state.oldest}`);
       break;
+    }
+    if (page.cursor !== null && (page.cursor === '' || page.cursor === state.cursor)) {
+      throw new Error(`cursor did not advance at ${state.cursor}: got "${page.cursor}"`);
     }
     await writeFile(path.join(opts.dir, 'pages', `${String(state.pages).padStart(5, '0')}.json`), JSON.stringify(page.raw));
     for (const m of page.messages) {
@@ -168,8 +171,14 @@ async function loadState(dir: string): Promise<CrawlState> {
 }
 
 async function saveState(dir: string, state: CrawlState): Promise<void> {
-  await writeFile(path.join(dir, 'state.json'), JSON.stringify(state));
-  await writeFile(path.join(dir, 'coverage.json'), `${JSON.stringify(coverageOf(state), null, 2)}\n`);
+  await writeFileAtomic(path.join(dir, 'state.json'), JSON.stringify(state));
+  await writeFileAtomic(path.join(dir, 'coverage.json'), `${JSON.stringify(coverageOf(state), null, 2)}\n`);
+}
+
+async function writeFileAtomic(file: string, contents: string): Promise<void> {
+  const temp = `${file}.tmp`;
+  await writeFile(temp, contents);
+  await rename(temp, file);
 }
 
 async function main(): Promise<void> {

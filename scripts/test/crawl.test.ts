@@ -21,6 +21,7 @@ describe('crawl', () => {
     const dir = await tempDir();
     const state = await crawl({ dir, client: fakeCcip({ messages: msgs }), limit: 2, sleep: noSleep });
     expect(state.done).toBe(true);
+    expect((await readdir(dir)).filter((f) => f.endsWith('.tmp'))).toEqual([]);
     expect(await readdir(path.join(dir, 'pages'))).toEqual(['00000.json', '00001.json']);
     const coverage = await readJson(path.join(dir, 'coverage.json'));
     expect(coverage).toMatchObject({
@@ -83,6 +84,23 @@ describe('crawl', () => {
     await expect(crawl({ dir, client: broken, limit: 2, sleep: noSleep })).rejects.toBeInstanceOf(UpstreamSchemaError);
     const state = await crawl({ dir, client: fakeCcip({ messages: msgs }), limit: 2, sleep: noSleep });
     expect(state).toMatchObject({ done: true, stoppedAtDepthWall: false, messages: 4 });
+  });
+
+  it.each([
+    ['repeats the cursor it was given', 'c1'],
+    ['returns an empty cursor', ''],
+  ])('stops loudly when the API %s, leaving the last good cursor saved', async (_name, badCursor) => {
+    const dir = await tempDir();
+    const client = {
+      listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+        if (!opts.cursor) return { messages: [msgs[0]!], raw: [msgs[0]], cursor: 'c1' };
+        return { messages: [msgs[1]!], raw: [msgs[1]], cursor: badCursor };
+      },
+    };
+    await expect(crawl({ dir, client, sleep: noSleep })).rejects.toThrow('cursor did not advance at c1');
+    const saved = await readJson(path.join(dir, 'state.json'));
+    expect(saved).toMatchObject({ cursor: 'c1', pages: 1, done: false });
+    expect(await readdir(path.join(dir, 'pages'))).toEqual(['00000.json']);
   });
 
   it('ends on an empty page even if the API claims more', async () => {
