@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildTokenGroupIndex, fallbackKeys, groupFallback, lacksOwnPrice, siblingKeys, tokenGroupEntry } from '../src/token-groups';
+import type { CoingeckoIdLookup } from '../src/coingecko';
+import { COIN_PRICE_DECIMALS } from '../src/prices';
+import {
+  buildTokenGroupIndex, coingeckoKeys, fallbackKeys, groupFallback, lacksOwnPrice, siblingKeys, tokenGroupEntry,
+} from '../src/token-groups';
 import type { ChainRef, PriceInfo, PriceLookup } from '../src/types';
 import { valueTokens } from '../src/value';
 
@@ -61,18 +65,18 @@ describe('groupFallback', () => {
   it('leaves a token outside the registry unpriced', () => {
     const lookup = lookupOf({ [`bsc:${USDC_BSC}`]: { price: 1, decimals: 18 } });
     const fallback = groupFallback(buildTokenGroupIndex([usdcBsc]), lookup);
-    expect(fallback(ethereum.selector, USDC_ETH)).toBeUndefined();
+    expect(fallback(ethereum, USDC_ETH)).toBeUndefined();
   });
 
   it('leaves a registry token without a group unpriced', () => {
     const lookup = lookupOf({ [`bsc:${USDC_BSC}`]: { price: 1, decimals: 18 } });
     const fallback = groupFallback(buildTokenGroupIndex([entry(ethereum, LONE, 6, null), entry(bsc, USDC_BSC, 18, null)]), lookup);
-    expect(fallback(ethereum.selector, LONE)).toBeUndefined();
+    expect(fallback(ethereum, LONE)).toBeUndefined();
   });
 
   it('leaves a token unpriced when no sibling has a price', () => {
     const fallback = groupFallback(buildTokenGroupIndex([usdcEth, usdcBsc, usdcAptos]), lookupOf({}));
-    expect(fallback(aptos.selector, USDC_APTOS)).toBeUndefined();
+    expect(fallback(aptos, USDC_APTOS)).toBeUndefined();
   });
 
   it('prefers the Ethereum copy\'s price over a small chain\'s, whatever the registry order', () => {
@@ -86,21 +90,21 @@ describe('groupFallback', () => {
   it('prefers Base over a small chain when the Ethereum copy has no price', () => {
     const lookup = lookupOf({ [`0g:${USDC_0G}`]: { price: 50, decimals: 6 }, [`base:${USDC_BASE}`]: { price: 1, decimals: 6 } });
     const fallback = groupFallback(buildTokenGroupIndex([usdcAptos, usdc0g, usdcEth, usdcBase]), lookup);
-    expect(fallback(aptos.selector, USDC_APTOS)).toEqual({ price: 1, decimals: 6 });
+    expect(fallback(aptos, USDC_APTOS)).toEqual({ price: 1, decimals: 6 });
   });
 
   it('picks by llama key among siblings on chains outside the preferred list, whatever the registry order', () => {
     const lookup = lookupOf({ [`abstract:${USDC_ABSTRACT}`]: { price: 1.01, decimals: 6 }, [`0g:${USDC_0G}`]: { price: 0.99, decimals: 6 } });
     const forward = groupFallback(buildTokenGroupIndex([usdcAptos, usdcAbstract, usdc0g]), lookup);
     const backward = groupFallback(buildTokenGroupIndex([usdc0g, usdcAbstract, usdcAptos]), lookup);
-    expect(forward(aptos.selector, USDC_APTOS)).toEqual({ price: 0.99, decimals: 6 });
-    expect(backward(aptos.selector, USDC_APTOS)).toEqual({ price: 0.99, decimals: 6 });
+    expect(forward(aptos, USDC_APTOS)).toEqual({ price: 0.99, decimals: 6 });
+    expect(backward(aptos, USDC_APTOS)).toEqual({ price: 0.99, decimals: 6 });
   });
 
   it('skips siblings without a price and takes the next one in order', () => {
     const lookup = lookupOf({ [`bsc:${USDC_BSC}`]: { price: 0.98, decimals: 18 } });
     const fallback = groupFallback(buildTokenGroupIndex([usdcAptos, usdcBsc, usdcArb]), lookup);
-    expect(fallback(aptos.selector, USDC_APTOS)).toEqual({ price: 0.98, decimals: 6 });
+    expect(fallback(aptos, USDC_APTOS)).toEqual({ price: 0.98, decimals: 6 });
   });
 });
 
@@ -146,5 +150,75 @@ describe('lacksOwnPrice', () => {
 
   it('is true for a token whose own key has no price, or that has no key', () => {
     expect([lacksOwnPrice(fiveUsdc(bsc, USDC_BSC)[0]!, lookup), lacksOwnPrice(fiveUsdc(aptos, USDC_APTOS)[0]!, lookup)]).toEqual([true, true]);
+  });
+});
+
+describe('groupFallback with CoinGecko coin ids', () => {
+  const COIN_KEY = 'coingecko:usd-coin';
+  const coinIds = (ids: Record<string, string>): CoingeckoIdLookup => (chain, address) => ids[`${chain.selector}|${address}`];
+  const usdcCoin = coinIds({
+    [`${aptos.selector}|${USDC_APTOS}`]: 'usd-coin',
+    [`${ethereum.selector}|${USDC_ETH}`]: 'usd-coin',
+    [`${ethereum.selector}|${LONE}`]: 'usd-coin',
+  });
+  const coinAt = (price: number) => ({ [COIN_KEY]: { price, decimals: COIN_PRICE_DECIMALS } });
+
+  it('prices a token that neither its own key nor a sibling prices from its coin, with its registry decimals', () => {
+    const index = buildTokenGroupIndex([usdcAptos, usdcBsc]);
+    const lookup = lookupOf(coinAt(2));
+    const v = valueTokens(fiveUsdc(aptos, USDC_APTOS), lookup, groupFallback(index, lookup, { coingeckoIdOf: usdcCoin }));
+    expect(v).toEqual({ usdValue: 10, unpriced: false, tokenUsd: [10] });
+  });
+
+  it('prefers a sibling\'s price to the coin\'s', () => {
+    const index = buildTokenGroupIndex([usdcAptos, usdcBsc]);
+    const lookup = lookupOf({ [`bsc:${USDC_BSC}`]: { price: 1, decimals: 18 }, ...coinAt(50) });
+    expect(groupFallback(index, lookup, { coingeckoIdOf: usdcCoin })(aptos, USDC_APTOS)).toEqual({ price: 1, decimals: 6 });
+  });
+
+  it('keeps the token\'s own price over both', () => {
+    const index = buildTokenGroupIndex([usdcEth, usdcBsc]);
+    const lookup = lookupOf({
+      [`ethereum:${USDC_ETH}`]: { price: 1, decimals: 6 },
+      [`bsc:${USDC_BSC}`]: { price: 30, decimals: 18 },
+      ...coinAt(50),
+    });
+    expect(valueTokens(fiveUsdc(ethereum, USDC_ETH), lookup, groupFallback(index, lookup, { coingeckoIdOf: usdcCoin })).usdValue).toBe(5);
+  });
+
+  it('prices a registry token without a group from its coin, with its registry decimals', () => {
+    const index = buildTokenGroupIndex([entry(ethereum, LONE, 6, null)]);
+    const fallback = groupFallback(index, lookupOf(coinAt(2)), { coingeckoIdOf: usdcCoin, decimalsOf: () => 18 });
+    expect(fallback(ethereum, LONE)).toEqual({ price: 2, decimals: 6 });
+  });
+
+  it('values a token outside the registry with the decimals DefiLlama gives its own key', () => {
+    const decimalsOf = (key: string) => (key === `ethereum:${LONE}` ? 6 : undefined);
+    const fallback = groupFallback(buildTokenGroupIndex([]), lookupOf(coinAt(2)), { coingeckoIdOf: usdcCoin, decimalsOf });
+    expect(fallback(ethereum, LONE)).toEqual({ price: 2, decimals: 6 });
+  });
+
+  it('leaves a token unpriced when neither the registry nor DefiLlama knows its decimals', () => {
+    const fallback = groupFallback(buildTokenGroupIndex([]), lookupOf(coinAt(2)), { coingeckoIdOf: usdcCoin, decimalsOf: () => undefined });
+    expect(fallback(ethereum, LONE)).toBeUndefined();
+  });
+
+  it('leaves a token unpriced when its coin has no price, or it has no coin', () => {
+    const index = buildTokenGroupIndex([usdcAptos, entry(ethereum, LONE, 6, null)]);
+    expect(groupFallback(index, lookupOf({}), { coingeckoIdOf: usdcCoin })(aptos, USDC_APTOS)).toBeUndefined();
+    expect(groupFallback(index, lookupOf(coinAt(2)), { coingeckoIdOf: coinIds({}) })(ethereum, LONE)).toBeUndefined();
+  });
+});
+
+describe('coingeckoKeys', () => {
+  it('lists, once each, the coin keys of the tokens that neither their own key nor a sibling prices', () => {
+    const index = buildTokenGroupIndex([usdcEth, usdcBsc, usdcArb, usdcAptos]);
+    const lookup = lookupOf({ [`arbitrum:${USDC_ARB}`]: { price: 1, decimals: 6 } });
+    const coinIdOf: CoingeckoIdLookup = (_chain, address) => (address === LONE ? 'lone-coin' : 'usd-coin');
+    const tokens = [
+      ...fiveUsdc(arbitrum, USDC_ARB), ...fiveUsdc(aptos, USDC_APTOS),
+      ...fiveUsdc(ethereum, LONE), ...fiveUsdc(base, LONE), ...fiveUsdc(bsc, LONE),
+    ];
+    expect(coingeckoKeys(index, tokens, lookup, coinIdOf)).toEqual(['coingecko:lone-coin']);
   });
 });

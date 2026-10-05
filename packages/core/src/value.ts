@@ -20,7 +20,7 @@ export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup, fallback
   const tokenUsd: (number | null)[] = [];
   for (const t of tokens) {
     const key = llamaKey(t.chain, t.token);
-    const info = (key ? lookup(key) : undefined) ?? fallback?.(t.chain.selector, t.token);
+    const info = (key ? lookup(key) : undefined) ?? fallback?.(t.chain, t.token);
     if (!info) {
       unpriced = true;
       tokenUsd.push(null);

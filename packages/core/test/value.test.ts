@@ -54,15 +54,15 @@ describe('valueTokens', () => {
   });
 
   it('values a token without a price of its own through the fallback and counts it as priced', () => {
-    const fallback = (chain: string, token: string) => (chain === metal.selector && token === TOKEN ? { price: 3, decimals: 18 } : undefined);
+    const fallback = (chain: ChainRef, token: string) => (chain === metal && token === TOKEN ? { price: 3, decimals: 18 } : undefined);
     const v = valueTokens([{ chain: metal, token: TOKEN, amount: '2000000000000000000' }], lookup, fallback);
     expect(v).toEqual({ usdValue: 6, unpriced: false, tokenUsd: [6] });
   });
 
   it('uses the token\'s own price without consulting the fallback', () => {
     const asked: string[] = [];
-    const fallback = (chain: string, token: string) => {
-      asked.push(`${chain}|${token}`);
+    const fallback = (chain: ChainRef, token: string) => {
+      asked.push(`${chain.selector}|${token}`);
       return { price: 1000, decimals: 18 };
     };
     const v = valueTokens([{ chain: base, token: TOKEN, amount: '1000000000000000000' }], lookup, fallback);

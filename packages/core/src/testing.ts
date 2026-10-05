@@ -1,6 +1,7 @@
 import type { CcipClient, MessagePage, TokenPage } from './ccip/client';
 import { cursorAt, decodeCursor, encodeCursor } from './ccip/cursor';
 import type { ListMessage, NetworkInfo, RegistryToken } from './ccip/schemas';
+import type { CoingeckoClient, CoingeckoLists } from './coingecko';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
 import type { PriceInfo } from './types';
@@ -187,4 +188,19 @@ export function fakePrices(opts: FakePricesOptions = {}): FakePrices {
       return new Map(Object.entries(series).filter(([day]) => day >= fromDay && day <= toDay));
     },
   };
+}
+
+export type FakeCoingecko = CoingeckoClient & { calls: number };
+
+/** CoinGecko's id lists; empty unless given, and failing with `fail`. */
+export function fakeCoingecko(lists: Partial<CoingeckoLists> = {}, options: { fail?: Error } = {}): FakeCoingecko {
+  const fake: FakeCoingecko = {
+    calls: 0,
+    async lists() {
+      fake.calls += 1;
+      if (options.fail) throw options.fail;
+      return { platforms: lists.platforms ?? [], coins: lists.coins ?? [] };
+    },
+  };
+  return fake;
 }

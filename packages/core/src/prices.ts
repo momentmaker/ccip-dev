@@ -7,6 +7,22 @@ export const LLAMA_BASE = 'https://coins.llama.fi';
 export const PRICE_BATCH = 100;
 export const MAX_CHART_POINTS = 500;
 const HALF_DAY_SECONDS = 43_200;
+const COINGECKO_PREFIX = 'coingecko:';
+
+/**
+ * A `coingecko:` key names a coin rather than a token contract, so DefiLlama prices it without decimals. Its price carries
+ * this placeholder, which nothing reads: the fallback values the coin with each token's own decimals.
+ */
+export const COIN_PRICE_DECIMALS = 0;
+
+/** DefiLlama's key for a CoinGecko coin id. */
+export function coingeckoKey(coinId: string): string {
+  return `${COINGECKO_PREFIX}${coinId}`;
+}
+
+export function isCoingeckoKey(key: string): boolean {
+  return key.startsWith(COINGECKO_PREFIX);
+}
 
 const CurrentResponse = z.object({
   coins: z.record(z.string(), z.object({ price: z.number(), decimals: z.number().int().nonnegative().optional() })),
@@ -38,6 +54,7 @@ export function createPricesClient(
         });
         for (const [key, coin] of Object.entries(parseWith(CurrentResponse, json, 'GET /prices/current').coins)) {
           if (coin.decimals !== undefined) out.set(key, { price: coin.price, decimals: coin.decimals });
+          else if (isCoingeckoKey(key)) out.set(key, { price: coin.price, decimals: COIN_PRICE_DECIMALS });
         }
       }
       return out;

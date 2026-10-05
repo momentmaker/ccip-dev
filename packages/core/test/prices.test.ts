@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPricesClient } from '../src/prices';
+import { COIN_PRICE_DECIMALS, coingeckoKey, createPricesClient, isCoingeckoKey } from '../src/prices';
 import { fakeFetch, instantDeps, jsonResponse } from '../src/testing';
 
 describe('createPricesClient', () => {
@@ -15,6 +15,19 @@ describe('createPricesClient', () => {
     expect(f.calls).toHaveLength(2);
     expect(result.size).toBe(148);
     expect(result.get(keys[1]!)).toEqual({ price: 1, decimals: 18 });
+  });
+
+  it('keeps the price of a coingecko: key, which DefiLlama gives without decimals because it names a coin, not a contract', async () => {
+    const f = fakeFetch(() =>
+      jsonResponse({ coins: { 'coingecko:dfx-finance': { price: 0.04, symbol: 'DFX' }, 'base:0xnodecimals': { price: 1 } } }),
+    );
+    const result = await createPricesClient(instantDeps(f), { minIntervalMs: 0 }).latest(['coingecko:dfx-finance', 'base:0xnodecimals']);
+    expect(result).toEqual(new Map([['coingecko:dfx-finance', { price: 0.04, decimals: COIN_PRICE_DECIMALS }]]));
+  });
+
+  it('names the DefiLlama key of a CoinGecko coin id', () => {
+    expect(coingeckoKey('dfx-finance')).toBe('coingecko:dfx-finance');
+    expect([isCoingeckoKey('coingecko:dfx-finance'), isCoingeckoKey('ethereum:0xabc')]).toEqual([true, false]);
   });
 
   it('fetches daily history in windows of at most 500 days and maps points to the nearest UTC day', async () => {

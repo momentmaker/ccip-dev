@@ -6,6 +6,7 @@ export * from './ccip/schemas';
 export * from './ccip/client';
 export * from './ccip/cursor';
 export * from './value';
+export * from './coingecko';
 export * from './token-groups';
 export * from './normalize';
 export * from './rows';

@@ -1,6 +1,8 @@
 import { llamaKey } from './chain-map';
+import type { CoingeckoIdLookup } from './coingecko';
 import type { NormalizedToken } from './normalize';
-import type { ChainRef, PriceFallback, PriceLookup, TokenAmount } from './types';
+import { coingeckoKey } from './prices';
+import type { ChainRef, PriceFallback, PriceInfo, PriceLookup, TokenAmount } from './types';
 
 /** One CCIP registry token, with its address normalized like message token addresses. */
 export interface TokenGroupEntry {
@@ -80,17 +82,54 @@ export function siblingKeys(index: TokenGroupIndex, chainSelector: string, addre
   return (index.pricedByGroup.get(entry.groupId) ?? []).flatMap((s) => (s !== entry && s.llamaKey !== null ? [s.llamaKey] : []));
 }
 
-/** Prices a token from its first priced sibling, keeping the token's own registry decimals. */
-export function groupFallback(index: TokenGroupIndex, priceOf: PriceLookup): PriceFallback {
-  return (chainSelector, address) => {
-    const entry = index.byToken.get(tokenId(chainSelector, address));
-    if (entry === undefined) return undefined;
-    for (const key of siblingKeys(index, chainSelector, address)) {
-      const sibling = priceOf(key);
-      if (sibling) return { price: sibling.price, decimals: entry.decimals };
-    }
-    return undefined;
+/** The fallback's last step: a token's CoinGecko coin, priced through DefiLlama's `coingecko:<id>` key. */
+export interface CoingeckoFallback {
+  coingeckoIdOf?: CoingeckoIdLookup;
+  /** DefiLlama's decimals for a llama key on a day it has no price; the backfill knows them from the current price. */
+  decimalsOf?: (llamaKey: string) => number | undefined;
+}
+
+/**
+ * Prices a token that has no price of its own from its first priced group sibling, then from its CoinGecko coin. Either
+ * way the amount is scaled by the token's own decimals: its registry decimals, else DefiLlama's for its own key.
+ */
+export function groupFallback(index: TokenGroupIndex, priceOf: PriceLookup, coingecko: CoingeckoFallback = {}): PriceFallback {
+  return (chain, address) => {
+    const price = siblingPrice(index, priceOf, chain, address) ?? coinPrice(priceOf, coingecko.coingeckoIdOf, chain, address);
+    if (price === undefined) return undefined;
+    const decimals = tokenDecimals(index, chain, address, coingecko.decimalsOf);
+    return decimals === undefined ? undefined : { price: price.price, decimals };
   };
+}
+
+function siblingPrice(index: TokenGroupIndex, priceOf: PriceLookup, chain: ChainRef, address: string): PriceInfo | undefined {
+  for (const key of siblingKeys(index, chain.selector, address)) {
+    const price = priceOf(key);
+    if (price) return price;
+  }
+  return undefined;
+}
+
+function coinPrice(
+  priceOf: PriceLookup,
+  coingeckoIdOf: CoingeckoIdLookup | undefined,
+  chain: ChainRef,
+  address: string,
+): PriceInfo | undefined {
+  const coinId = coingeckoIdOf?.(chain, address);
+  return coinId === undefined ? undefined : priceOf(coingeckoKey(coinId));
+}
+
+function tokenDecimals(
+  index: TokenGroupIndex,
+  chain: ChainRef,
+  address: string,
+  decimalsOf: CoingeckoFallback['decimalsOf'],
+): number | undefined {
+  const registered = index.byToken.get(tokenId(chain.selector, address));
+  if (registered !== undefined) return registered.decimals;
+  const own = llamaKey(chain, address);
+  return own === null ? undefined : decimalsOf?.(own);
 }
 
 /** True when the token has no llama key, or no price for it: only such a token needs the fallback. */
@@ -104,6 +143,23 @@ export function fallbackKeys(index: TokenGroupIndex, tokens: TokenAmount[], pric
   const keys = new Set<string>();
   for (const t of tokens.filter((token) => lacksOwnPrice(token, priceOf))) {
     for (const key of siblingKeys(index, t.chain.selector, t.token)) keys.add(key);
+  }
+  return [...keys];
+}
+
+/** The `coingecko:` keys, once each, of the tokens that neither their own key nor a group sibling prices. */
+export function coingeckoKeys(
+  index: TokenGroupIndex,
+  tokens: TokenAmount[],
+  priceOf: PriceLookup,
+  coingeckoIdOf: CoingeckoIdLookup,
+): string[] {
+  const fromGroup = groupFallback(index, priceOf);
+  const keys = new Set<string>();
+  for (const t of tokens) {
+    if (!lacksOwnPrice(t, priceOf) || fromGroup(t.chain, t.token) !== undefined) continue;
+    const coinId = coingeckoIdOf(t.chain, t.token);
+    if (coinId !== undefined) keys.add(coingeckoKey(coinId));
   }
   return [...keys];
 }
