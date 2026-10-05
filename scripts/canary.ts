@@ -1,4 +1,4 @@
-import { createCcipClient, DetailMessage, type HttpDeps } from '@ccip-dev/core';
+import { createCcipClient, createPricesClient, DEFAULT_RPC_URLS, DetailMessage, readLinkBalance, type HttpDeps } from '@ccip-dev/core';
 
 const deps: HttpDeps = {
   fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(30_000) }),
@@ -31,6 +31,11 @@ async function main(): Promise<void> {
     }),
     await check('chains', async () => `${(await ccip.listChains()).length} mainnet chains`),
     await check('tokens', async () => `${(await ccip.listTokens({ limit: 5 })).tokens.length} tokens on first page`),
+    await check('DefiLlama LINK price', async () => {
+      const prices = await createPricesClient(deps).latest(['ethereum:0x514910771af9ca656af840dff83e8264ecf986ca']);
+      return `$${prices.values().next().value?.price}`;
+    }),
+    await check('Reserve balance', async () => `${(await readLinkBalance(deps, DEFAULT_RPC_URLS)) / 10n ** 18n} LINK`),
   ];
   if (results.includes(false)) process.exit(1);
 }
