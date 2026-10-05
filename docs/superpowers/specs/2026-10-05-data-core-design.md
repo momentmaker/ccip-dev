@@ -300,13 +300,15 @@ Order of work: run the crawl first (step 1 writes local files only), on **Oct 6*
    - Write each page to `.backfill/pages/NNNNN.json`, and save the cursor to `.backfill/state.json` so the crawl can resume.
    - Rewrite `.backfill/coverage.json` (oldest message reached, per-day message counts) after every page.
    - Stop when `hasNextPage` is false, **or after 3 consecutive 5xx responses or timeouts on the same cursor**. In the second case, record that page's oldest timestamp as `coverage_from`.
+   - A 429 waits 30 seconds and doesn't count toward that stop. A schema error or any other 4xx stops the crawl with an error, and a re-run resumes from the saved cursor.
+   - Just before the build, `--top-up` pages from the newest message back to the crawl's first page, so the backfill reaches `live_start_day` with no gap. The build refuses to run if it doesn't.
 
    A probe on 2026-10-05 saw jumps to before about 2025-06-01 return HTTP 500 after about 30 seconds, so this depth wall is expected.
 2. **Prices.** For each distinct token, look up its key with `chain-map`, then fetch the daily price history once. Cache it in `.backfill/prices/`.
 3. **Calculate.** Run `normalize`, `value` (with the daily price for the send day) and `rollup` per day, using the same code as the Worker.
 4. **Upload.**
    - `messages` (with `source = 'backfill'`, no fees, `next_check_at` NULL), `message_tokens`, `daily_totals` and `daily_breakdown` go into D1 as batched SQL files.
-   - Inserts into `messages` and `message_tokens` use `ON CONFLICT DO NOTHING`, so live rows, which carry fees and detail-based token data, always win.
+   - Upserts into `messages` and `message_tokens` update only rows whose message has `source = 'backfill'`. Live rows, which carry fees and detail-based token data, always win, and a corrected rebuild replaces earlier backfill values.
    - Seed `chains`, `tokens` and `arrivals` with every historical chain, token and lane, with `first_seen` taken from the earliest message and `announced_at` already set (§7.5).
    - Set `meta.coverage_from`.
    - Rollups and archive files cover only days before `meta.live_start_day`; the Worker owns `live_start_day` onward. Archive files go into the archive bucket through R2's S3-compatible API.
@@ -372,7 +374,7 @@ The project is test-first, with vitest. CI never makes a real network call.
 - **Backfill:**
   - the depth wall: stop after 3 failures on the same cursor and write `coverage_from`
   - `coverage.json` rewritten after every page
-  - `ON CONFLICT DO NOTHING` leaving live rows untouched
+  - upserts that update backfill rows and leave live rows untouched
 - **Canary script** (run by hand, not in CI): small calls against the real APIs to catch changes upstream.
 
 ## 13. Repository layout
