@@ -34,11 +34,12 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   if (days.length === 0) return;
 
   const buckets = await collectDays(c, days[0]!, yesterday);
+  const groups = await store.tokenGroups(db);
   const deadline = now.getTime() + DETAIL_BUDGET_MS;
   for (const day of days) {
     const bucket = buckets.get(day) ?? { messages: [], raw: [] };
-    await storeListMessages(c, bucket.messages);
-    await runDetails(c, { day }, { deadline });
+    await storeListMessages(c, bucket.messages, groups);
+    await runDetails(c, { day }, { deadline, groups });
     const { totals, breakdown } = rollupDay(day, await store.messagesForDay(db, day), await store.tokensForDay(db, day));
     await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
     if (mode === 'early') await store.setMeta(db, 'last_finalize_day', day);

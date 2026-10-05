@@ -1,7 +1,9 @@
+import { siblingKeys } from '@ccip-dev/core';
+import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import * as store from '../src/store';
-import { liveRow, resetStorage } from './helpers';
+import { liveRow, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -64,5 +66,24 @@ describe('prices', () => {
     expect(await store.keysSeenSince(env.DB, '2026-09-10T00:00:00.000Z')).toEqual(['base:0xb']);
     await store.touchPrices(env.DB, ['base:0xa'], '2026-10-08T00:00:00.000Z');
     expect((await store.keysSeenSince(env.DB, '2026-09-10T00:00:00.000Z')).sort()).toEqual(['base:0xa', 'base:0xb']);
+  });
+});
+
+describe('tokenGroups', () => {
+  it('indexes grouped registry tokens with llama keys from their chains', async () => {
+    const token = (chainSelector: string, address: string, groupId: string | null) => ({
+      chainSelector, address, symbol: 'TKN', name: 'Token', decimals: 18, groupId,
+    });
+    await seedRegistry([NETWORKS.base, NETWORKS.ethereum], [
+      token(NETWORKS.base.chainSelector, '0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD', 'g'),
+      token(NETWORKS.ethereum.chainSelector, '0xcccccccccccccccccccccccccccccccccccccccc', 'g'),
+      token('999', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 'g'),
+      token(NETWORKS.bsc.chainSelector, '0xffffffffffffffffffffffffffffffffffffffff', null),
+    ]);
+    const groups = await store.tokenGroups(env.DB);
+    expect(siblingKeys(groups, NETWORKS.base.chainSelector, '0xdddddddddddddddddddddddddddddddddddddddd')).toEqual([
+      'ethereum:0xcccccccccccccccccccccccccccccccccccccccc',
+    ]);
+    expect(groups.byToken.size).toBe(3);
   });
 });

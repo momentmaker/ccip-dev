@@ -1,9 +1,12 @@
-import { firstCheckAt, normalizeList, toMessageRow, type LabelIndex, type MessageRow } from '@ccip-dev/core';
+import {
+  firstCheckAt, normalizeList, normalizeRegistryToken, toMessageRow, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
+} from '@ccip-dev/core';
 import { fakeCcip, fakePrices, listMessage, type FakeCcip, type FakePrices, type ListMessageSpec } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import type { Alert } from '../src/alerts';
 import { createRunContext, type RunContext } from '../src/context';
 import type { Deps } from '../src/deps';
+import * as store from '../src/store';
 
 const TABLES = [
   'messages', 'message_tokens', 'daily_totals', 'daily_breakdown', 'chains', 'tokens', 'arrivals',
@@ -55,6 +58,13 @@ export async function readPublic(name: string): Promise<Record<string, any>> {
   const object = await env.PUBLIC.get(`v1/${name}`);
   if (!object) throw new Error(`v1/${name} was not published`);
   return object.json();
+}
+
+/** Stores registry chains and tokens as the hourly snapshot does. */
+export async function seedRegistry(chains: NetworkInfo[], tokens: RegistryToken[]): Promise<void> {
+  const seenAt = '2026-10-01T00:00:00.000Z';
+  await store.upsertChains(env.DB, chains, seenAt);
+  await store.upsertTokens(env.DB, tokens.map(normalizeRegistryToken), seenAt);
 }
 
 export function liveRow(spec: ListMessageSpec, extras: Partial<MessageRow> = {}): MessageRow {

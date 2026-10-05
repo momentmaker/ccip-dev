@@ -1,10 +1,10 @@
-import { fakeCcip, fakePrices } from '@ccip-dev/core/testing';
+import { fakeCcip, fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runDetails } from '../src/jobs/details';
 import * as store from '../src/store';
-import { harness, liveRow, resetStorage } from './helpers';
+import { harness, liveRow, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -13,6 +13,17 @@ const TOKEN_KEY = 'base:0x9818b6c09f5ecc843060927e8587c427c7c93583';
 const FEE_KEY = 'base:0x4200000000000000000000000000000000000006';
 const due = (id: string, extras = {}) => liveRow({ id, sendTs: '2026-10-05T11:14:53.000Z' }, { next_check_at: '2026-10-05T11:16:53.000Z', ...extras });
 const row = (id: string) => env.DB.prepare('SELECT * FROM messages WHERE message_id = ?').bind(id).first<Record<string, unknown>>();
+const SIBLING = '0xcccccccccccccccccccccccccccccccccccccccc';
+const SIBLING_KEY = `ethereum:${SIBLING}`;
+const seenAt = (key: string) => env.DB.prepare('SELECT seen_at FROM prices_latest WHERE llama_key = ?').bind(key).first<{ seen_at: string }>();
+
+/** The detail fixture's base token (18 decimals) and a 6-decimal copy on Ethereum, in one CCIP token group. */
+async function seedTokenGroup(): Promise<void> {
+  await seedRegistry([NETWORKS.base, NETWORKS.ethereum], [
+    { chainSelector: NETWORKS.base.chainSelector, address: '0x9818B6c09f5ECc843060927E8587c427C7C93583', symbol: 'TKN', name: 'Token', decimals: 18, groupId: 'g' },
+    { chainSelector: NETWORKS.ethereum.chainSelector, address: SIBLING, symbol: 'TKN', name: 'Token', decimals: 6, groupId: 'g' },
+  ]);
+}
 
 describe('runDetails', () => {
   it('fills tokens, fee and value from the detail and schedules the next check', async () => {
@@ -32,6 +43,32 @@ describe('runDetails', () => {
     expect((await row(detailToken.messageId))!.fee_usd).toBeCloseTo(0.26674278417559, 9);
     expect(prices.latestCalls).toEqual([[TOKEN_KEY, FEE_KEY]]);
     expect(await store.getPrices(env.DB, [TOKEN_KEY])).toEqual(new Map([[TOKEN_KEY, { price: 1, decimals: 18 }]]));
+  });
+
+  it('fetches a group sibling\'s price for a token DefiLlama does not price and values the token with its own decimals', async () => {
+    await seedTokenGroup();
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    const prices = fakePrices({ latest: { [SIBLING_KEY]: { price: 2, decimals: 6 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+    await runDetails(c, { limit: 10 });
+    expect(prices.latestCalls).toEqual([[TOKEN_KEY, FEE_KEY], [SIBLING_KEY]]);
+    expect(await row(detailToken.messageId)).toMatchObject({ unpriced: 0 });
+    expect((await row(detailToken.messageId))!.usd_value).toBeCloseTo(48001.16045305375, 6);
+    expect(await env.DB.prepare('SELECT usd_value FROM message_tokens WHERE message_id = ?').bind(detailToken.messageId).first<{ usd_value: number }>())
+      .toEqual({ usd_value: expect.closeTo(48001.16045305375, 6) });
+    expect(await seenAt(SIBLING_KEY)).toEqual({ seen_at: NOW });
+  });
+
+  it('marks a stored sibling price as seen so the prices job keeps it fresh', async () => {
+    await seedTokenGroup();
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    await store.upsertPrices(env.DB, new Map([[SIBLING_KEY, { price: 2, decimals: 6 }]]), '2026-09-01T00:00:00.000Z');
+    const prices = fakePrices({ latest: { [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+    await runDetails(c, { limit: 10 });
+    expect(prices.latestCalls).toEqual([[TOKEN_KEY, FEE_KEY]]);
+    expect(await seenAt(SIBLING_KEY)).toEqual({ seen_at: NOW });
+    expect((await row(detailToken.messageId))!.usd_value).toBeCloseTo(48001.16045305375, 6);
   });
 
   it('archives an invalid detail, pushes it back an hour, alerts once and keeps going', async () => {

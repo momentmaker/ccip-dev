@@ -1,9 +1,9 @@
-import { fakeCcip, listMessage } from '@ccip-dev/core/testing';
+import { fakeCcip, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runIngest } from '../src/jobs/ingest';
 import * as store from '../src/store';
-import { harness, readPublic, resetStorage } from './helpers';
+import { harness, readPublic, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -93,6 +93,23 @@ describe('runIngest', () => {
       { message_id: 'p', usd_value: 10, unpriced: 0 },
       { message_id: 'u', usd_value: 0, unpriced: 1 },
     ]);
+  });
+
+  it('values a token without a prices_latest row through a priced group sibling, with its own decimals', async () => {
+    const own = '0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
+    const sibling = '0xcccccccccccccccccccccccccccccccccccccccc';
+    await seedRegistry([NETWORKS.base, NETWORKS.ethereum], [
+      { chainSelector: NETWORKS.base.chainSelector, address: own, symbol: 'TKN', name: 'Token', decimals: 6, groupId: 'g' },
+      { chainSelector: NETWORKS.ethereum.chainSelector, address: sibling, symbol: 'TKN', name: 'Token', decimals: 18, groupId: 'g' },
+    ]);
+    await store.upsertPrices(env.DB, new Map([[`ethereum:${sibling}`, { price: 2, decimals: 18 }]]), NOW);
+    const m = listMessage({ id: 's', sendTs: at(1), token: { address: own, amount: '5000000' } });
+    await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [m] }) }).c);
+    expect(await env.DB.prepare('SELECT usd_value, unpriced FROM messages WHERE message_id = ?').bind('s').first()).toEqual({
+      usd_value: 10,
+      unpriced: 0,
+    });
+    expect(await env.DB.prepare('SELECT usd_value FROM message_tokens WHERE message_id = ?').bind('s').first()).toEqual({ usd_value: 10 });
   });
 
   it('leaves the same state when run twice against an unchanged message list', async () => {

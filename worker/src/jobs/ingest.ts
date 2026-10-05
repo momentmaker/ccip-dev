@@ -1,5 +1,6 @@
 import {
-  addDays, buildRows, dayOf, dayStartIso, firstCheckAt, normalizeList, priceKeys, type ListMessage,
+  addDays, buildRows, dayOf, dayStartIso, fallbackKeys, firstCheckAt, groupFallback, normalizeList, priceKeys, type ListMessage,
+  type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishLiveFiles } from '../publish';
@@ -48,7 +49,7 @@ export async function runIngest(c: RunContext, options: IngestOptions = {}): Pro
     }
   }
 
-  await storeListMessages(c, collected);
+  await storeListMessages(c, collected, await store.tokenGroups(db));
   await store.setMeta(db, 'last_ingest_ok_at', now.toISOString());
   await publishLiveFiles(c);
 }
@@ -83,11 +84,20 @@ async function walk(
   return { messages, pagesUsed: maxPages, exhausted: true, nextCursor: cursor };
 }
 
-export async function storeListMessages(c: RunContext, messages: ListMessage[]): Promise<void> {
+export async function storeListMessages(c: RunContext, messages: ListMessage[], groups: TokenGroupIndex): Promise<void> {
+  const db = c.env.DB;
   const unique = [...new Map(messages.map((m) => [m.messageId, m])).values()].map(normalizeList);
-  const prices = await store.getPrices(c.env.DB, [...new Set(unique.flatMap(priceKeys))]);
-  const { rows, tokens } = buildRows(unique, (key) => prices.get(key), (m) => ({ source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }));
-  await store.upsertListRows(c.env.DB, rows, tokens);
+  const prices = await store.getPrices(db, [...new Set(unique.flatMap(priceKeys))]);
+  const lookup = (key: string) => prices.get(key);
+  const siblings = fallbackKeys(groups, unique.flatMap((m) => m.tokens), lookup).filter((key) => !prices.has(key));
+  for (const [key, info] of await store.getPrices(db, siblings)) prices.set(key, info);
+  const { rows, tokens } = buildRows(
+    unique,
+    lookup,
+    (m) => ({ source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }),
+    groupFallback(groups, lookup),
+  );
+  await store.upsertListRows(db, rows, tokens);
 }
 
 export async function ensureLiveStart(db: D1Database, now: Date): Promise<string> {

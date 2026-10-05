@@ -1,11 +1,9 @@
-import { addDays, dayOf, DEFAULT_RPC_URLS, normalizeRegistryToken, readLinkBalance, type NormalizedToken } from '@ccip-dev/core';
+import { addDays, dayOf, DEFAULT_RPC_URLS, listAllTokens, normalizeRegistryToken, readLinkBalance } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import type { Env } from '../env';
 import { publishRegistryFiles } from '../publish';
 import * as store from '../store';
 
-const TOKEN_PAGE = 500;
-const MAX_TOKEN_PAGES = 50;
 const RESERVE_ALERT_AFTER = 3;
 
 export async function runHourly(c: RunContext): Promise<void> {
@@ -42,7 +40,7 @@ async function snapshotRegistry(c: RunContext): Promise<void> {
   const nowIso = now.toISOString();
 
   const chains = await c.ccip.listChains();
-  const tokens = await listAllTokens(c);
+  const tokens = (await listAllTokens(c.ccip)).map(normalizeRegistryToken);
 
   const baseline = (await store.countRows(db, 'chains')) === 0 || (await store.countRows(db, 'tokens')) === 0;
   const announcedAt = baseline ? nowIso : null;
@@ -54,16 +52,4 @@ async function snapshotRegistry(c: RunContext): Promise<void> {
 
   const laneBaseline = (await store.countArrivals(db, 'lane')) === 0;
   await store.insertLaneArrivals(db, addDays(dayOf(now), -2), laneBaseline);
-}
-
-async function listAllTokens(c: RunContext): Promise<NormalizedToken[]> {
-  const tokens: NormalizedToken[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < MAX_TOKEN_PAGES; page++) {
-    const result = await c.ccip.listTokens({ limit: TOKEN_PAGE, cursor });
-    tokens.push(...result.tokens.map(normalizeRegistryToken));
-    if (result.cursor === null) return tokens;
-    cursor = result.cursor;
-  }
-  throw new Error(`token registry did not end within ${MAX_TOKEN_PAGES} pages`);
 }

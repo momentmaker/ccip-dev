@@ -1,12 +1,14 @@
-import { buildRows, gunzipText, normalizeList, rollupDay } from '@ccip-dev/core';
-import { fakeCcip, fakePrices, listMessage } from '@ccip-dev/core/testing';
+import {
+  buildRows, buildTokenGroupIndex, chainRef, groupFallback, gunzipText, normalizeList, normalizeRegistryToken, rollupDay, tokenGroupEntry,
+} from '@ccip-dev/core';
+import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
 import * as store from '../src/store';
-import { harness, liveRow, readPublic, resetStorage } from './helpers';
+import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -99,6 +101,7 @@ describe('runFinalize', () => {
   it('produces the same daily_totals as the backfill computation for the same day', async () => {
     const day = '2026-10-09';
     const tokenKey = 'base:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const siblingKey = 'ethereum:0xcccccccccccccccccccccccccccccccccccccccc';
     const priced = listMessage({
       id: 'p1', sendTs: '2026-10-09T10:00:00.000Z', sender: '0x1111111111111111111111111111111111111111',
       status: 'SUCCESS', receiptTs: '2026-10-09T10:05:00.000Z',
@@ -111,21 +114,32 @@ describe('runFinalize', () => {
     const unpriced = listMessage({
       id: 'p3', sendTs: '2026-10-09T14:00:00.000Z', token: { address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', amount: '1' },
     });
-    const unique = [priced, other, unpriced];
-    const prices = new Map([[tokenKey, { price: 2, decimals: 6 }]]);
+    const siblingPriced = listMessage({
+      id: 'p4', sendTs: '2026-10-09T16:00:00.000Z', token: { address: '0xdddddddddddddddddddddddddddddddddddddddd', amount: '3000000' },
+    });
+    const registry = [
+      { chainSelector: NETWORKS.base.chainSelector, address: '0xdddddddddddddddddddddddddddddddddddddddd', symbol: 'TKN', name: 'Token', decimals: 6, groupId: 'g' },
+      { chainSelector: NETWORKS.ethereum.chainSelector, address: '0xcccccccccccccccccccccccccccccccccccccccc', symbol: 'TKN', name: 'Token', decimals: 18, groupId: 'g' },
+    ];
+    const unique = [priced, other, unpriced, siblingPriced];
+    const prices = new Map([[tokenKey, { price: 2, decimals: 6 }], [siblingKey, { price: 4, decimals: 18 }]]);
 
     await store.setMeta(env.DB, 'live_start_day', day);
     await store.setMeta(env.DB, 'last_finalize_day', '2026-10-08');
     await store.upsertPrices(env.DB, prices, NOW);
-    const ccip = fakeCcip({ messages: [unpriced, priced, other, { ...priced }] });
+    await seedRegistry([NETWORKS.base, NETWORKS.ethereum], registry);
+    const ccip = fakeCcip({ messages: [siblingPriced, unpriced, priced, other, { ...priced }] });
     const { c } = harness({ now: NOW, ccip });
-    await storeListMessages(c, [unpriced, priced, other, { ...priced }]);
+    await storeListMessages(c, [unpriced, priced, other, { ...priced }], await store.tokenGroups(env.DB));
     await runFinalize(c, 'early');
 
-    const { rows, tokens } = buildRows(unique.map(normalizeList), (key) => prices.get(key), () => ({ source: 'backfill' }));
+    const chains = new Map([NETWORKS.base, NETWORKS.ethereum].map((n) => [n.chainSelector, chainRef(n)]));
+    const groups = buildTokenGroupIndex(registry.map(normalizeRegistryToken).map((t) => tokenGroupEntry(t, chains.get(t.chain))));
+    const lookup = (key: string) => prices.get(key);
+    const { rows, tokens } = buildRows(unique.map(normalizeList), lookup, () => ({ source: 'backfill' }), groupFallback(groups, lookup));
     const expected = rollupDay(day, rows, tokens).totals;
     const stored = (await store.dailyHistory(env.DB)).find((t) => t.day === day);
-    expect(expected.usd_value).toBe(10);
+    expect(expected).toMatchObject({ usd_value: 22, unpriced_messages: 1 });
     expect(stored).toEqual(expected);
   });
 });

@@ -1,5 +1,6 @@
 import {
-  BREAKDOWN_CONFLICT, sanitize, TOTALS_CONFLICT, type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo, type TokenRow,
+  BREAKDOWN_CONFLICT, buildTokenGroupIndex, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type DailyBreakdown, type DailyTotals, type Dim,
+  type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
 const PARAM_CHUNK = 90;
@@ -252,6 +253,25 @@ export async function upsertTokens(db: D1Database, tokens: NormalizedToken[], no
        decimals = excluded.decimals, group_id = excluded.group_id, last_seen = excluded.last_seen`,
   );
   await runBatch(db, tokens.map((t) => insert.bind(t.chain, t.address, t.symbol, t.name, t.decimals, t.groupId, nowIso, nowIso)));
+}
+
+/** The CCIP token groups for the price fallback; tokens without a group can never use it, so they are left out. */
+export async function tokenGroups(db: D1Database): Promise<TokenGroupIndex> {
+  const { results } = await db
+    .prepare(
+      `SELECT t.chain, t.address, t.decimals, t.group_id, c.family, c.chain_id
+       FROM tokens t LEFT JOIN chains c ON c.selector = t.chain
+       WHERE t.group_id IS NOT NULL`,
+    )
+    .all<{ chain: string; address: string; decimals: number; group_id: string; family: string | null; chain_id: string | null }>();
+  return buildTokenGroupIndex(
+    results.map((r) =>
+      tokenGroupEntry(
+        { chain: r.chain, address: r.address, decimals: r.decimals, groupId: r.group_id },
+        r.family !== null && r.chain_id !== null ? { family: r.family, chainId: r.chain_id } : undefined,
+      ),
+    ),
+  );
 }
 
 export async function insertArrivals(

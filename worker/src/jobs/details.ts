@@ -1,6 +1,6 @@
 import {
-  DetailMessage, issuePath, normalizeDetail, priceKeys, scheduleNextCheck, toMessageRow, toTokenRows, valueFee, valueTokens,
-  type PriceInfo,
+  DetailMessage, fallbackKeys, groupFallback, issuePath, normalizeDetail, priceKeys, scheduleNextCheck, toMessageRow, toTokenRows,
+  valueFee, valueTokens, type NormalizedMessage, type PriceInfo, type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import * as store from '../store';
@@ -10,22 +10,24 @@ const MINUTE = 60_000;
 export async function runDetails(
   c: RunContext,
   scope: { limit: number } | { day: string },
-  options: { deadline?: number } = {},
+  options: { deadline?: number; groups?: TokenGroupIndex } = {},
 ): Promise<void> {
   const ids =
     'day' in scope
       ? await store.liveMissingDetail(c.env.DB, scope.day)
       : await store.dueForDetail(c.env.DB, c.deps.now().toISOString(), scope.limit);
+  if (ids.length === 0) return;
+  const groups = options.groups ?? (await store.tokenGroups(c.env.DB));
   for (const id of ids) {
     if (options.deadline !== undefined && c.deps.now().getTime() > options.deadline) {
       console.warn(`detail fill stopped at its deadline; ${ids.length - ids.indexOf(id)} message(s) left for the per-minute job`);
       return;
     }
-    await fillOne(c, id);
+    await fillOne(c, id, groups);
   }
 }
 
-async function fillOne(c: RunContext, id: string): Promise<void> {
+async function fillOne(c: RunContext, id: string, groups: TokenGroupIndex): Promise<void> {
   const db = c.env.DB;
   const now = c.deps.now();
   const later = (minutes: number) => new Date(now.getTime() + minutes * MINUTE).toISOString();
@@ -59,9 +61,9 @@ async function fillOne(c: RunContext, id: string): Promise<void> {
     }
   }
 
-  const prices = await ensurePrices(c, priceKeys(message));
+  const prices = await ensurePrices(c, message, groups);
   const lookup = (key: string) => prices.get(key);
-  const valuation = valueTokens(message.tokens, lookup);
+  const valuation = valueTokens(message.tokens, lookup, groupFallback(groups, lookup));
   const next = scheduleNextCheck(message.status, message.readyForManualExec, message.sendTs, now);
   const row = toMessageRow({ ...message, status: next.status }, valuation, {
     source: 'live',
@@ -72,7 +74,18 @@ async function fillOne(c: RunContext, id: string): Promise<void> {
   await store.applyDetail(db, row, toTokenRows(message, valuation));
 }
 
-export async function ensurePrices(c: RunContext, keys: string[]): Promise<Map<string, PriceInfo>> {
+/**
+ * Prices a message's own keys, then the group siblings of its tokens that are still unpriced. Siblings are stored and
+ * marked seen like any other key, so the prices job keeps them fresh.
+ */
+export async function ensurePrices(c: RunContext, message: NormalizedMessage, groups: TokenGroupIndex): Promise<Map<string, PriceInfo>> {
+  const prices = await ensureKeys(c, priceKeys(message));
+  const siblings = fallbackKeys(groups, message.tokens, (key) => prices.get(key)).filter((key) => !prices.has(key));
+  for (const [key, info] of await ensureKeys(c, siblings)) prices.set(key, info);
+  return prices;
+}
+
+async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, PriceInfo>> {
   const db = c.env.DB;
   const nowIso = c.deps.now().toISOString();
   const prices = await store.getPrices(db, keys);
