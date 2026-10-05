@@ -115,3 +115,60 @@ export async function keysSeenSince(db: D1Database, sinceIso: string): Promise<s
     .all<{ llama_key: string }>();
   return results.map((r) => r.llama_key);
 }
+
+export interface LiveRow {
+  message_id: string;
+  send_ts: string;
+  status: string;
+  src_chain: string;
+  dst_chain: string;
+  sender: string;
+  usd_value: number;
+  symbol: string | null;
+}
+
+export async function liveSince(db: D1Database, sinceIso: string): Promise<LiveRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, t.symbol
+       FROM messages m
+       LEFT JOIN message_tokens mt ON mt.message_id = m.message_id AND mt.idx = 0
+       LEFT JOIN tokens t ON t.chain = mt.chain AND t.address = mt.token
+       WHERE m.send_ts >= ?
+       ORDER BY m.send_ts DESC
+       LIMIT 500`,
+    )
+    .bind(sinceIso)
+    .all<LiveRow>();
+  return results;
+}
+
+export async function chainNames(db: D1Database): Promise<Map<string, string>> {
+  const { results } = await db.prepare('SELECT selector, name FROM chains').all<{ selector: string; name: string }>();
+  return new Map(results.map((r) => [r.selector, r.name]));
+}
+
+export async function messagesForDay(db: D1Database, day: string): Promise<MessageRow[]> {
+  const { results } = await db.prepare('SELECT * FROM messages WHERE day = ?').bind(day).all<MessageRow>();
+  return results;
+}
+
+export async function tokensForDay(db: D1Database, day: string): Promise<TokenRow[]> {
+  const { results } = await db
+    .prepare('SELECT t.* FROM message_tokens t JOIN messages m ON m.message_id = t.message_id WHERE m.day = ?')
+    .bind(day)
+    .all<TokenRow>();
+  return results;
+}
+
+export async function recentArrivals(db: D1Database, limit: number): Promise<{ kind: string; key: string; first_seen: string }[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT kind, key, first_seen FROM arrivals
+       WHERE announced_at IS NULL OR announced_at <> first_seen
+       ORDER BY first_seen DESC LIMIT ?`,
+    )
+    .bind(limit)
+    .all<{ kind: string; key: string; first_seen: string }>();
+  return results;
+}
