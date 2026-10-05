@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { createCcipClient, cursorAt, dayOf, decodeCursor, UpstreamHttpError } from '@ccip-dev/core';
+import { createCcipClient, cursorAt, dayOf, decodeCursor, UpstreamHttpError, type CcipClient } from '@ccip-dev/core';
 
 export interface CrawlState {
   cursor: string | null;
@@ -366,7 +366,7 @@ export function coverageOf(state: CrawlState) {
   };
 }
 
-async function loadState(dir: string): Promise<CrawlState> {
+export async function loadState(dir: string): Promise<CrawlState> {
   const file = path.join(dir, 'state.json');
   if (!existsSync(file)) return initialState();
   return { ...initialState(), ...(JSON.parse(await readFile(file, 'utf8')) as Partial<CrawlState>) };
@@ -377,16 +377,15 @@ async function saveState(dir: string, state: CrawlState): Promise<void> {
   await writeFileAtomic(path.join(dir, 'coverage.json'), `${JSON.stringify(coverageOf(state), null, 2)}\n`);
 }
 
-async function writeFileAtomic(file: string, contents: string): Promise<void> {
+export async function writeFileAtomic(file: string, contents: string): Promise<void> {
   const temp = `${file}.tmp`;
   await writeFile(temp, contents);
   await rename(temp, file);
 }
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const dir = args.find((a) => !a.startsWith('--')) ?? '.backfill';
-  const client = createCcipClient(
+/** The live API client for crawls: the crawl handles retries itself, so the client never retries. */
+export function createBackfillClient(): CcipClient {
+  return createCcipClient(
     {
       fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(60_000) }),
       sleep: defaultSleep,
@@ -394,6 +393,12 @@ async function main(): Promise<void> {
     },
     { maxRetries: 0, minIntervalMs: 1000 },
   );
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const dir = args.find((a) => !a.startsWith('--')) ?? '.backfill';
+  const client = createBackfillClient();
   if (args.includes('--top-up')) {
     console.log(JSON.stringify(await topUp({ dir, client, log: (line) => console.log(line) }), null, 2));
     return;
