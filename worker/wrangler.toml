@@ -9,8 +9,7 @@ crons = ["* * * * *", "*/5 * * * *", "0 * * * *", "10 0 * * *", "0 6 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "ccip-dev"
-# Local and test value. Task 16 replaces it with the id printed by `wrangler d1 create ccip-dev`.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "bd0b0163-c32a-4993-82ec-fa85f8d21208"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
