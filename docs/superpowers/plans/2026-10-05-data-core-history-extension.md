@@ -64,3 +64,32 @@ Addendum to `2026-10-05-data-core.md`. Spec: `docs/superpowers/specs/2026-10-05-
 - **`IMPLEMENTATION_PLAN.md` Stage 1:** add the per-source crawl to the goal and success criteria.
 
 Execution order: H1 → H2 → H3 → the owner runs `pnpm backfill:sources` → Task 17 Step 10 dry run → Task 18.
+
+## Pricing tasks (owner decision 2026-10-05: chain map + token-group fallback + a free second source; FREE tiers only)
+
+Dry-run baseline: 115,719 of 1,263,231 token transfers unpriced (9.2%). By cause: no DefiLlama price 53,200; history gap 45,550; chain not mapped 13,521; non-EVM 3,448.
+
+### Task P1: Verified chain slugs (done: fb4ce7c)
+13 of 31 unmapped EVM chains verified by a real DefiLlama price, covering 11,021 of 13,521 transfers.
+
+### Task P2: CCIP token-group price fallback (core + Worker + backfill, one shared function)
+
+CCIP's token registry (`/tokens`: `chainSelector`, `address`, `decimals`, `groupId`) groups the copies of one token across chains, and its token pools keep them 1:1. When a token has no price of its own (no llama key, no DefiLlama price, or no price that day), use the price of another member of its group, on the same day for the backfill and the latest price for live data, together with the token's OWN registry decimals.
+
+- **Core:**
+  - `buildTokenGroupIndex(entries)` and `groupFallback(index, priceOf)` return a `(chainSelector, address) → PriceInfo | undefined` lookup. Siblings are tried in a deterministic order (sorted by llama key), and only siblings with a non-null llama key count.
+  - `valueTokens`, `buildRows` and `priceKeys` accept an optional fallback or index. A sibling-priced token counts as priced.
+- **Worker:**
+  - Build the index from D1 `tokens` joined with `chains`, once per run.
+  - Ingest, details (`ensurePrices` fetches sibling keys for tokens without a price) and finalize use the same fallback.
+- **Backfill:**
+  - Fetch the full token registry once per build (all `listTokens` pages plus `listChains`) into `.backfill/registry/`.
+  - `PriceCache` prefetches sibling keys' history, and the per-day lookup falls back to siblings on that day.
+- **Tests:**
+  - Core: the sibling price is used with the token's own decimals; no sibling means unpriced; the sibling order is deterministic; a non-EVM token is priced through an EVM sibling.
+  - Worker: a token without a price is valued through a sibling in `prices_latest`.
+  - Build: a history gap is filled from a sibling's history that day.
+  - Live/backfill parity still holds.
+
+### Task P3: Free second price source (after re-measuring)
+Candidates (free tiers, checked 2026-10-05): CoinMarketCap Basic (1 year of daily history, 15k credits a month), GeckoTerminal public (180 days, DEX long tail, keyless), DexScreener (live only, keyless), Alchemy Prices (free key; depth unverified), Coinbase candles (majors only). Excluded: CoinGecko Demo's storage terms, and paid-only CryptoCompare, Codex and Pyth. Choose after a dry run with P1 and P2 shows which tokens are still unpriced.
