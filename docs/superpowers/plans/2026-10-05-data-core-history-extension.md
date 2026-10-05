@@ -93,3 +93,14 @@ CCIP's token registry (`/tokens`: `chainSelector`, `address`, `decimals`, `group
 
 ### Task P3: Free second price source (after re-measuring)
 Candidates (free tiers, checked 2026-10-05): CoinMarketCap Basic (1 year of daily history, 15k credits a month), GeckoTerminal public (180 days, DEX long tail, keyless), DexScreener (live only, keyless), Alchemy Prices (free key; depth unverified), Coinbase candles (majors only). Excluded: CoinGecko Demo's storage terms, and paid-only CryptoCompare, Codex and Pyth. Choose after a dry run with P1 and P2 shows which tokens are still unpriced.
+
+### Task P3 (decided 2026-10-05 after dry run #2): CoinGecko-ID fallback through DefiLlama, plus near-day fill
+
+Dry run #2 (P1 + P2): unpriced messages fell from 115,719 to 75,051. Unpriced token transfers fell from 9.2% to 5.9%: no DefiLlama price 53,691; history gap 20,887; chain not mapped 158. 36,713 of the remaining transfers (121 distinct IDs) have a CoinGecko ID, according to CoinGecko's keyless `/coins/list?include_platform=true`. DefiLlama's own `coingecko:<id>` keys are free and keyless, and often have deeper history than its chain-address keys. Example: `arbitrum:WETH` starts 2024-08-15, while `coingecko:dfx-finance`, `coingecko:zed-run` and `coingecko:banana` reach 2023-07.
+
+- **Mapping (free, keyless, metadata only).** CoinGecko `/asset_platforms` maps an EVM `chain_identifier` to a platform id. `/coins/list?include_platform=true` maps a platform and address to a coin id. EVM addresses are lowercased. Solana uses platform `solana` with the address in exact case. Match only on the token's own platform (never on an address alone). Store the mapping, not CoinGecko prices.
+- **Fallback order in the shared core:** own DefiLlama key, then the CCIP group sibling (P2), then DefiLlama `coingecko:<id>`, valued with the token's own decimals (registry decimals, or DefiLlama's for the own key).
+- **Backfill.** Fetch the two CoinGecko lists once per build into `.backfill/registry/`. `PriceCache` fetches `coingecko:<id>` history only for tokens still unpriced after P2.
+- **Worker.** Once a day, the hourly job refreshes a `coingecko_ids (chain, address, coin_id)` D1 table for registry tokens (keyless fetch; a failure keeps the old rows and alerts). Ingest and details add `coingecko:<id>` keys for tokens still unpriced, through the same lazy path as P2.
+- **Near-day fill (backfill only).** If a series has no point for day D, use the nearest point within ±2 days, preferring the earlier one.
+- **Tests:** mapping precision (platform-scoped, and an address on another platform is not matched); fallback order (own, then group, then CoinGecko); history-gap fill; near-day fill bounds; Worker table refresh and failure handling; parity.
