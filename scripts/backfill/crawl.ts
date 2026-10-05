@@ -97,8 +97,9 @@ export async function topUp(opts: {
   if (!existsSync(firstPage)) throw new Error('No crawl found: run pnpm backfill:crawl first');
   const known = new Set((JSON.parse(await readFile(firstPage, 'utf8')) as { messageId: string }[]).map((m) => m.messageId));
   const outDir = path.join(opts.dir, 'topup');
-  await rm(outDir, { recursive: true, force: true });
-  await mkdir(outDir, { recursive: true });
+  const partialDir = path.join(opts.dir, 'topup.partial');
+  await rm(partialDir, { recursive: true, force: true });
+  await mkdir(partialDir, { recursive: true });
 
   let cursor: string | null = null;
   let messages = 0;
@@ -114,10 +115,14 @@ export async function topUp(opts: {
       }
       fresh.push(result.raw[i]);
     }
-    await writeFile(path.join(outDir, `${String(page).padStart(5, '0')}.json`), JSON.stringify(fresh));
+    await writeFile(path.join(partialDir, `${String(page).padStart(5, '0')}.json`), JSON.stringify(fresh));
     messages += fresh.length;
     log(`top-up page ${page + 1}: ${fresh.length} new messages`);
-    if (reachedCrawl) return { pages: page + 1, messages, reachedCrawl };
+    if (reachedCrawl) {
+      await rm(outDir, { recursive: true, force: true });
+      await rename(partialDir, outDir);
+      return { pages: page + 1, messages, reachedCrawl };
+    }
     if (result.cursor === null || result.messages.length === 0) {
       throw new Error(`top-up ended at page ${page + 1} without reaching the crawl's first page; re-run pnpm backfill:crawl --top-up`);
     }

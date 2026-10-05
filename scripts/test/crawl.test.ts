@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -138,6 +139,7 @@ describe('topUp', () => {
     expect(await readdir(path.join(dir, 'topup'))).toEqual(['00000.json', '00001.json']);
     expect((await readJson(path.join(dir, 'topup', '00000.json'))).map((m: { messageId: string }) => m.messageId)).toEqual(['m6', 'm5']);
     expect(await readJson(path.join(dir, 'topup', '00001.json'))).toEqual([]);
+    expect(existsSync(path.join(dir, 'topup.partial'))).toBe(false);
   });
 
   it('waits out a 429 while paging', async () => {
@@ -165,5 +167,19 @@ describe('topUp', () => {
     await expect(topUp({ dir, client: fakeCcip({ messages: unrelated }), limit: 2, sleep: noSleep })).rejects.toThrow(
       'without reaching the crawl',
     );
+    expect(existsSync(path.join(dir, 'topup'))).toBe(false);
+  });
+
+  it('keeps the previous complete top-up when a new one fails partway', async () => {
+    const dir = await tempDir();
+    await crawl({ dir, client: fakeCcip({ messages: msgs }), limit: 2, sleep: noSleep });
+    const newer = [listMessage({ id: 'm5', sendTs: '2026-10-06T10:00:00.000Z' })];
+    await topUp({ dir, client: fakeCcip({ messages: [...newer, ...msgs] }), limit: 2 });
+    const unrelated = [listMessage({ id: 'x1', sendTs: '2026-10-08T10:00:00.000Z' })];
+    await expect(topUp({ dir, client: fakeCcip({ messages: unrelated }), limit: 2, sleep: noSleep })).rejects.toThrow(
+      'without reaching the crawl',
+    );
+    expect(await readdir(path.join(dir, 'topup'))).toEqual(['00000.json']);
+    expect((await readJson(path.join(dir, 'topup', '00000.json'))).map((m: { messageId: string }) => m.messageId)).toEqual(['m5']);
   });
 });
