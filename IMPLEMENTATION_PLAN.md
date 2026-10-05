@@ -5,8 +5,8 @@ Delete this file when every stage is Complete.
 Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 
 ## Stage 1: Data access and history crawl
-**Goal**: Core package, CCIP client, and a resumable history crawl run on Oct 6 (Tasks 1–3).
-**Success Criteria**: `pnpm test` passes; `.backfill/coverage.json` shows `complete: true` and a `coverage_from`. A depth-wall stop was re-run once to confirm it.
+**Goal**: Core package, CCIP client, and a resumable per-source history crawl run on Oct 6 (Tasks 1–3, H1–H2).
+**Success Criteria**: `pnpm test` passes; `pnpm backfill:sources` reaches `complete: true` in `.backfill/sources/summary.json`, with a `coverage_from` and any skipped poison messages recorded. A depth-wall stop was re-run once to confirm it.
 **Tests**: chain-map, http, ccip-client, time, crawl.
 **Status**: In Progress
 

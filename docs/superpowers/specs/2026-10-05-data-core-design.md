@@ -295,15 +295,16 @@ Third parties can submit labels by pull request, or through a "Label my project"
 
 Order of work: run the crawl first (step 1 writes local files only), on **Oct 6**, so real coverage is known early. Deploy the live Worker before uploading (step 4).
 
-1. **Crawl.**
-   - Page `listMessages({limit: 1000})` from newest to oldest, at most 1 request per second.
-   - Write each page to `.backfill/pages/NNNNN.json`, and save the cursor to `.backfill/state.json` so the crawl can resume.
-   - Rewrite `.backfill/coverage.json` (oldest message reached, per-day message counts) after every page.
-   - Stop when `hasNextPage` is false, **or after 3 consecutive 5xx responses or timeouts on the same cursor**. In the second case, record that page's oldest timestamp as `coverage_from`.
-   - A 429 waits 30 seconds and doesn't count toward that stop. A schema error or any other 4xx stops the crawl with an error, and a re-run resumes from the saved cursor.
-   - Just before the build, `--top-up` pages from the newest message back to the crawl's first page, so the backfill reaches `live_start_day` with no gap. The build refuses to run if it doesn't.
+1. **Crawl (updated 2026-10-05).**
+   - The unfiltered list endpoint times out (30 s server limit) for queries older than about December 2025, and a 1,000-message page tripped it at 2026-01-15. Filtered by source chain, the same API serves history back to CCIP's 2023 launch at about 1–3 s per 1,000 messages, so the crawl runs per source chain (`pnpm backfill:sources`).
+   - `pnpm backfill:crawl` (global, optional) pages `listMessages` from newest to oldest, at most 1 request per second. Its pages in `.backfill/pages/` are reused.
+   - Per source chain, pages go to `.backfill/sources/<selector>/` with a resumable cursor, using an adaptive page size. `.backfill/sources/summary.json` records `complete` and, per source, `done`, `stopped_at_depth_wall`, `coverage_from`, `skipped`, `error` or `unsupported`.
+   - Re-run `pnpm backfill:sources` until `complete: true`. Finished sources are skipped and walled ones are retried. A first-page 404 means the API doesn't support that selector, and the source is marked `unsupported`.
+   - Some single "poison" messages make the list endpoint return HTTP 500 for any page that contains them (one known: 2026-01-15T01:28:06Z, which the single-message endpoint also 404s). The crawl finds and skips each one with `after` windows and records it with its search window. Messages near a poison message can be missed only inside a recorded window.
+   - A 429 waits 30 seconds and doesn't count toward a stop. A schema error or any other 4xx stops the crawl with an error, and a re-run resumes.
+   - The build merges all pages into a day spool (`.backfill/days/`) so per-source crawls combine, and writes `.backfill/skipped.json`. The methodology lists the skipped messages. `--top-up` is no longer needed when the per-source crawl ran after `live_start_day`; the build refuses to run if the newest message doesn't reach `live_start_day`.
+   - `coverage_from`: if no source walls, it is CCIP's first message (mid-2023). A walled source moves `coverage_from` to the day after its oldest reached day.
 
-   A probe on 2026-10-05 saw jumps to before about 2025-06-01 return HTTP 500 after about 30 seconds, so this depth wall is expected.
 2. **Prices.** For each distinct token, look up its key with `chain-map`, then fetch the daily price history once. Cache it in `.backfill/prices/`.
 3. **Calculate.** Run `normalize`, `value` (with the daily price for the send day) and `rollup` per day, using the same code as the Worker.
 4. **Upload.**
@@ -314,13 +315,13 @@ Order of work: run the crawl first (step 1 writes local files only), on **Oct 6*
    - Rollups and archive files cover only days before `meta.live_start_day`; the Worker owns `live_start_day` onward. Archive files go into the archive bucket through R2's S3-compatible API.
 5. **Cross-check.** Compare at least 3 days against CCIPMetrics' posts and Chainlink's official metrics, and record the results in `docs/methodology.md`.
 
-Expected effort: the first pages take about 0.8 seconds each, but deeper pages were measured at 5–14 seconds, so the crawl may take hours rather than minutes. It ends at the depth wall or at `hasNextPage = false`. D1 will hold about 1 GB at full history, less if coverage stops early.
+Expected effort (updated 2026-10-05): about 1–3 s per 1,000 messages per source chain, so the per-source crawl takes minutes to hours, plus extra requests for each poison message. D1 will hold about 1 GB at full history, less if coverage stops early.
 
 ## 10. Known limitations
 - **Multi-token history:** list results expose only `sourceTokenAmount`, so historical messages carrying more than one token undercount value. Live data uses detail calls and is exact. This is documented in the methodology.
 - **Historical fees:** not collected. Fee statistics start on the day live ingest starts.
 - **Price method:** live values use the latest price at ingest time, and backfill uses daily prices. The two methods can differ slightly.
-- **Pagination depth:** likely limited. A probe on 2026-10-05 saw jumps to before about mid-2025 fail with HTTP 500, and deep pages were slow. History may start around mid-2025, not at the 2023 launch. The crawl records `coverage_from`, and all-time figures are labeled "since {coverage_from}" (§6.3).
+- **Pagination depth (updated 2026-10-05):** the unfiltered list endpoint can't reach past about December 2025, but the per-source crawl reaches CCIP's 2023 launch. A source that still walls moves `coverage_from` to the day after its oldest reached day, and all-time figures are labeled "since {coverage_from}" (§6.3). Skipped poison messages are listed in the methodology.
 - **Upstream terms:** the CCIP API has no published rate limits or terms for this kind of use. We stay polite (§7.6) and credit the source in every public file.
 
 ## 11. Error handling and observability

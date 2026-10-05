@@ -56,6 +56,15 @@ The repo is public. That keeps Actions minutes unlimited (the `*/15` watchdog is
 - `gh workflow run watchdog`, then `gh run list --workflow watchdog --limit 1` should show a success.
 - Archive privacy: `… wrangler r2 bucket domain list ccip-dev-archive` lists no domains, and `… wrangler r2 bucket dev-url get ccip-dev-archive` reports the r2.dev URL as disabled.
 
+## History crawl
+
+Local files only; run it any time before the build. Details are in spec §9 step 1.
+
+1. `pnpm backfill:crawl` (optional global crawl; its pages are reused).
+2. `pnpm backfill:sources` crawls each source chain into `.backfill/sources/<selector>/`. Re-run until `.backfill/sources/summary.json` shows `complete: true`. Finished sources are skipped and walled ones are retried. A source whose first page returns 404 is marked `unsupported`.
+3. Poison messages (the list endpoint returns HTTP 500 for any page containing them) are skipped and recorded with their search window. The build writes `.backfill/skipped.json`; list them in `docs/methodology.md`.
+4. `coverage_from` is CCIP's first message if no source walls; a walled source moves it to the day after its oldest reached day.
+
 ## Backfill upload
 
 Run this once, after the Worker is deployed. The import makes D1 unavailable while each SQL file runs, so the Worker's jobs fail during the upload. Do it in one sitting, well away from 00:10 and 06:00 UTC (finalize), and expect `job-failed` and watchdog alerts while it runs.
@@ -69,7 +78,7 @@ Run this once, after the Worker is deployed. The import makes D1 unavailable whi
    - `CF_BACKFILL_TOKEN` (optional)
 4. Order:
    1. Wait for the Worker's first hourly run, which snapshots the token registry. The upload refuses to start until it has.
-   2. `pnpm backfill:crawl --top-up`
+   2. `pnpm backfill:sources` until `complete: true` (see "History crawl"). Run it after `live_start_day`, so no `--top-up` is needed.
    3. `pnpm backfill:build --live-start <live_start_day>` (read it with `… wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'live_start_day'"`)
    4. `pnpm backfill:upload`. Answer `y` if wrangler asks to confirm a remote import.
 5. If interrupted, re-run `pnpm backfill:upload`; it resumes from `.backfill/upload-state.json`. After a rebuild, the new build id makes it apply every SQL file and replace every archive again. The upserts only touch backfill rows.
