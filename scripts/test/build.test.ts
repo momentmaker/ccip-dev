@@ -4,7 +4,7 @@ import path from 'node:path';
 import { BREAKDOWN_CONFLICT, buildRows, gunzipText, insertSql, normalizeList, rollupDay, TOTALS_CONFLICT } from '@ccip-dev/core';
 import { fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
-import { build } from '../backfill/build';
+import { build, SqlWriter } from '../backfill/build';
 
 const TOKEN = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const KEY = `base:${TOKEN}`;
@@ -171,5 +171,24 @@ describe('build', () => {
     const inserts = (await allSql(dir)).split('\n').filter((line) => line.startsWith('INSERT INTO daily_breakdown'));
     expect(inserts.length).toBeGreaterThan(0);
     expect(inserts.filter((line) => !line.endsWith(` ${BREAKDOWN_CONFLICT};`))).toEqual([]);
+  });
+
+  it('names a corrupt price cache and tells the owner to delete it', async () => {
+    const dir = await crawlDir();
+    await mkdir(path.join(dir, 'prices'));
+    const cacheFile = path.join(dir, 'prices', 'cache.json');
+    await writeFile(cacheFile, '{"range":"2026-10-04..2026-10-07","hist');
+    await expect(build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW })).rejects.toThrow(
+      `The price cache ${cacheFile} is not valid JSON; delete it and run the build again`,
+    );
+  });
+});
+
+describe('SqlWriter', () => {
+  it('accepts a single day of more statements than a spread call can take', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'sql-writer-'));
+    const writer = new SqlWriter(dir, 20_000);
+    await writer.add(Array.from({ length: 200_000 }, () => 'SELECT 1;'));
+    expect(await writer.finish()).toMatchObject({ files: 10 });
   });
 });

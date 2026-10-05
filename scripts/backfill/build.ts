@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -89,8 +89,8 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
       statements.push(
         insertSql('daily_totals', { ...totals, computed_at: computedAt }, TOTALS_CONFLICT),
         `DELETE FROM daily_breakdown WHERE day = ${sqlLiteral(day)};`,
-        ...breakdown.map((b) => insertSql('daily_breakdown', b, BREAKDOWN_CONFLICT)),
       );
+      for (const b of breakdown) statements.push(insertSql('daily_breakdown', b, BREAKDOWN_CONFLICT));
     }
     await writer.add(statements);
     const archivePath = path.join(opts.dir, 'archive', archiveKey(day));
@@ -163,7 +163,7 @@ async function assertReachesLiveStart(dir: string, files: string[], liveStartDay
   throw new Error('No crawled messages found: run pnpm backfill:crawl first');
 }
 
-class SqlWriter {
+export class SqlWriter {
   private pending: string[] = [];
   private files = 0;
   private readonly hash = createHash('sha256');
@@ -171,7 +171,7 @@ class SqlWriter {
   constructor(private readonly dir: string, private readonly chunkSize: number) {}
 
   async add(statements: string[]): Promise<void> {
-    this.pending.push(...statements);
+    for (const statement of statements) this.pending.push(statement);
     while (this.pending.length >= this.chunkSize) await this.write(this.pending.splice(0, this.chunkSize));
   }
 
@@ -272,7 +272,7 @@ class PriceCache {
 
   static async open(client: PricesClient, file: string, fromDay: string, toDay: string): Promise<PriceCache> {
     const range = `${fromDay}..${toDay}`;
-    const cached = existsSync(file) ? (JSON.parse(await readFile(file, 'utf8')) as PriceCacheFile) : null;
+    const cached = existsSync(file) ? await readPriceCache(file) : null;
     const data = cached?.range === range ? cached : { range, history: {}, decimals: {} };
     return new PriceCache(client, file, fromDay, toDay, data);
   }
@@ -293,7 +293,7 @@ class PriceCache {
     }
     if (changed) {
       await mkdir(path.dirname(this.file), { recursive: true });
-      await writeFile(this.file, JSON.stringify(this.data));
+      await writeFileAtomic(this.file, JSON.stringify(this.data));
     }
     return (key) => {
       const price = this.data.history[key]?.[day];
@@ -301,6 +301,22 @@ class PriceCache {
       return price !== undefined && decimals !== null && decimals !== undefined ? { price, decimals } : undefined;
     };
   }
+}
+
+async function readPriceCache(file: string): Promise<PriceCacheFile> {
+  const text = await readFile(file, 'utf8');
+  try {
+    return JSON.parse(text) as PriceCacheFile;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`The price cache ${file} is not valid JSON; delete it and run the build again (${detail})`, { cause: err });
+  }
+}
+
+async function writeFileAtomic(file: string, contents: string): Promise<void> {
+  const temp = `${file}.tmp`;
+  await writeFile(temp, contents);
+  await rename(temp, file);
 }
 
 async function main(): Promise<void> {
