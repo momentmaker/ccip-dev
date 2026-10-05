@@ -172,3 +172,51 @@ export async function recentArrivals(db: D1Database, limit: number): Promise<{ k
     .all<{ kind: string; key: string; first_seen: string }>();
   return results;
 }
+
+export async function dueForDetail(db: D1Database, nowIso: string, limit: number): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT message_id FROM messages WHERE next_check_at IS NOT NULL AND next_check_at <= ? ORDER BY next_check_at LIMIT ?')
+    .bind(nowIso, limit)
+    .all<{ message_id: string }>();
+  return results.map((r) => r.message_id);
+}
+
+export async function liveMissingDetail(db: D1Database, day: string): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT message_id FROM messages WHERE day = ? AND source = 'live' AND detail_fetched_at IS NULL ORDER BY send_ts")
+    .bind(day)
+    .all<{ message_id: string }>();
+  return results.map((r) => r.message_id);
+}
+
+const FINAL_AGE_MS = 48 * 3_600_000;
+
+export async function pushBack(db: D1Database, messageId: string, untilIso: string, nowIso: string): Promise<void> {
+  const cutoffIso = new Date(new Date(nowIso).getTime() - FINAL_AGE_MS).toISOString();
+  await db
+    .prepare(
+      `UPDATE messages SET
+         status = CASE WHEN send_ts <= ?1 AND status <> 'FAILED' THEN 'UNRESOLVED' ELSE status END,
+         next_check_at = CASE WHEN send_ts <= ?1 THEN NULL ELSE ?2 END
+       WHERE message_id = ?3`,
+    )
+    .bind(cutoffIso, untilIso, messageId)
+    .run();
+}
+
+export async function applyDetail(db: D1Database, row: MessageRow, tokens: TokenRow[]): Promise<void> {
+  await db.batch([
+    db
+      .prepare(
+        `UPDATE messages SET status = ?, receipt_ts = ?, ready_for_manual_exec = ?, token_count = ?, usd_value = ?,
+           unpriced = ?, fee_token = ?, fee_amount = ?, fee_usd = ?, detail_fetched_at = ?, next_check_at = ?
+         WHERE message_id = ?`,
+      )
+      .bind(
+        row.status, row.receipt_ts, row.ready_for_manual_exec, row.token_count, row.usd_value, row.unpriced,
+        row.fee_token, row.fee_amount, row.fee_usd, row.detail_fetched_at, row.next_check_at, row.message_id,
+      ),
+    db.prepare('DELETE FROM message_tokens WHERE message_id = ?').bind(row.message_id),
+    ...tokens.map((t) => insertTokenStatement(db, t)),
+  ]);
+}
