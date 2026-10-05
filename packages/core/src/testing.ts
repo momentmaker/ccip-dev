@@ -1,4 +1,5 @@
 import type { CcipClient, MessagePage, TokenPage } from './ccip/client';
+import { cursorAt, decodeCursor, encodeCursor } from './ccip/cursor';
 import type { ListMessage, NetworkInfo, RegistryToken } from './ccip/schemas';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
@@ -107,6 +108,61 @@ export function fakeCcip(opts: FakeCcipOptions = {}): FakeCcip {
       const offset = cursor ? Number(cursor) : 0;
       const next = offset + limit < all.length ? String(offset + limit) : null;
       return { tokens: all.slice(offset, offset + limit), cursor: next };
+    },
+  };
+}
+
+export interface FakeKeysetApiOptions {
+  /** Any order: the fake sorts them newest first by (sendTimestamp, messageId), as the API does. */
+  messages: ListMessage[];
+  /** Any page that holds one of these message ids fails with HTTP 500, and its detail is a 404. */
+  poison?: string[];
+  chains?: NetworkInfo[];
+}
+
+export type FakeKeysetCall = { limit: number; cursor: string | null; sourceChainSelector?: string };
+export type FakeKeysetApi = CcipClient & { listCalls: FakeKeysetCall[] };
+
+/** Pages like the real API: codec cursors over a (timestamp, message id) keyset, with filters carried in the cursor. */
+export function fakeKeysetApi(opts: FakeKeysetApiOptions): FakeKeysetApi {
+  const position = (m: ListMessage) => ({ ts: Date.parse(m.sendTimestamp), id: BigInt(m.messageId) });
+  const newestFirst = (a: ListMessage, b: ListMessage) => {
+    const [pa, pb] = [position(a), position(b)];
+    return pb.ts - pa.ts || (pb.id > pa.id ? 1 : pb.id < pa.id ? -1 : 0);
+  };
+  const sorted = [...opts.messages].sort(newestFirst);
+  const poison = new Set((opts.poison ?? []).map((id) => id.toLowerCase()));
+  const listCalls: FakeKeysetCall[] = [];
+  return {
+    listCalls,
+    async listMessages({ limit, cursor, sourceChainSelector }): Promise<MessagePage> {
+      listCalls.push({ limit, cursor: cursor ?? null, ...(sourceChainSelector ? { sourceChainSelector } : {}) });
+      const params = cursor ? decodeCursor(cursor) : new URLSearchParams({ environment: 'mainnet' });
+      if (!cursor && sourceChainSelector) params.set('sourceChainSelector', sourceChainSelector);
+      const source = params.get('sourceChainSelector');
+      const oldestTs = params.has('oldestSeenTimestamp') ? Number(params.get('oldestSeenTimestamp')) : Infinity;
+      const oldestId = BigInt(params.get('oldestSeenMessageId') ?? 0);
+      const remaining = sorted.filter((m) => {
+        const { ts, id } = position(m);
+        const pastCursor = ts < oldestTs || (ts === oldestTs && id < oldestId);
+        return pastCursor && (source === null || m.sourceNetworkInfo.chainSelector === source);
+      });
+      const page = remaining.slice(0, limit);
+      if (page.some((m) => poison.has(m.messageId.toLowerCase()))) throw new UpstreamHttpError('GET /messages', 500);
+      const last = page.at(-1);
+      const next = last && remaining.length > limit ? cursorAt(encodeCursor(params), position(last).ts, last.messageId) : null;
+      return { messages: page, raw: page.map((m) => ({ ...m })), cursor: next };
+    },
+    async getMessageRaw(id) {
+      const message = sorted.find((m) => m.messageId.toLowerCase() === id.toLowerCase());
+      if (!message || poison.has(id.toLowerCase())) throw new UpstreamHttpError('GET /messages/{id}', 404);
+      return { ...message };
+    },
+    async listChains() {
+      return opts.chains ?? [];
+    },
+    async listTokens(): Promise<TokenPage> {
+      return { tokens: [], cursor: null };
     },
   };
 }
