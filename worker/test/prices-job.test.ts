@@ -45,4 +45,15 @@ describe('runPrices', () => {
     await runPrices(harness({ now: NOW }).c);
     expect(await readPublic('status.json')).toMatchObject({ lag_seconds: 660 });
   });
+
+  it('alerts when ingest has never succeeded (broken first deploy)', async () => {
+    const first = harness({ now: NOW });
+    await runPrices(first.c);
+    expect(first.alerts).toEqual([]);
+    expect(await store.getMeta(env.DB, 'lag_watch_since')).toBe(NOW);
+
+    const later = harness({ now: '2026-10-08T12:11:00.000Z' });
+    await runPrices(later.c);
+    expect(later.alerts.map((a) => a.signature)).toEqual(['ingest-lag']);
+  });
 });

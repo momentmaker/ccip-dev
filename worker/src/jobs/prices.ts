@@ -15,9 +15,22 @@ export async function runPrices(c: RunContext): Promise<void> {
 
 export async function checkIngestLag(c: RunContext, now: Date): Promise<void> {
   const last = await store.getMeta(c.env.DB, 'last_ingest_ok_at');
-  if (last === null) return;
-  const lagMinutes = (now.getTime() - Date.parse(last)) / 60_000;
+  if (last !== null) {
+    const lagMinutes = (now.getTime() - Date.parse(last)) / 60_000;
+    if (lagMinutes > LAG_LIMIT_MINUTES) {
+      await c.alert('ingest-lag', `Ingest is ${Math.round(lagMinutes)} minutes behind (last success ${last})`);
+    }
+    return;
+  }
+
+  const watchSince = await store.getMeta(c.env.DB, 'lag_watch_since');
+  if (watchSince === null) {
+    await store.setMeta(c.env.DB, 'lag_watch_since', now.toISOString());
+    return;
+  }
+
+  const lagMinutes = (now.getTime() - Date.parse(watchSince)) / 60_000;
   if (lagMinutes > LAG_LIMIT_MINUTES) {
-    await c.alert('ingest-lag', `Ingest is ${Math.round(lagMinutes)} minutes behind (last success ${last})`);
+    await c.alert('ingest-lag', `Ingest has not succeeded since ${watchSince}`);
   }
 }
