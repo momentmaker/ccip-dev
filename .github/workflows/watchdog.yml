@@ -8,6 +8,7 @@ permissions:
 jobs:
   freshness:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Alert if status.json is stale, unreachable or reports ingest lag
         env:
@@ -34,7 +35,7 @@ jobs:
             reason="ingest lag is ${lag}s"
           fi
           if [ -n "${reason}" ]; then
-            curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            curl -fsS --max-time 20 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
               --data-urlencode "chat_id=${TELEGRAM_ALERT_CHAT_ID}" \
               --data-urlencode "text=ccip.dev watchdog: ${reason}"
           fi
