@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fakeCcip, fakePrices, listMessage } from '@ccip-dev/core/testing';
+import { fakeCcip, fakeCoingecko, fakePrices, listMessage } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
 import { build } from '../backfill/build';
 
@@ -16,6 +16,9 @@ const b1 = listMessage({ id: 'b1', sendTs: '2026-10-05T10:00:00.000Z' });
 const c1 = listMessage({ id: 'c1', sendTs: '2026-10-04T23:00:00.000Z' });
 
 const pricesAt = (price: number) => fakePrices({ latest: { [KEY]: { price, decimals: 6 } }, history: { [KEY]: { '2026-10-06': price } } });
+
+/** An empty CCIP token registry and CoinGecko id list, for builds that don't exercise the price fallback. */
+const emptyRegistries = () => ({ registry: fakeCcip(), coingecko: fakeCoingecko() });
 
 async function crawlDir(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), 'backfill-sql-'));
@@ -43,7 +46,7 @@ describe('backfill SQL against a real database', () => {
     db.exec(await readFile(path.resolve(import.meta.dirname, '../../worker/migrations/0001_init.sql'), 'utf8'));
 
     const dir = await crawlDir();
-    await build({ dir, liveStartDay: '2026-10-08', prices: pricesAt(2), registry: fakeCcip(), now: () => NOW });
+    await build({ dir, liveStartDay: '2026-10-08', prices: pricesAt(2), ...emptyRegistries(), now: () => NOW });
     const scratch = new DatabaseSync(':memory:');
     scratch.exec(await readFile(path.resolve(import.meta.dirname, '../../worker/migrations/0001_init.sql'), 'utf8'));
     await applyAll(scratch, dir);
@@ -70,7 +73,7 @@ describe('backfill SQL against a real database', () => {
     const firstTotal = totalOn();
 
     const rebuilt = await crawlDir();
-    await build({ dir: rebuilt, liveStartDay: '2026-10-08', prices: pricesAt(50), registry: fakeCcip(), now: () => NOW });
+    await build({ dir: rebuilt, liveStartDay: '2026-10-08', prices: pricesAt(50), ...emptyRegistries(), now: () => NOW });
     await applyAll(db, rebuilt);
     expect(snapshot(db, 'a2')).toEqual(liveBefore);
     expect(totalOn()).toBeGreaterThan(firstTotal);

@@ -4,11 +4,11 @@ import { appendFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } fro
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  addDays, archiveKey, BREAKDOWN_CONFLICT, buildRows, buildTokenGroupIndex, chainRef, createCcipClient, createPricesClient, dayOf,
-  dayStartIso, fallbackKeys, groupFallback, gzipText, insertSql, issuePath, listAllTokens, ListMessage, normalizeList,
-  normalizeRegistryToken, priceKeys, rollupDay, sanitize, sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT,
-  type CcipClient, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
-  type TokenGroupIndex,
+  addDays, archiveKey, BREAKDOWN_CONFLICT, buildCoingeckoIdIndex, buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS,
+  coingeckoKeys, createCcipClient, createCoingeckoClient, createPricesClient, dayOf, dayStartIso, fallbackKeys, groupFallback, gzipText,
+  insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize,
+  sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT, type CcipClient, type CoingeckoClient, type CoingeckoLists,
+  type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken, type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
 import type { Source, SourceSummary, SourcesSummary } from './sources';
@@ -31,6 +31,8 @@ export const CHAIN_CONFLICT =
 const DAY_BUFFER_LINES = 5_000;
 /** Every buffer goes to disk once they hold more lines than this together, so memory stays bounded however many days there are. */
 const SPOOL_BUFFER_LINES = 100_000;
+/** A series without a point on a day takes the nearest point at most this many days away, the earlier one on a tie. */
+const NEAR_DAY_OFFSETS = [0, -1, 1, -2, 2];
 
 export type RegistryClient = Pick<CcipClient, 'listChains' | 'listTokens'>;
 
@@ -40,6 +42,8 @@ export interface BuildOptions {
   prices: PricesClient;
   /** The CCIP token registry, fetched once per build for the token-group price fallback the Worker also uses. */
   registry: RegistryClient;
+  /** CoinGecko's coin id lists, fetched once per build for the fallback's CoinGecko step the Worker also uses. Ids only. */
+  coingecko: CoingeckoClient;
   chunkSize?: number;
   now?: () => Date;
   log?: (line: string) => void;
@@ -84,8 +88,9 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const computedAt = (opts.now ?? (() => new Date()))().toISOString();
   const lastDay = addDays(opts.liveStartDay, -1);
   const plan = await planCoverage(opts.dir, opts.liveStartDay);
-  // Before the spool, which can take minutes at full history, so an unreachable CCIP API fails the build early.
+  // Before the spool, which can take minutes at full history, so an unreachable CCIP API or CoinGecko fails the build early.
   const registry = await fetchRegistry(opts.registry, path.join(opts.dir, 'registry'));
+  const coingeckoIdOf = buildCoingeckoIdIndex(await fetchCoingeckoLists(opts.coingecko, path.join(opts.dir, 'registry')));
   const daysDir = path.join(opts.dir, 'days');
   const spooled = await spoolDays(opts.dir, daysDir, lastDay);
   log(`spooled ${spooled.days.length} days into ${daysDir}`);
@@ -108,10 +113,13 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     const entries = await readDay(path.join(daysDir, `${day}.jsonl`));
     const rollup = plan.rollupFrom === null || day >= plan.rollupFrom;
     const normalized = entries.map((e) => normalizeList(e.message));
+    const amounts = normalized.flatMap((m) => m.tokens);
     await prices.ensure(normalized.flatMap(priceKeys));
     const lookup = prices.lookupOn(day);
-    await prices.ensure(fallbackKeys(groups, normalized.flatMap((m) => m.tokens), lookup));
-    const { rows, tokens } = buildRows(normalized, lookup, () => ({ source: 'backfill' }), groupFallback(groups, lookup));
+    await prices.ensure(fallbackKeys(groups, amounts, lookup));
+    await prices.ensure(coingeckoKeys(groups, amounts, lookup, coingeckoIdOf));
+    const fallback = groupFallback(groups, lookup, { coingeckoIdOf, decimalsOf: (key) => prices.decimalsOf(key) });
+    const { rows, tokens } = buildRows(normalized, lookup, () => ({ source: 'backfill' }), fallback);
     normalized.forEach((m) => firstSeen.add(m));
     entries.forEach((e) => chains.add(e.message));
     const statements = [
@@ -279,6 +287,15 @@ async function fetchRegistry(client: RegistryClient, registryDir: string): Promi
   await writeFileAtomic(path.join(registryDir, 'chains.json'), `${JSON.stringify(chains, null, 2)}\n`);
   await writeFileAtomic(path.join(registryDir, 'tokens.json'), `${JSON.stringify(tokens, null, 2)}\n`);
   return { chains, tokens };
+}
+
+/** Fetches CoinGecko's platform and coin lists, coin ids only, and keeps a copy in `registryDir`. */
+async function fetchCoingeckoLists(client: CoingeckoClient, registryDir: string): Promise<CoingeckoLists> {
+  const lists = await client.lists();
+  await mkdir(registryDir, { recursive: true });
+  await writeFileAtomic(path.join(registryDir, 'coingecko-platforms.json'), `${JSON.stringify(lists.platforms, null, 2)}\n`);
+  await writeFileAtomic(path.join(registryDir, 'coingecko-coins.json'), `${JSON.stringify(lists.coins, null, 2)}\n`);
+  return lists;
 }
 
 /**
@@ -515,11 +532,11 @@ class PriceCache {
     return new PriceCache(client, file, fromDay, toDay, data);
   }
 
-  /** Fetches and caches the decimals and daily history of every key not cached yet. */
+  /** Fetches and caches the daily history of every key not cached yet, and the decimals of every llama key among them. */
   async ensure(keys: string[]): Promise<void> {
     const unique = [...new Set(keys)];
     let changed = false;
-    const needDecimals = unique.filter((k) => !(k in this.data.decimals));
+    const needDecimals = unique.filter((k) => !isCoingeckoKey(k) && !(k in this.data.decimals));
     if (needDecimals.length > 0) {
       const latest = await this.client.latest(needDecimals);
       for (const k of needDecimals) this.data.decimals[k] = latest.get(k)?.decimals ?? null;
@@ -536,14 +553,33 @@ class PriceCache {
     }
   }
 
-  /** Prices on `day` from the cache, including keys ensured after this call. */
+  /**
+   * Prices on `day` from the cache, including keys ensured after this call. A llama key counts only with decimals; a
+   * `coingecko:` key has none and needs only its price.
+   */
   lookupOn(day: string): PriceLookup {
     return (key) => {
-      const price = this.data.history[key]?.[day];
-      const decimals = this.data.decimals[key];
-      return price !== undefined && decimals !== null && decimals !== undefined ? { price, decimals } : undefined;
+      const price = nearDayPrice(this.data.history[key], day);
+      if (price === undefined) return undefined;
+      if (isCoingeckoKey(key)) return { price, decimals: COIN_PRICE_DECIMALS };
+      const decimals = this.decimalsOf(key);
+      return decimals === undefined ? undefined : { price, decimals };
     };
   }
+
+  /** DefiLlama's current decimals for a llama key, known even on a day its history has no price. */
+  decimalsOf(key: string): number | undefined {
+    return this.data.decimals[key] ?? undefined;
+  }
+}
+
+function nearDayPrice(series: Record<string, number> | undefined, day: string): number | undefined {
+  if (series === undefined) return undefined;
+  for (const offset of NEAR_DAY_OFFSETS) {
+    const price = series[addDays(day, offset)];
+    if (price !== undefined) return price;
+  }
+  return undefined;
 }
 
 async function readPriceCache(file: string): Promise<PriceCacheFile> {
@@ -578,6 +614,7 @@ async function main(): Promise<void> {
     liveStartDay,
     prices: createPricesClient(deps),
     registry: createCcipClient(deps),
+    coingecko: createCoingeckoClient(deps),
     log: (line) => console.log(line),
   });
   console.log(JSON.stringify(result, null, 2));
