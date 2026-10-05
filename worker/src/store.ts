@@ -241,7 +241,7 @@ export async function upsertChains(db: D1Database, chains: NetworkInfo[], nowIso
   );
   await runBatch(
     db,
-    chains.map((ch) => insert.bind(ch.chainSelector, sanitize(ch.name), sanitize(ch.displayName), ch.chainFamily, ch.chainId, nowIso, nowIso)),
+    chains.map((ch) => insert.bind(ch.chainSelector, sanitize(ch.name), sanitize(ch.displayName ?? ch.name), ch.chainFamily, ch.chainId, nowIso, nowIso)),
   );
 }
 

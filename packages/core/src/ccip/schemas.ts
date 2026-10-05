@@ -4,7 +4,7 @@ const unsignedInteger = z.string().regex(/^\d+$/, 'expected an unsigned integer 
 
 export const NetworkInfo = z.object({
   name: z.string(),
-  displayName: z.string(),
+  displayName: z.string().nullish(),
   chainSelector: z.string(),
   chainId: z.string(),
   chainFamily: z.string(),

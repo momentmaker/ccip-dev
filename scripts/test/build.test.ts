@@ -56,6 +56,14 @@ describe('build', () => {
     expect((await readFile(path.join(dir, 'sql', 'BUILD'), 'utf8')).trim()).toBe(result.buildId);
   });
 
+  it('seeds a chain whose displayName is null with its name as display_name', async () => {
+    const toSui = listMessage({ id: 'sui1', sendTs: '2026-10-06T02:00:00.000Z', dst: NETWORKS.sui });
+    const dir = await crawlDir([[today1, toSui, a2, a1], [b1, c1]]);
+    await build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW });
+    const sql = await allSql(dir);
+    expect(sql).toMatch(/INSERT INTO chains \([^)]*\) VALUES \('17529533435026248318', 'sui-mainnet', 'sui-mainnet', 'SUI'/);
+  });
+
   it('writes the same daily totals the live path computes for the same messages (parity)', async () => {
     const dir = await crawlDir();
     await build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW });

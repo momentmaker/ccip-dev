@@ -22,6 +22,14 @@ describe('createCcipClient', () => {
     expect(page.cursor).toBe('CURSOR_PAGE_2');
   });
 
+  it('accepts a null destination displayName and returns the message with it null', async () => {
+    const suiDest = { ...listPage.data[0]!.destNetworkInfo, name: 'sui-mainnet', displayName: null };
+    const body = { ...listPage, data: [{ ...listPage.data[0], destNetworkInfo: suiDest }, ...listPage.data.slice(1)] };
+    const client = createCcipClient(instantDeps(fakeFetch(() => jsonResponse(body))), { minIntervalMs: 0 });
+    const page = await client.listMessages({ limit: 4 });
+    expect(page.messages[0]!.destNetworkInfo.displayName).toBeNull();
+  });
+
   it('reports no next page when hasNextPage is true but the cursor is missing', async () => {
     const body = { ...listPage, pagination: { hasNextPage: true } };
     const client = createCcipClient(instantDeps(fakeFetch(() => jsonResponse(body))), { minIntervalMs: 0 });

@@ -29,7 +29,7 @@ export function instantDeps(fetchFn: typeof fetch): HttpDeps {
   return { fetch: fetchFn, sleep: async () => {}, clock: () => 0 };
 }
 
-const net = (name: string, displayName: string, chainSelector: string, chainId: string, chainFamily = 'EVM'): NetworkInfo => ({
+const net = (name: string, displayName: string | null, chainSelector: string, chainId: string, chainFamily = 'EVM'): NetworkInfo => ({
   name, displayName, chainSelector, chainId, chainFamily, environment: 'mainnet',
 });
 
@@ -37,6 +37,7 @@ export const NETWORKS = {
   ethereum: net('ethereum-mainnet', 'Ethereum Mainnet', '5009297550715157269', '1'),
   base: net('ethereum-mainnet-base-1', 'Base Mainnet', '15971525489660198786', '8453'),
   bsc: net('binance_smart_chain-mainnet', 'BNB Chain Mainnet', '11344663589394136015', '56'),
+  sui: net('sui-mainnet', null, '17529533435026248318', '1', 'SUI'),
   solana: net('solana-mainnet', 'Solana', '124615329519749607', '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', 'SVM'),
 } as const;
 

@@ -230,7 +230,7 @@ class ChainHistory {
         {
           selector: info.chainSelector,
           name: sanitize(info.name),
-          display_name: sanitize(info.displayName),
+          display_name: sanitize(info.displayName ?? info.name),
           family: info.chainFamily,
           chain_id: info.chainId,
           first_seen: firstSeen,

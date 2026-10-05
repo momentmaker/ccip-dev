@@ -15,6 +15,14 @@ const rpcOk = (link: bigint) => fakeFetch(() => jsonResponse({ jsonrpc: '2.0', i
 const rpcDown = () => fakeFetch(() => jsonResponse({}, 503));
 const arrivals = () => env.DB.prepare('SELECT kind, key, announced_at FROM arrivals ORDER BY kind, key').all<{ kind: string; key: string; announced_at: string | null }>();
 
+describe('upsertChains', () => {
+  it('stores the chain name as display_name when the upstream displayName is null', async () => {
+    await store.upsertChains(env.DB, [NETWORKS.sui], NOW);
+    const row = await env.DB.prepare('SELECT display_name FROM chains WHERE selector = ?').bind(NETWORKS.sui.chainSelector).first<{ display_name: string }>();
+    expect(row?.display_name).toBe('sui-mainnet');
+  });
+});
+
 describe('runHourly', () => {
   it('seeds a baseline on the first run so existing chains, tokens and lanes are never announced', async () => {
     await store.upsertListRows(env.DB, [liveRow({ id: 'm', sendTs: '2026-10-08T12:00:00.000Z' })], []);
