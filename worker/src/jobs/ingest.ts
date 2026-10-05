@@ -1,10 +1,10 @@
 import {
-  addDays, buildRows, dayOf, dayStartIso, fallbackKeys, firstCheckAt, groupFallback, normalizeList, priceKeys, type ListMessage,
-  type TokenGroupIndex,
+  addDays, buildRows, dayOf, dayStartIso, firstCheckAt, normalizeList, priceKeys, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishLiveFiles } from '../publish';
 import * as store from '../store';
+import { siblingFallback, tokenGroupsLoader, type TokenGroupsLoader } from '../token-groups';
 
 export interface IngestOptions {
   maxPages?: number;
@@ -49,7 +49,7 @@ export async function runIngest(c: RunContext, options: IngestOptions = {}): Pro
     }
   }
 
-  await storeListMessages(c, collected, await store.tokenGroups(db));
+  await storeListMessages(c, collected, tokenGroupsLoader(c));
   await store.setMeta(db, 'last_ingest_ok_at', now.toISOString());
   await publishLiveFiles(c);
 }
@@ -84,18 +84,16 @@ async function walk(
   return { messages, pagesUsed: maxPages, exhausted: true, nextCursor: cursor };
 }
 
-export async function storeListMessages(c: RunContext, messages: ListMessage[], groups: TokenGroupIndex): Promise<void> {
+export async function storeListMessages(c: RunContext, messages: ListMessage[], groups: TokenGroupsLoader): Promise<void> {
   const db = c.env.DB;
   const unique = [...new Map(messages.map((m) => [m.messageId, m])).values()].map(normalizeList);
   const prices = await store.getPrices(db, [...new Set(unique.flatMap(priceKeys))]);
-  const lookup = (key: string) => prices.get(key);
-  const siblings = fallbackKeys(groups, unique.flatMap((m) => m.tokens), lookup).filter((key) => !prices.has(key));
-  for (const [key, info] of await store.getPrices(db, siblings)) prices.set(key, info);
+  const fallback = await siblingFallback(groups, unique.flatMap((m) => m.tokens), prices, (keys) => store.getPrices(db, keys));
   const { rows, tokens } = buildRows(
     unique,
-    lookup,
+    (key) => prices.get(key),
     (m) => ({ source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }),
-    groupFallback(groups, lookup),
+    fallback,
   );
   await store.upsertListRows(db, rows, tokens);
 }

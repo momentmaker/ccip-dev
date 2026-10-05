@@ -7,7 +7,8 @@ import {
   addDays, archiveKey, BREAKDOWN_CONFLICT, buildRows, buildTokenGroupIndex, chainRef, createCcipClient, createPricesClient, dayOf,
   dayStartIso, fallbackKeys, groupFallback, gzipText, insertSql, issuePath, listAllTokens, ListMessage, normalizeList,
   normalizeRegistryToken, priceKeys, rollupDay, sanitize, sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT,
-  type CcipClient, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type TokenGroupIndex,
+  type CcipClient, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
+  type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
 import type { Source, SourceSummary, SourcesSummary } from './sources';
@@ -68,6 +69,11 @@ interface CoveragePlan {
   unsupported: Source[];
 }
 
+interface Registry {
+  chains: NetworkInfo[];
+  tokens: RegistryToken[];
+}
+
 interface DayEntry {
   raw: unknown;
   message: ListMessage;
@@ -78,6 +84,8 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const computedAt = (opts.now ?? (() => new Date()))().toISOString();
   const lastDay = addDays(opts.liveStartDay, -1);
   const plan = await planCoverage(opts.dir, opts.liveStartDay);
+  // Before the spool, which can take minutes at full history, so an unreachable CCIP API fails the build early.
+  const registry = await fetchRegistry(opts.registry, path.join(opts.dir, 'registry'));
   const daysDir = path.join(opts.dir, 'days');
   const spooled = await spoolDays(opts.dir, daysDir, lastDay);
   log(`spooled ${spooled.days.length} days into ${daysDir}`);
@@ -86,7 +94,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const earliestDay = spooled.days[0];
   const coverageFrom = plan.rollupFrom ?? earliestDay;
   assertCompleteDayLeft(coverageFrom, opts.liveStartDay);
-  const groups = await fetchTokenGroups(opts.registry, path.join(opts.dir, 'registry'), spooled.networks);
+  const groups = tokenGroupsOf(registry, spooled.networks);
 
   await rm(path.join(opts.dir, 'sql'), { recursive: true, force: true });
   await rm(path.join(opts.dir, 'archive'), { recursive: true, force: true });
@@ -263,16 +271,21 @@ async function spoolDays(
   return { days: await spool.finish(), newest, sources, networks };
 }
 
-/**
- * Fetches the whole CCIP token registry, keeps a copy in `registryDir`, and indexes its token groups. A token's chain comes
- * from /chains, or from the crawled messages for a chain /chains no longer lists.
- */
-async function fetchTokenGroups(client: RegistryClient, registryDir: string, crawled: Map<string, NetworkInfo>): Promise<TokenGroupIndex> {
+/** Fetches the whole CCIP token registry and keeps a copy in `registryDir`. */
+async function fetchRegistry(client: RegistryClient, registryDir: string): Promise<Registry> {
   const chains = await client.listChains();
   const tokens = await listAllTokens(client);
   await mkdir(registryDir, { recursive: true });
   await writeFileAtomic(path.join(registryDir, 'chains.json'), `${JSON.stringify(chains, null, 2)}\n`);
   await writeFileAtomic(path.join(registryDir, 'tokens.json'), `${JSON.stringify(tokens, null, 2)}\n`);
+  return { chains, tokens };
+}
+
+/**
+ * Indexes the registry's token groups. A token's chain comes from /chains, or from the crawled messages for a chain
+ * /chains no longer lists.
+ */
+function tokenGroupsOf({ chains, tokens }: Registry, crawled: Map<string, NetworkInfo>): TokenGroupIndex {
   const networks = new Map(crawled);
   for (const chain of chains) networks.set(chain.chainSelector, chain);
   return buildTokenGroupIndex(

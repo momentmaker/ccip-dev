@@ -4,6 +4,7 @@ import {
 import type { RunContext } from '../context';
 import { publishHistoryFiles } from '../publish';
 import * as store from '../store';
+import { tokenGroupsLoader } from '../token-groups';
 import { runDetails } from './details';
 import { storeListMessages } from './ingest';
 
@@ -34,7 +35,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   if (days.length === 0) return;
 
   const buckets = await collectDays(c, days[0]!, yesterday);
-  const groups = await store.tokenGroups(db);
+  const groups = tokenGroupsLoader(c);
   const deadline = now.getTime() + DETAIL_BUDGET_MS;
   for (const day of days) {
     const bucket = buckets.get(day) ?? { messages: [], raw: [] };

@@ -8,6 +8,7 @@ import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
 import * as store from '../src/store';
+import { tokenGroupsLoader } from '../src/token-groups';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
@@ -130,7 +131,7 @@ describe('runFinalize', () => {
     await seedRegistry([NETWORKS.base, NETWORKS.ethereum], registry);
     const ccip = fakeCcip({ messages: [siblingPriced, unpriced, priced, other, { ...priced }] });
     const { c } = harness({ now: NOW, ccip });
-    await storeListMessages(c, [unpriced, priced, other, { ...priced }], await store.tokenGroups(env.DB));
+    await storeListMessages(c, [unpriced, priced, other, { ...priced }], tokenGroupsLoader(c));
     await runFinalize(c, 'early');
 
     const chains = new Map([NETWORKS.base, NETWORKS.ethereum].map((n) => [n.chainSelector, chainRef(n)]));

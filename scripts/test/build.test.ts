@@ -330,6 +330,17 @@ describe('build with the token-group price fallback', () => {
     expect(tokenRows(await allSql(dir), 'b2')).toEqual([expect.stringContaining("'5000000', 20) ON CONFLICT")]);
   });
 
+  it('fails before spooling when the registry cannot be fetched, leaving the previous build intact', async () => {
+    const dir = await crawlDir();
+    const first = await build({ dir, liveStartDay: '2026-10-08', prices: prices(), registry: fakeCcip(), now: () => NOW });
+    const down = { ...fakeCcip(), listTokens: async () => { throw new Error('GET /tokens failed with HTTP 503'); } };
+    await expect(build({ dir, liveStartDay: '2026-10-08', prices: prices(), registry: down, now: () => NOW })).rejects.toThrow(
+      'GET /tokens failed with HTTP 503',
+    );
+    expect((await readFile(path.join(dir, 'sql', 'BUILD'), 'utf8')).trim()).toBe(first.buildId);
+    expect(existsSync(path.join(dir, 'days'))).toBe(false);
+  });
+
   it('keeps the fetched registry in registry/tokens.json and registry/chains.json', async () => {
     const dir = await crawlDir();
     await build({ dir, liveStartDay: '2026-10-08', prices: siblingPrices(), registry: groupRegistry(), now: () => NOW });

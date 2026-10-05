@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runIngest } from '../src/jobs/ingest';
 import * as store from '../src/store';
-import { harness, readPublic, resetStorage, seedRegistry } from './helpers';
+import { harness, readPublic, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -110,6 +110,28 @@ describe('runIngest', () => {
       unpriced: 0,
     });
     expect(await env.DB.prepare('SELECT usd_value FROM message_tokens WHERE message_id = ?').bind('s').first()).toEqual({ usd_value: 10 });
+  });
+
+  it('stores, publishes and alerts without the fallback when the token groups cannot be read', async () => {
+    const m = listMessage({ id: 'u', sendTs: at(1), token: { address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', amount: '1' } });
+    const { db } = watchedDb(TOKEN_GROUPS_SQL, { fail: true });
+    const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ messages: [m] }), db });
+    await runIngest(c);
+    expect(await env.DB.prepare('SELECT unpriced FROM messages WHERE message_id = ?').bind('u').first()).toEqual({ unpriced: 1 });
+    expect(await store.getMeta(env.DB, 'last_ingest_ok_at')).toBe(NOW);
+    expect((await readPublic('live.json')).messages.map((x: { id: string }) => x.id)).toEqual(['u']);
+    expect(alerts.map((a) => a.signature)).toEqual(['token-groups']);
+  });
+
+  it('reads the token groups only when a token lacks its own price', async () => {
+    await store.upsertPrices(env.DB, new Map([['base:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', { price: 2, decimals: 6 }]]), NOW);
+    const priced = listMessage({ id: 'p', sendTs: at(2), token: { address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', amount: '1' } });
+    const unpriced = listMessage({ id: 'u', sendTs: at(1), token: { address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', amount: '1' } });
+    const first = watchedDb(TOKEN_GROUPS_SQL);
+    await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [priced] }), db: first.db }).c);
+    const second = watchedDb(TOKEN_GROUPS_SQL);
+    await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: [unpriced, priced] }), db: second.db }).c);
+    expect([first.prepared(), second.prepared()]).toEqual([0, 1]);
   });
 
   it('leaves the same state when run twice against an unchanged message list', async () => {

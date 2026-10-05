@@ -33,6 +33,7 @@ export function harness(opts: {
   prices?: FakePrices | RunContext['prices'];
   labels?: LabelIndex;
   fetch?: typeof fetch;
+  db?: D1Database;
 }): Harness {
   let now = new Date(opts.now);
   const alerts: { signature: string; text: string }[] = [];
@@ -45,7 +46,7 @@ export function harness(opts: {
     clock: () => 0,
     now: () => now,
   };
-  const c = createRunContext(env, deps, {
+  const c = createRunContext(opts.db ? { ...env, DB: opts.db } : env, deps, {
     ccip: opts.ccip ?? fakeCcip(),
     prices: opts.prices ?? fakePrices(),
     alert,
@@ -59,6 +60,30 @@ export async function readPublic(name: string): Promise<Record<string, any>> {
   if (!object) throw new Error(`v1/${name} was not published`);
   return object.json();
 }
+
+/** env.DB, counting the statements whose SQL matches `pattern`; with `fail`, preparing one throws as an unavailable D1 would. */
+export function watchedDb(pattern: RegExp, options: { fail?: boolean } = {}): { db: D1Database; prepared: () => number } {
+  let prepared = 0;
+  const db = new Proxy(env.DB, {
+    get(target, prop) {
+      if (prop === 'prepare') {
+        return (sql: string) => {
+          if (pattern.test(sql)) {
+            prepared += 1;
+            if (options.fail) throw new Error('D1_ERROR: no such table: tokens');
+          }
+          return target.prepare(sql);
+        };
+      }
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  return { db, prepared: () => prepared };
+}
+
+/** Matches only the token-group query, store.tokenGroups. */
+export const TOKEN_GROUPS_SQL = /FROM tokens t LEFT JOIN chains c/;
 
 /** Stores registry chains and tokens as the hourly snapshot does. */
 export async function seedRegistry(chains: NetworkInfo[], tokens: RegistryToken[]): Promise<void> {

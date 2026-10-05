@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTokenGroupIndex, fallbackKeys, groupFallback, siblingKeys, tokenGroupEntry } from '../src/token-groups';
+import { buildTokenGroupIndex, fallbackKeys, groupFallback, lacksOwnPrice, siblingKeys, tokenGroupEntry } from '../src/token-groups';
 import type { ChainRef, PriceInfo, PriceLookup } from '../src/types';
 import { valueTokens } from '../src/value';
 
@@ -7,11 +7,17 @@ const ethereum: ChainRef = { selector: '5009297550715157269', name: 'ethereum-ma
 const bsc: ChainRef = { selector: '11344663589394136015', name: 'binance_smart_chain-mainnet', chainId: '56', family: 'EVM' };
 const arbitrum: ChainRef = { selector: '4949039107694359620', name: 'ethereum-mainnet-arbitrum-1', chainId: '42161', family: 'EVM' };
 const aptos: ChainRef = { selector: '4741433654826277614', name: 'aptos-mainnet', chainId: '1', family: 'APTOS' };
+const base: ChainRef = { selector: '15971525489660198786', name: 'ethereum-mainnet-base-1', chainId: '8453', family: 'EVM' };
+const zeroG: ChainRef = { selector: '4426351306075016396', name: '0g-mainnet', chainId: '16661', family: 'EVM' };
+const abstract: ChainRef = { selector: '3577778157919314504', name: 'abstract-mainnet', chainId: '2741', family: 'EVM' };
 
 const USDC_ETH = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 const USDC_BSC = '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d';
 const USDC_ARB = '0xaf88d065e77c8cc2239327c5edb3a432268e5831';
 const USDC_APTOS = '0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b';
+const USDC_BASE = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+const USDC_0G = '0x0000000000000000000000000000000000000a0a';
+const USDC_ABSTRACT = '0x0000000000000000000000000000000000000abc';
 const LONE = '0x1111111111111111111111111111111111111111';
 
 const entry = (chain: ChainRef, address: string, decimals: number, groupId: string | null = 'usdc') =>
@@ -21,6 +27,9 @@ const usdcEth = entry(ethereum, USDC_ETH, 6);
 const usdcBsc = entry(bsc, USDC_BSC, 18);
 const usdcArb = entry(arbitrum, USDC_ARB, 6);
 const usdcAptos = entry(aptos, USDC_APTOS, 6);
+const usdcBase = entry(base, USDC_BASE, 6);
+const usdc0g = entry(zeroG, USDC_0G, 6);
+const usdcAbstract = entry(abstract, USDC_ABSTRACT, 6);
 
 const lookupOf = (prices: Record<string, PriceInfo>): PriceLookup => (key) => prices[key];
 const fiveUsdc = (chain: ChainRef, token: string) => [{ chain, token, amount: '5000000' }];
@@ -66,15 +75,26 @@ describe('groupFallback', () => {
     expect(fallback(aptos.selector, USDC_APTOS)).toBeUndefined();
   });
 
-  it('picks the priced sibling first by llama key, whatever the registry order', () => {
-    const lookup = lookupOf({
-      [`bsc:${USDC_BSC}`]: { price: 0.98, decimals: 18 },
-      [`arbitrum:${USDC_ARB}`]: { price: 1.01, decimals: 6 },
-    });
-    const forward = groupFallback(buildTokenGroupIndex([usdcAptos, usdcBsc, usdcArb]), lookup);
-    const backward = groupFallback(buildTokenGroupIndex([usdcArb, usdcBsc, usdcAptos]), lookup);
-    expect(forward(aptos.selector, USDC_APTOS)).toEqual({ price: 1.01, decimals: 6 });
-    expect(backward(aptos.selector, USDC_APTOS)).toEqual({ price: 1.01, decimals: 6 });
+  it('prefers the Ethereum copy\'s price over a small chain\'s, whatever the registry order', () => {
+    const lookup = lookupOf({ [`0g:${USDC_0G}`]: { price: 50, decimals: 6 }, [`ethereum:${USDC_ETH}`]: { price: 1, decimals: 6 } });
+    for (const entries of [[usdcAptos, usdc0g, usdcEth], [usdcEth, usdc0g, usdcAptos]]) {
+      const v = valueTokens(fiveUsdc(aptos, USDC_APTOS), lookup, groupFallback(buildTokenGroupIndex(entries), lookup));
+      expect(v.usdValue).toBe(5);
+    }
+  });
+
+  it('prefers Base over a small chain when the Ethereum copy has no price', () => {
+    const lookup = lookupOf({ [`0g:${USDC_0G}`]: { price: 50, decimals: 6 }, [`base:${USDC_BASE}`]: { price: 1, decimals: 6 } });
+    const fallback = groupFallback(buildTokenGroupIndex([usdcAptos, usdc0g, usdcEth, usdcBase]), lookup);
+    expect(fallback(aptos.selector, USDC_APTOS)).toEqual({ price: 1, decimals: 6 });
+  });
+
+  it('picks by llama key among siblings on chains outside the preferred list, whatever the registry order', () => {
+    const lookup = lookupOf({ [`abstract:${USDC_ABSTRACT}`]: { price: 1.01, decimals: 6 }, [`0g:${USDC_0G}`]: { price: 0.99, decimals: 6 } });
+    const forward = groupFallback(buildTokenGroupIndex([usdcAptos, usdcAbstract, usdc0g]), lookup);
+    const backward = groupFallback(buildTokenGroupIndex([usdc0g, usdcAbstract, usdcAptos]), lookup);
+    expect(forward(aptos.selector, USDC_APTOS)).toEqual({ price: 0.99, decimals: 6 });
+    expect(backward(aptos.selector, USDC_APTOS)).toEqual({ price: 0.99, decimals: 6 });
   });
 
   it('skips siblings without a price and takes the next one in order', () => {
@@ -85,10 +105,14 @@ describe('groupFallback', () => {
 });
 
 describe('siblingKeys', () => {
-  it('lists the other group members that have a llama key, sorted by key', () => {
-    const index = buildTokenGroupIndex([usdcBsc, usdcAptos, usdcEth, usdcArb]);
-    expect(siblingKeys(index, ethereum.selector, USDC_ETH)).toEqual([`arbitrum:${USDC_ARB}`, `bsc:${USDC_BSC}`]);
-    expect(siblingKeys(index, aptos.selector, USDC_APTOS)).toEqual([`arbitrum:${USDC_ARB}`, `bsc:${USDC_BSC}`, `ethereum:${USDC_ETH}`]);
+  it('lists the other group members that have a llama key, preferred chains first, then by key', () => {
+    const index = buildTokenGroupIndex([usdcAbstract, usdcBsc, usdcAptos, usdc0g, usdcEth, usdcArb]);
+    expect(siblingKeys(index, ethereum.selector, USDC_ETH)).toEqual([
+      `arbitrum:${USDC_ARB}`, `bsc:${USDC_BSC}`, `0g:${USDC_0G}`, `abstract:${USDC_ABSTRACT}`,
+    ]);
+    expect(siblingKeys(index, aptos.selector, USDC_APTOS)).toEqual([
+      `ethereum:${USDC_ETH}`, `arbitrum:${USDC_ARB}`, `bsc:${USDC_BSC}`, `0g:${USDC_0G}`, `abstract:${USDC_ABSTRACT}`,
+    ]);
   });
 
   it('is empty for a token outside the registry or without a group', () => {
@@ -103,12 +127,24 @@ describe('fallbackKeys', () => {
     const index = buildTokenGroupIndex([usdcEth, usdcBsc, usdcArb, usdcAptos]);
     const lookup = lookupOf({ [`arbitrum:${USDC_ARB}`]: { price: 1, decimals: 6 } });
     const tokens = [...fiveUsdc(arbitrum, USDC_ARB), ...fiveUsdc(aptos, USDC_APTOS), ...fiveUsdc(ethereum, USDC_ETH)];
-    expect(fallbackKeys(index, tokens, lookup)).toEqual([`arbitrum:${USDC_ARB}`, `bsc:${USDC_BSC}`, `ethereum:${USDC_ETH}`]);
+    expect(fallbackKeys(index, tokens, lookup)).toEqual([`ethereum:${USDC_ETH}`, `arbitrum:${USDC_ARB}`, `bsc:${USDC_BSC}`]);
   });
 
   it('is empty when every token has its own price', () => {
     const index = buildTokenGroupIndex([usdcEth, usdcBsc]);
     const lookup = lookupOf({ [`ethereum:${USDC_ETH}`]: { price: 1, decimals: 6 } });
     expect(fallbackKeys(index, fiveUsdc(ethereum, USDC_ETH), lookup)).toEqual([]);
+  });
+});
+
+describe('lacksOwnPrice', () => {
+  const lookup = lookupOf({ [`ethereum:${USDC_ETH}`]: { price: 1, decimals: 6 } });
+
+  it('is false for a token whose own key has a price', () => {
+    expect(lacksOwnPrice(fiveUsdc(ethereum, USDC_ETH)[0]!, lookup)).toBe(false);
+  });
+
+  it('is true for a token whose own key has no price, or that has no key', () => {
+    expect([lacksOwnPrice(fiveUsdc(bsc, USDC_BSC)[0]!, lookup), lacksOwnPrice(fiveUsdc(aptos, USDC_APTOS)[0]!, lookup)]).toEqual([true, true]);
   });
 });

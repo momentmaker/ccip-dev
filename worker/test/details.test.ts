@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runDetails } from '../src/jobs/details';
 import * as store from '../src/store';
-import { harness, liveRow, resetStorage, seedRegistry } from './helpers';
+import { harness, liveRow, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -69,6 +69,35 @@ describe('runDetails', () => {
     expect(prices.latestCalls).toEqual([[TOKEN_KEY, FEE_KEY]]);
     expect(await seenAt(SIBLING_KEY)).toEqual({ seen_at: NOW });
     expect((await row(detailToken.messageId))!.usd_value).toBeCloseTo(48001.16045305375, 6);
+  });
+
+  it('reads the token groups only when a fill needs the fallback, once per run', async () => {
+    await seedTokenGroup();
+    const pricedDetail = { ...detailToken, messageId: 'priced' };
+    const prices = fakePrices({ latest: { [TOKEN_KEY]: { price: 1, decimals: 18 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    await store.upsertListRows(env.DB, [due('priced')], []);
+    const allPriced = watchedDb(TOKEN_GROUPS_SQL);
+    await runDetails(harness({ now: NOW, ccip: fakeCcip({ details: { priced: pricedDetail } }), prices, db: allPriced.db }).c, { limit: 10 });
+
+    await resetStorage();
+    await seedTokenGroup();
+    await store.upsertListRows(env.DB, [due('a'), due('b', { next_check_at: '2026-10-05T11:17:00.000Z' })], []);
+    const details = { a: { ...detailToken, messageId: 'a' }, b: { ...detailToken, messageId: 'b' } };
+    const needsFallback = watchedDb(TOKEN_GROUPS_SQL);
+    const siblingOnly = fakePrices({ latest: { [SIBLING_KEY]: { price: 2, decimals: 6 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    await runDetails(harness({ now: NOW, ccip: fakeCcip({ details }), prices: siblingOnly, db: needsFallback.db }).c, { limit: 10 });
+
+    expect([allPriced.prepared(), needsFallback.prepared()]).toEqual([0, 1]);
+    expect((await row('b'))!.usd_value).toBeCloseTo(48001.16045305375, 6);
+  });
+
+  it('applies the detail unpriced and alerts when the token groups cannot be read', async () => {
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    const { db } = watchedDb(TOKEN_GROUPS_SQL, { fail: true });
+    const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), db });
+    await runDetails(c, { limit: 10 });
+    expect(await row(detailToken.messageId)).toMatchObject({ detail_fetched_at: NOW, unpriced: 1 });
+    expect(alerts.map((a) => a.signature)).toEqual(['token-groups']);
   });
 
   it('archives an invalid detail, pushes it back an hour, alerts once and keeps going', async () => {

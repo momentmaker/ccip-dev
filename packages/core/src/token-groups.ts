@@ -17,9 +17,15 @@ export interface TokenGroupEntry {
  */
 export interface TokenGroupIndex {
   byToken: ReadonlyMap<string, TokenGroupEntry>;
-  /** Per group, only the members with a llama key, sorted by it so the sibling chosen never depends on registry order. */
+  /** Per group, only the members with a llama key, in the order the fallback tries them (see `bySiblingPreference`). */
   pricedByGroup: ReadonlyMap<string, readonly TokenGroupEntry[]>;
 }
+
+/**
+ * Siblings on these chains are tried first, in this order: their DefiLlama prices come from the deepest markets, while a
+ * thin copy on a small chain can be priced far off its peg.
+ */
+const PREFERRED_SLUGS = ['ethereum', 'base', 'arbitrum', 'optimism', 'polygon', 'bsc', 'avax', 'solana'];
 
 const tokenId = (chainSelector: string, address: string) => `${chainSelector}|${address}`;
 
@@ -46,14 +52,25 @@ export function buildTokenGroupIndex(entries: TokenGroupEntry[]): TokenGroupInde
     members.push(e);
     pricedByGroup.set(e.groupId, members);
   }
-  for (const members of pricedByGroup.values()) members.sort(byLlamaKey);
+  for (const members of pricedByGroup.values()) members.sort(bySiblingPreference);
   return { byToken, pricedByGroup };
 }
 
 const compare = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
 
-function byLlamaKey(a: TokenGroupEntry, b: TokenGroupEntry): number {
-  return compare(a.llamaKey ?? '', b.llamaKey ?? '') || compare(tokenId(a.chainSelector, a.address), tokenId(b.chainSelector, b.address));
+function preferenceRank(key: string): number {
+  const rank = PREFERRED_SLUGS.indexOf(key.slice(0, key.indexOf(':')));
+  return rank === -1 ? PREFERRED_SLUGS.length : rank;
+}
+
+/** Preferred chains first, then by llama key, so the sibling chosen never depends on registry order. */
+function bySiblingPreference(a: TokenGroupEntry, b: TokenGroupEntry): number {
+  const [ka, kb] = [a.llamaKey ?? '', b.llamaKey ?? ''];
+  return (
+    preferenceRank(ka) - preferenceRank(kb) ||
+    compare(ka, kb) ||
+    compare(tokenId(a.chainSelector, a.address), tokenId(b.chainSelector, b.address))
+  );
 }
 
 /** The llama keys of a token's group siblings, in the order the fallback tries them. */
@@ -76,12 +93,16 @@ export function groupFallback(index: TokenGroupIndex, priceOf: PriceLookup): Pri
   };
 }
 
+/** True when the token has no llama key, or no price for it: only such a token needs the fallback. */
+export function lacksOwnPrice(token: TokenAmount, priceOf: PriceLookup): boolean {
+  const own = llamaKey(token.chain, token.token);
+  return own === null || priceOf(own) === undefined;
+}
+
 /** The sibling keys, once each, that the fallback may need for the tokens that have no price of their own. */
 export function fallbackKeys(index: TokenGroupIndex, tokens: TokenAmount[], priceOf: PriceLookup): string[] {
   const keys = new Set<string>();
-  for (const t of tokens) {
-    const own = llamaKey(t.chain, t.token);
-    if (own !== null && priceOf(own)) continue;
+  for (const t of tokens.filter((token) => lacksOwnPrice(token, priceOf))) {
     for (const key of siblingKeys(index, t.chain.selector, t.token)) keys.add(key);
   }
   return [...keys];
