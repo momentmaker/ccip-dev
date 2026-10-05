@@ -8,7 +8,7 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Core package, CCIP client, and a resumable history crawl run on Oct 6 (Tasks 1–3).
 **Success Criteria**: `pnpm test` passes; `.backfill/coverage.json` shows `complete: true` and a `coverage_from`. A depth-wall stop was re-run once to confirm it.
 **Tests**: chain-map, http, ccip-client, time, crawl.
-**Status**: Not Started
+**Status**: In Progress
 
 ## Stage 2: Core logic and backfill build
 **Goal**: Valuation, normalization, rows (including the shared `buildRows`), rollup, prices, Reserve, archive helpers, label registry, and the backfill build dry-run against the Oct 6 crawl (Tasks 4–8, then 17).

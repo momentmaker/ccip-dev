@@ -1,0 +1,29 @@
+{
+  "name": "ccip-dev",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.2",
+  "scripts": {
+    "test": "pnpm -r test && vitest run",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit",
+    "canary": "tsx scripts/canary.ts",
+    "backfill:crawl": "tsx scripts/backfill/crawl.ts",
+    "backfill:build": "tsx scripts/backfill/build.ts",
+    "backfill:upload": "tsx scripts/backfill/upload.ts",
+    "labels:build": "tsx scripts/build-labels.ts",
+    "labels:check": "tsx scripts/build-labels.ts --check",
+    "labels:refresh-chains": "tsx scripts/refresh-chains.ts",
+    "labels:candidates": "tsx scripts/label-candidates.ts",
+    "report:day": "tsx scripts/day-report.ts",
+    "report:top-senders": "tsx scripts/top-senders.ts"
+  },
+  "devDependencies": {
+    "@ccip-dev/core": "workspace:*",
+    "@types/node": "^26.6.4",
+    "aws4fetch": "^1.0.20",
+    "smol-toml": "^1.9.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
