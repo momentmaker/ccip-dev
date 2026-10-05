@@ -24,12 +24,12 @@ The data core is a reliable, complete, self-updating record of every mainnet CCI
 
 The sub-project is done when:
 
-1. **History:** every mainnet message the CCIP API returns is stored in D1 and archived in R2, and a coverage report states the oldest message reached.
+1. **History:** every mainnet message the CCIP API returns is stored in D1 and archived in the private R2 bucket, and a coverage report states the oldest message reached (`coverage_from`).
 2. **Freshness:** a message appears in `live.json` within 2 minutes of appearing in the CCIP API.
 3. **Accuracy:** daily totals for at least 3 spot-checked days match CCIPMetrics' posts and Chainlink's official metrics within ±2%, or each gap is explained in `docs/methodology.md`.
 4. **Public data:** the files in §6.3 are served at `data.ccip.dev` with a `schema_version`.
-5. **Labels:** the weekly label-candidates PR runs, and verified labels from `labels/projects/*.toml` are used by the Worker.
-6. **Alerts:** if ingest falls more than 10 minutes behind, @ccipdevbot sends an alert.
+5. **Labels:** 10–20 labels, written by hand for the top senders in the backfill data, are in `labels/projects/*.toml`, and the Worker uses the verified ones. The weekly candidate pipeline (§8.2) is built after criteria 1–4 and 6 pass.
+6. **Alerts:** if ingest falls more than 10 minutes behind, @ccipdevbot sends an alert. This still happens when the whole Worker is down, because an external watchdog checks too (§11).
 
 ## 3. Scope
 
@@ -42,7 +42,7 @@ The sub-project is done when:
 - Chain and token snapshots, with detection of new arrivals
 - Daily rollups
 - Public JSON files
-- Label registry and the candidate pipeline
+- Label registry, with hand-seeded labels at launch; the candidate pipeline (§8.2) comes after the core criteria pass
 - Health monitoring and alerts
 
 **Out of scope:**
@@ -63,11 +63,11 @@ The sub-project is done when:
 - **Unpriced:** a token with no known decimals or price. It adds $0, and its message is flagged `unpriced`. The message's `usd_value` is the sum of its priced tokens, and it still counts toward message totals. `unpriced_messages` in `daily_totals` reports how many messages each day are affected.
 - **Fee:** taken from the message detail's `fees`, converted to USD at the latest price of the fee token on the source chain. Fees are only collected for messages ingested live.
 - **Delivery time:** `receiptTimestamp − sendTimestamp`, for messages with status `SUCCESS`.
-- **Final status:** `SUCCESS` or `FAILED` from the API, or our own `UNRESOLVED`, which marks a message still pending 48 hours after it was sent. Every other status is treated as pending.
+- **Final status:** `SUCCESS` from the API; `FAILED` when `readyForManualExecution` is false; or our own `UNRESOLVED`, which marks a message still pending 48 hours after it was sent. A `FAILED` message that can still be manually executed is re-checked like a pending message until 48 hours, then keeps its last status. Every other status is treated as pending.
 
 ## 5. Architecture
 
-Everything runs on Cloudflare (Workers Paid plan): a Worker with Cron Triggers, D1 and R2. The one-time backfill and the weekly label job run outside the Worker: the backfill on the owner's Mac, the label job in GitHub Actions.
+Everything runs on Cloudflare (Workers Paid plan): a Worker with Cron Triggers, D1 and R2. The one-time backfill, the weekly label job and an external watchdog run outside the Worker: the backfill on the owner's Mac, the label job and the watchdog in GitHub Actions.
 
 ### 5.1 Units
 
@@ -79,22 +79,22 @@ These live in `packages/core/` and are shared by the Worker and the scripts. Eac
 | `prices` | DefiLlama coin prices: latest prices in batches, and daily price history per token | `latest(keys[])`, `dailyHistory(key, from, to)` | fetch, `chain-map` |
 | `chain-map` | A curated mapping from CCIP chain name and family to DefiLlama's chain slug | `llamaKey(chain, tokenAddress) → string \| null` | none |
 | `reserve` | Reads the LINK balance of the Chainlink Reserve with `eth_call` on Ethereum | `linkBalance() → bigint` | fetch |
-| `normalize` | Turns an API message (from the list or detail call) into a `MessageRow` plus `TokenRow[]` | pure | none |
+| `normalize` | Turns an API message (from the list or detail call) into a `MessageRow` plus `TokenRow[]`. Sanitizes upstream strings (token symbols and names): strips control characters and caps length at 64 | pure | none |
 | `value` | BigInt token amount × decimals × price → USD | pure | none |
 | `rollup` | Turns one day's messages into `DailyTotals` and `DailyBreakdown[]` | pure | none |
 | `labels` | Loads and validates the TOML registry and builds `labels.json` | pure + fs (build time) | none |
-| `store` | D1 reads and writes, plus R2 archive and staging writes (Worker side) | repository functions | D1, R2 |
-| `publish` | Builds the public JSON files and writes them to R2 | `publishLive()`, `publishToday()`, `publishHistory()`, … | store |
+| `store` | D1 reads and writes, plus archive writes to the private R2 bucket | repository functions | D1, R2 (archive) |
+| `publish` | Builds the public JSON files and writes them to the public R2 bucket with per-file `Cache-Control` | `publishLive()`, `publishToday()`, `publishHistory()`, … | store, R2 (public) |
 
 ### 5.2 Schedules (Worker Cron Triggers)
 
 | Cron | Job | Steps |
 |---|---|---|
-| `* * * * *` | `ingest` | Fetch new messages → write to D1 and R2 staging → fill fees and status for pending messages (§7.2) → publish `live.json`, `today.json` and `status.json` |
-| `*/5 * * * *` | `prices` | Refresh `prices_latest` for every token seen in the last 30 days, plus fee tokens |
+| `* * * * *` | `ingest` | Fetch new messages (§7.1) → write to D1 → publish `live.json`, `today.json` and `status.json` → fill details for due messages (§7.2). Publishing never waits on the detail step |
+| `*/5 * * * *` | `prices` | Refresh `prices_latest` for every token seen in the last 30 days, plus fee tokens. Also checks ingest lag and alerts if it's over 10 minutes |
 | `0 * * * *` | `hourly` | Snapshot the Reserve balance, snapshot chains and tokens, detect arrivals, publish `reserve.json`, `chains.json` and `tokens.json` |
-| `10 0 * * *` | `finalize` | Close out yesterday (§7.3) |
-| `0 6 * * *` | `finalize` | Run again for yesterday to pick up late data |
+| `10 0 * * *` | `finalize` | Close out every day not yet finalized, through yesterday (§7.3 steps 1–3 and 5) |
+| `0 6 * * *` | `finalize` | Re-run yesterday for late data, and archive every day not yet archived (§7.3, all steps) |
 
 Each job runs on its own and catches its own errors. If one job fails, the others still run.
 
@@ -102,12 +102,11 @@ Each job runs on its own and catches its own errors. If one job fails, the other
 
 ```
 CCIP API ─► ccip-client ─► normalize/value ─► store ─► D1 messages, message_tokens
-                                                   └► R2 staging (raw, per minute)
 DefiLlama ─► prices ─► D1 prices_latest
 Ethereum endpoint ─► reserve ─► D1 reserve_snapshots
 finalize: D1 messages ─► rollup ─► D1 daily_totals, daily_breakdown
-          R2 staging ─► R2 archive (one gzip file per day)
-publish: D1 ─► R2 public/*.json ─► data.ccip.dev (Cloudflare cache) ─► site, bots, anyone
+          re-paged list objects ─► R2 archive bucket (one gzip file per day, 06:00 run)
+publish: D1 ─► R2 public bucket (v1/*.json) ─► data.ccip.dev (Cloudflare cache) ─► site, bots, anyone
 ```
 
 ## 6. Data model
@@ -129,11 +128,12 @@ messages (
   usd_value REAL,                          -- sum of priced tokens; 0 for data-only messages
   unpriced INTEGER NOT NULL DEFAULT 0,     -- 1 if any token lacks decimals or a price
   fee_token TEXT, fee_amount TEXT, fee_usd REAL,
+  ready_for_manual_exec INTEGER NOT NULL DEFAULT 0,
   detail_fetched_at TEXT,                  -- null until detail is fetched
-  next_check_at TEXT,                      -- when pending messages are re-checked
+  next_check_at TEXT,                      -- live insert: send_ts + 2 min; NULL once final; always NULL for backfill rows
   source TEXT NOT NULL                     -- 'live' | 'backfill'
 )
--- indexes: (day), (src_chain, sender, day), (next_check_at) WHERE detail_fetched_at IS NULL OR status NOT IN ('SUCCESS','FAILED')
+-- indexes: (day), (src_chain, sender, day), (next_check_at) WHERE next_check_at IS NOT NULL
 
 message_tokens (
   message_id TEXT NOT NULL, idx INTEGER NOT NULL,
@@ -159,25 +159,31 @@ chains (selector TEXT PRIMARY KEY, name TEXT, display_name TEXT, family TEXT, fi
 tokens (chain TEXT, address TEXT, symbol TEXT, name TEXT, decimals INTEGER, group_id TEXT,
         first_seen TEXT, last_seen TEXT, PRIMARY KEY (chain, address))
 arrivals (kind TEXT, key TEXT, first_seen TEXT, announced_at TEXT, PRIMARY KEY (kind, key))
-                                           -- kind: 'chain'|'token'|'lane'; sub-project 2 sets announced_at
+                                           -- kind: 'chain'|'token'|'lane'; sub-project 2 sets announced_at;
+                                           -- baseline rows (§7.5) are inserted with announced_at already set
 reserve_snapshots (ts TEXT PRIMARY KEY, link_balance TEXT)
 prices_latest (llama_key TEXT PRIMARY KEY, usd REAL, decimals INTEGER, ts TEXT)
-meta (key TEXT PRIMARY KEY, value TEXT)    -- e.g. newest_message_id, last_ingest_ok_at, last_finalize_day
+meta (key TEXT PRIMARY KEY, value TEXT)    -- live_start_day, last_ingest_ok_at, ingest_resume_cursor, ingest_resume_stop_id,
+                                           -- last_finalize_day, last_archived_day, coverage_from
 ```
 
 Expected size: about 1–2 million `messages` rows (~1 GB), and roughly 700 `daily_breakdown` rows per day. Both fit within the Workers Paid limits (5 GB storage included, 50 million row writes a month).
 
-### 6.2 R2 layout (bucket `ccip-dev`)
+### 6.2 R2 layout (two buckets)
 
-| Prefix | Contents | Visibility |
-|---|---|---|
-| `staging/YYYY-MM-DD/HHmm.jsonl` | Raw API objects seen in that minute | private |
-| `archive/messages/YYYY/MM/DD.jsonl.gz` | The full raw record for that day, permanent | private (may be published later) |
-| `public/…` | The files in §6.3 | public at `data.ccip.dev` |
+R2 public access is set per bucket, not per prefix, so public and private data live in separate buckets.
+
+| Bucket | Keys | Contents | Access |
+|---|---|---|---|
+| `ccip-dev-public` | `v1/…` | The files in §6.3, written only by `publish` | Public, bound to `data.ccip.dev`, so `v1/live.json` is served at `data.ccip.dev/v1/live.json` |
+| `ccip-dev-archive` | `messages/YYYY/MM/DD.jsonl.gz` | The raw list objects for that day, written by the 06:00 finalize (or by the backfill), permanent | Private: no custom domain, no r2.dev |
+| `ccip-dev-archive` | `unparsed/{message_id}.json` | Raw detail responses that failed validation or had an unknown fee format (§7.2) | Private |
 
 ### 6.3 Public JSON files (`data.ccip.dev/v1/…`)
 
-Every file includes `schema_version`, `updated_at`, and `attribution: "Data: Chainlink CCIP API, DefiLlama"`.
+Every file includes `schema_version`, `updated_at`, and `attribution: "Data: Chainlink CCIP API, DefiLlama"`. All-time figures also carry `since: coverage_from`, because the history may not reach the 2023 launch (§10).
+
+**Serving:** `publish` sets each object's `Cache-Control` to the TTL in the table below. A Cloudflare Cache Rule on `data.ccip.dev` makes `.json` responses cacheable and respects the origin `Cache-Control`. Cloudflare doesn't cache `.json` by default. The public bucket has a CORS policy allowing `GET` from any origin, so browsers and the Mini App can fetch the files.
 
 | File | Contents | Cache |
 |---|---|---|
@@ -194,33 +200,54 @@ Labels in public files only ever come from `verified = true` entries.
 ## 7. Behavior
 
 ### 7.1 Ingest (every minute)
-1. Page `listMessages({limit: 200})` from newest to oldest, and stop at the first `message_id` already in D1. Fetch at most 20 pages per run. If the run hits that cap, it resumes on the next run.
-2. `normalize` and `value` each message, then upsert it into `messages`. Use `INSERT … ON CONFLICT DO UPDATE` limited to status and receipt fields, so running it twice changes nothing.
-3. Append the raw objects to `staging/{day}/{HHmm}.jsonl`.
-4. Fill details (§7.2), then publish the live files.
+1. Page `listMessages({limit: 200})` from newest to oldest, and stop at the first `message_id` already in D1. Never page past 00:00 UTC of `meta.live_start_day`, which is set on the first deploy. Anything older belongs to the backfill, which also gives the first run (with an empty table) a stop point.
+2. Each run fetches at most 20 pages. When a run hits the cap:
+   - It saves the cursor where it stopped (`ingest_resume_cursor`), and the newest id that was already stored before the run (`ingest_resume_stop_id`), in `meta`.
+   - Later runs page the newest messages first, as usual.
+   - With the rest of their page budget, they continue from the saved cursor until they reach the stop id, then clear both keys.
+3. `normalize` and `value` each message, then upsert it into `messages`:
+   - Live inserts set `next_check_at = send_ts + 2 minutes`.
+   - Conflicts use `INSERT … ON CONFLICT DO UPDATE`, limited to the status and receipt fields, so running it twice changes nothing.
+4. Publish the live files, then fill details (§7.2). A failure in the detail step never blocks publishing.
 
 ### 7.2 Details: fees, extra tokens and status
-- Candidates are live messages at least 2 minutes old that have no detail yet, plus pending messages whose `next_check_at` has passed. Process up to 10 per run, oldest first.
-- From `getMessage` take `fees`, `tokenAmounts` (to write `message_tokens` and recalculate `usd_value`), `status` and `receiptTimestamp`.
-- If the message is still pending, set `next_check_at` to +10 minutes, then +1 hour, then +6 hours. After 48 hours, set the status to `UNRESOLVED`.
-- If the `fees` shape is unknown for that message's `version`, store the raw detail, leave `fee_*` null, and send one alert per version.
+- **Candidates:** messages with `next_check_at <= now`, ordered by `next_check_at`, at most 10 per run. That covers new live messages from 2 minutes after they're sent, plus pending re-checks. Backfill rows never qualify, because their `next_check_at` is NULL.
+- **What to take from `getMessage`:** `fees`, `tokenAmounts` (to write `message_tokens` and recalculate `usd_value`), `status`, `receiptTimestamp` and `readyForManualExecution`.
+- **Validate each message on its own.** If a detail response fails validation:
+  - write the raw response to `unparsed/{message_id}.json` in the archive bucket
+  - push that message's `next_check_at` back 1 hour
+  - send one alert per error signature (endpoint plus failing schema path)
+  - continue with the remaining candidates
+
+  One bad message never stalls ingest.
+- **Still pending,** or `FAILED` with `readyForManualExecution = true`: set `next_check_at` to +10 minutes, then +1 hour, then +6 hours. After 48 hours, pending messages become `UNRESOLVED`, and manually executable `FAILED` messages keep their status.
+- **Final** (§4): set `next_check_at = NULL`.
+- **Unknown fee format for the message's `version`:** write the raw detail to `unparsed/{message_id}.json`, leave `fee_*` null, and send one alert per version.
 
 ### 7.3 Finalize (00:10 UTC, run again at 06:00 UTC)
-1. Re-page the list results back to the start of yesterday, and update status and receipt times.
-2. Fill details for any of yesterday's live messages that still lack them, with no limit.
-3. Run `rollup` over yesterday's messages, then replace yesterday's rows in `daily_totals` and `daily_breakdown`.
-4. Build that day's archive file from `staging/{yesterday}/*`, keeping one line per message: the detail object if one was fetched, otherwise the latest list object. Check that the number of lines equals yesterday's row count in D1, then delete the staging files. If the counts differ, keep the staging files and send an alert.
-5. Publish `history.json` and the `top/*` files, and set `meta.last_finalize_day`.
+Finalize works on a range of days, not just yesterday. If a run is missed, the next one catches up.
+- **00:10 run:** every day from `meta.last_finalize_day + 1` through yesterday, in order. Steps 1–3 and 5, advancing `last_finalize_day` after each day.
+- **06:00 run:** yesterday again, for late data. Then every day from `meta.last_archived_day + 1` through yesterday, with all steps, advancing `last_archived_day` after each day's archive is written.
+- **On the first deploy,** both `last_finalize_day` and `last_archived_day` start at the day before `live_start_day`.
+
+Steps for one day:
+1. Re-page the list results back to the start of that day. Update status and receipt times, and **insert any message missing from D1**: ingest gaps, or the part of the first deploy day before the Worker started. Keep the fetched raw list objects in memory for step 4.
+2. Fill details for any of that day's live messages that still lack them.
+3. Run `rollup` over the day's messages, then replace that day's rows in `daily_totals` and `daily_breakdown`.
+4. *(06:00 run only)* Write `messages/YYYY/MM/DD.jsonl.gz` to the archive bucket from step 1's raw list objects, one line per message. If the line count differs from the day's row count in D1, send an alert. There are no staging files.
+5. Publish `history.json` and the `top/*` files.
 
 Sub-project 2's daily post (00:15 UTC) reads the 00:10 results. The 06:00 run may adjust the numbers slightly afterwards.
 
 ### 7.4 Prices
 - Every 5 minutes, take the distinct token keys seen in the last 30 days plus the fee tokens, and fetch them from DefiLlama in batches of 100.
 - `chain-map` decides each key. A key that maps to `null`, for example a non-EVM chain with no slug, makes that token unpriced.
+- The prices job also checks ingest lag. If `now − meta.last_ingest_ok_at` is over 10 minutes, it sends an alert. The check lives outside `ingest`, so it still fires when ingest itself is failing.
 
 ### 7.5 Reserve, chains and tokens (hourly)
 - Record the Reserve's LINK balance. LINK token: `0x514910771AF9Ca656af840dff83E8264EcF986CA`. Reserve address: `0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6`. Use the RPC URL from the `RPC_ETHEREUM` variable, with a fallback list.
-- Snapshot the chains (`environment=mainnet`) and every page of tokens. Any chain, token or lane not seen before is inserted into `arrivals` with `announced_at = null`.
+- Snapshot the chains (`environment=mainnet`) and every page of tokens. Any chain, token or lane not seen before is inserted into `arrivals` with `announced_at = null`. Lane arrivals come from distinct `(src_chain, dst_chain)` pairs in `messages`.
+- **Baseline:** if the `chains` or `tokens` table is empty (the first run), every snapshot row is inserted into `arrivals` with `announced_at = first_seen`. That records it as known, so it is never announced. The backfill upload does the same for every historical chain, token and lane, setting `first_seen` from the earliest message, so only genuine newcomers get announced.
 
 ### 7.6 Politeness and limits
 - At most 1 request per second to the CCIP API from each job. Steady state is about 3–5k calls a day.
@@ -249,50 +276,64 @@ group = "1166b296-…"         # CCIP token group id (covers every chain)
 
 CI (`validate-labels`) checks the schema, that each chain name exists in CCIP, EVM address checksums, that no address appears in more than one file, and the X handle format. At deploy, the `labels` unit builds `labels.json`, and the Worker bundles it.
 
-### 8.2 Candidate pipeline (weekly GitHub Action, Mondays)
-1. Query D1 through the Cloudflare D1 HTTP API for senders not in the registry, with **≥ $50k moved or ≥ 50 messages** in the last 7 days. These thresholds are config values.
+At launch, the registry holds 10–20 labels written by hand for the top senders in the backfill data.
+
+### 8.2 Candidate pipeline (weekly GitHub Action, Mondays; built after success criteria 1–4 and 6 pass)
+1. Query D1 through the Cloudflare D1 HTTP API, using a read-only token, for senders not in the registry with **≥ $50k moved or ≥ 50 messages** in the last 7 days. These thresholds come from `CANDIDATE_MIN_USD_7D` and `CANDIDATE_MIN_MESSAGES_7D` (§14).
 2. For each candidate:
    - Call `eth_getCode` through the chain's RPC from the config map. **If the address has no code (a personal wallet), skip it and never label it.** If no RPC is configured for that chain, flag it `kind = "unknown"`.
    - Enrich it: the contract name from Etherscan's free API (verified-source endpoints work on every supported chain), or from Blockscout where Etherscan doesn't cover the chain. Add the tokens it moves, the chains it was seen on, its 7-day volume, first-seen date and explorer links.
-3. Write draft files `labels/projects/_candidate-<chain>-<addr>.toml` with `verified = false` on the branch `labels/candidates`, then open or update **one** PR, "Label candidates — week of YYYY-MM-DD", with a summary table. Any sender that appeared in the top 3 of a daily total since the last run goes first in the table.
+3. Write draft files `labels/projects/_candidate-<chain>-<addr>.toml` on the branch `labels/candidates`, then open or update **one** PR, "Label candidates — week of YYYY-MM-DD", with a summary table. Any sender that appeared in the top 3 of a daily total since the last run goes first in the table.
+   - Enrichment strings (contract names, token symbols) are untrusted: strip control characters and cap them at 64 characters.
+   - Drafts are written with a TOML serializer, never with string templates, and the pipeline always sets `verified = false` itself.
+   - Table cells in the PR are markdown-escaped.
 4. The maintainer completes or deletes each draft and merges. Drafts with `verified = false` are never shown publicly.
 
 Third parties can submit labels by pull request, or through a "Label my project" issue template.
 
 ## 9. Backfill (`pnpm backfill`, run on the owner's Mac)
 
-Order of work: deploy the live Worker first. Overlap with the backfill is harmless because every write is idempotent.
+Order of work: run the crawl first (step 1 writes local files only), on **Oct 6**, so real coverage is known early. Deploy the live Worker before uploading (step 4).
 
-1. **Crawl.** Page `listMessages({limit: 1000})` from newest to oldest, at most 1 request per second. Write each page to `.backfill/pages/NNNNN.json` and save the cursor to `.backfill/state.json`, so the crawl can resume. Stop when `hasNextPage` is false, then write `.backfill/coverage.json` with the oldest message reached and the per-day message counts.
+1. **Crawl.**
+   - Page `listMessages({limit: 1000})` from newest to oldest, at most 1 request per second.
+   - Write each page to `.backfill/pages/NNNNN.json`, and save the cursor to `.backfill/state.json` so the crawl can resume.
+   - Rewrite `.backfill/coverage.json` (oldest message reached, per-day message counts) after every page.
+   - Stop when `hasNextPage` is false, **or after 3 consecutive 5xx responses or timeouts on the same cursor**. In the second case, record that page's oldest timestamp as `coverage_from`.
+
+   A probe on 2026-10-05 saw jumps to before about 2025-06-01 return HTTP 500 after about 30 seconds, so this depth wall is expected.
 2. **Prices.** For each distinct token, look up its key with `chain-map`, then fetch the daily price history once. Cache it in `.backfill/prices/`.
 3. **Calculate.** Run `normalize`, `value` (with the daily price for the send day) and `rollup` per day, using the same code as the Worker.
 4. **Upload.**
-   - `messages` (with `source = 'backfill'`, no fees), `daily_totals` and `daily_breakdown` go into D1 as batched SQL files.
-   - One archive file per day goes into R2 through R2's S3-compatible API.
-   - Skip any days the live Worker has already finalized.
+   - `messages` (with `source = 'backfill'`, no fees, `next_check_at` NULL), `message_tokens`, `daily_totals` and `daily_breakdown` go into D1 as batched SQL files.
+   - Inserts into `messages` and `message_tokens` use `ON CONFLICT DO NOTHING`, so live rows, which carry fees and detail-based token data, always win.
+   - Seed `chains`, `tokens` and `arrivals` with every historical chain, token and lane, with `first_seen` taken from the earliest message and `announced_at` already set (§7.5).
+   - Set `meta.coverage_from`.
+   - Rollups and archive files cover only days before `meta.live_start_day`; the Worker owns `live_start_day` onward. Archive files go into the archive bucket through R2's S3-compatible API.
 5. **Cross-check.** Compare at least 3 days against CCIPMetrics' posts and Chainlink's official metrics, and record the results in `docs/methodology.md`.
 
-Expected effort: ~15–30 minutes of crawling and ~1 GB in D1.
+Expected effort: the first pages take about 0.8 seconds each, but deeper pages were measured at 5–14 seconds, so the crawl may take hours rather than minutes. It ends at the depth wall or at `hasNextPage = false`. D1 will hold about 1 GB at full history, less if coverage stops early.
 
 ## 10. Known limitations
 - **Multi-token history:** list results expose only `sourceTokenAmount`, so historical messages carrying more than one token undercount value. Live data uses detail calls and is exact. This is documented in the methodology.
 - **Historical fees:** not collected. Fee statistics start on the day live ingest starts.
 - **Price method:** live values use the latest price at ingest time, and backfill uses daily prices. The two methods can differ slightly.
-- **Pagination depth:** unverified. The crawl may not reach the 2023 launch. The coverage report makes any gap explicit.
+- **Pagination depth:** likely limited. A probe on 2026-10-05 saw jumps to before about mid-2025 fail with HTTP 500, and deep pages were slow. History may start around mid-2025, not at the 2023 launch. The crawl records `coverage_from`, and all-time figures are labeled "since {coverage_from}" (§6.3).
 - **Upstream terms:** the CCIP API has no published rate limits or terms for this kind of use. We stay polite (§7.6) and credit the source in every public file.
 
 ## 11. Error handling and observability
-- **Fail fast at the boundaries:** zod validation on every API response. A schema failure stops that job's writes and sends an alert that includes the endpoint and a short sample of the response.
+- **Fail fast at the boundaries:** zod validation on every API response. A schema failure on a list, chain or token response stops that job's writes and sends an alert that includes the endpoint and a short sample of the response. Detail responses are validated per message, so one bad record never stops the job (§7.2).
 - **Errors carry context:** log the job, step, message id or cursor, and the upstream status. Workers observability is enabled.
 - **Alerts** go to @ccipdevbot, which messages the owner's chat (`TELEGRAM_ALERT_CHAT_ID`). They fire on:
-  - ingest lag over 10 minutes
+  - ingest lag over 10 minutes, checked by the `prices` job
   - a failed finalize
-  - a schema failure
+  - a schema failure (one alert per error signature for detail responses)
   - an unknown fee version
   - a failed Reserve read three hours in a row
 
   Repeats of the same alert are suppressed for 1 hour.
 - **`status.json`** is public, so sub-project 2 can show a "data delayed" notice.
+- **External watchdog:** a GitHub Actions workflow runs every 15 minutes, fetches `data.ccip.dev/v1/status.json`, and sends a Telegram alert if `updated_at` is more than 15 minutes old. It catches failures that silence the whole Worker: a bad deploy, stopped crons, or a disabled Worker.
 
 ## 12. Testing
 
@@ -311,16 +352,27 @@ The project is test-first, with vitest. CI never makes a real network call.
   - The `labels` validator, including duplicate addresses and bad checksums.
 - **`ccip-client`, with fetch mocked:**
   - paging stops at a known id
-  - the 20-page cap
+  - the 20-page cap saves a resume cursor and stop id, and the next run continues from them
   - 429 responses with `Retry-After`
   - 5xx retries
   - schema failures surface as descriptive errors
 - **Worker integration,** using `@cloudflare/vitest-pool-workers` with local D1 and R2:
-  - one `ingest` run writes rows, staging files and public files
+  - one `ingest` run writes rows and public files, and never pages past `live_start_day`, including on the first run with an empty table
   - running it twice leaves the same state
-  - `finalize` produces the archive and the rollup
+  - `finalize` catches up missed days, inserts messages that ingest missed, produces the rollup, and writes the archive only in the 06:00 run
+  - a detail response that fails validation goes to `unparsed/` and is pushed back, without stopping the other candidates or publishing
+  - manually executable `FAILED` messages are re-checked until 48 hours
+  - the first hourly run seeds the `arrivals` baseline with `announced_at` already set
   - **live/backfill parity:** finalize and the backfill path produce identical `daily_totals` from the same fixture day
-- **Candidate pipeline:** threshold filtering, skipping wallets with no code, and the shape of the draft TOML files.
+- **Candidate pipeline:**
+  - threshold filtering
+  - skipping wallets with no code
+  - the shape of the draft TOML files
+  - a hostile contract name (quotes, newlines, `verified = true`) that can't inject keys or markdown
+- **Backfill:**
+  - the depth wall: stop after 3 failures on the same cursor and write `coverage_from`
+  - `coverage.json` rewritten after every page
+  - `ON CONFLICT DO NOTHING` leaving live rows untouched
 - **Canary script** (run by hand, not in CI): small calls against the real APIs to catch changes upstream.
 
 ## 13. Repository layout
@@ -332,7 +384,7 @@ ccip-dev/
   scripts/{backfill,label-candidates,canary,build-labels}.ts
   labels/projects/*.toml
   docs/{methodology.md, callsigns/, superpowers/specs/}
-  .github/workflows/{ci,deploy,label-candidates}.yml
+  .github/workflows/{ci,deploy,watchdog,label-candidates}.yml
 ```
 
 This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo stays private until launch, then goes public: the code under MIT, and `labels/` under CC BY 4.0.
@@ -342,11 +394,21 @@ This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo stays p
 | Name | Where | Purpose |
 |---|---|---|
 | `CCIP_API_BASE` | Worker var | `https://api.ccip.chain.link/v2` |
-| `RPC_ETHEREUM`, `RPC_FALLBACKS` | Worker var | Reserve reads |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALERT_CHAT_ID` | Worker secret | Alerts |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Actions secret, owner's Mac (.env) | Deploys, D1 HTTP API, backfill uploads |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Actions secret, owner's Mac (.env) | Backfill archive uploads |
+| `RPC_ETHEREUM`, `RPC_FALLBACKS` | Worker secret | Reserve reads. Only keyless public endpoints may appear in committed config |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALERT_CHAT_ID` | Worker secret, Actions secret (watchdog) | Alerts |
+| `CF_DEPLOY_TOKEN` | Actions secret in a protected `production` environment | Deploy the Worker and run D1 migrations only |
+| `CF_D1_READ_TOKEN` | Actions secret | Read-only D1 queries for the candidate pipeline |
+| `CLOUDFLARE_ACCOUNT_ID` | Actions var, owner's Mac (.env) | Account id (not secret) |
+| `CF_BACKFILL_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Owner's Mac (.env) only | Backfill uploads. R2 keys are scoped to the archive bucket |
 | `ETHERSCAN_API_KEY` | Actions secret | Enriching label candidates |
-| `RPC_MAP` | Actions var (JSON) | `eth_getCode` per chain for the candidate pipeline |
+| `RPC_MAP` | Actions secret (JSON) | `eth_getCode` per chain for the candidate pipeline |
+| `CANDIDATE_MIN_USD_7D` (50000), `CANDIDATE_MIN_MESSAGES_7D` (50) | Actions var | Candidate pipeline thresholds |
 
 Secrets are set by the owner with `wrangler secret put` or `gh secret set`, and are never committed or pasted into chat.
+
+**GitHub Actions hardening (the repo goes public at launch):**
+- Workflows that use secrets (`deploy`, `watchdog`, `label-candidates`) run only on `schedule`, `workflow_dispatch` or a push to `main`. They never run on `pull_request_target` or on fork PRs.
+- `ci` on pull requests uses no secrets.
+- Every workflow declares least-privilege `permissions:`. The default is `contents: read`. Only `label-candidates` adds `contents: write` and `pull-requests: write`.
+- `.gitignore` covers `.env` and `.backfill/`.
+- GitHub secret scanning and push protection are switched on before the repo goes public.
