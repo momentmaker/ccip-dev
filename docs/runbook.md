@@ -78,7 +78,7 @@ Run this once, after the Worker is deployed. The import makes D1 unavailable whi
    - `CF_BACKFILL_TOKEN` (optional)
 4. Order:
    1. Wait for the Worker's first hourly run, which snapshots the token registry. The upload refuses to start until it has.
-   2. `pnpm backfill:sources` until `complete: true` (see "History crawl"). Run it after `live_start_day`, so no `--top-up` is needed.
+   2. `pnpm backfill:sources` until `complete: true` (see "History crawl"). Every source's crawl must start after 00:00 UTC of `live_start_day`, because a re-run does not refresh a finished source. The build enforces this: it refuses any source whose first page is older and names the directory to delete before re-running.
    3. `pnpm backfill:build --live-start <live_start_day>` (read it with `… wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'live_start_day'"`)
    4. `pnpm backfill:upload`. Answer `y` if wrangler asks to confirm a remote import.
 5. If interrupted, re-run `pnpm backfill:upload`; it resumes from `.backfill/upload-state.json`. After a rebuild, the new build id makes it apply every SQL file and replace every archive again. The upserts only touch backfill rows.

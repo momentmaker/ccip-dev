@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readdir, readFile, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -20,12 +21,21 @@ const b1 = listMessage({ id: 'b1', sendTs: '2026-10-05T10:00:00.000Z' });
 const c1 = listMessage({ id: 'c1', sendTs: '2026-10-04T23:00:00.000Z' });
 const prices = () => fakePrices({ latest: { [KEY]: { price: 99, decimals: 6 } }, history: { [KEY]: { '2026-10-06': 2 } } });
 
+/** When the fixture pages were fetched: the build orders copies of a message, and checks source freshness, by page mtime. */
+const CRAWLED_AT = new Date('2026-10-01T00:00:00.000Z');
+const SOURCES_AT = new Date('2026-10-08T06:00:00.000Z');
+
+async function writePage(file: string, messages: unknown[], fetchedAt: Date): Promise<void> {
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(messages));
+  await utimes(file, fetchedAt, fetchedAt);
+}
+
+const pageName = (i: number) => `${String(i).padStart(5, '0')}.json`;
+
 async function crawlDir(pages: unknown[][] = [[today1, a2, a1], [a1, b1, c1]]): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), 'build-'));
-  await mkdir(path.join(dir, 'pages'));
-  for (const [i, page] of pages.entries()) {
-    await writeFile(path.join(dir, 'pages', `${String(i).padStart(5, '0')}.json`), JSON.stringify(page));
-  }
+  for (const [i, page] of pages.entries()) await writePage(path.join(dir, 'pages', pageName(i)), page, CRAWLED_AT);
   await writeCoverage(dir, true);
   return dir;
 }
@@ -39,17 +49,16 @@ interface SourceFixture {
   network: NetworkInfo;
   pages: unknown[][];
   summary?: object;
+  fetchedAt?: Date;
 }
 
 /** Writes per-source crawls as `pnpm backfill:sources` leaves them: pages per selector plus summary.json. */
 async function addSources(dir: string, sources: SourceFixture[]): Promise<void> {
   const entries: object[] = [];
-  for (const { network, pages, summary } of sources) {
+  for (const { network, pages, summary, fetchedAt } of sources) {
     const pagesDir = path.join(dir, 'sources', network.chainSelector, 'pages');
     await mkdir(pagesDir, { recursive: true });
-    for (const [i, page] of pages.entries()) {
-      await writeFile(path.join(pagesDir, `${String(i).padStart(5, '0')}.json`), JSON.stringify(page));
-    }
+    for (const [i, page] of pages.entries()) await writePage(path.join(pagesDir, pageName(i)), page, fetchedAt ?? SOURCES_AT);
     entries.push({
       selector: network.chainSelector,
       name: network.name,
@@ -167,10 +176,9 @@ describe('build', () => {
 
   it('adds the top-up pages, whose copy of a message wins over the crawl pages', async () => {
     const dir = await crawlDir();
-    await mkdir(path.join(dir, 'topup'));
     const t1 = listMessage({ id: 't1', sendTs: '2026-10-09T01:00:00.000Z' });
     const t0 = listMessage({ id: 't0', sendTs: '2026-10-07T12:00:00.000Z' });
-    await writeFile(path.join(dir, 'topup', '00000.json'), JSON.stringify([t1, t0, { ...a1, status: 'SUCCESS' }]));
+    await writePage(path.join(dir, 'topup', pageName(0)), [t1, t0, { ...a1, status: 'SUCCESS' }], new Date('2026-10-09T02:00:00.000Z'));
     const result = await build({ dir, liveStartDay: '2026-10-09', prices: prices(), now: () => NOW });
     expect(result).toMatchObject({ days: 5, messages: 6 });
     const sql = await allSql(dir);
@@ -348,6 +356,74 @@ describe('build from per-source crawls', () => {
     await writeCoverage(dir, true, { skipped: [p1] });
     const result = await build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW });
     expect(result.skippedMessages).toBe(1);
+  });
+});
+
+describe('build fix round 1', () => {
+  const a1Delivered = { ...a1, status: 'SUCCESS', receiptTimestamp: '2026-10-06T01:20:00.000Z' };
+
+  async function sourceAndTopUp(sourceAt: Date, topUpAt: Date): Promise<string> {
+    const dir = await crawlDir();
+    await addSources(dir, [
+      { network: NETWORKS.base, pages: [[today1, a2, a1], [b1, c1]], summary: { coverage_from: c1.sendTimestamp }, fetchedAt: sourceAt },
+    ]);
+    await writePage(path.join(dir, 'topup', pageName(0)), [today1, a1Delivered], topUpAt);
+    return dir;
+  }
+
+  it('keeps a top-up copy fetched after the source crawl', async () => {
+    const dir = await sourceAndTopUp(SOURCES_AT, new Date('2026-10-08T07:00:00.000Z'));
+    await build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW });
+    expect(messageRows(await allSql(dir), 'a1')).toEqual([expect.stringContaining("'SUCCESS'")]);
+  });
+
+  it('keeps a source copy fetched after the top-up', async () => {
+    const dir = await sourceAndTopUp(SOURCES_AT, new Date('2026-10-08T05:00:00.000Z'));
+    await build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW });
+    expect(messageRows(await allSql(dir), 'a1')).toEqual([expect.stringContaining("'SENT'")]);
+  });
+
+  it('refuses messages from a source the API cannot back-fill', async () => {
+    const dir = await crawlDir([[today1, a2, a1, e1], [b1, c1]]);
+    await addSources(dir, [
+      { network: NETWORKS.base, pages: [[today1, a2, a1], [b1, c1]], summary: { coverage_from: c1.sendTimestamp } },
+      { network: NETWORKS.ethereum, pages: [], summary: { done: false, unsupported: true } },
+    ]);
+    await expect(build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW })).rejects.toThrow(
+      /Source 5009297550715157269 \(ethereum-mainnet\) .*the API cannot back-fill it/,
+    );
+  });
+
+  it('refuses a source whose crawl started before live_start_day and names it', async () => {
+    const dir = await crawlDir();
+    await addSources(dir, [
+      { network: NETWORKS.base, pages: [[today1, a2, a1], [b1, c1]], summary: { coverage_from: c1.sendTimestamp } },
+      { network: NETWORKS.ethereum, pages: [[e2, e1], [e0]], summary: { coverage_from: e0.sendTimestamp }, fetchedAt: new Date('2026-10-07T23:59:00.000Z') },
+    ]);
+    await expect(build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW })).rejects.toThrow(
+      /started before 00:00 UTC of live_start_day 2026-10-08: 5009297550715157269 \(ethereum-mainnet\)\. Delete/,
+    );
+  });
+
+  it('refuses when coverage_from would leave no complete day before live_start_day', async () => {
+    const dir = await sourcesDir({ ethereum: { stopped_at_depth_wall: true, coverage_from: '2026-10-07T05:00:00.000Z' } });
+    await expect(build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW })).rejects.toThrow(
+      'No complete day to roll up: coverage_from would be 2026-10-08',
+    );
+  });
+
+  it('refuses a sources directory without summary.json', async () => {
+    const dir = await crawlDir();
+    await writePage(path.join(dir, 'sources', NETWORKS.ethereum.chainSelector, 'pages', pageName(0)), [e2, e1], SOURCES_AT);
+    await expect(build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW })).rejects.toThrow(
+      'has no summary.json',
+    );
+  });
+
+  it('removes the day spool after a successful build', async () => {
+    const dir = await sourcesDir();
+    await build({ dir, liveStartDay: '2026-10-08', prices: prices(), now: () => NOW });
+    expect(existsSync(path.join(dir, 'days'))).toBe(false);
   });
 });
 

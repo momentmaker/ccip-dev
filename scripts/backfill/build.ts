@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { appendFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -9,7 +9,7 @@ import {
   type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
-import type { SourceSummary, SourcesSummary } from './sources';
+import type { Source, SourceSummary, SourcesSummary } from './sources';
 
 export const MESSAGE_CONFLICT =
   'ON CONFLICT(message_id) DO UPDATE SET status = excluded.status, receipt_ts = excluded.receipt_ts, ' +
@@ -59,6 +59,8 @@ interface CoveragePlan {
   /** Days before this one get messages and archives but no rollups; null when every crawled day is complete. */
   rollupFrom: string | null;
   skipped: SkippedMessage[];
+  /** Sources the API refuses as a filter: their history comes only from the global crawl. */
+  unsupported: Source[];
 }
 
 interface DayEntry {
@@ -70,22 +72,26 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const log = opts.log ?? (() => {});
   const computedAt = (opts.now ?? (() => new Date()))().toISOString();
   const lastDay = addDays(opts.liveStartDay, -1);
-  const plan = await planCoverage(opts.dir);
-  const spooled = await spoolDays(opts.dir, lastDay);
-  log(`spooled ${spooled.days.length} days into ${path.join(opts.dir, 'days')}`);
+  const plan = await planCoverage(opts.dir, opts.liveStartDay);
+  const daysDir = path.join(opts.dir, 'days');
+  const spooled = await spoolDays(opts.dir, daysDir, lastDay);
+  log(`spooled ${spooled.days.length} days into ${daysDir}`);
   assertReachesLiveStart(spooled.newest, opts.liveStartDay);
+  assertNoUnsupportedSource(plan.unsupported, spooled.sources);
+  const earliestDay = spooled.days[0];
+  const coverageFrom = plan.rollupFrom ?? earliestDay;
+  assertCompleteDayLeft(coverageFrom, opts.liveStartDay);
 
   await rm(path.join(opts.dir, 'sql'), { recursive: true, force: true });
   await rm(path.join(opts.dir, 'archive'), { recursive: true, force: true });
   const writer = new SqlWriter(path.join(opts.dir, 'sql'), opts.chunkSize ?? 20_000);
-  const earliestDay = spooled.days[0];
   const prices = await PriceCache.open(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), earliestDay ?? lastDay, lastDay);
   const firstSeen = new FirstSeen();
   const chains = new ChainHistory();
   const result: BuildResult = { days: 0, messages: 0, unpricedMessages: 0, skippedMessages: plan.skipped.length, sqlFiles: 0, buildId: '' };
 
   const buildDay = async (day: string) => {
-    const entries = await readDay(path.join(opts.dir, 'days', `${day}.jsonl`));
+    const entries = await readDay(path.join(daysDir, `${day}.jsonl`));
     const rollup = plan.rollupFrom === null || day >= plan.rollupFrom;
     const normalized = entries.map((e) => normalizeList(e.message));
     const lookup = await prices.lookupFor(day, normalized.flatMap(priceKeys));
@@ -118,30 +124,42 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
 
   // Token rows are not seeded: list data has no symbol or decimals, so they come from the hourly registry snapshot.
   await writer.add([...firstSeen.statements(), ...chains.statements()]);
-  const coverageFrom = plan.rollupFrom ?? earliestDay;
-  if (coverageFrom !== undefined) {
-    await writer.add([insertSql('meta', { key: 'coverage_from', value: coverageFrom }, 'ON CONFLICT(key) DO UPDATE SET value = excluded.value')]);
-  }
+  await writer.add([insertSql('meta', { key: 'coverage_from', value: coverageFrom }, 'ON CONFLICT(key) DO UPDATE SET value = excluded.value')]);
   await writeFileAtomic(path.join(opts.dir, 'skipped.json'), `${JSON.stringify(plan.skipped, null, 2)}\n`);
   const written = await writer.finish();
   result.sqlFiles = written.files;
   result.buildId = written.id;
+  // At full history the spool holds several GB, and every build makes a new one.
+  await rm(daysDir, { recursive: true, force: true });
   return result;
 }
 
 /** Per-source crawls decide coverage when `sources/summary.json` exists; otherwise the global crawl's coverage.json does. */
-async function planCoverage(dir: string): Promise<CoveragePlan> {
+async function planCoverage(dir: string, liveStartDay: string): Promise<CoveragePlan> {
   const coverageFile = path.join(dir, 'coverage.json');
   const coverage = existsSync(coverageFile) ? (JSON.parse(await readFile(coverageFile, 'utf8')) as Coverage) : null;
-  const summaryFile = path.join(dir, 'sources', 'summary.json');
+  const sourcesDir = path.join(dir, 'sources');
+  const summaryFile = path.join(sourcesDir, 'summary.json');
   if (existsSync(summaryFile)) {
     if ((await jsonFiles(dir, 'pages')).length > 0) assertCrawlComplete(coverage);
     const summary = JSON.parse(await readFile(summaryFile, 'utf8')) as SourcesSummary;
-    return planFromSources(summary, coverage?.skipped ?? []);
+    const plan = planFromSources(summary, coverage?.skipped ?? []);
+    await assertSourcesFresh(sourcesDir, summary.sources, liveStartDay);
+    return plan;
+  }
+  if (existsSync(sourcesDir)) {
+    throw new Error(
+      `${sourcesDir} has no summary.json, so the build cannot tell whether the per-source crawl finished. ` +
+        `Re-run pnpm backfill:sources, or remove ${sourcesDir} to build from the global crawl alone.`,
+    );
   }
   assertCrawlComplete(coverage);
   const partialDay = coverage.stopped_at_depth_wall && coverage.coverage_from ? dayOf(coverage.coverage_from) : null;
-  return { rollupFrom: partialDay === null ? null : addDays(partialDay, 1), skipped: uniqueSkipped(coverage.skipped ?? []) };
+  return {
+    rollupFrom: partialDay === null ? null : addDays(partialDay, 1),
+    skipped: uniqueSkipped(coverage.skipped ?? []),
+    unsupported: [],
+  };
 }
 
 function assertCrawlComplete(coverage: Coverage | null): asserts coverage is Coverage {
@@ -161,7 +179,28 @@ function planFromSources(summary: SourcesSummary, globalSkipped: SkippedMessage[
   return {
     rollupFrom: latestWallDay === undefined ? null : addDays(latestWallDay, 1),
     skipped: uniqueSkipped([...globalSkipped, ...summary.sources.flatMap((s) => s.skipped)]),
+    unsupported: summary.sources.filter((s) => s.unsupported).map(({ selector, name }) => ({ selector, name })),
   };
+}
+
+/**
+ * A finished source is not crawled again, so one whose crawl started before live start misses the messages sent between
+ * then and live start. A source's first page is written when its crawl starts.
+ */
+async function assertSourcesFresh(sourcesDir: string, sources: SourceSummary[], liveStartDay: string): Promise<void> {
+  const liveStart = Date.parse(dayStartIso(liveStartDay));
+  const stale: SourceSummary[] = [];
+  for (const source of sources.filter((s) => !s.unsupported)) {
+    const firstPage = path.join(sourcesDir, source.selector, 'pages', '00000.json');
+    if (!existsSync(firstPage) || (await stat(firstPage)).mtimeMs < liveStart) stale.push(source);
+  }
+  if (stale.length === 0) return;
+  throw new Error(
+    `These per-source crawls started before 00:00 UTC of live_start_day ${liveStartDay}: ` +
+      `${stale.map((s) => `${s.selector} (${s.name})`).join(', ')}. ` +
+      `Delete ${stale.map((s) => path.join(sourcesDir, s.selector)).join(', ')} and re-run pnpm backfill:sources ` +
+      '(a re-run alone does not refresh a finished source); otherwise the messages sent between their crawl and live start are missing.',
+  );
 }
 
 /** The oldest, possibly partial, day of a source that stopped at a depth wall; null for a source crawled to its start. */
@@ -186,27 +225,34 @@ function uniqueSkipped(skipped: SkippedMessage[]): SkippedMessage[] {
 }
 
 /**
- * Sorts every crawled message before live_start_day into `<dir>/days/YYYY-MM-DD.jsonl`, one raw message per line, in input
- * order: global pages, top-up pages, then each source's pages. The last line for a message id is the freshest copy.
+ * Sorts every crawled message before live_start_day into `<daysDir>/YYYY-MM-DD.jsonl`, one raw message per line, in the
+ * order the pages were fetched. The last line for a message id is the most recently fetched copy.
  */
-async function spoolDays(dir: string, lastDay: string): Promise<{ days: string[]; newest: string | null }> {
-  const daysDir = path.join(dir, 'days');
+async function spoolDays(
+  dir: string,
+  daysDir: string,
+  lastDay: string,
+): Promise<{ days: string[]; newest: string | null; sources: Set<string> }> {
   await rm(daysDir, { recursive: true, force: true });
   await mkdir(daysDir, { recursive: true });
   const spool = new DaySpool(daysDir, { dayLines: DAY_BUFFER_LINES, totalLines: SPOOL_BUFFER_LINES });
   let newest: string | null = null;
+  const sources = new Set<string>();
   for (const file of await inputFiles(dir)) {
     const raws = JSON.parse(await readFile(path.join(dir, file), 'utf8')) as unknown[];
     for (const [index, raw] of raws.entries()) {
       const message = parseListMessage(raw, `${file}[${index}]`);
       if (newest === null || Date.parse(message.sendTimestamp) > Date.parse(newest)) newest = message.sendTimestamp;
       const day = dayOf(message.sendTimestamp);
-      if (day <= lastDay) await spool.add(day, JSON.stringify(raw));
+      if (day > lastDay) continue;
+      await spool.add(day, JSON.stringify(raw));
+      sources.add(message.sourceNetworkInfo.chainSelector);
     }
   }
-  return { days: await spool.finish(), newest };
+  return { days: await spool.finish(), newest, sources };
 }
 
+/** Every page file, least recently fetched (modified) first. */
 async function inputFiles(dir: string): Promise<string[]> {
   const sourcesDir = path.join(dir, 'sources');
   const selectors = existsSync(sourcesDir)
@@ -214,7 +260,10 @@ async function inputFiles(dir: string): Promise<string[]> {
     : [];
   const files = [...(await jsonFiles(dir, 'pages')), ...(await jsonFiles(dir, 'topup'))];
   for (const selector of selectors) files.push(...(await jsonFiles(dir, path.join('sources', selector, 'pages'))));
-  return files;
+  const fetched: { file: string; mtimeMs: number }[] = [];
+  for (const file of files) fetched.push({ file, mtimeMs: (await stat(path.join(dir, file))).mtimeMs });
+  // The sort is stable, so pages with the same mtime keep the order above: global pages, top-up, then each source.
+  return fetched.sort((a, b) => a.mtimeMs - b.mtimeMs).map((f) => f.file);
 }
 
 async function jsonFiles(dir: string, sub: string): Promise<string[]> {
@@ -247,6 +296,28 @@ function assertReachesLiveStart(newest: string | null, liveStartDay: string): vo
   if (newest === null) throw new Error('No crawled messages found: run pnpm backfill:sources or pnpm backfill:crawl first');
   if (Date.parse(newest) < Date.parse(dayStartIso(liveStartDay))) {
     throw new Error(`The crawl ends at ${newest}, before live_start_day ${liveStartDay}. Run pnpm backfill:crawl --top-up first.`);
+  }
+}
+
+function assertNoUnsupportedSource(unsupported: Source[], spooledSources: Set<string>): void {
+  const found = unsupported.find((s) => spooledSources.has(s.selector));
+  if (found === undefined) return;
+  throw new Error(
+    `Source ${found.selector} (${found.name}) is unsupported as a source filter (sources/summary.json), yet the crawled pages ` +
+      'hold messages sent from it before live_start_day: the API cannot back-fill it, so its history before the global ' +
+      "crawl's depth wall is unavailable and coverage_from would claim days that miss its messages.",
+  );
+}
+
+function assertCompleteDayLeft(coverageFrom: string | undefined, liveStartDay: string): asserts coverageFrom is string {
+  const lastDay = addDays(liveStartDay, -1);
+  if (coverageFrom === undefined) {
+    throw new Error(`No complete day to roll up: no crawled message was sent before live_start_day ${liveStartDay}.`);
+  }
+  if (coverageFrom > lastDay) {
+    throw new Error(
+      `No complete day to roll up: coverage_from would be ${coverageFrom}, after ${lastDay}, the last day before live_start_day ${liveStartDay}.`,
+    );
   }
 }
 
