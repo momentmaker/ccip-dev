@@ -2,6 +2,8 @@ import { createThrottle, getJson, parseWith, type HttpDeps } from '../http';
 import { ChainsResponse, ListPage, TokensPage, type ListMessage, type NetworkInfo, type RegistryToken } from './schemas';
 
 export const CCIP_API_BASE = 'https://api.ccip.chain.link/v2';
+const TOKEN_PAGE = 500;
+const MAX_TOKEN_PAGES = 50;
 
 export interface CcipClientOptions {
   baseUrl?: string;
@@ -57,4 +59,17 @@ export function createCcipClient(deps: HttpDeps, options: CcipClientOptions = {}
       return { tokens: page.data, cursor: page.pagination.hasNextPage ? (page.pagination.cursor ?? null) : null };
     },
   };
+}
+
+/** Every page of the token registry. */
+export async function listAllTokens(client: Pick<CcipClient, 'listTokens'>): Promise<RegistryToken[]> {
+  const tokens: RegistryToken[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < MAX_TOKEN_PAGES; page++) {
+    const result = await client.listTokens({ limit: TOKEN_PAGE, cursor });
+    tokens.push(...result.tokens);
+    if (result.cursor === null) return tokens;
+    cursor = result.cursor;
+  }
+  throw new Error(`token registry did not end within ${MAX_TOKEN_PAGES} pages`);
 }

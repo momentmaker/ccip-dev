@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createCcipClient } from '../src/ccip/client';
+import { createCcipClient, listAllTokens } from '../src/ccip/client';
 import { DetailMessage } from '../src/ccip/schemas';
 import { UpstreamSchemaError } from '../src/http';
-import { fakeFetch, instantDeps, jsonResponse } from '../src/testing';
+import { fakeCcip, fakeFetch, instantDeps, jsonResponse } from '../src/testing';
 import listPage from './fixtures/list-page.json';
 import detailToken from './fixtures/detail-token.json';
 import detailV16 from './fixtures/detail-v16.json';
@@ -84,5 +84,14 @@ describe('createCcipClient', () => {
     const client = createCcipClient(instantDeps(f), { minIntervalMs: 0 });
     expect(await client.listChains()).toEqual([chain]);
     expect(await client.listTokens({ limit: 1 })).toEqual({ tokens: [token], cursor: 'T2' });
+  });
+});
+
+describe('listAllTokens', () => {
+  it('follows the cursor through every page of the registry', async () => {
+    const tokens = Array.from({ length: 501 }, (_, i) => ({
+      chainSelector: '1', address: `0x${i.toString(16).padStart(40, '0')}`, symbol: 'T', name: 'T', decimals: 18, groupId: null,
+    }));
+    expect(await listAllTokens(fakeCcip({ tokens }))).toEqual(tokens);
   });
 });

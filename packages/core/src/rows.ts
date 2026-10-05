@@ -1,4 +1,4 @@
-import type { MessageRow, NormalizedMessage, PriceLookup, Source, TokenRow } from './types';
+import type { MessageRow, NormalizedMessage, PriceFallback, PriceLookup, Source, TokenRow } from './types';
 import { valueTokens, type Valuation } from './value';
 
 const MINUTE = 60_000;
@@ -52,11 +52,12 @@ export function buildRows(
   messages: NormalizedMessage[],
   lookup: PriceLookup,
   extras: (m: NormalizedMessage) => RowExtras,
+  fallback?: PriceFallback,
 ): { rows: MessageRow[]; tokens: TokenRow[] } {
   const rows: MessageRow[] = [];
   const tokens: TokenRow[] = [];
   for (const m of messages) {
-    const valuation = valueTokens(m.tokens, lookup);
+    const valuation = valueTokens(m.tokens, lookup, fallback);
     rows.push(toMessageRow(m, valuation, extras(m)));
     tokens.push(...toTokenRows(m, valuation));
   }

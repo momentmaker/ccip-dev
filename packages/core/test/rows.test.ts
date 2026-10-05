@@ -54,6 +54,14 @@ describe('row building', () => {
     expect(rows[0]!.usd_value).toBeCloseTo(24000.580226526876, 6);
     expect(tokens).toEqual([expect.objectContaining({ message_id: m.messageId, idx: 0 })]);
   });
+
+  it('values tokens without a price of their own through the fallback', () => {
+    const fallback = () => ({ price: 2, decimals: 18 });
+    const { rows, tokens } = buildRows([m], () => undefined, () => ({ source: 'backfill' }), fallback);
+    expect(rows[0]).toMatchObject({ unpriced: 0 });
+    expect(rows[0]!.usd_value).toBeCloseTo(48001.16045305375, 6);
+    expect(tokens[0]!.usd_value).toBeCloseTo(48001.16045305375, 6);
+  });
 });
 
 describe('status scheduling', () => {

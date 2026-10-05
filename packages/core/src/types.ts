@@ -39,6 +39,9 @@ export interface PriceInfo {
 
 export type PriceLookup = (llamaKey: string) => PriceInfo | undefined;
 
+/** Prices a token that has no price of its own, by chain selector and normalized address. */
+export type PriceFallback = (chainSelector: string, address: string) => PriceInfo | undefined;
+
 export type Source = 'live' | 'backfill';
 
 export interface MessageRow {

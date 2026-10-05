@@ -52,6 +52,28 @@ describe('valueTokens', () => {
   it('returns zero for data-only messages', () => {
     expect(valueTokens([], lookup)).toEqual({ usdValue: 0, unpriced: false, tokenUsd: [] });
   });
+
+  it('values a token without a price of its own through the fallback and counts it as priced', () => {
+    const fallback = (chain: string, token: string) => (chain === metal.selector && token === TOKEN ? { price: 3, decimals: 18 } : undefined);
+    const v = valueTokens([{ chain: metal, token: TOKEN, amount: '2000000000000000000' }], lookup, fallback);
+    expect(v).toEqual({ usdValue: 6, unpriced: false, tokenUsd: [6] });
+  });
+
+  it('uses the token\'s own price without consulting the fallback', () => {
+    const asked: string[] = [];
+    const fallback = (chain: string, token: string) => {
+      asked.push(`${chain}|${token}`);
+      return { price: 1000, decimals: 18 };
+    };
+    const v = valueTokens([{ chain: base, token: TOKEN, amount: '1000000000000000000' }], lookup, fallback);
+    expect(v.usdValue).toBe(2);
+    expect(asked).toEqual([]);
+  });
+
+  it('still flags a token the fallback cannot price', () => {
+    const v = valueTokens([{ chain: metal, token: TOKEN, amount: '1' }], lookup, () => undefined);
+    expect(v).toEqual({ usdValue: 0, unpriced: true, tokenUsd: [null] });
+  });
 });
 
 describe('valueFee', () => {

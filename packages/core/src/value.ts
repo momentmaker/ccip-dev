@@ -1,5 +1,5 @@
 import { llamaKey } from './chain-map';
-import type { ChainRef, Fee, NormalizedMessage, PriceLookup, TokenAmount } from './types';
+import type { ChainRef, Fee, NormalizedMessage, PriceFallback, PriceLookup, TokenAmount } from './types';
 
 export interface Valuation {
   usdValue: number;
@@ -13,13 +13,14 @@ export function toUnits(amount: string, decimals: number): number {
   return Number(raw / base) + Number(raw % base) / Number(base);
 }
 
-export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup): Valuation {
+/** `fallback` prices a token that has no price of its own; a token it prices counts as priced. */
+export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup, fallback?: PriceFallback): Valuation {
   let usdValue = 0;
   let unpriced = false;
   const tokenUsd: (number | null)[] = [];
   for (const t of tokens) {
     const key = llamaKey(t.chain, t.token);
-    const info = key ? lookup(key) : undefined;
+    const info = (key ? lookup(key) : undefined) ?? fallback?.(t.chain.selector, t.token);
     if (!info) {
       unpriced = true;
       tokenUsd.push(null);
