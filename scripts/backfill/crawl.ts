@@ -12,6 +12,7 @@ export interface CrawlState {
   stoppedAtDepthWall: boolean;
   oldest: string | null;
   perDay: Record<string, number>;
+  limit?: number;
 }
 
 export interface CrawlClient {
@@ -26,6 +27,7 @@ export interface CrawlOptions {
   dir: string;
   client: CrawlClient;
   limit?: number;
+  minLimit?: number;
   maxPages?: number;
   maxConsecutiveFailures?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -41,12 +43,14 @@ const initialState = (): CrawlState => ({
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
-  const limit = opts.limit ?? 1000;
+  const configuredLimit = opts.limit ?? 1000;
+  const floor = Math.min(opts.minLimit ?? 10, configuredLimit);
   const maxFailures = opts.maxConsecutiveFailures ?? 3;
   const sleep = opts.sleep ?? defaultSleep;
   const log = opts.log ?? (() => {});
   await mkdir(path.join(opts.dir, 'pages'), { recursive: true });
   const state = await loadState(opts.dir);
+  state.limit ??= configuredLimit;
   if (state.stoppedAtDepthWall) {
     log(`retrying the depth wall at cursor ${state.cursor}`);
     state.done = false;
@@ -54,7 +58,15 @@ export async function crawl(opts: CrawlOptions): Promise<CrawlState> {
   }
 
   for (let fetched = 0; !state.done && (opts.maxPages === undefined || fetched < opts.maxPages); fetched++) {
-    const page = await fetchPage(opts.client, state.cursor, limit, maxFailures, sleep, log);
+    let page = null;
+    while (page === null) {
+      const size = state.limit;
+      const atFloor = size <= floor;
+      page = await fetchPage(opts.client, state.cursor, size, atFloor ? maxFailures : 1, sleep, log);
+      if (page !== null || atFloor) break;
+      state.limit = Math.max(floor, Math.floor(size / 2));
+      log(`page fetch failed at limit ${size}; retrying with ${state.limit}`);
+    }
     if (page === null) {
       state.done = true;
       state.stoppedAtDepthWall = true;
@@ -166,6 +178,7 @@ export function coverageOf(state: CrawlState) {
   return {
     coverage_from: state.oldest,
     complete: state.done,
+    page_size: state.limit ?? null,
     stopped_at_depth_wall: state.stoppedAtDepthWall,
     pages: state.pages,
     messages: state.messages,

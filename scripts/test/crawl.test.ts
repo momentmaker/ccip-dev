@@ -124,6 +124,64 @@ describe('crawl', () => {
     const state = await crawl({ dir, client, sleep: noSleep });
     expect(state).toMatchObject({ done: true, pages: 1, messages: 0 });
   });
+
+  describe('adaptive page size', () => {
+    const chain: Record<string, { at: number; next: string | null }> = {
+      start: { at: 0, next: 'X' },
+      X: { at: 1, next: 'Y' },
+      Y: { at: 2, next: 'Z' },
+      Z: { at: 3, next: null },
+    };
+    const recordingClient = (failAt: (cursor: string | null, limit: number) => boolean) => {
+      const calls: { cursor: string | null; limit: number }[] = [];
+      return {
+        calls,
+        listMessages: async (opts: { limit: number; cursor?: string | null }) => {
+          const cursor = opts.cursor ?? null;
+          calls.push({ cursor, limit: opts.limit });
+          if (failAt(cursor, opts.limit)) throw new UpstreamHttpError('GET /messages', 500);
+          const page = chain[cursor ?? 'start']!;
+          return { messages: [msgs[page.at]!], raw: [msgs[page.at]], cursor: page.next };
+        },
+      };
+    };
+    const limitsAt = (calls: { cursor: string | null; limit: number }[], cursor: string | null) =>
+      calls.filter((c) => c.cursor === cursor).map((c) => c.limit);
+
+    it('halves the page size on a timeout, keeps it for later pages, and persists it', async () => {
+      const dir = await tempDir();
+      const client = recordingClient((cursor, limit) => cursor === 'X' && limit > 2);
+      const state = await crawl({ dir, client, limit: 8, minLimit: 2, sleep: noSleep });
+      expect(state).toMatchObject({ done: true, stoppedAtDepthWall: false, messages: 4 });
+      expect(limitsAt(client.calls, 'X')).toEqual([8, 4, 2]);
+      expect(limitsAt(client.calls, 'Y')).toEqual([2]);
+      expect(limitsAt(client.calls, 'Z')).toEqual([2]);
+      expect(await readJson(path.join(dir, 'state.json'))).toMatchObject({ limit: 2 });
+      expect(await readJson(path.join(dir, 'coverage.json'))).toMatchObject({ page_size: 2, stopped_at_depth_wall: false });
+    });
+
+    it('stops at the depth wall only after 3 failures at the floor size', async () => {
+      const dir = await tempDir();
+      const client = recordingClient((cursor) => cursor === 'X');
+      const state = await crawl({ dir, client, limit: 8, minLimit: 2, sleep: noSleep });
+      expect(limitsAt(client.calls, 'X')).toEqual([8, 4, 2, 2, 2]);
+      expect(state.stoppedAtDepthWall).toBe(true);
+      expect(await readJson(path.join(dir, 'coverage.json'))).toMatchObject({
+        coverage_from: msgs[0]!.sendTimestamp,
+        stopped_at_depth_wall: true,
+        page_size: 2,
+      });
+    });
+
+    it('resumes with the saved page size instead of the configured one', async () => {
+      const dir = await tempDir();
+      const first = recordingClient((cursor, limit) => cursor === 'X' && limit > 2);
+      await crawl({ dir, client: first, limit: 8, minLimit: 2, maxPages: 2, sleep: noSleep });
+      const second = recordingClient(() => false);
+      await crawl({ dir, client: second, limit: 8, minLimit: 2, sleep: noSleep });
+      expect(second.calls[0]).toEqual({ cursor: 'Y', limit: 2 });
+    });
+  });
 });
 
 describe('topUp', () => {
