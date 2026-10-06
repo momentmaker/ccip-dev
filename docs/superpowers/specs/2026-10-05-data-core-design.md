@@ -336,7 +336,7 @@ Expected effort (updated 2026-10-05): about 1–3 s per 1,000 messages per sourc
 
   Repeats of the same alert are suppressed for 1 hour.
 - **`status.json`** is public, so sub-project 2 can show a "data delayed" notice.
-- **External watchdog:** a GitHub Actions workflow runs every 15 minutes, fetches `data.ccip.dev/v1/status.json`, and sends a Telegram alert if `updated_at` is more than 15 minutes old. It catches failures that silence the whole Worker: a bad deploy, stopped crons, or a disabled Worker.
+- **External watchdog:** the primary external check is the `ccip-dev-watchdog` Worker. It runs every 5 minutes with no bindings (no D1 or R2, so it still works when either is broken), fetches `data.ccip.dev/v1/status.json`, and sends a Telegram alert when the file is unreachable, `updated_at` is more than 15 minutes old, `lag_seconds` is null, or `lag_seconds` exceeds 15 minutes. It keeps no state: it alerts on the first run after a measured age or lag crosses 900 seconds (up to 1,260 seconds, to allow for cron jitter), then once an hour while the problem lasts. It catches failures that silence the whole data Worker: a bad deploy, stopped crons, or a disabled Worker. A GitHub Actions workflow with the same checks runs every 15 minutes as a best-effort backup, because GitHub's schedule is irregular (3 runs in about 20 hours were observed on 2026-10-05/06).
 
 ## 12. Testing
 

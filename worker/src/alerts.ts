@@ -1,5 +1,6 @@
 import type { Deps } from './deps';
 import { getMeta, setMeta } from './store';
+import { sendTelegramMessage } from './telegram';
 
 export type Alert = (signature: string, text: string) => Promise<void>;
 
@@ -18,19 +19,13 @@ export function createAlerter(db: D1Database, telegram: { token?: string; chatId
       return;
     }
 
-    try {
-      const res = await deps.fetch(`https://api.telegram.org/bot${telegram.token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: telegram.chatId, text: `ccip.dev alert: ${text}`.slice(0, 3500) }),
-      });
-      if (!res.ok) {
-        console.error(`[alert] Telegram returned HTTP ${res.status} for signature ${signature}`);
-        return;
-      }
-    } catch (error) {
-      const name = error instanceof Error ? error.name : 'unknown error';
-      console.error(`[alert] Telegram request failed (${name}) for signature ${signature}`);
+    const failure = await sendTelegramMessage(
+      deps.fetch,
+      { token: telegram.token, chatId: telegram.chatId },
+      `ccip.dev alert: ${text}`,
+    );
+    if (failure) {
+      console.error(`[alert] ${failure} for signature ${signature}`);
       return;
     }
     await setMeta(db, key, now.toISOString());

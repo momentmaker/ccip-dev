@@ -1,0 +1,13 @@
+name = "ccip-dev-watchdog"
+main = "src/watchdog.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+STATUS_URL = "https://data.ccip.dev/v1/status.json"
+
+[observability]
+enabled = true
