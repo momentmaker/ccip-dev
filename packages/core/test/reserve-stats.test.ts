@@ -78,41 +78,33 @@ describe('reserveStats', () => {
     });
   });
 
-  it('has a pace for weekly deposits without overdue flag when recent', () => {
-    // 8 deposits of 50,000 LINK at price 10, every 7 days starting 2026-08-13T15:35:00.000Z
+  const buildWeeklyDeposits = (dayOffset: number) => {
     const weeklyDeposits: PricedTransfer[] = [];
+    const startMs = Date.parse('2026-08-13T15:35:00.000Z');
     for (let i = 0; i < 8; i++) {
-      const ts = new Date('2026-08-13T15:35:00.000Z');
-      ts.setDate(ts.getDate() + i * 7);
-      weeklyDeposits.push(t(ts.toISOString(), `0x${i}`, 'in', 50_000, 10));
+      const ts = new Date(startMs + i * 7 * 86_400_000).toISOString();
+      weeklyDeposits.push(t(ts, `0x${i}`, 'in', 50_000, 10));
     }
-    // now = last deposit + 1 day
-    const last = new Date('2026-08-13T15:35:00.000Z');
-    last.setDate(last.getDate() + 7 * 7);
-    const now = new Date(last.getTime() + 86_400_000);
+    const lastMs = startMs + 7 * 7 * 86_400_000;
+    const now = new Date(lastMs + dayOffset * 86_400_000);
+    return { weeklyDeposits, now, lastMs };
+  };
+
+  it('has a pace for weekly deposits without overdue flag when recent', () => {
+    const { weeklyDeposits, now, lastMs } = buildWeeklyDeposits(1);
 
     const weekly = reserveStats({ transfers: weeklyDeposits, linkPriceUsd: 10, now });
     expect(weekly.pace).toMatchObject({
       deposits: 8,
       avg_days_between_deposits: 7,
-      next_expected_deposit: new Date(last.getTime() + 7 * 86_400_000).toISOString(),
+      next_expected_deposit: new Date(lastMs + 7 * 86_400_000).toISOString(),
       deposit_overdue: false,
       deposit_streak: 8,
     });
   });
 
   it('flags deposit as overdue when now exceeds next expected by grace hours', () => {
-    // Same 8 deposits as above, now = last + 8.5 days
-    const weeklyDeposits: PricedTransfer[] = [];
-    for (let i = 0; i < 8; i++) {
-      const ts = new Date('2026-08-13T15:35:00.000Z');
-      ts.setDate(ts.getDate() + i * 7);
-      weeklyDeposits.push(t(ts.toISOString(), `0x${i}`, 'in', 50_000, 10));
-    }
-    // now = last deposit + 8.5 days (1 hour past grace period)
-    const last = new Date('2026-08-13T15:35:00.000Z');
-    last.setDate(last.getDate() + 7 * 7);
-    const now = new Date(last.getTime() + 8.5 * 86_400_000);
+    const { weeklyDeposits, now } = buildWeeklyDeposits(8.5);
 
     const weekly = reserveStats({ transfers: weeklyDeposits, linkPriceUsd: 10, now });
     expect(weekly.pace).toMatchObject({

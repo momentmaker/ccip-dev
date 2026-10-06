@@ -142,7 +142,6 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
   const milestone = (Math.floor(net / MILESTONE_STEP_LINK) + 1) * MILESTONE_STEP_LINK;
   const last = deposits.at(-1);
 
-  // Calculate deposit timing metrics
   const gaps = deposits.length > 1
     ? deposits.slice(1).map((d, i) => (Date.parse(d.ts) - Date.parse(deposits[i]!.ts)) / DAY_MS)
     : [];
@@ -153,12 +152,11 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
     : gaps.length % 2 === 1
       ? sortedGaps[Math.floor(gaps.length / 2)]!
       : (sortedGaps[gaps.length / 2 - 1]! + sortedGaps[gaps.length / 2]!) / 2;
-  const nextExpected = deposits.length < 2 || medianGap === null
+  const nextExpected = medianGap === null
     ? null
     : new Date(Date.parse(last!.ts) + medianGap * DAY_MS).toISOString();
   const isOverdue = nextExpected !== null && now.getTime() > Date.parse(nextExpected) + DEPOSIT_OVERDUE_GRACE_HOURS * 3_600_000;
 
-  // Calculate deposit streak: walk back from latest deposit counting consecutive gaps <= 8 days
   let streak = deposits.length === 0 ? 0 : 1;
   for (let i = gaps.length - 1; i >= 0; i--) {
     if (gaps[i]! <= DEPOSIT_STREAK_MAX_GAP_DAYS) {
