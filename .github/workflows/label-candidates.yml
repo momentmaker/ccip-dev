@@ -58,8 +58,8 @@ jobs:
           git commit -m "chore(labels): candidates for the week of ${week}"
           if [ -n "${PR_NUMBER}" ]; then
             git push origin labels/candidates
-            gh pr edit "${PR_NUMBER}" --title "Label candidates, week of ${week}" --body-file pr-body.md
+            gh pr edit "${PR_NUMBER}" --title "Label candidates — week of ${week}" --body-file pr-body.md
           else
             git push --force origin labels/candidates
-            gh pr create --head labels/candidates --base main --title "Label candidates, week of ${week}" --body-file pr-body.md
+            gh pr create --head labels/candidates --base main --title "Label candidates — week of ${week}" --body-file pr-body.md
           fi

@@ -17,10 +17,15 @@ export interface Candidate {
   first_seen: string;
 }
 
+export function windowStart(today: string): string {
+  return addDays(today, -6);
+}
+
 export function candidateQuery(sinceDay: string, minUsd: number, minMessages: number) {
   return {
     sql: `SELECT m.src_chain AS chain, c.name AS chain_name, c.chain_id AS chain_id, c.family AS family, m.sender AS address,
-            COUNT(*) AS messages, SUM(m.usd_value) AS usd, MIN(m.send_ts) AS first_seen
+            COUNT(*) AS messages, SUM(m.usd_value) AS usd,
+            (SELECT MIN(m2.day) FROM messages m2 WHERE m2.src_chain = m.src_chain AND m2.sender = m.sender) AS first_seen
           FROM messages m LEFT JOIN chains c ON c.selector = m.src_chain
           WHERE m.day >= ?
           GROUP BY m.src_chain, m.sender
@@ -40,17 +45,21 @@ export function priorityQuery(sinceDay: string) {
   };
 }
 
-export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<'contract' | 'wallet' | 'unknown'> {
+export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<'contract' | 'wallet' | 'unknown' | 'error'> {
   if (!rpcUrl || !/^0x[0-9a-f]{40}$/.test(address)) return 'unknown';
-  const res = await fetchFn(rpcUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getCode', params: [address, 'latest'] }),
-  });
-  if (!res.ok) return 'unknown';
-  const body = (await res.json()) as { result?: unknown };
-  if (typeof body.result !== 'string') return 'unknown';
-  return body.result === '0x' || body.result === '0x0' ? 'wallet' : 'contract';
+  try {
+    const res = await fetchFn(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getCode', params: [address, 'latest'] }),
+    });
+    if (!res.ok) return 'error';
+    const body = (await res.json()) as { result?: unknown };
+    if (typeof body.result !== 'string') return 'error';
+    return body.result === '0x' || body.result === '0x0' ? 'wallet' : 'contract';
+  } catch {
+    return 'error';
+  }
 }
 
 export async function contractName(
@@ -78,6 +87,50 @@ export async function contractName(
   return null;
 }
 
+export function detailsQuery(sinceDay: string, keys: string[]) {
+  return {
+    sql: `SELECT m.src_chain AS chain, m.sender AS address, COALESCE(tk.symbol, mt.token) AS token, d.name AS dst_name
+          FROM messages m
+          LEFT JOIN message_tokens mt ON mt.message_id = m.message_id
+          LEFT JOIN tokens tk ON tk.chain = mt.chain AND lower(tk.address) = lower(mt.token)
+          LEFT JOIN chains d ON d.selector = m.dst_chain
+          WHERE m.day >= ? AND (m.src_chain || ':' || m.sender) IN (SELECT value FROM json_each(?))`,
+    params: [sinceDay, JSON.stringify(keys)],
+  };
+}
+
+export function summarizeDetails(rows: Array<{ chain: string; address: string; token: string | null; dst_name: string | null }>): Map<string, { tokens: string[]; chains: string[] }> {
+  const result = new Map<string, { tokens: string[]; chains: string[] }>();
+  const tokenCountsMap = new Map<string, Map<string, number>>();
+  const chainSets = new Map<string, Set<string>>();
+
+  for (const row of rows) {
+    const key = `${row.chain}:${row.address}`;
+    if (!tokenCountsMap.has(key)) tokenCountsMap.set(key, new Map());
+    if (!chainSets.has(key)) chainSets.set(key, new Set());
+
+    if (row.token) {
+      const counts = tokenCountsMap.get(key)!;
+      counts.set(row.token, (counts.get(row.token) ?? 0) + 1);
+    }
+    if (row.dst_name) {
+      chainSets.get(key)!.add(row.dst_name);
+    }
+  }
+
+  for (const [key, tokenCounts] of tokenCountsMap) {
+    const tokenEntries = Array.from(tokenCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    const tokens: string[] = tokenEntries.map(([token]) => sanitize(token));
+    const chainSet = chainSets.get(key) ?? (new Set<string>());
+    const chains: string[] = Array.from(chainSet).sort();
+    result.set(key, { tokens, chains });
+  }
+
+  return result;
+}
+
 const fileSafe = (text: string) => text.replace(/[^A-Za-z0-9._-]/g, '_');
 
 export function draftFileName(c: Candidate): string {
@@ -93,7 +146,7 @@ export function draftToml(c: Candidate, name: string | null): string {
       {
         chain: c.chain_name ?? c.chain,
         address: c.address,
-        note: sanitize(`candidate: ${c.messages} messages, $${Math.round(c.usd)} in the last 7 days`, 120),
+        note: sanitize(`candidate: ${c.messages} messages, $${Math.round(c.usd)} in the last 7 days, first seen ${c.first_seen}`, 120),
       },
     ],
   });
@@ -111,20 +164,23 @@ export function escapeMarkdownCell(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
-export function prBody(rows: { candidate: Candidate; name: string | null; priority: boolean }[], weekOf: string): string {
+export function prBody(rows: { candidate: Candidate; name: string | null; priority: boolean; tokens: string[]; chains: string[]; explorer: string | null }[], weekOf: string): string {
   const sorted = [...rows].sort((a, b) => Number(b.priority) - Number(a.priority) || b.candidate.usd - a.candidate.usd);
   const lines = sorted.map(
-    ({ candidate: c, name, priority }) =>
-      `| ${priority ? 'top 3' : ''} | ${escapeMarkdownCell(c.chain_name ?? c.chain)} | ${escapeMarkdownCell(c.address)} | ` +
-      `${escapeMarkdownCell(name ?? '-')} | ${c.messages} | ${Math.round(c.usd).toLocaleString('en-US')} |`,
+    ({ candidate: c, name, priority, tokens, chains, explorer }) => {
+      const explorerCell = explorer ? `[link](${explorer})` : '-';
+      return `| ${priority ? 'top 3' : ''} | ${escapeMarkdownCell(c.chain_name ?? c.chain)} | ${escapeMarkdownCell(c.address)} | ` +
+        `${escapeMarkdownCell(name ?? '-')} | ${c.messages} | ${Math.round(c.usd).toLocaleString('en-US')} | ` +
+        `${escapeMarkdownCell(c.first_seen)} | ${escapeMarkdownCell(tokens.join(', '))} | ${escapeMarkdownCell(chains.join(', '))} | ${explorerCell} |`;
+    },
   );
   return [
     `Label candidates for the week of ${weekOf}.`,
     '',
     'Each file is a draft with `verified = false`. Fill in the real name, `x` and `kind`, and set `verified = true` only if the project publicly confirms the address. Otherwise delete the file. Then merge.',
     '',
-    '| Priority | Chain | Address | Contract name | Messages (7d) | USD (7d) |',
-    '|---|---|---|---|---|---|',
+    '| Priority | Chain | Address | Contract name | Messages (7d) | USD (7d) | First seen | Tokens | Chains | Explorer |',
+    '|---|---|---|---|---|---|---|---|---|---|',
     ...lines,
     '',
   ].join('\n');
@@ -158,7 +214,8 @@ async function labeledKeys(): Promise<Set<string>> {
 }
 
 async function main(): Promise<void> {
-  const since = addDays(dayOf(new Date()), -7);
+  const today = dayOf(new Date());
+  const since = windowStart(today);
   const minUsd = Number(process.env.CANDIDATE_MIN_USD_7D ?? '50000');
   const minMessages = Number(process.env.CANDIDATE_MIN_MESSAGES_7D ?? '50');
   const rpcMap = JSON.parse(process.env.RPC_MAP ?? '{}') as Record<string, string>;
@@ -170,7 +227,8 @@ async function main(): Promise<void> {
   const p = priorityQuery(since);
   const priority = new Set((await d1<{ key: string }>(p.sql, p.params)).map((r) => r.key));
 
-  const rows: { candidate: Candidate; name: string | null; priority: boolean }[] = [];
+  const rows: { candidate: Candidate; name: string | null; priority: boolean; tokens: string[]; chains: string[]; explorer: string | null }[] = [];
+  const candidateKeys: string[] = [];
   for (const c of candidates) {
     if (!c.chain_name) {
       console.warn(`skipping ${c.chain}:${c.address}: chain not in the chains table yet`);
@@ -183,6 +241,10 @@ async function main(): Promise<void> {
     if (labeled.has(labelKey(c.chain_name, c.address))) continue;
     const kind = c.family === 'EVM' ? await classify(fetch, rpcMap[c.chain_name], c.address) : 'unknown';
     if (kind === 'wallet') continue;
+    if (kind === 'error') {
+      console.warn(`skipping ${c.chain}:${c.address}: RPC check failed`);
+      continue;
+    }
     const name =
       c.family === 'EVM'
         ? await contractName(fetch, {
@@ -193,9 +255,28 @@ async function main(): Promise<void> {
           })
         : null;
     await writeFile(path.join(ROOT, 'labels/projects', draftFileName(c)), draftToml(c, name));
-    rows.push({ candidate: c, name, priority: priority.has(`${c.chain}:${c.address}`) });
+    candidateKeys.push(`${c.chain}:${c.address}`);
+    rows.push({ candidate: c, name, priority: priority.has(`${c.chain}:${c.address}`), tokens: [], chains: [], explorer: null });
   }
-  await writeFile(path.join(ROOT, 'pr-body.md'), prBody(rows, dayOf(new Date())));
+
+  if (candidateKeys.length > 0) {
+    const dq = detailsQuery(since, candidateKeys);
+    const detailRows = await d1<{ chain: string; address: string; token: string | null; dst_name: string | null }>(dq.sql, dq.params);
+    const enrichment = summarizeDetails(detailRows);
+    for (const row of rows) {
+      const key = `${row.candidate.chain}:${row.candidate.address}`;
+      const details = enrichment.get(key);
+      if (details) {
+        row.tokens = details.tokens;
+        row.chains = details.chains;
+      }
+      if (explorerMap[row.candidate.chain_name ?? '']) {
+        row.explorer = `${explorerMap[row.candidate.chain_name ?? ''].replace(/\/$/, '')}/address/${row.candidate.address}`;
+      }
+    }
+  }
+
+  await writeFile(path.join(ROOT, 'pr-body.md'), prBody(rows, today));
   console.log(`${rows.length} candidate draft(s) written`);
 }
 
