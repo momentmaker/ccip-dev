@@ -1,8 +1,8 @@
 import {
-  firstCheckAt, normalizeList, normalizeRegistryToken, toMessageRow, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
+  firstCheckAt, LINK_RESERVE, RESERVE_FIRST_BLOCK, normalizeList, normalizeRegistryToken, toMessageRow, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
 } from '@ccip-dev/core';
 import {
-  fakeCcip, fakeCoingecko, fakePrices, listMessage, type FakeCcip, type FakeCoingecko, type FakePrices, type ListMessageSpec,
+  fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, listMessage, type FakeCcip, type FakeFetch, type FakeCoingecko, type FakePrices, type ListMessageSpec,
 } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import type { Alert } from '../src/alerts';
@@ -12,7 +12,7 @@ import * as store from '../src/store';
 
 const TABLES = [
   'messages', 'message_tokens', 'daily_totals', 'daily_breakdown', 'chains', 'tokens', 'arrivals',
-  'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids',
+  'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids', 'reserve_transfers',
 ];
 
 export async function resetStorage(): Promise<void> {
@@ -103,4 +103,53 @@ export function liveRow(spec: ListMessageSpec, extras: Partial<MessageRow> = {})
   const m = normalizeList(listMessage(spec));
   const valuation = { usdValue: 0, unpriced: false, tokenUsd: m.tokens.map(() => null), outliers: [] };
   return { ...toMessageRow(m, valuation, { source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }), ...extras };
+}
+
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const topicOf = (address: string) => `0x${address.slice(2).toLowerCase().padStart(64, '0')}`;
+
+/** A LINK Transfer log as eth_getLogs returns it, with blockTimestamp. */
+export function transferLog(o: { block: number; index: number; tx: string; direction: 'in' | 'out'; counterparty: string; link: bigint; ts: string }) {
+  const [from, to] = o.direction === 'in' ? [o.counterparty, LINK_RESERVE] : [LINK_RESERVE, o.counterparty];
+  return {
+    blockNumber: `0x${o.block.toString(16)}`,
+    logIndex: `0x${o.index.toString(16)}`,
+    transactionHash: o.tx,
+    topics: [TRANSFER_TOPIC, topicOf(from), topicOf(to)],
+    data: `0x${(o.link * 10n ** 18n).toString(16).padStart(64, '0')}`,
+    blockTimestamp: `0x${(Date.parse(o.ts) / 1000).toString(16)}`,
+  };
+}
+
+export interface RpcFakeOptions {
+  /** eth_blockNumber; the default puts the confirmed head at RESERVE_FIRST_BLOCK. */
+  head?: number;
+  /** eth_call at 'latest', in LINK. */
+  balanceLink?: bigint;
+  /** eth_call at a block number, in raw units. Defaults to 0. */
+  balanceAt?: (block: number) => bigint;
+  /** Logs for one eth_getLogs call. */
+  logs?: (call: { fromBlock: number; toBlock: number; direction: 'in' | 'out' }) => unknown[];
+  down?: boolean;
+}
+
+/** An Ethereum JSON-RPC endpoint that answers by method. */
+export function rpcFake(opts: RpcFakeOptions = {}): FakeFetch {
+  return fakeFetch((_url, init) => {
+    if (opts.down) return jsonResponse({}, 503);
+    const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: any[] };
+    const ok = (result: unknown) => jsonResponse({ jsonrpc: '2.0', id: 1, result });
+    if (method === 'eth_blockNumber') return ok(`0x${(opts.head ?? RESERVE_FIRST_BLOCK + 12).toString(16)}`);
+    if (method === 'eth_call') {
+      const tag = params[1] as string;
+      const raw = tag === 'latest' ? (opts.balanceLink ?? 0n) * 10n ** 18n : (opts.balanceAt?.(Number(BigInt(tag))) ?? 0n);
+      return ok(`0x${raw.toString(16)}`);
+    }
+    if (method === 'eth_getLogs') {
+      const filter = params[0] as { fromBlock: string; toBlock: string; topics: (string | null)[] };
+      const direction = filter.topics[1] === null ? 'in' : 'out';
+      return ok(opts.logs?.({ fromBlock: Number(BigInt(filter.fromBlock)), toBlock: Number(BigInt(filter.toBlock)), direction }) ?? []);
+    }
+    return jsonResponse({ jsonrpc: '2.0', id: 1, error: { message: `unexpected ${method}` } });
+  });
 }

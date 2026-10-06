@@ -1,29 +1,26 @@
 import {
-  addDays, buildCoingeckoIdIndex, dayOf, DEFAULT_RPC_URLS, listAllTokens, normalizeRegistryToken, readLinkBalance,
+  addDays, buildCoingeckoIdIndex, dayOf, listAllTokens, normalizeRegistryToken, readLinkBalance,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
-import type { Env } from '../env';
 import { publishRegistryFiles } from '../publish';
+import { balanceRpcUrls } from '../rpc';
 import * as store from '../store';
+import { runReserveTransfers } from './reserve';
 
 const RESERVE_ALERT_AFTER = 3;
 
 export async function runHourly(c: RunContext): Promise<void> {
   await recordReserve(c);
+  await runReserveTransfers(c);
   await snapshotRegistry(c);
   await publishRegistryFiles(c);
   await refreshCoingeckoIds(c);
 }
 
-export function rpcUrls(env: Env): string[] {
-  const urls = [env.RPC_ETHEREUM ?? '', ...(env.RPC_FALLBACKS ?? '').split(',')].map((u) => u.trim()).filter((u) => u.length > 0);
-  return urls.length > 0 ? urls : DEFAULT_RPC_URLS;
-}
-
 async function recordReserve(c: RunContext): Promise<void> {
   const db = c.env.DB;
   try {
-    const balance = await readLinkBalance(c.deps, rpcUrls(c.env));
+    const balance = await readLinkBalance(c.deps, balanceRpcUrls(c.env));
     await store.insertReserve(db, c.deps.now().toISOString(), balance.toString());
     await store.setMeta(db, 'reserve_failures', '0');
   } catch (err) {

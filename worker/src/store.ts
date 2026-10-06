@@ -1,7 +1,7 @@
 import {
   BREAKDOWN_CONFLICT, buildTokenGroupIndex, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
   type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
-  type TokenGroupIndex, type TokenRow,
+  type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
 const PARAM_CHUNK = 90;
@@ -429,5 +429,33 @@ export async function topBetween(
     )
     .bind(dim, fromDay ?? '0000-00-00', toDay, limit)
     .all<{ key: string; messages: number; usd_value: number; fee_usd: number | null }>();
+  return results;
+}
+
+export interface ReserveTransferRow {
+  tx_hash: string;
+  log_index: number;
+  block_number: number;
+  ts: string;
+  direction: 'in' | 'out';
+  counterparty: string;
+  amount: string;
+  link_usd: number | null;
+}
+
+export async function insertReserveTransfers(db: D1Database, transfers: ReserveTransfer[]): Promise<ReserveTransfer[]> {
+  if (transfers.length === 0) return [];
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO reserve_transfers (tx_hash, log_index, block_number, ts, direction, counterparty, amount)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const results = await db.batch(
+    transfers.map((t) => insert.bind(t.txHash, t.logIndex, t.blockNumber, t.ts, t.direction, t.counterparty, t.amount)),
+  );
+  return transfers.filter((_, i) => (results[i]?.meta.changes ?? 0) > 0);
+}
+
+export async function reserveTransfers(db: D1Database): Promise<ReserveTransferRow[]> {
+  const { results } = await db.prepare('SELECT * FROM reserve_transfers ORDER BY block_number, log_index').all<ReserveTransferRow>();
   return results;
 }
