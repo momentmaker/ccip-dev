@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     archiveBaseUrl: `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/ccip-dev-archive`,
     deps: {
       runSqlFile: (file) => {
-        wrangler(['d1', 'execute', 'ccip-dev', '--remote', `--file=${path.resolve(file)}`], { token: CF_BACKFILL_TOKEN, inherit: true });
+        wrangler(['d1', 'execute', 'ccip-dev', '--remote', '--yes', `--file=${path.resolve(file)}`], { token: CF_BACKFILL_TOKEN, inherit: true });
       },
       signedFetch: (url, init) => aws.fetch(url, init),
     },
