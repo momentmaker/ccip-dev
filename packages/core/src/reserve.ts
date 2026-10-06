@@ -2,7 +2,13 @@ import { USER_AGENT, type HttpDeps } from './http';
 
 export const LINK_TOKEN = '0x514910771AF9Ca656af840dff83E8264EcF986CA';
 export const LINK_RESERVE = '0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6';
-export const DEFAULT_RPC_URLS = ['https://ethereum-rpc.publicnode.com'];
+export const DEFAULT_RPC_URLS = [
+  'https://eth.drpc.org',
+  'https://eth.merkle.io',
+  'https://ethereum-rpc.publicnode.com',
+  'https://rpc.mevblocker.io',
+  'https://eth-mainnet.public.blastapi.io',
+];
 
 const BALANCE_OF = '0x70a08231';
 

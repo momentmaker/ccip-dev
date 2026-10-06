@@ -28,7 +28,7 @@ Never paste tokens into chat or commit them.
 8. Worker secrets:
    - `… wrangler secret put TELEGRAM_BOT_TOKEN`
    - `… wrangler secret put TELEGRAM_ALERT_CHAT_ID`
-   - Optional: `… wrangler secret put RPC_ETHEREUM` and `RPC_FALLBACKS` (comma-separated). Use them only for keyed RPC URLs; without them, the public endpoint is used.
+   - Optional: `… wrangler secret put RPC_ETHEREUM` and `RPC_FALLBACKS` (comma-separated). Use them only for keyed RPC URLs; without them, a built-in list of keyless public endpoints is used.
 9. Schema: `… wrangler d1 migrations apply ccip-dev --remote`.
 10. Deploy: `… wrangler deploy`.
 
