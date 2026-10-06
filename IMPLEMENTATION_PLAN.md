@@ -44,4 +44,4 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Commit `config/endpoints.json` (RPC, Blockscout explorer and Ethereum log endpoints per CCIP chain, built from chainlist.org data). Add `pnpm endpoints:refresh`, which keeps working entries and fills new chains or dead ones. A daily `endpoints.yml` workflow opens one PR when the map changes. The label-candidates job and the Worker's Reserve log fallbacks read the file.
 **Success Criteria**: A new CCIP chain gets a PR within a day. The label-candidates job runs without the RPC_MAP/EXPLORER_MAP settings. The Reserve uses the file's Ethereum log endpoints after the trusted ones.
 **Tests**: endpoint selection rules (keyless, no tracking, chain-id match, keep working entries), file output, label-candidates reading the file.
-**Status**: In Progress
+**Status**: Complete (first run opened PR #2, replacing xrpc.cl with publicnode for Ethereum because xrpc.cl fails from GitHub runners)
