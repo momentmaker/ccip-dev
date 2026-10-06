@@ -4,7 +4,7 @@ import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 import {
-  candidateQuery, classify, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, prBody, summarizeDetails, windowStart, type Candidate,
+  candidateQuery, classify, classifySolana, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, prBody, summarizeDetails, windowStart, type Candidate,
 } from '../label-candidates';
 
 const candidate: Candidate = {
@@ -64,6 +64,48 @@ describe('label candidates', () => {
     expect(await classify(contract, 'https://rpc', candidate.address)).toBe('contract');
     expect(await classify(contract, undefined, candidate.address)).toBe('unknown');
     expect(await classify(contract, 'https://rpc', 'not-an-address')).toBe('unknown');
+  });
+
+  it('classify treats an EIP-7702 delegation designator as a wallet', async () => {
+    const delegated = fakeFetch(() => jsonResponse({ jsonrpc: '2.0', id: 1, result: '0xef0100' + 'ab'.repeat(20) }));
+    expect(await classify(delegated, 'https://rpc', candidate.address)).toBe('wallet');
+  });
+
+  describe('classifySolana', () => {
+    const address = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin';
+    const account = (value: unknown) => fakeFetch(() => jsonResponse({ jsonrpc: '2.0', id: 1, result: { value } }));
+    const system = '11111111111111111111111111111111';
+
+    it('calls getAccountInfo with an empty data slice', async () => {
+      let body: any;
+      const spy = fakeFetch(async (_url, init) => { body = JSON.parse(String(init?.body)); return jsonResponse({ result: { value: null } }); });
+      await classifySolana(spy, 'https://rpc', address);
+      expect(body.method).toBe('getAccountInfo');
+      expect(body.params).toEqual([address, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]);
+    });
+
+    it('returns wallet for a System-owned, non-executable account', async () => {
+      expect(await classifySolana(account({ owner: system, executable: false }), 'https://rpc', address)).toBe('wallet');
+    });
+
+    it('returns contract for an executable account', async () => {
+      expect(await classifySolana(account({ owner: 'BPFLoaderUpgradeab1e11111111111111111111111', executable: true }), 'https://rpc', address)).toBe('contract');
+    });
+
+    it('returns contract for an account owned by a program', async () => {
+      expect(await classifySolana(account({ owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', executable: false }), 'https://rpc', address)).toBe('contract');
+    });
+
+    it('returns unknown for a missing account or rpc', async () => {
+      expect(await classifySolana(account(null), 'https://rpc', address)).toBe('unknown');
+      expect(await classifySolana(account({ owner: system, executable: false }), undefined, address)).toBe('unknown');
+    });
+
+    it('returns error for HTTP failures, thrown fetches and malformed bodies', async () => {
+      expect(await classifySolana(fakeFetch(() => jsonResponse({}, 500)), 'https://rpc', address)).toBe('error');
+      expect(await classifySolana(fakeFetch(async () => { throw new Error('network'); }), 'https://rpc', address)).toBe('error');
+      expect(await classifySolana(fakeFetch(() => jsonResponse({ result: 'nope' })), 'https://rpc', address)).toBe('error');
+    });
   });
 
   it('takes the contract name from Etherscan, falling back to Blockscout', async () => {

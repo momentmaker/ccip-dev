@@ -45,7 +45,12 @@ export function priorityQuery(sinceDay: string) {
   };
 }
 
-export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<'contract' | 'wallet' | 'unknown' | 'error'> {
+type AddressKind = 'contract' | 'wallet' | 'unknown' | 'error';
+
+const EIP7702_PREFIX = '0xef0100';
+const SOLANA_SYSTEM_PROGRAM = '11111111111111111111111111111111';
+
+export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<AddressKind> {
   if (!rpcUrl || !/^0x[0-9a-f]{40}$/.test(address)) return 'unknown';
   try {
     const res = await fetchFn(rpcUrl, {
@@ -56,7 +61,33 @@ export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined
     if (!res.ok) return 'error';
     const body = (await res.json()) as { result?: unknown };
     if (typeof body.result !== 'string') return 'error';
-    return body.result === '0x' || body.result === '0x0' ? 'wallet' : 'contract';
+    if (body.result === '0x' || body.result === '0x0' || body.result.startsWith(EIP7702_PREFIX)) return 'wallet';
+    return 'contract';
+  } catch {
+    return 'error';
+  }
+}
+
+export async function classifySolana(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<AddressKind> {
+  if (!rpcUrl) return 'unknown';
+  try {
+    const res = await fetchFn(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getAccountInfo',
+        params: [address, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }],
+      }),
+    });
+    if (!res.ok) return 'error';
+    const body = (await res.json()) as { result?: { value?: { owner?: unknown; executable?: unknown } | null } };
+    if (typeof body.result !== 'object' || body.result === null || !('value' in body.result)) return 'error';
+    const account = body.result.value;
+    if (account === null) return 'unknown';
+    if (typeof account !== 'object' || typeof account.owner !== 'string') return 'error';
+    return account.owner === SOLANA_SYSTEM_PROGRAM && account.executable !== true ? 'wallet' : 'contract';
   } catch {
     return 'error';
   }
@@ -213,6 +244,12 @@ async function labeledKeys(): Promise<Set<string>> {
   return new Set(validateRegistry(files, chains).projects.flatMap((p) => p.addresses.map((a) => labelKey(a.chain, a.address))));
 }
 
+function classifyCandidate(c: Candidate, rpcMap: Record<string, string>): Promise<AddressKind> {
+  if (c.family === 'EVM') return classify(fetch, rpcMap[c.chain_name ?? ''], c.address);
+  if (c.family === 'SVM') return classifySolana(fetch, rpcMap['solana-mainnet'], c.address);
+  return Promise.resolve('unknown');
+}
+
 async function main(): Promise<void> {
   const today = dayOf(new Date());
   const since = windowStart(today);
@@ -221,6 +258,7 @@ async function main(): Promise<void> {
   const rpcMap = JSON.parse(process.env.RPC_MAP ?? '{}') as Record<string, string>;
   const explorerMap = JSON.parse(process.env.EXPLORER_MAP ?? '{}') as Record<string, string>;
   const labeled = await labeledKeys();
+  const knownChains = new Set<string>(JSON.parse(await readFile(path.join(ROOT, 'labels/ccip-chains.json'), 'utf8')));
 
   const q = candidateQuery(since, minUsd, minMessages);
   const candidates = await d1<Candidate>(q.sql, q.params);
@@ -234,12 +272,16 @@ async function main(): Promise<void> {
       console.warn(`skipping ${c.chain}:${c.address}: chain not in the chains table yet`);
       continue;
     }
+    if (!knownChains.has(c.chain_name)) {
+      console.warn(`skipping ${c.chain}:${c.address}: ${c.chain_name} is not in labels/ccip-chains.json`);
+      continue;
+    }
     if (!isAddressShape(c.family ?? '', c.address)) {
       console.warn(`skipping ${c.chain}:${c.address}: not a valid ${c.family} address`);
       continue;
     }
     if (labeled.has(labelKey(c.chain_name, c.address))) continue;
-    const kind = c.family === 'EVM' ? await classify(fetch, rpcMap[c.chain_name], c.address) : 'unknown';
+    const kind = await classifyCandidate(c, rpcMap);
     if (kind === 'wallet') continue;
     if (kind === 'error') {
       console.warn(`skipping ${c.chain}:${c.address}: RPC check failed`);
