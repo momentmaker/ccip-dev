@@ -11,6 +11,7 @@
     "backfill:sources": "tsx scripts/backfill/sources.ts",
     "backfill:build": "tsx scripts/backfill/build.ts",
     "backfill:upload": "tsx --env-file=.env scripts/backfill/upload.ts",
+    "endpoints:refresh": "tsx scripts/refresh-endpoints.ts",
     "labels:build": "tsx scripts/build-labels.ts",
     "labels:check": "tsx scripts/build-labels.ts --check",
     "labels:refresh-chains": "tsx scripts/refresh-chains.ts",
