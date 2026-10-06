@@ -64,3 +64,17 @@ Meta/OG: site/src/layouts/Base.astro: theme-color #2f62df, canonical, og:* with 
 - clm-week-1440-full.png
 - metrics-chain-link-1440-fold.png
 - l2beat-1440-fold.png
+
+## Owner-approved concepts (2026-10-06)
+Input for the sub-project 2 brainstorm. These are directions, not a spec.
+- **CCIP Constellation (live hero):** every chain is a star sized by 30-day volume. Each live message is a comet along its lane, sized by USD and colored by token. Transfers of $1M or more get a shockwave and a caption. A new chain ignites as a new star. Built with WebGL instanced particles and D3 layout, fed by `live.json`.
+- **Time-lapse replay:** "Watch CCIP grow", 2023-07-06 to today in about 60 s, with in-browser recording to video or GIF for sharing on X.
+- **Reserve vault:** LINK fills a vault, and each weekly deposit drops in. Shows cost basis vs value now, a countdown to the next million, a deposit streak, and share of supply (from `reserve.json`).
+- **Share cards everywhere:** satori + resvg share images for every view and filter, plus a daily "CCIP today" card.
+- **Embeddable widget** and a **fullscreen TV mode**.
+- **Trust signals:**
+  - a live status light
+  - "since 2023-07-06" on every all-time figure
+  - a methodology link on every number
+  - a verified check on labeled senders
+- **Not doing:** in-browser SQL (DuckDB-WASM over Parquet). The owner declined it.
