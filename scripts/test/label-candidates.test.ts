@@ -1,10 +1,13 @@
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { validateRegistry } from '@ccip-dev/core';
 import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 import {
-  candidateQuery, classify, classifySolana, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, prBody, summarizeDetails, windowStart, type Candidate,
+  candidateQuery, classify, classifySolana, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, loadEndpointMaps, prBody, summarizeDetails, windowStart, type Candidate,
 } from '../label-candidates';
 
 const candidate: Candidate = {
@@ -171,5 +174,17 @@ describe('label candidates', () => {
     const rows = body.split('\n').filter((l) => l.startsWith('| top 3') || l.startsWith('|  |'));
     expect(rows[0]).toContain('0x2222');
     expect(body).toContain('X\\|Y');
+  });
+});
+
+describe('loadEndpointMaps', () => {
+  it('reads the rpc and explorer maps from config/endpoints.json', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'endpoints-'));
+    await mkdir(path.join(root, 'config'));
+    await writeFile(
+      path.join(root, 'config/endpoints.json'),
+      JSON.stringify({ source: 's', rpc: { base: 'https://rpc.example' }, explorer: { base: 'https://scout.example' }, ethereumLogs: [] }),
+    );
+    expect(await loadEndpointMaps(root)).toEqual({ rpcMap: { base: 'https://rpc.example' }, explorerMap: { base: 'https://scout.example' } });
   });
 });

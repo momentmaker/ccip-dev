@@ -250,13 +250,20 @@ function classifyCandidate(c: Candidate, rpcMap: Record<string, string>): Promis
   return Promise.resolve('unknown');
 }
 
+export async function loadEndpointMaps(rootDir: string): Promise<{ rpcMap: Record<string, string>; explorerMap: Record<string, string> }> {
+  const endpoints = JSON.parse(await readFile(path.join(rootDir, 'config/endpoints.json'), 'utf8')) as {
+    rpc: Record<string, string>;
+    explorer: Record<string, string>;
+  };
+  return { rpcMap: endpoints.rpc, explorerMap: endpoints.explorer };
+}
+
 async function main(): Promise<void> {
   const today = dayOf(new Date());
   const since = windowStart(today);
   const minUsd = Number(process.env.CANDIDATE_MIN_USD_7D ?? '50000');
   const minMessages = Number(process.env.CANDIDATE_MIN_MESSAGES_7D ?? '50');
-  const rpcMap = JSON.parse(process.env.RPC_MAP ?? '{}') as Record<string, string>;
-  const explorerMap = JSON.parse(process.env.EXPLORER_MAP ?? '{}') as Record<string, string>;
+  const { rpcMap, explorerMap } = await loadEndpointMaps(ROOT);
   const labeled = await labeledKeys();
   const knownChains = new Set<string>(JSON.parse(await readFile(path.join(ROOT, 'labels/ccip-chains.json'), 'utf8')));
 

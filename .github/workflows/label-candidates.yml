@@ -40,8 +40,6 @@ jobs:
           CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
           CF_D1_READ_TOKEN: ${{ secrets.CF_D1_READ_TOKEN }}
           ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
-          RPC_MAP: ${{ secrets.RPC_MAP }}
-          EXPLORER_MAP: ${{ vars.EXPLORER_MAP }}
           CANDIDATE_MIN_USD_7D: ${{ vars.CANDIDATE_MIN_USD_7D }}
           CANDIDATE_MIN_MESSAGES_7D: ${{ vars.CANDIDATE_MIN_MESSAGES_7D }}
       - run: pnpm labels:check
