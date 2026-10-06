@@ -67,7 +67,7 @@ The sub-project is done when:
 
 ## 5. Architecture
 
-Everything runs on Cloudflare (Workers Paid plan): a Worker with Cron Triggers, D1 and R2. The one-time backfill, the weekly label job and an external watchdog run outside the Worker: the backfill on the owner's Mac, the label job and the watchdog in GitHub Actions.
+Everything runs on Cloudflare (Workers Paid plan): a Worker with Cron Triggers, D1 and R2, plus a separate watchdog Worker with no bindings (§11). The one-time backfill and the weekly label job run outside Cloudflare: the backfill on the owner's Mac, the label job in GitHub Actions, which also runs a backup watchdog.
 
 ### 5.1 Units
 
@@ -398,7 +398,7 @@ This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo is publ
 |---|---|---|
 | `CCIP_API_BASE` | Worker var | `https://api.ccip.chain.link/v2` |
 | `RPC_ETHEREUM`, `RPC_FALLBACKS` | Worker secret | Reserve reads. Only keyless public endpoints may appear in committed config |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALERT_CHAT_ID` | Worker secret, Actions secret (watchdog) | Alerts |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALERT_CHAT_ID` | Worker secret on both Workers, Actions secret (backup watchdog) | Alerts |
 | `CF_DEPLOY_TOKEN` | Actions secret in a protected `production` environment | Deploy the Worker and run D1 migrations only |
 | `CF_D1_READ_TOKEN` | Actions secret | Read-only D1 queries for the candidate pipeline |
 | `CLOUDFLARE_ACCOUNT_ID` | Actions var, owner's Mac (.env) | Account id (not secret) |
