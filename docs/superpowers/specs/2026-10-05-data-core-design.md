@@ -336,7 +336,7 @@ Expected effort (updated 2026-10-05): about 1–3 s per 1,000 messages per sourc
 
   Repeats of the same alert are suppressed for 1 hour.
 - **`status.json`** is public, so sub-project 2 can show a "data delayed" notice.
-- **External watchdog:** the primary external check is the `ccip-dev-watchdog` Worker. It runs every 5 minutes with no bindings (no D1 or R2, so it still works when either is broken), fetches `data.ccip.dev/v1/status.json`, and sends a Telegram alert when the file is unreachable, `updated_at` is more than 15 minutes old, `lag_seconds` is null, or `lag_seconds` exceeds 15 minutes. It keeps no state: it alerts on the first run after a measured age or lag crosses 900 seconds (up to 1,260 seconds, to allow for cron jitter), then once an hour while the problem lasts. It catches failures that silence the whole data Worker: a bad deploy, stopped crons, or a disabled Worker. A GitHub Actions workflow with the same checks runs every 15 minutes as a best-effort backup, because GitHub's schedule is irregular (3 runs in about 20 hours were observed on 2026-10-05/06).
+- **External watchdog:** the primary external check is the `ccip-dev-watchdog` Worker. It runs every 5 minutes with no bindings (no D1 or R2, so it still works when either is broken), fetches `data.ccip.dev/v1/status.json`, and sends a Telegram alert when the file is unreachable, `updated_at` is more than 15 minutes old, `lag_seconds` is null, or `lag_seconds` exceeds 15 minutes. It keeps no state: it alerts on the first run after a measured age or lag crosses 900 seconds (up to 1,260 seconds, to allow for cron jitter), then once an hour while the problem lasts. "Unreachable" and "lag_seconds is null" have no measured age, so they alert only at the top of the hour (the first alert can take up to about 60 minutes). An unreadable status is re-fetched once per run before alerting. It catches failures that silence the whole data Worker: a bad deploy, stopped crons, or a disabled Worker. A GitHub Actions workflow with the same checks runs every 15 minutes as a best-effort backup, because GitHub's schedule is irregular (3 runs in about 20 hours were observed on 2026-10-05/06).
 
 ## 12. Testing
 
@@ -383,7 +383,7 @@ The project is test-first, with vitest. CI never makes a real network call.
 ```
 ccip-dev/
   packages/core/src/{ccip-client,prices,chain-map,reserve,normalize,value,rollup,labels}.ts
-  worker/src/{index,jobs/*,store,publish}.ts   worker/migrations/*.sql   worker/wrangler.toml
+  worker/src/{index,jobs/*,store,publish,watchdog,telegram}.ts   worker/migrations/*.sql   worker/wrangler.toml   worker/wrangler.watchdog.toml
   scripts/{backfill,label-candidates,canary,build-labels}.ts
   labels/projects/*.toml
   docs/{methodology.md, callsigns/, superpowers/specs/}
@@ -399,7 +399,7 @@ This is a pnpm workspace on TypeScript, matching chainlinkmeme. The repo is publ
 | `CCIP_API_BASE` | Worker var | `https://api.ccip.chain.link/v2` |
 | `RPC_ETHEREUM`, `RPC_FALLBACKS` | Worker secret | Reserve reads. Only keyless public endpoints may appear in committed config |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALERT_CHAT_ID` | Worker secret on both Workers, Actions secret (backup watchdog) | Alerts |
-| `CF_DEPLOY_TOKEN` | Actions secret in a protected `production` environment | Deploy the Worker and run D1 migrations only |
+| `CF_DEPLOY_TOKEN` | Actions secret in a protected `production` environment | Deploy both Workers (data and watchdog) and run D1 migrations only |
 | `CF_D1_READ_TOKEN` | Actions secret | Read-only D1 queries for the candidate pipeline |
 | `CLOUDFLARE_ACCOUNT_ID` | Actions var, owner's Mac (.env) | Account id (not secret) |
 | `CF_BACKFILL_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Owner's Mac (.env) only | Backfill uploads. R2 keys are scoped to the archive bucket |

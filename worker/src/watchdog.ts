@@ -41,7 +41,8 @@ export async function detectProblem(url: string, fetchFn: typeof fetch, now: Dat
   if (age > STALE_AFTER_SECONDS) return { reason: `status.json is ${age}s old`, measured: age };
 
   const lag = status.lag_seconds;
-  if (typeof lag !== 'number') return { reason: 'ingest has never succeeded (lag_seconds is null)' };
+  if (lag === null) return { reason: 'ingest has never succeeded (lag_seconds is null)' };
+  if (typeof lag !== 'number') return { reason: 'ingest lag is unreadable (lag_seconds is not a number)' };
   if (lag > STALE_AFTER_SECONDS) return { reason: `ingest lag is ${Math.floor(lag)}s`, measured: lag };
   return null;
 }
@@ -56,7 +57,8 @@ export function shouldAlert(problem: Problem, now: Date): boolean {
 
 export async function runWatchdog(env: WatchdogEnv, deps: WatchdogDeps): Promise<void> {
   const now = deps.now();
-  const problem = await detectProblem(env.STATUS_URL, deps.fetch, now);
+  let problem = await detectProblem(env.STATUS_URL, deps.fetch, now);
+  if (problem === UNREADABLE) problem = await detectProblem(env.STATUS_URL, deps.fetch, now);
   if (!problem || !shouldAlert(problem, now)) return;
 
   const text = `ccip.dev watchdog: ${problem.reason}`;
