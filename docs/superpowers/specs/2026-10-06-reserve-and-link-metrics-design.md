@@ -100,8 +100,9 @@ Each new step catches its own errors, so a failure never stops the steps after i
   with no alert. `reserve.json` reports the count of unpriced transfers.
 
 ### 4.3 Reconcile
-- Runs only when the cursor equals `head`. Compare Σ in − Σ out (BigInt over the stored raw amounts) with
-  `balanceOf(Reserve)` read by `eth_call` at block `head`.
+- Runs only when the scan has caught up (the cursor is at or past `head`). Compare Σ in − Σ out (BigInt over the
+  stored raw amounts) with `balanceOf(Reserve)` read by `eth_call` at the cursor block. That block is the last one
+  scanned, so it is always on-chain and covered by the stored transfers.
 - A mismatch alerts `reserve-mismatch` with both values.
 - A failed read is logged and skipped.
 
@@ -166,7 +167,9 @@ Definitions:
 - `next_milestone.link` is the next multiple of 1,000,000 LINK above the balance. `eta` is the UTC date when the
   balance reaches it at `avg_weekly_link_4w`. It is null when that average is 0.
 - `days_since_last_deposit` is measured from the file's `updated_at`.
-- Rounding: LINK to 2 decimals, USD to 2, percentages to 2, prices to 4.
+- Rounding: LINK to 2 decimals, USD to 2, percentages to 2 (except `supply_share_pct`, to 4), prices to 4.
+- Before the first catch-up, `cost_basis`, `pace`, `performance` and `latest_transfer` are null, and `weekly` and
+  `transfers` are empty arrays.
 - If any transfer is unpriced, `cost_usd`, `change_*` and the affected `usd` values are computed over the priced rows
   only, and `unpriced_transfers` says how many rows are missing.
 
@@ -174,10 +177,13 @@ Definitions:
 
 - **LINK fee tokens:** the registry tokens in the CCIP token group that contains `ethereum-mainnet`'s LINK
   (`0x514910771AF9Ca656af840dff83E8264EcF986CA`), as a set of `chain:address` with lowercase EVM addresses.
-- **Rollup:** `rollupDay` gains an optional predicate `isLinkFee(chain, feeToken)`.
-  - `fee_link_usd` = Σ `fee_usd` of the messages whose fee token matches.
-  - It is null exactly when `fee_usd` is null (no fee data, e.g. history before 2026-10-05).
-  - Finalize passes the predicate; the backfill does not, so its days stay null.
+- **Rollup:** a pure function `linkFeeUsd(messages, day, isLinkFee)` sits next to `rollupDay`. `rollupDay` and the
+  shared `DailyTotals` type stay unchanged, so the backfill's SQL is untouched.
+  - It returns Σ `fee_usd` of the day's messages whose fee token matches.
+  - It returns null exactly when no message of the day has a `fee_usd` (no fee data, e.g. history before
+  2026-10-05).
+  - Finalize stores it with `UPDATE daily_totals SET fee_link_usd`. The backfill never writes the column, so its days
+  stay null.
 - **Publish:**
   - `today.json` `totals` gains `fee_link_usd` and `fee_link_share_pct` (= `fee_link_usd / fee_usd × 100`, null when
     `fee_usd` is null or 0).
