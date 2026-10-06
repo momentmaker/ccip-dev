@@ -26,7 +26,7 @@ or posts (sub-project 2 reads `latest_transfer` to announce deposits).
 ## 2. Facts this design relies on (measured 2026-10-06)
 
 - 93 transfers in and 1 out since 2025-07-31; they net to 6,122,201.43 LINK, exactly the balance the hourly job reads.
-- Deposits come weekly, about Wednesday 15:35 UTC, from `0x5680681ed3767b96914ce741a308155c7fb9171d` (62 transfers,
+- Deposits come weekly, on Thursdays at about 15:35 UTC, from `0x5680681ed3767b96914ce741a308155c7fb9171d` (62 transfers,
   99.9996% of the LINK). Apart from one 1-LINK test, its transfers are 41,105–153,956 LINK. The other 31 inbound
   transfers come from 16 addresses and are all ≤ 7 LINK. The one outbound transfer returned 1 LINK on 2025-08-02.
 - Keyless log access: `https://rpc.mevblocker.io` and `https://0xrpc.io/eth` serve `eth_getLogs` over 10,000-block
