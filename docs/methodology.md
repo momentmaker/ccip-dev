@@ -83,7 +83,7 @@ All data sources are free:
 - **Price at transfer:** DefiLlama's LINK price at the transfer's block time, within 10 minutes. This is the market
   price when the LINK arrived, not the price Chainlink paid for it.
 - **Cost basis:** every inbound transfer at its own time price, minus every outbound transfer at its own time price.
-  **Value now** is the net LINK at DefiLlama's current price.
+  **Value now** is the net LINK at DefiLlama's current price. A transfer DefiLlama has not priced yet counts as $0 in the USD totals (cost basis and weekly USD) until it is priced, which is retried every hour; `cost_basis.unpriced_transfers` says how many are waiting.
 - **Deposits:** inbound transfers of at least 1,000 LINK. Smaller inbound transfers (a 1-LINK test and gifts of up
   to 7 LINK) count toward the balance and the cost basis, but not toward pace, weekly deposits or performance.
 - **Weekly:** UTC weeks starting Monday. The weekly USD is the deposit-time value of the LINK deposited, not
