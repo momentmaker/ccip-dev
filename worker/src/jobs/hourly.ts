@@ -12,9 +12,15 @@ const RESERVE_ALERT_AFTER = 3;
 export async function runHourly(c: RunContext): Promise<void> {
   await recordReserve(c);
   await runReserveTransfers(c);
-  await snapshotRegistry(c);
+  let registryError: unknown = null;
+  try {
+    await snapshotRegistry(c);
+  } catch (err) {
+    registryError = err;
+  }
   await publishRegistryFiles(c);
   await refreshCoingeckoIds(c);
+  if (registryError !== null) throw registryError;
 }
 
 async function recordReserve(c: RunContext): Promise<void> {

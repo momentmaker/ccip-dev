@@ -48,6 +48,17 @@ describe('runHourly', () => {
     expect((await readPublic('chains.json')).chains[0]).toMatchObject({ name: 'ethereum-mainnet-base-1', first_seen: NOW });
   });
 
+  it('still publishes the reserve and registry files when the registry snapshot fails, then rethrows its error', async () => {
+    const ccip = {
+      ...fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }),
+      listTokens: async () => { throw new UpstreamHttpError('GET /tokens', 500); },
+    };
+    const h = harness({ now: NOW, ccip, fetch: rpcFake({ balanceLink: 6_122_201n }) });
+    await expect(runHourly(h.c)).rejects.toThrow('GET /tokens returned HTTP 500');
+    expect(await readPublic('reserve.json')).toMatchObject({ latest: { ts: NOW, link: 6122201 } });
+    expect(await readPublic('tokens.json')).toMatchObject({ tokens: [] });
+  });
+
   it('alerts after three consecutive failed Reserve reads and resets on success', async () => {
     const ccip = fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] });
     const signatures: string[] = [];
