@@ -98,3 +98,15 @@ describe('scanReserveTransfers', () => {
     expect(await store.getMeta(env.DB, 'reserve_scan_caught_up')).toBe('1');
   });
 });
+
+describe('scanReserveTransfers budget', () => {
+  it('stops at the time budget, keeps the cursor and counts no failure', async () => {
+    const h = harness({ now: NOW, fetch: rpcFake({ head: FIRST - 1 + 20 * CHUNK_BLOCKS + 12 }) });
+    let t = Date.parse(NOW);
+    h.c.deps.now = () => new Date((t += 61_000));
+    await expect(scanReserveTransfers(h.c)).resolves.toBeNull();
+    expect(await store.getMeta(env.DB, 'reserve_scan_block')).toBe(String(FIRST - 1 + 2 * CHUNK_BLOCKS));
+    expect(await store.getMeta(env.DB, 'reserve_scan_failures')).toBe('0');
+    expect(h.alerts).toEqual([]);
+  });
+});

@@ -6,6 +6,7 @@ import * as store from '../store';
 export const CONFIRMATIONS = 12;
 export const CHUNK_BLOCKS = 10_000;
 export const MAX_CHUNKS_PER_RUN = 50;
+export const SCAN_BUDGET_MS = 4 * 60_000;
 const SCAN_ALERT_AFTER = 3;
 const OUTFLOW_ALERT_WINDOW_MS = 24 * 3_600_000;
 
@@ -20,10 +21,11 @@ export function formatLink(raw: string | bigint): string {
 export async function scanReserveTransfers(c: RunContext): Promise<number | null> {
   const db = c.env.DB;
   try {
+    const deadline = c.deps.now().getTime() + SCAN_BUDGET_MS;
     const urls = logRpcUrls(c.env);
     let cursor = Number((await store.getMeta(db, 'reserve_scan_block')) ?? RESERVE_FIRST_BLOCK - 1);
     const head = (await readBlockNumber(c.deps, urls)) - CONFIRMATIONS;
-    for (let chunk = 0; chunk < MAX_CHUNKS_PER_RUN && cursor < head; chunk++) {
+    for (let chunk = 0; chunk < MAX_CHUNKS_PER_RUN && cursor < head && c.deps.now().getTime() < deadline; chunk++) {
       const to = Math.min(cursor + CHUNK_BLOCKS, head);
       const inserted = await store.insertReserveTransfers(db, await readReserveTransfers(c.deps, urls, cursor + 1, to));
       await alertOutflows(c, inserted);
