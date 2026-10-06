@@ -1,4 +1,4 @@
-import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, readBlockNumber, readLinkBalance, readReserveTransfers, toUnits, type ReserveTransfer } from '@ccip-dev/core';
+import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, readBlockNumber, readLinkBalance, readReserveTransfers, toUnits } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { logRpcUrls } from '../rpc';
 import * as store from '../store';
@@ -13,6 +13,11 @@ const PRICE_ROWS_PER_RUN = 200;
 
 export async function runReserveTransfers(c: RunContext): Promise<void> {
   const scannedTo = await scanReserveTransfers(c);
+  try {
+    await alertRecentOutflows(c);
+  } catch (err) {
+    console.warn(`Reserve outflow alerts failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
   await priceReserveTransfers(c);
   if (scannedTo !== null) await reconcileReserve(c, scannedTo);
 }
@@ -31,8 +36,7 @@ export async function scanReserveTransfers(c: RunContext): Promise<number | null
     if (head < RESERVE_FIRST_BLOCK) throw new Error(`Head block ${head + CONFIRMATIONS} is below the first Reserve block`);
     for (let chunk = 0; chunk < MAX_CHUNKS_PER_RUN && cursor < head && c.deps.now().getTime() < deadline; chunk++) {
       const to = Math.min(cursor + CHUNK_BLOCKS, head);
-      const inserted = await store.insertReserveTransfers(db, await readReserveTransfers(c.deps, urls, cursor + 1, to));
-      await alertOutflows(c, inserted);
+      await store.insertReserveTransfers(db, await readReserveTransfers(c.deps, urls, cursor + 1, to));
       cursor = to;
       await store.setMeta(db, 'reserve_scan_block', String(cursor));
     }
@@ -46,11 +50,12 @@ export async function scanReserveTransfers(c: RunContext): Promise<number | null
   }
 }
 
-async function alertOutflows(c: RunContext, inserted: ReserveTransfer[]): Promise<void> {
-  const now = c.deps.now().getTime();
-  for (const t of inserted) {
-    if (t.direction !== 'out' || now - Date.parse(t.ts) > OUTFLOW_ALERT_WINDOW_MS) continue;
-    await c.alert(`reserve-outflow:${t.txHash}`, `LINK left the Chainlink Reserve: ${formatLink(t.amount)} LINK to ${t.counterparty} (tx ${t.txHash})`);
+async function alertRecentOutflows(c: RunContext): Promise<void> {
+  const since = new Date(c.deps.now().getTime() - OUTFLOW_ALERT_WINDOW_MS).toISOString();
+  for (const t of await store.reserveOutflowsSince(c.env.DB, since)) {
+    const signature = `reserve-outflow:${t.tx_hash}`;
+    if ((await store.getMeta(c.env.DB, `alert:${signature}`)) !== null) continue;
+    await c.alert(signature, `LINK left the Chainlink Reserve: ${formatLink(t.amount)} LINK to ${t.counterparty} (tx ${t.tx_hash})`);
   }
 }
 

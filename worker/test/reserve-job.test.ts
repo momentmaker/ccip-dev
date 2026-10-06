@@ -12,6 +12,8 @@ const NOW = '2026-10-06T16:00:00.000Z';
 const DEPOSITOR = '0x5680681ed3767b96914ce741a308155c7fb9171d';
 const OUT_TO = '0x176c2ee163d764dcea38bc1340639b398b4fe713';
 const FIRST = RESERVE_FIRST_BLOCK;
+const outflowAlerts = (h: { alerts: { signature: string; text: string }[] }) =>
+  h.alerts.filter((a) => a.signature.startsWith('reserve-outflow:'));
 
 describe('scanReserveTransfers', () => {
   it('backfills in chunks across runs and resumes from the cursor', async () => {
@@ -47,23 +49,46 @@ describe('scanReserveTransfers', () => {
     expect(ranges.reduce((a: number, b: number) => a + b, 0)).toBe(2 * 25_000);
   });
 
-  it('stores a transfer once and alerts on its outflow once, even when the range is scanned again', async () => {
+  it('stores a transfer once and does not alert again once its alert was delivered', async () => {
     const f = rpcFake({
       logs: ({ direction }) =>
         direction === 'out'
           ? [transferLog({ block: FIRST, index: 3, tx: '0xb1', direction: 'out', counterparty: OUT_TO, link: 1n, ts: '2026-10-06T15:00:00.000Z' })]
           : [],
     });
-    const h = harness({ now: NOW, fetch: f });
-    await scanReserveTransfers(h.c);
+    const first = harness({ now: NOW, fetch: f });
+    await runReserveTransfers(first.c);
+    await store.setMeta(env.DB, 'alert:reserve-outflow:0xb1', NOW);
     await store.setMeta(env.DB, 'reserve_scan_block', String(FIRST - 1));
-    await scanReserveTransfers(h.c);
+    const second = harness({ now: NOW, fetch: f });
+    await runReserveTransfers(second.c);
     expect(await store.reserveTransfers(env.DB)).toEqual([
       { tx_hash: '0xb1', log_index: 3, block_number: FIRST, ts: '2026-10-06T15:00:00.000Z', direction: 'out', counterparty: OUT_TO, amount: '1000000000000000000', link_usd: null },
     ]);
-    expect(h.alerts).toEqual([
+    expect(outflowAlerts(first)).toEqual([
       { signature: 'reserve-outflow:0xb1', text: `LINK left the Chainlink Reserve: 1 LINK to ${OUT_TO} (tx 0xb1)` },
     ]);
+    expect(outflowAlerts(second)).toEqual([]);
+  });
+
+  it('retries an outflow alert on every run until its alert key is recorded', async () => {
+    const f = rpcFake({
+      logs: ({ direction }) =>
+        direction === 'out'
+          ? [transferLog({ block: FIRST, index: 3, tx: '0xb1', direction: 'out', counterparty: OUT_TO, link: 1n, ts: '2026-10-06T15:00:00.000Z' })]
+          : [],
+    });
+    const runs = [];
+    for (let i = 0; i < 2; i++) {
+      const h = harness({ now: NOW, fetch: f });
+      await runReserveTransfers(h.c);
+      runs.push(outflowAlerts(h).length);
+    }
+    expect(runs).toEqual([1, 1]);
+    await store.setMeta(env.DB, 'alert:reserve-outflow:0xb1', NOW);
+    const third = harness({ now: NOW, fetch: f });
+    await runReserveTransfers(third.c);
+    expect(outflowAlerts(third)).toEqual([]);
   });
 
   it('does not alert on an outflow older than 24 hours', async () => {
@@ -74,8 +99,8 @@ describe('scanReserveTransfers', () => {
           : [],
     });
     const h = harness({ now: NOW, fetch: f });
-    await scanReserveTransfers(h.c);
-    expect(h.alerts).toEqual([]);
+    await runReserveTransfers(h.c);
+    expect(outflowAlerts(h)).toEqual([]);
   });
 
   it('alerts on the third failed run in a row and resets after a good run', async () => {
@@ -111,7 +136,7 @@ describe('scanReserveTransfers budget', () => {
   it('stops at the time budget, keeps the cursor and counts no failure', async () => {
     const h = harness({ now: NOW, fetch: rpcFake({ head: FIRST - 1 + 20 * CHUNK_BLOCKS + 12 }) });
     let t = Date.parse(NOW);
-    h.c.deps.now = () => new Date((t += 61_000));
+    h.c.deps.now = () => new Date((t += 91_000));
     await expect(scanReserveTransfers(h.c)).resolves.toBeNull();
     expect(await store.getMeta(env.DB, 'reserve_scan_block')).toBe(String(FIRST - 1 + 2 * CHUNK_BLOCKS));
     expect(await store.getMeta(env.DB, 'reserve_scan_failures')).toBe('0');

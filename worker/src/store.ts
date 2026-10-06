@@ -460,6 +460,17 @@ export async function reserveTransfers(db: D1Database): Promise<ReserveTransferR
   return results;
 }
 
+export async function reserveOutflowsSince(
+  db: D1Database,
+  sinceIso: string,
+): Promise<{ tx_hash: string; ts: string; counterparty: string; amount: string }[]> {
+  const { results } = await db
+    .prepare("SELECT tx_hash, ts, counterparty, amount FROM reserve_transfers WHERE direction = 'out' AND ts >= ? ORDER BY block_number, log_index")
+    .bind(sinceIso)
+    .all<{ tx_hash: string; ts: string; counterparty: string; amount: string }>();
+  return results;
+}
+
 export async function unpricedReserveTransfers(db: D1Database, limit: number): Promise<{ tx_hash: string; log_index: number; ts: string }[]> {
   const { results } = await db
     .prepare('SELECT tx_hash, log_index, ts FROM reserve_transfers WHERE link_usd IS NULL ORDER BY block_number, log_index LIMIT ?')
