@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dayOf } from '../src/time';
 import { linkFeeMatcher, linkFeeUsd, median, rollupDay } from '../src/rollup';
 import type { MessageRow, TokenRow } from '../src/types';
 
@@ -51,6 +52,27 @@ describe('rollupDay', () => {
 
   it('reports fee_usd as null when no message on the day has a fee', () => {
     expect(rollupDay('2026-10-05', [row('a')], []).totals.fee_usd).toBeNull();
+  });
+});
+
+describe('rollupDay boundaries and senders', () => {
+  it('counts the same address on two source chains as two unique senders', () => {
+    const { totals } = rollupDay('2026-10-05', [
+      row('a', { src_chain: 'A', sender: '0xsame' }),
+      row('b', { src_chain: 'B', sender: '0xsame' }),
+    ], []);
+    expect(totals.unique_senders).toBe(2);
+  });
+
+  it('assigns the last millisecond to its day and midnight to the next day', () => {
+    const lastMs = '2026-10-05T23:59:59.999Z';
+    const midnight = '2026-10-06T00:00:00.000Z';
+    const all = [
+      row('late', { send_ts: lastMs, day: dayOf(lastMs) }),
+      row('early', { send_ts: midnight, day: dayOf(midnight) }),
+    ];
+    expect(rollupDay('2026-10-05', all, []).totals.messages).toBe(1);
+    expect(rollupDay('2026-10-06', all, []).totals.messages).toBe(1);
   });
 });
 
