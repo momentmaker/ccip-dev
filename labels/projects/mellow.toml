@@ -1,0 +1,10 @@
+name = "Mellow"
+x = "Mellowprotocol"
+url = "https://mellow.finance"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xe02cf8d7b3ce12fc0626346bca160b548525d807"
+note = "rUSDG vault subvault (mellow-finance/flexible-vaults scripts/jsons)"

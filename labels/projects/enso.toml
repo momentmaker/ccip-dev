@@ -1,0 +1,16 @@
+name = "Enso"
+x = "EnsoBuild"
+url = "https://www.enso.build"
+kind = "protocol"
+verified = true
+
+# Source: https://github.com/EnsoBuild/shortcuts-client-contracts/tree/main/broadcast/EnsoRouterDeployer.s.sol (43114 and 1)
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003"
+note = "EnsoShortcuts (EnsoBuild/shortcuts-client-contracts broadcast 43114)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003"
+note = "EnsoShortcuts (EnsoBuild/shortcuts-client-contracts broadcast 1)"

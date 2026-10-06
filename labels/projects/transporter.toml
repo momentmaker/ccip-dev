@@ -1,0 +1,11 @@
+name = "Transporter"
+x = "transporter_io"
+url = "https://www.transporter.io"
+kind = "app"
+# Unverified: identified via third-party lists (Ledger allowlist, etherscan labels), not by Transporter or Chainlink.
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x66598216d8e4d9afe0f06d525b335b762229842f"
+note = "EtherSenderReceiver (ETH wrapper used by the Transporter app)"

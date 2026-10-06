@@ -1,4 +1,14 @@
 {
+  "ethereum-mainnet-arbitrum-1:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
+    "name": "Aave",
+    "x": "aave",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
+    "name": "Aave",
+    "x": "aave",
+    "kind": "protocol"
+  },
   "polkadot-mainnet-astar:0x4036a6ff8c1a29677108aef299b560f6e4fa5e71": {
     "name": "Astar Network",
     "x": "AstarNetwork",
@@ -12,6 +22,11 @@
   "soneium-mainnet:0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2": {
     "name": "Bifrost",
     "x": "Bifrost",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a": {
+    "name": "Bungee (Socket)",
+    "x": "SocketProtocol",
     "kind": "protocol"
   },
   "ethereum-mainnet-optimism-1:0xb509c046e1182c7b36d2d9733554bc268716803c": {
@@ -52,6 +67,16 @@
   "polygon-mainnet:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
     "name": "Concero",
     "x": "concero_io",
+    "kind": "protocol"
+  },
+  "avalanche-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
+    "name": "Enso",
+    "x": "EnsoBuild",
     "kind": "protocol"
   },
   "avalanche-mainnet:0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd": {
@@ -134,6 +159,41 @@
     "x": "folksfinance",
     "kind": "protocol"
   },
+  "ethereum-mainnet-base-1:0x1da2415229b614c787e145d1d7346eb496319c52": {
+    "name": "Forever Money",
+    "x": "forevermoney_ai",
+    "kind": "protocol"
+  },
+  "bittensor-mainnet:0xd5fa238aa4177f6c1341491969d9cbeec94eed69": {
+    "name": "Forever Money",
+    "x": "forevermoney_ai",
+    "kind": "protocol"
+  },
+  "bittensor-mainnet:0xcd0c6d98d0a126b1c113d15b4c28f38321437787": {
+    "name": "Forever Money",
+    "x": "forevermoney_ai",
+    "kind": "protocol"
+  },
+  "robinhood-mainnet:0xf27fda637131e25b2a1b4865ed9597d881980c7e": {
+    "name": "Forever Money",
+    "x": "forevermoney_ai",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0xf98c221661f51578f5e5236b189a493e2a8a1916": {
+    "name": "Frankencoin",
+    "x": "frankencoinzchf",
+    "kind": "issuer"
+  },
+  "ethereum-mainnet-optimism-1:0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553": {
+    "name": "Frankencoin",
+    "x": "frankencoinzchf",
+    "kind": "issuer"
+  },
+  "gnosis_chain-mainnet:0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553": {
+    "name": "Frankencoin",
+    "x": "frankencoinzchf",
+    "kind": "issuer"
+  },
   "ethereum-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
@@ -152,6 +212,21 @@
   "polygon-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "monad-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "avalanche-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0xe02cf8d7b3ce12fc0626346bca160b548525d807": {
+    "name": "Mellow",
+    "x": "Mellowprotocol",
     "kind": "protocol"
   },
   "ethereum-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {

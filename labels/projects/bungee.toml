@@ -1,0 +1,10 @@
+name = "Bungee (Socket)"
+x = "SocketProtocol"
+url = "https://www.socket.tech"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a"
+note = "OpenRouter (SocketDotTech/openrouter deployments.csv)"
