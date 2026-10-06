@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "OpenRouter"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a"
+note = "candidate: 1 messages, $304732 in the last 7 days, first seen 2026-07-11"
+
