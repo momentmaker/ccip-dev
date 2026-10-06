@@ -27,7 +27,11 @@
   `unpriced_messages`. Since 2023-07-06, 68,893 of 1,565,729 messages (4.4%) are unpriced.
 - **Fees:** the message's fixed fee, in USD at the fee token's latest price. Fees are collected from 2026-10-05
   onward only.
-- **Fees paid in LINK:** the part of a day's fees whose fee token is LINK on its chain, meaning any token in CCIP's LINK token group. `fee_link_share_pct` is that part as a share of all fees. Available from 2026-10-05 onward.
+- **Fees paid in LINK:** the part of a day's fees whose fee token is in CCIP's LINK token group (LINK on the
+  chains where it moves through CCIP). LINK fees on 12 chains where LINK is a fee token but is not in that group
+  (OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia, Etherlink and
+  Nexon Henesys) are not counted yet, so `fee_link_share_pct` can understate LINK's share. Available from
+  2026-10-05 onward.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage
