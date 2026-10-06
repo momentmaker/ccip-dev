@@ -13,6 +13,7 @@ export * from './rows';
 export * from './rollup';
 export * from './prices';
 export * from './reserve';
+export * from './reserve-stats';
 export * from './archive';
 export * from './labels';
 export * from './sql';
