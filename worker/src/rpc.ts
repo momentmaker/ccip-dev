@@ -1,4 +1,5 @@
 import { DEFAULT_RPC_URLS, LOG_RPC_URLS } from '@ccip-dev/core';
+import endpoints from '../../config/endpoints.json';
 import type { Env } from './env';
 
 export function keyedRpcUrls(env: Env): string[] {
@@ -11,5 +12,5 @@ export function balanceRpcUrls(env: Env): string[] {
 }
 
 export function logRpcUrls(env: Env): string[] {
-  return [...keyedRpcUrls(env), ...LOG_RPC_URLS];
+  return [...new Set([...keyedRpcUrls(env), ...LOG_RPC_URLS, ...endpoints.ethereumLogs])];
 }
