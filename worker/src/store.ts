@@ -84,12 +84,13 @@ export async function upsertListRows(db: D1Database, rows: MessageRow[], tokens:
   ]);
 }
 
-export async function getPrices(db: D1Database, keys: string[]): Promise<Map<string, PriceInfo>> {
+export async function getPrices(db: D1Database, keys: string[], freshSinceIso?: string): Promise<Map<string, PriceInfo>> {
   const prices = new Map<string, PriceInfo>();
-  for (const chunk of chunks(keys, PARAM_CHUNK)) {
+  const freshness = freshSinceIso === undefined ? '' : ' AND ts >= ?';
+  for (const chunk of chunks(keys, PARAM_CHUNK - 1)) {
     const { results } = await db
-      .prepare(`SELECT llama_key, usd, decimals FROM prices_latest WHERE llama_key IN (${placeholders(chunk.length)})`)
-      .bind(...chunk)
+      .prepare(`SELECT llama_key, usd, decimals FROM prices_latest WHERE llama_key IN (${placeholders(chunk.length)})${freshness}`)
+      .bind(...chunk, ...(freshSinceIso === undefined ? [] : [freshSinceIso]))
       .all<{ llama_key: string; usd: number; decimals: number }>();
     for (const r of results) prices.set(r.llama_key, { price: r.usd, decimals: r.decimals });
   }

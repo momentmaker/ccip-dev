@@ -46,6 +46,26 @@ describe('runDetails', () => {
     expect(await store.getPrices(env.DB, [TOKEN_KEY])).toEqual(new Map([[TOKEN_KEY, { price: 1, decimals: 18 }]]));
   });
 
+  it('fetches again a price stored more than 15 minutes ago and values the message with the newer one', async () => {
+    await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 0.5, decimals: 18 }]]), '2026-10-05T09:20:00.000Z');
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    const prices = fakePrices({ latest: { [TOKEN_KEY]: { price: 1, decimals: 18 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+    await runDetails(c, { limit: 10 });
+    expect(prices.latestCalls).toEqual([[TOKEN_KEY, FEE_KEY]]);
+    expect((await row(detailToken.messageId))!.usd_value).toBeCloseTo(24000.580226526876, 6);
+    expect(await env.DB.prepare('SELECT usd, ts FROM prices_latest WHERE llama_key = ?').bind(TOKEN_KEY).first()).toEqual({ usd: 1, ts: NOW });
+  });
+
+  it('uses a price stored within the last 15 minutes without fetching it', async () => {
+    await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 1, decimals: 18 }]]), '2026-10-05T11:10:00.000Z');
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    const prices = fakePrices({ latest: { [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+    await runDetails(c, { limit: 10 });
+    expect(prices.latestCalls).toEqual([[FEE_KEY]]);
+  });
+
   it('fetches a group sibling\'s price for a token DefiLlama does not price and values the token with its own decimals', async () => {
     await seedTokenGroup();
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
@@ -63,7 +83,7 @@ describe('runDetails', () => {
   it('marks a stored sibling price as seen so the prices job keeps it fresh', async () => {
     await seedTokenGroup();
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
-    await store.upsertPrices(env.DB, new Map([[SIBLING_KEY, { price: 2, decimals: 6 }]]), '2026-09-01T00:00:00.000Z');
+    await store.upsertPrices(env.DB, new Map([[SIBLING_KEY, { price: 2, decimals: 6 }]]), '2026-10-05T11:15:00.000Z');
     const prices = fakePrices({ latest: { [FEE_KEY]: { price: 2500, decimals: 18 } } });
     const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
     await runDetails(c, { limit: 10 });

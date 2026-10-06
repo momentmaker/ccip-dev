@@ -8,6 +8,7 @@ import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fal
 import { alertPriceOutliers } from '../price-outliers';
 
 const MINUTE = 60_000;
+const MAX_PRICE_AGE_MINUTES = 15;
 
 export async function runDetails(
   c: RunContext,
@@ -95,7 +96,8 @@ export async function ensurePrices(
 async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, PriceInfo>> {
   const db = c.env.DB;
   const nowIso = c.deps.now().toISOString();
-  const prices = await store.getPrices(db, keys);
+  const freshSince = new Date(c.deps.now().getTime() - MAX_PRICE_AGE_MINUTES * MINUTE).toISOString();
+  const prices = await store.getPrices(db, keys, freshSince);
   const missing = keys.filter((k) => !prices.has(k));
   if (missing.length > 0) {
     try {
