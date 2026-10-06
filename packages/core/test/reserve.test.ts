@@ -135,6 +135,20 @@ describe('readReserveTransfers', () => {
     await expect(readReserveTransfers({ fetch: f }, ['https://rpc.one'], 300, 300)).resolves.toEqual([]);
   });
 
+  it('ignores zero-value transfers in both directions', async () => {
+    const f = rpcByMethod({
+      eth_getLogs: (params) =>
+        isInbound(params)
+          ? [
+              rpcLog({ block: 400, index: 0, tx: '0x0a', from: DEPOSITOR, to: LINK_RESERVE, amount: 0n, time: 1 }),
+              rpcLog({ block: 400, index: 1, tx: '0x0b', from: DEPOSITOR, to: LINK_RESERVE, amount: 5n * 10n ** 18n, time: 1 }),
+            ]
+          : [rpcLog({ block: 400, index: 2, tx: '0x0c', from: LINK_RESERVE, to: OTHER, amount: 0n, time: 1 })],
+    });
+    const transfers = await readReserveTransfers({ fetch: f }, ['https://rpc.one'], 400, 400);
+    expect(transfers.map((t) => t.txHash)).toEqual(['0x0b']);
+  });
+
   it('falls back to the next endpoint when one fails mid-scan, and never names an endpoint in its error', async () => {
     const working = rpcByMethod({ eth_getLogs: () => [] });
     const f = fakeFetch((url, init) => (url.includes('SECRET') ? jsonResponse({}, 429) : working(url, init)));

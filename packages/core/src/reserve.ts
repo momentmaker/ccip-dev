@@ -99,9 +99,10 @@ export async function readReserveTransfers(
   return onFirstEndpoint(rpcUrls, `Reserve transfer scan of blocks ${fromBlock}-${toBlock}`, async (url) => {
     const inLogs = RpcLogs.parse(await rpc(deps, url, 'eth_getLogs', [{ ...range, topics: [TRANSFER_TOPIC, null, RESERVE_TOPIC] }]));
     const outLogs = RpcLogs.parse(await rpc(deps, url, 'eth_getLogs', [{ ...range, topics: [TRANSFER_TOPIC, RESERVE_TOPIC] }]));
+    const isTransfer = (log: { removed?: boolean; data: string }) => !log.removed && BigInt(log.data) !== 0n;
     const logs = [
-      ...inLogs.filter((log) => !log.removed).map((log) => ({ log, direction: 'in' as const })),
-      ...outLogs.filter((log) => !log.removed).map((log) => ({ log, direction: 'out' as const })),
+      ...inLogs.filter(isTransfer).map((log) => ({ log, direction: 'in' as const })),
+      ...outLogs.filter(isTransfer).map((log) => ({ log, direction: 'out' as const })),
     ];
     const blockTimes = new Map<string, number>();
     const transfers: ReserveTransfer[] = [];
