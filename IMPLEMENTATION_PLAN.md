@@ -32,7 +32,7 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Weekly label-candidate PR (Task 19), built only after Stages 1–4 pass.
 **Success Criteria**: A manual workflow run opens or updates one PR with drafts set to verified = false.
 **Tests**: label-candidates.
-**Status**: Not Started
+**Status**: In Progress (code complete at ca56958; Complete after the first manual workflow run opens a PR or reports no candidates)
 
 ## Stage 6: Reserve cost basis and LINK metrics
 **Goal**: Price every LINK transfer into and out of the Chainlink Reserve at its block time. Publish cost basis vs value now, pace, weekly deposits, performance and transfers in `reserve.json`, alert on outflows, and add the daily share of CCIP fees paid in LINK (plan `docs/superpowers/plans/2026-10-06-reserve-and-link-metrics.md`).
