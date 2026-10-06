@@ -203,6 +203,21 @@ describe('reconcileReserve', () => {
     ]);
   });
 
+  it('counts outflows against the balance', async () => {
+    await store.insertReserveTransfers(env.DB, [
+      { txHash: '0xe1', logIndex: 0, blockNumber: FIRST + 1, ts: T1, direction: 'in', counterparty: DEPOSITOR, amount: (100n * 10n ** 18n).toString() },
+      { txHash: '0xe2', logIndex: 0, blockNumber: FIRST + 2, ts: T2, direction: 'out', counterparty: OUT_TO, amount: (10n ** 18n).toString() },
+    ]);
+    const matching = harness({ now: NOW, fetch: rpcFake({ balanceAt: () => 99n * 10n ** 18n }) });
+    await reconcileReserve(matching.c, FIRST + 9);
+    expect(matching.alerts).toEqual([]);
+    const ignoringOutflow = harness({ now: NOW, fetch: rpcFake({ balanceAt: () => 100n * 10n ** 18n }) });
+    await reconcileReserve(ignoringOutflow.c, FIRST + 9);
+    expect(ignoringOutflow.alerts).toEqual([
+      { signature: 'reserve-mismatch', text: `Reserve transfers net to 99 LINK but balanceOf at block ${FIRST + 9} is 100 LINK` },
+    ]);
+  });
+
   it('does not throw when the balance cannot be read', async () => {
     await expect(reconcileReserve(harness({ now: NOW, fetch: rpcFake({ down: true }) }).c, FIRST)).resolves.toBeUndefined();
   });

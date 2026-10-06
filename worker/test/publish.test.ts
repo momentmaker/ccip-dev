@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ATTRIBUTION, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
+import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
 import { LINK_PRICE_KEY } from '@ccip-dev/core';
 import { fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import * as store from '../src/store';
@@ -186,5 +186,19 @@ describe('today.json fees paid in LINK', () => {
     ], []);
     await publishLiveFiles(harness({ now: NOW }).c);
     expect((await readPublic('today.json')).totals).toMatchObject({ fee_usd: 5, fee_link_usd: 2, fee_link_share_pct: 40 });
+  });
+});
+
+describe('history.json for a day without fee data', () => {
+  it('shows null fees for a day whose daily_totals row has no fee data', async () => {
+    await store.replaceDaily(
+      env.DB,
+      { day: '2026-09-01', messages: 3, token_messages: 2, usd_value: 100, fee_usd: null, unique_senders: 2, median_delivery_s: 60, unpriced_messages: 0 },
+      [],
+      '2026-10-08T12:00:00.000Z',
+    );
+    await publishHistoryFiles(harness({ now: '2026-10-08T12:00:00.000Z' }).c);
+    const history = await readPublic('history.json');
+    expect(history.days.find((d: { day: string }) => d.day === '2026-09-01')).toMatchObject({ fee_usd: null, fee_link_usd: null });
   });
 });

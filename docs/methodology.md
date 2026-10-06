@@ -78,6 +78,8 @@ All data sources are free:
 - **CCIP API** (`api.ccip.chain.link/v2`): messages, chains and the token registry.
 - **DefiLlama coins API**: latest and daily token prices, with no API key.
 - **CoinGecko public API**: coin-id mapping only, with no API key.
+- **Public Ethereum RPC endpoints** (keyless, e.g. rpc.mevblocker.io and 0xrpc.io): the Reserve's LINK balance and
+  transfer logs.
 
 ## Chainlink Reserve
 - **Balance:** read every hour with `balanceOf` on the LINK token for the Reserve, `0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6`.
