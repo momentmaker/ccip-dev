@@ -2,7 +2,7 @@ import {
   addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, gzipText, rollupDay, toJsonl, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
-import { publishHistoryFiles } from '../publish';
+import { publishHistoryFiles, retryPut } from '../publish';
 import * as store from '../store';
 import { fallbackLoader } from '../price-fallback';
 import { runDetails } from './details';
@@ -76,7 +76,8 @@ async function collectDays(c: RunContext, fromDay: string, toDay: string): Promi
 
 async function writeArchive(c: RunContext, day: string, raw: unknown[]): Promise<void> {
   const lines = dedupeRawById(raw);
-  await c.env.ARCHIVE.put(archiveKey(day), await gzipText(toJsonl(lines)), { httpMetadata: { contentType: 'application/gzip' } });
+  const body = await gzipText(toJsonl(lines));
+  await retryPut(() => c.env.ARCHIVE.put(archiveKey(day), body, { httpMetadata: { contentType: 'application/gzip' } }));
   const stored = await store.countForDay(c.env.DB, day);
   if (stored !== lines.length) {
     await c.alert(`archive-count:${day}`, `Archive for ${day} has ${lines.length} messages but D1 has ${stored}`);

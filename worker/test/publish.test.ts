@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { ATTRIBUTION, publishLiveFiles, putJson } from '../src/publish';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ATTRIBUTION, publishLiveFiles, putJson, retryPut } from '../src/publish';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage } from './helpers';
 
@@ -33,6 +33,26 @@ describe('putJson', () => {
     const object = await env.PUBLIC.get('v1/x.json');
     expect(object?.httpMetadata?.cacheControl).toBe('public, max-age=30');
     expect(await object?.json()).toEqual({ schema_version: 1, updated_at: '2026-10-08T12:00:00.000Z', attribution: ATTRIBUTION, a: 1 });
+  });
+});
+
+describe('retryPut', () => {
+  it('succeeds when the put fails once and then works', async () => {
+    const put = vi.fn().mockRejectedValueOnce(new Error('10043')).mockResolvedValue('ok');
+    await expect(retryPut(put, async () => {})).resolves.toBe('ok');
+    expect(put).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws the last error after three failed attempts', async () => {
+    const put = vi.fn().mockRejectedValueOnce(new Error('first')).mockRejectedValueOnce(new Error('second')).mockRejectedValue(new Error('third'));
+    await expect(retryPut(put, async () => {})).rejects.toThrow('third');
+    expect(put).toHaveBeenCalledTimes(3);
+  });
+
+  it('waits 1000 ms and then 2000 ms between attempts', async () => {
+    const sleep = vi.fn(async () => {});
+    await retryPut(vi.fn().mockRejectedValue(new Error('down')), sleep).catch(() => {});
+    expect(sleep.mock.calls).toEqual([[1000], [2000]]);
   });
 });
 

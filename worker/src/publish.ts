@@ -9,6 +9,21 @@ export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, re
 
 const LIVE_WINDOW_MINUTES = 15;
 
+const RETRY_DELAYS_MS = [1000, 2000];
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function retryPut<T>(put: () => Promise<T>, sleep: (ms: number) => Promise<void> = realSleep): Promise<T> {
+  for (const delay of RETRY_DELAYS_MS) {
+    try {
+      return await put();
+    } catch {
+      await sleep(delay);
+    }
+  }
+  return put();
+}
+
 export async function putJson(
   bucket: R2Bucket,
   name: string,
@@ -17,9 +32,11 @@ export async function putJson(
   now: Date,
 ): Promise<void> {
   const doc = { schema_version: SCHEMA_VERSION, updated_at: now.toISOString(), attribution: ATTRIBUTION, ...body };
-  await bucket.put(`v1/${name}`, JSON.stringify(doc), {
-    httpMetadata: { contentType: 'application/json; charset=utf-8', cacheControl: `public, max-age=${maxAgeSeconds}` },
-  });
+  await retryPut(() =>
+    bucket.put(`v1/${name}`, JSON.stringify(doc), {
+      httpMetadata: { contentType: 'application/json; charset=utf-8', cacheControl: `public, max-age=${maxAgeSeconds}` },
+    }),
+  );
 }
 
 export function usd(value: number | null): number | null {
