@@ -14,7 +14,7 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Valuation, normalization, rows (including the shared `buildRows`), rollup, prices, Reserve, archive helpers, label registry, and the backfill build dry-run against the Oct 6 crawl (Tasks 4–8, then 17).
 **Success Criteria**: All core and script tests pass; `pnpm labels:check` passes; the dry-run build finishes with an acceptable `unpricedMessages`.
 **Tests**: value, normalize, rows, buildRows, rollup, prices, reserve, archive, labels, sql, backfill build (with parity, top-up and gap guard).
-**Status**: In Progress
+**Status**: Complete
 
 ## Stage 3: Live Worker
 **Goal**: Worker deployed with all five cron jobs publishing to data.ccip.dev, plus the external watchdog (Tasks 9–16).
@@ -26,7 +26,7 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Top up the crawl, rebuild, and load history before live_start_day into D1 and R2; cross-check recorded; 10–20 hand-written labels (Task 18).
 **Success Criteria**: Spec §2 criteria 1, 3 and 5 hold; after the upload, `lag_seconds` is under 120 and `last_finalize_day` is current.
 **Tests**: upload (resume and rebuild re-apply).
-**Status**: Not Started
+**Status**: In Progress
 
 ## Stage 5: Label candidates
 **Goal**: Weekly label-candidate PR (Task 19), built only after Stages 1–4 pass.
