@@ -11,6 +11,8 @@ import { storeListMessages } from './ingest';
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 200;
 const DETAIL_BUDGET_MS = 5 * 60_000;
+const ANOMALY_FACTOR = 10;
+const ANOMALY_WINDOW_DAYS = 30;
 
 interface DayBucket {
   messages: ListMessage[];
@@ -45,11 +47,22 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
     const messages = await store.messagesForDay(db, day);
     const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(db, day));
     await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
+    await alertOnUsdAnomaly(c, day, totals.usd_value);
     await store.setFeeLinkUsd(db, day, linkFeeUsd(messages, day, isLinkFee));
     if (mode === 'early') await store.setMeta(db, 'last_finalize_day', day);
     if (mode === 'late' && day > lastArchived) await writeArchive(c, day, bucket.raw);
   }
   await publishHistoryFiles(c);
+}
+
+async function alertOnUsdAnomaly(c: RunContext, day: string, usdValue: number): Promise<void> {
+  const median = await store.trailingUsdMedian(c.env.DB, day, ANOMALY_WINDOW_DAYS);
+  if (median !== null && usdValue > median * ANOMALY_FACTOR) {
+    await c.alert(
+      `daily-usd-anomaly:${day}`,
+      `${day} moved $${Math.round(usdValue)} against a trailing ${ANOMALY_WINDOW_DAYS}-day median of $${Math.round(median)} (over ${ANOMALY_FACTOR}×)`,
+    );
+  }
 }
 
 async function collectDays(c: RunContext, fromDay: string, toDay: string): Promise<Map<string, DayBucket>> {

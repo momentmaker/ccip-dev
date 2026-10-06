@@ -30,6 +30,49 @@ async function seedMeta(lastFinalize: string, lastArchived: string) {
   await store.setMeta(env.DB, 'last_archived_day', lastArchived);
 }
 
+describe('daily USD anomaly alert', () => {
+  async function seedTrailingDays(): Promise<void> {
+    await seedMeta('2026-10-08', '2026-10-08');
+    for (const day of ['01', '02', '03', '04', '05', '06', '07', '08']) {
+      await store.replaceDaily(
+        env.DB,
+        { day: `2026-10-${day}`, messages: 1, token_messages: 1, usd_value: 1000, fee_usd: null, unique_senders: 1, median_delivery_s: 1, unpriced_messages: 0 },
+        [],
+        NOW,
+      );
+    }
+  }
+
+  async function finalizeDayWith(usdValue: number) {
+    await seedTrailingDays();
+    await store.upsertListRows(env.DB, [liveRow({ id: 'd9a', sendTs: '2026-10-09T08:00:00.000Z' }, { usd_value: usdValue })], []);
+    const h = harness({ now: NOW, ccip: api() });
+    await runFinalize(h.c, 'early');
+    return h.alerts;
+  }
+
+  it('alerts when a day is more than 10x the trailing median', async () => {
+    const alerts = await finalizeDayWith(11_000);
+    expect(alerts.map((a) => a.signature)).toEqual(['daily-usd-anomaly:2026-10-09']);
+    expect(alerts[0]!.text).toContain('11000');
+    expect(alerts[0]!.text).toContain('1000');
+  });
+
+  it('stays quiet at 9x the trailing median', async () => {
+    expect(await finalizeDayWith(9_000)).toEqual([]);
+  });
+
+  it('stays quiet with fewer than 7 trailing days', async () => {
+    await store.setMeta(env.DB, 'live_start_day', '2026-10-08');
+    await store.upsertListRows(env.DB, [liveRow({ id: 'd9a', sendTs: '2026-10-09T08:00:00.000Z' }, { usd_value: 1e9 })], []);
+    expect(await store.trailingUsdMedian(env.DB, '2026-10-09', 30)).toBeNull();
+    const h = harness({ now: NOW, ccip: api() });
+    await store.setMeta(env.DB, 'last_finalize_day', '2026-10-08');
+    await runFinalize(h.c, 'early');
+    expect(h.alerts).toEqual([]);
+  });
+});
+
 describe('runFinalize', () => {
   it('early run catches up every unfinalized day, inserts missing messages and updates status', async () => {
     await seedMeta('2026-10-07', '2026-10-07');

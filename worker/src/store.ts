@@ -1,11 +1,12 @@
 import {
-  BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
+  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
   type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
 const PARAM_CHUNK = 90;
 const BATCH_SIZE = 100;
+const MIN_MEDIAN_DAYS = 7;
 
 export const MESSAGE_COLUMNS = [
   'message_id', 'day', 'send_ts', 'receipt_ts', 'status', 'src_chain', 'dst_chain', 'sender', 'receiver', 'origin',
@@ -458,6 +459,17 @@ export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
     )
     .all<DailyTotals>();
   return results;
+}
+
+export async function trailingUsdMedian(db: D1Database, day: string, days: number): Promise<number | null> {
+  const { results } = await db
+    .prepare('SELECT usd_value FROM daily_totals WHERE day < ?1 AND day >= ?2 ORDER BY usd_value')
+    .bind(day, addDays(day, -days))
+    .all<{ usd_value: number }>();
+  if (results.length < MIN_MEDIAN_DAYS) return null;
+  const mid = Math.floor(results.length / 2);
+  const values = results.map((r) => r.usd_value);
+  return values.length % 2 === 1 ? values[mid]! : (values[mid - 1]! + values[mid]!) / 2;
 }
 
 export async function topBetween(
