@@ -202,7 +202,7 @@ export async function pushBack(db: D1Database, messageId: string, untilIso: stri
   await db
     .prepare(
       `UPDATE messages SET
-         status = CASE WHEN send_ts <= ?1 AND status <> 'FAILED' THEN 'UNRESOLVED' ELSE status END,
+         status = CASE WHEN send_ts <= ?1 AND status NOT IN ('SUCCESS', 'FAILED') THEN 'UNRESOLVED' ELSE status END,
          next_check_at = CASE WHEN send_ts <= ?1 THEN NULL ELSE ?2 END
        WHERE message_id = ?3`,
     )

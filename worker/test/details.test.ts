@@ -229,6 +229,22 @@ describe('runDetails', () => {
     expect(await row('bad')).toMatchObject({ status: 'UNRESOLVED', next_check_at: null });
   });
 
+  it('does not demote a SUCCESS message to UNRESOLVED when its detail re-fetch fails past 48 hours', async () => {
+    const old = liveRow({ id: 'old', sendTs: '2026-10-03T10:00:00.000Z' }, { status: 'SUCCESS', next_check_at: '2026-10-05T11:00:00.000Z' });
+    await store.upsertListRows(env.DB, [old], []);
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: {} }) });
+    await runDetails(c, { limit: 10 });
+    expect(await row('old')).toMatchObject({ status: 'SUCCESS', next_check_at: null });
+  });
+
+  it('still demotes a non-final message to UNRESOLVED when its detail fails past 48 hours', async () => {
+    const old = liveRow({ id: 'old', sendTs: '2026-10-03T10:00:00.000Z' }, { next_check_at: '2026-10-05T11:00:00.000Z' });
+    await store.upsertListRows(env.DB, [old], []);
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: {} }) });
+    await runDetails(c, { limit: 10 });
+    expect(await row('old')).toMatchObject({ status: 'UNRESOLVED', next_check_at: null });
+  });
+
   it('still applies the detail unpriced and alerts when the price fetch fails', async () => {
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
     const prices = {
