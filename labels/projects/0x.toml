@@ -1,0 +1,21 @@
+name = "0x"
+x = "0xProject"
+url = "https://0x.org"
+kind = "protocol"
+# Unverified: BridgeSettler contracts from 0xProject/0x-settler, but 0x does not publish these addresses.
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x0038dfb2bbc353daa6ad22cb11ee1d78f41b59cd"
+note = "MainnetBridgeSettler (0x Settler)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x7d19077317b7574cd01aafa143e5e09f0f4df466"
+note = "BaseBridgeSettler (0x Settler)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0xcbc823dce84215f5660922dd4d26f03ef6c04da1"
+note = "MonadBridgeSettler (0x Settler)"

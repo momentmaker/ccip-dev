@@ -1,0 +1,16 @@
+name = "Interport Finance"
+x = "InterportFi"
+url = "https://interport.fi"
+kind = "protocol"
+# Unverified: contract names identify Interport, but its docs do not list these addresses.
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x814899380bc056b843999f48e3ae520baa711895"
+note = "InterportCCIPTokenBridgeV3"

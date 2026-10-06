@@ -1,0 +1,26 @@
+name = "Forever Money"
+x = "forevermoney_ai"
+url = "https://forevermoney.ai"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x1da2415229b614c787e145d1d7346eb496319c52"
+note = "Spoke gateway (ForeverMoney-Ai/forevermoney-sdk src/chains/deployment.ts)"
+
+# Source: https://github.com/ForeverMoney-Ai/bridge-contracts/blob/main/README.md
+[[addresses]]
+chain = "bittensor-mainnet"
+address = "0xd5fa238aa4177f6c1341491969d9cbeec94eed69"
+note = "AlphaGateway v6 hub (ForeverMoney-Ai/bridge-contracts README)"
+
+[[addresses]]
+chain = "bittensor-mainnet"
+address = "0xcd0c6d98d0a126b1c113d15b4c28f38321437787"
+note = "AlphaGateway v5 hub (ForeverMoney-Ai/bridge-contracts README)"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0xf27fda637131e25b2a1b4865ed9597d881980c7e"
+note = "SpokeGateway v5 (ForeverMoney-Ai/bridge-contracts README)"

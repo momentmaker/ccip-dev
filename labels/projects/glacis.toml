@@ -24,3 +24,13 @@ note = "Airlift (Glacis docs, supported chains)"
 chain = "polygon-mainnet"
 address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
 note = "Airlift (Glacis docs, supported chains)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "Airlift (Glacis docs, supported chains)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
+note = "Airlift (Glacis docs, supported chains)"
