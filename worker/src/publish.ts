@@ -1,4 +1,4 @@
-import { addDays, dayOf, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
@@ -41,6 +41,10 @@ export async function putJson(
 
 export function usd(value: number | null): number | null {
   return value === null ? null : Math.round(value * 100) / 100;
+}
+
+function feeLinkShare(feeLinkUsd: number | null, feeUsd: number | null): number | null {
+  return feeLinkUsd === null || feeUsd === null || feeUsd === 0 ? null : Math.round((feeLinkUsd / feeUsd) * 10_000) / 100;
 }
 
 export function topOf(breakdown: DailyBreakdown[], dim: Dim, limit: number): DailyBreakdown[] {
@@ -89,7 +93,9 @@ async function publishLive(c: RunContext, now: Date, names: Map<string, string>)
 
 async function publishToday(c: RunContext, now: Date, names: Map<string, string>): Promise<void> {
   const day = dayOf(now);
-  const { totals, breakdown } = rollupDay(day, await store.messagesForDay(c.env.DB, day), await store.tokensForDay(c.env.DB, day));
+  const messages = await store.messagesForDay(c.env.DB, day);
+  const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(c.env.DB, day));
+  const feeLink = linkFeeUsd(messages, day, linkFeeMatcher(await store.linkFeeTokens(c.env.DB)));
   const top = (dim: Dim) =>
     topOf(breakdown, dim, 10).map((b) => ({
       key: b.key,
@@ -102,7 +108,13 @@ async function publishToday(c: RunContext, now: Date, names: Map<string, string>
     'today.json',
     {
       day,
-      totals: { ...totals, usd_value: usd(totals.usd_value), fee_usd: usd(totals.fee_usd) },
+      totals: {
+        ...totals,
+        usd_value: usd(totals.usd_value),
+        fee_usd: usd(totals.fee_usd),
+        fee_link_usd: usd(feeLink),
+        fee_link_share_pct: feeLinkShare(feeLink, totals.fee_usd),
+      },
       top: { lane: top('lane'), token: top('token'), sender: top('sender') },
       arrivals: await store.recentArrivals(c.env.DB, 10),
     },
@@ -188,11 +200,12 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
   const db = c.env.DB;
   const history = await store.dailyHistory(db);
+  const feeLink = await store.feeLinkByDay(db);
   const since = (await store.getMeta(db, 'coverage_from')) ?? history[0]?.day ?? null;
   await putJson(
     c.env.PUBLIC,
     'history.json',
-    { since, days: history.map((d) => ({ ...d, usd_value: usd(d.usd_value), fee_usd: usd(d.fee_usd) })) },
+    { since, days: history.map((d) => ({ ...d, usd_value: usd(d.usd_value), fee_usd: usd(d.fee_usd), fee_link_usd: usd(feeLink.get(d.day) ?? null) })) },
     TTL.history,
     now,
   );

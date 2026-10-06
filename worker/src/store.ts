@@ -1,5 +1,5 @@
 import {
-  BREAKDOWN_CONFLICT, buildTokenGroupIndex, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
+  BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
   type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
@@ -474,4 +474,27 @@ export async function setReserveTransferPrices(
 ): Promise<void> {
   const update = db.prepare('UPDATE reserve_transfers SET link_usd = ? WHERE tx_hash = ? AND log_index = ?');
   await runBatch(db, prices.map((p) => update.bind(p.linkUsd, p.txHash, p.logIndex)));
+}
+
+export async function linkFeeTokens(db: D1Database): Promise<Set<string>> {
+  const { results } = await db
+    .prepare(
+      `SELECT chain, address FROM tokens
+       WHERE group_id IS NOT NULL AND group_id = (SELECT group_id FROM tokens WHERE chain = ? AND lower(address) = lower(?))`,
+    )
+    .bind(LINK_TOKEN_CHAIN_SELECTOR, LINK_TOKEN)
+    .all<{ chain: string; address: string }>();
+  return new Set([
+    `${LINK_TOKEN_CHAIN_SELECTOR}:${normalizeAddress(LINK_TOKEN)}`,
+    ...results.map((r) => `${r.chain}:${normalizeAddress(r.address)}`),
+  ]);
+}
+
+export async function setFeeLinkUsd(db: D1Database, day: string, value: number | null): Promise<void> {
+  await db.prepare('UPDATE daily_totals SET fee_link_usd = ? WHERE day = ?').bind(value, day).run();
+}
+
+export async function feeLinkByDay(db: D1Database): Promise<Map<string, number | null>> {
+  const { results } = await db.prepare('SELECT day, fee_link_usd FROM daily_totals').all<{ day: string; fee_link_usd: number | null }>();
+  return new Map(results.map((r) => [r.day, r.fee_link_usd]));
 }

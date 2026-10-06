@@ -2,9 +2,9 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
 import { LINK_PRICE_KEY } from '@ccip-dev/core';
-import { fakePrices } from '@ccip-dev/core/testing';
+import { fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import * as store from '../src/store';
-import { harness, liveRow, readPublic, resetStorage } from './helpers';
+import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -166,5 +166,25 @@ describe('reserve.json statistics', () => {
       link_price_usd: null,
       cost_basis: { cost_usd: 2_000_000, value_usd: null, change_usd: null, change_pct: null },
     });
+  });
+});
+
+describe('today.json fees paid in LINK', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+
+  it('publishes the LINK fee total and its share of all fees', async () => {
+    const linkBase = '0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196';
+    await seedRegistry([NETWORKS.base], [
+      { chainSelector: NETWORKS.base.chainSelector, address: linkBase, symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+    ]);
+    await env.DB.prepare(`INSERT INTO tokens (chain, address, symbol, name, decimals, group_id, first_seen, last_seen) VALUES (?, ?, 'LINK', 'Chainlink', 18, 'link', ?, ?)`)
+      .bind('5009297550715157269', '0x514910771AF9Ca656af840dff83E8264EcF986CA', NOW, NOW).run();
+    const today = NOW.slice(0, 10);
+    await store.upsertListRows(env.DB, [
+      liveRow({ id: 't1', sendTs: `${today}T00:01:00.000Z`, src: NETWORKS.base }, { fee_token: linkBase, fee_amount: '1', fee_usd: 2 }),
+      liveRow({ id: 't2', sendTs: `${today}T00:02:00.000Z`, src: NETWORKS.base }, { fee_token: '0x4200000000000000000000000000000000000006', fee_amount: '1', fee_usd: 3 }),
+    ], []);
+    await publishLiveFiles(harness({ now: NOW }).c);
+    expect((await readPublic('today.json')).totals).toMatchObject({ fee_usd: 5, fee_link_usd: 2, fee_link_share_pct: 40 });
   });
 });

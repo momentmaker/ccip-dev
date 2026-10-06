@@ -222,3 +222,27 @@ describe('runFinalize', () => {
     expect(stored).toEqual(expected);
   });
 });
+
+describe('fees paid in LINK', () => {
+  it('stores the USD value of the day\'s fees paid in LINK and publishes it in history.json', async () => {
+    const day = '2026-10-09';
+    const linkEth = '0x514910771AF9Ca656af840dff83E8264EcF986CA';
+    const linkBase = '0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196';
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.base], [
+      { chainSelector: NETWORKS.ethereum.chainSelector, address: linkEth, symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+      { chainSelector: NETWORKS.base.chainSelector, address: linkBase, symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+    ]);
+    await store.setMeta(env.DB, 'live_start_day', day);
+    await store.setMeta(env.DB, 'last_finalize_day', '2026-10-08');
+    await store.upsertListRows(env.DB, [
+      liveRow({ id: 'f1', sendTs: `${day}T10:00:00.000Z`, src: NETWORKS.base }, { fee_token: linkBase, fee_amount: '1', fee_usd: 2, detail_fetched_at: `${day}T10:01:00.000Z`, next_check_at: null }),
+      liveRow({ id: 'f2', sendTs: `${day}T11:00:00.000Z`, src: NETWORKS.base }, { fee_token: '0x4200000000000000000000000000000000000006', fee_amount: '1', fee_usd: 3, detail_fetched_at: `${day}T11:01:00.000Z`, next_check_at: null }),
+    ], []);
+    const { c } = harness({ now: '2026-10-10T00:10:00.000Z', ccip: fakeCcip({ messages: [] }) });
+    await runFinalize(c, 'early');
+    const stored = await env.DB.prepare('SELECT fee_link_usd FROM daily_totals WHERE day = ?').bind(day).first<{ fee_link_usd: number | null }>();
+    expect(stored?.fee_link_usd).toBe(2);
+    const history = await readPublic('history.json');
+    expect(history.days.find((d: { day: string }) => d.day === day)).toMatchObject({ fee_usd: 5, fee_link_usd: 2 });
+  });
+});

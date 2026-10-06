@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { median, rollupDay } from '../src/rollup';
+import { linkFeeMatcher, linkFeeUsd, median, rollupDay } from '../src/rollup';
 import type { MessageRow, TokenRow } from '../src/types';
 
 function row(id: string, overrides: Partial<MessageRow> = {}): MessageRow {
@@ -59,5 +59,31 @@ describe('median', () => {
     expect(median([])).toBeNull();
     expect(median([5, 1, 3])).toBe(3);
     expect(median([1, 2, 3, 4])).toBe(3);
+  });
+});
+
+describe('linkFeeUsd', () => {
+  const LINK_BASE = '0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196';
+  const BASE = '15971525489660198786';
+  const isLinkFee = linkFeeMatcher(new Set([`${BASE}:${LINK_BASE.toLowerCase()}`]));
+  const row = (id: string, day: string, feeToken: string | null, feeUsd: number | null) =>
+    ({ message_id: id, day, src_chain: BASE, fee_token: feeToken, fee_usd: feeUsd }) as MessageRow;
+
+  it('sums the fees paid in LINK, matching a checksummed fee token', () => {
+    const rows = [row('a', '2026-10-05', LINK_BASE, 2), row('b', '2026-10-05', '0x4200000000000000000000000000000000000006', 3), row('c', '2026-10-05', LINK_BASE, 0.5)];
+    expect(linkFeeUsd(rows, '2026-10-05', isLinkFee)).toBe(2.5);
+  });
+
+  it('is 0 when fees exist but none were paid in LINK', () => {
+    expect(linkFeeUsd([row('a', '2026-10-05', '0x4200000000000000000000000000000000000006', 3)], '2026-10-05', isLinkFee)).toBe(0);
+  });
+
+  it('is null when no message of the day has a fee', () => {
+    expect(linkFeeUsd([row('a', '2026-10-05', null, null)], '2026-10-05', isLinkFee)).toBeNull();
+  });
+
+  it('ignores other days and counts a duplicated message once', () => {
+    const rows = [row('a', '2026-10-05', LINK_BASE, 2), row('a', '2026-10-05', LINK_BASE, 2), row('z', '2026-10-04', LINK_BASE, 9)];
+    expect(linkFeeUsd(rows, '2026-10-05', isLinkFee)).toBe(2);
   });
 });

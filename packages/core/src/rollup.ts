@@ -1,3 +1,4 @@
+import { normalizeAddress } from './normalize';
 import type { DailyBreakdown, DailyTotals, Dim, MessageRow, TokenRow } from './types';
 
 export interface DayRollup {
@@ -89,4 +90,18 @@ export function median(values: number[]): number | null {
 
 function sum(values: number[]): number {
   return values.reduce((a, b) => a + b, 0);
+}
+
+export type LinkFeeMatcher = (chain: string, feeToken: string) => boolean;
+
+export function linkFeeMatcher(keys: ReadonlySet<string>): LinkFeeMatcher {
+  return (chain, feeToken) => keys.has(`${chain}:${normalizeAddress(feeToken)}`);
+}
+
+export function linkFeeUsd(messages: MessageRow[], day: string, isLinkFee: LinkFeeMatcher): number | null {
+  const byId = new Map<string, MessageRow>();
+  for (const m of messages) if (m.day === day) byId.set(m.message_id, m);
+  const rows = [...byId.values()];
+  if (!rows.some((r) => r.fee_usd !== null)) return null;
+  return sum(rows.filter((r) => r.fee_usd !== null && r.fee_token !== null && isLinkFee(r.src_chain, r.fee_token)).map((r) => r.fee_usd!));
 }

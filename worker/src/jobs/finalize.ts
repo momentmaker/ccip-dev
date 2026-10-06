@@ -1,5 +1,5 @@
 import {
-  addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, gzipText, rollupDay, toJsonl, type ListMessage,
+  addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, gzipText, linkFeeMatcher, linkFeeUsd, rollupDay, toJsonl, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishHistoryFiles, retryPut } from '../publish';
@@ -36,13 +36,16 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
 
   const buckets = await collectDays(c, days[0]!, yesterday);
   const loader = fallbackLoader(c);
+  const isLinkFee = linkFeeMatcher(await store.linkFeeTokens(db));
   const deadline = now.getTime() + DETAIL_BUDGET_MS;
   for (const day of days) {
     const bucket = buckets.get(day) ?? { messages: [], raw: [] };
     await storeListMessages(c, bucket.messages, loader);
     await runDetails(c, { day }, { deadline, fallback: loader });
-    const { totals, breakdown } = rollupDay(day, await store.messagesForDay(db, day), await store.tokensForDay(db, day));
+    const messages = await store.messagesForDay(db, day);
+    const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(db, day));
     await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
+    await store.setFeeLinkUsd(db, day, linkFeeUsd(messages, day, isLinkFee));
     if (mode === 'early') await store.setMeta(db, 'last_finalize_day', day);
     if (mode === 'late' && day > lastArchived) await writeArchive(c, day, bucket.raw);
   }
