@@ -47,7 +47,13 @@ export interface CcipChain {
 }
 
 export function isKeylessHttps(url: string): boolean {
-  return url.startsWith('https://') && !url.includes('${') && !KEYED_URL.test(url);
+  if (!url.startsWith('https://') || url.includes('${') || KEYED_URL.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.search === '' && parsed.username === '' && parsed.password === '';
+  } catch {
+    return false;
+  }
 }
 
 function isTrustedLogHost(url: string): boolean {
@@ -68,6 +74,7 @@ export function candidateRpcs(entry: ChainlistEntry): string[] {
 export function candidateExplorers(entry: ChainlistEntry): string[] {
   return (entry.explorers ?? [])
     .filter((e) => /blockscout/i.test(e.name) || /blockscout/i.test(e.url))
+    .filter((e) => isKeylessHttps(e.url))
     .map((e) => e.url.replace(/\/$/, ''));
 }
 
@@ -178,7 +185,7 @@ export async function refreshEndpoints(input: {
 
   const explorer = await refreshMap(evmNames, current.explorer, 'explorer', async (name) => {
     const existing = current.explorer[name];
-    if (existing && (await verifyBlockscout(fetchFn, existing))) return { keep: true, found: undefined };
+    if (existing && isKeylessHttps(existing) && (await verifyBlockscout(fetchFn, existing))) return { keep: true, found: undefined };
     const candidates = entryOf(name) ? candidateExplorers(entryOf(name)!) : [];
     return { keep: false, found: await firstVerified(candidates, MAX_EXPLORER_CANDIDATES, (url) => verifyBlockscout(fetchFn, url)) };
   });

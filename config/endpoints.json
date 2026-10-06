@@ -30,7 +30,7 @@
     "ethereum-mainnet-ink-1": "https://rpc-gel.inkonchain.com",
     "ethereum-mainnet-linea-1": "https://rpc.linea.build",
     "ethereum-mainnet-mantle-1": "https://rpc.mantle.xyz",
-    "ethereum-mainnet-metis-1": "https://andromeda.metis.io/?owner=1088",
+    "ethereum-mainnet-metis-1": "https://metis.drpc.org",
     "ethereum-mainnet-mode-1": "https://mainnet.mode.network",
     "ethereum-mainnet-optimism-1": "https://mainnet.optimism.io",
     "ethereum-mainnet-polygon-zkevm-1": "https://polygon-zkevm.drpc.org",

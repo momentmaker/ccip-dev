@@ -35,6 +35,8 @@ describe('candidateRpcs', () => {
         { url: 'https://c.example/v3/0123456789abcdef0123456789abcdef' },
         { url: 'https://tracked.example', tracking: 'yes' },
         { url: 'https://one.valve.city/rpc/vk_demo/evm/1' },
+        { url: 'https://user:pass@host.example/rpc' },
+        { url: 'https://host.example/rpc?token=abc' },
         { url: 'wss://socket.example' },
         { url: 'https://good-1.example', tracking: 'none' },
         { url: 'https://good-2.example' },
@@ -51,6 +53,8 @@ describe('candidateExplorers', () => {
       { name: 'etherscan', url: 'https://etherscan.io' },
       { name: 'Blockscout', url: 'https://eth.blockscout.com/' },
       { name: 'explorer', url: 'https://x.blockscout.example' },
+      { name: 'blockscout', url: 'http://evil.example/blockscout' },
+      { name: 'blockscout', url: 'https://scout.example/?apikey=abc' },
     ]);
     expect(candidateExplorers(chain)).toEqual(['https://eth.blockscout.com', 'https://x.blockscout.example']);
   });
@@ -164,6 +168,17 @@ describe('refreshEndpoints', () => {
     });
     expect(endpoints.rpc).toEqual({ 'ethereum-mainnet': 'https://ok.example' });
     expect(endpoints.ethereumLogs).toEqual(['https://ok.example']);
+  });
+
+  it('replaces a current explorer that carries a key', async () => {
+    const keyed = 'https://scout.example/?apikey=abc';
+    const fetch = fakeFetch(rpcRoute('https://r.example', { chainId: 10 }), blockscoutRoute('https://scout.example'), (u) => (u.startsWith(keyed.split('?')[0]!) ? jsonResponse({ total_blocks: '1' }) : undefined));
+    const { endpoints } = await refreshEndpoints({
+      fetch, ccipChains: [evmChain('optimism-mainnet', '10')],
+      chainlist: [entry(10, ['https://r.example'], [{ name: 'blockscout', url: 'https://scout.example' }])],
+      current: { ...base, rpc: {}, explorer: { 'optimism-mainnet': keyed }, ethereumLogs: [] },
+    });
+    expect(endpoints.explorer).toEqual({ 'optimism-mainnet': 'https://scout.example' });
   });
 
   it('sorts the keys of every map', async () => {
