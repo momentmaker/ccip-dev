@@ -28,6 +28,7 @@ export async function scanReserveTransfers(c: RunContext): Promise<number | null
     const urls = logRpcUrls(c.env);
     let cursor = Number((await store.getMeta(db, 'reserve_scan_block')) ?? RESERVE_FIRST_BLOCK - 1);
     const head = (await readBlockNumber(c.deps, urls)) - CONFIRMATIONS;
+    if (head < RESERVE_FIRST_BLOCK) throw new Error(`Head block ${head + CONFIRMATIONS} is below the first Reserve block`);
     for (let chunk = 0; chunk < MAX_CHUNKS_PER_RUN && cursor < head && c.deps.now().getTime() < deadline; chunk++) {
       const to = Math.min(cursor + CHUNK_BLOCKS, head);
       const inserted = await store.insertReserveTransfers(db, await readReserveTransfers(c.deps, urls, cursor + 1, to));

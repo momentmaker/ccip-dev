@@ -98,6 +98,13 @@ describe('scanReserveTransfers', () => {
     expect(f.calls.map((call) => JSON.parse(String(call.init?.body)).method)).toEqual(['eth_blockNumber']);
     expect(await store.getMeta(env.DB, 'reserve_scan_caught_up')).toBe('1');
   });
+
+  it('treats a head block below the first Reserve block as a failed scan', async () => {
+    await expect(scanReserveTransfers(harness({ now: NOW, fetch: rpcFake({ head: 0 }) }).c)).resolves.toBeNull();
+    expect(await store.getMeta(env.DB, 'reserve_scan_caught_up')).toBeNull();
+    expect(await store.getMeta(env.DB, 'reserve_scan_block')).toBeNull();
+    expect(await store.getMeta(env.DB, 'reserve_scan_failures')).toBe('1');
+  });
 });
 
 describe('scanReserveTransfers budget', () => {
