@@ -58,24 +58,38 @@ async function snapshotRegistry(c: RunContext): Promise<void> {
 }
 
 /**
- * Once a UTC day, maps the registry tokens to CoinGecko coin ids for the price fallback. A failure keeps the previous
- * mapping and alerts; either way the day counts as done, so a CoinGecko outage alerts once a day, not every hour.
+ * Maps the registry tokens to CoinGecko coin ids for the price fallback, once a UTC day after a refresh succeeds. Keyless
+ * CoinGecko often refuses Cloudflare's shared IPs, so a failed refresh is retried every hour and alerts once a day. A
+ * refresh that would leave no rows, or fewer than half the stored ones, counts as failed and is not applied.
  */
 async function refreshCoingeckoIds(c: RunContext): Promise<void> {
   const db = c.env.DB;
   const now = c.deps.now();
   const today = dayOf(now);
   if ((await store.getMeta(db, 'coingecko_ids_day')) === today) return;
+  let stored = 0;
   try {
-    const coinIdOf = buildCoingeckoIdIndex(await c.coingecko.lists());
-    const ids = (await store.registryTokenChains(db)).flatMap((token) => {
-      const coinId = coinIdOf(token, token.address);
-      return coinId === undefined ? [] : [{ chain: token.selector, address: token.address, coinId }];
-    });
+    stored = await store.countCoingeckoIds(db);
+    const ids = await mapRegistryTokens(c);
+    if (ids.length === 0 || ids.length < stored / 2) {
+      throw new Error(`the refresh mapped ${ids.length} registry tokens against ${stored} stored, so it was not applied`);
+    }
     await store.replaceCoingeckoIds(db, ids, now.toISOString());
+    await store.setMeta(db, 'coingecko_ids_day', today);
   } catch (err) {
+    if ((await store.getMeta(db, 'coingecko_ids_alerted_day')) === today) return;
+    const kept =
+      stored > 0 ? 'the previous mapping stays' : 'there is no mapping yet, so live tokens their group cannot price stay unpriced';
     const detail = err instanceof Error ? err.message : String(err);
-    await c.alert('coingecko-ids', `CoinGecko ids could not be refreshed, so the previous mapping stays: ${detail}`);
+    await c.alert('coingecko-ids', `CoinGecko ids could not be refreshed and are retried hourly; ${kept}: ${detail}`);
+    await store.setMeta(db, 'coingecko_ids_alerted_day', today);
   }
-  await store.setMeta(db, 'coingecko_ids_day', today);
+}
+
+async function mapRegistryTokens(c: RunContext): Promise<{ chain: string; address: string; coinId: string }[]> {
+  const coinIdOf = buildCoingeckoIdIndex(await c.coingecko.lists());
+  return (await store.registryTokenChains(c.env.DB)).flatMap((token) => {
+    const coinId = coinIdOf(token, token.address);
+    return coinId === undefined ? [] : [{ chain: token.selector, address: token.address, coinId }];
+  });
 }

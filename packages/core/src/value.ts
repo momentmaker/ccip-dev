@@ -8,6 +8,7 @@ export interface Valuation {
 }
 
 export function toUnits(amount: string, decimals: number): number {
+  if (!Number.isInteger(decimals) || decimals < 0) throw new Error(`decimals must be a non-negative integer, got ${decimals}`);
   const raw = BigInt(amount);
   const base = 10n ** BigInt(decimals);
   return Number(raw / base) + Number(raw % base) / Number(base);

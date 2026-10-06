@@ -7,8 +7,9 @@ import {
   addDays, archiveKey, BREAKDOWN_CONFLICT, buildCoingeckoIdIndex, buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS,
   coingeckoKeys, createCcipClient, createCoingeckoClient, createPricesClient, dayOf, dayStartIso, fallbackKeys, groupFallback, gzipText,
   insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize,
-  sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT, type CcipClient, type CoingeckoClient, type CoingeckoLists,
-  type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken, type TokenGroupIndex,
+  sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT, type CcipClient, type CoingeckoClient, type CoingeckoIdIndex,
+  type CoingeckoLists, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
+  type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
 import type { Source, SourceSummary, SourcesSummary } from './sources';
@@ -26,13 +27,13 @@ export const ARRIVAL_CONFLICT =
 export const CHAIN_CONFLICT =
   'ON CONFLICT(selector) DO UPDATE SET first_seen = MIN(chains.first_seen, excluded.first_seen), ' +
   'last_seen = MAX(chains.last_seen, excluded.last_seen)';
+export const COINGECKO_ID_CONFLICT =
+  'ON CONFLICT(chain, address) DO UPDATE SET coin_id = excluded.coin_id, updated_at = excluded.updated_at';
 
 /** A day's spool buffer goes to disk once it holds more lines than this. */
 const DAY_BUFFER_LINES = 5_000;
 /** Every buffer goes to disk once they hold more lines than this together, so memory stays bounded however many days there are. */
 const SPOOL_BUFFER_LINES = 100_000;
-/** A series without a point on a day takes the nearest point at most this many days away, the earlier one on a tie. */
-const NEAR_DAY_OFFSETS = [0, -1, 1, -2, 2];
 
 export type RegistryClient = Pick<CcipClient, 'listChains' | 'listTokens'>;
 
@@ -99,7 +100,8 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const earliestDay = spooled.days[0];
   const coverageFrom = plan.rollupFrom ?? earliestDay;
   assertCompleteDayLeft(coverageFrom, opts.liveStartDay);
-  const groups = tokenGroupsOf(registry, spooled.networks);
+  const networks = networksOf(registry, spooled.networks);
+  const groups = tokenGroupsOf(registry.tokens, networks);
 
   await rm(path.join(opts.dir, 'sql'), { recursive: true, force: true });
   await rm(path.join(opts.dir, 'archive'), { recursive: true, force: true });
@@ -147,7 +149,11 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   for (const day of spooled.days) await buildDay(day);
 
   // Token rows are not seeded: list data has no symbol or decimals, so they come from the hourly registry snapshot.
-  await writer.add([...firstSeen.statements(), ...chains.statements()]);
+  await writer.add([
+    ...firstSeen.statements(),
+    ...chains.statements(),
+    ...coingeckoSeeds(registry.tokens, networks, coingeckoIdOf, computedAt),
+  ]);
   await writer.add([insertSql('meta', { key: 'coverage_from', value: coverageFrom }, 'ON CONFLICT(key) DO UPDATE SET value = excluded.value')]);
   await writeFileAtomic(path.join(opts.dir, 'skipped.json'), `${JSON.stringify(plan.skipped, null, 2)}\n`);
   const written = await writer.finish();
@@ -298,19 +304,40 @@ async function fetchCoingeckoLists(client: CoingeckoClient, registryDir: string)
   return lists;
 }
 
-/**
- * Indexes the registry's token groups. A token's chain comes from /chains, or from the crawled messages for a chain
- * /chains no longer lists.
- */
-function tokenGroupsOf({ chains, tokens }: Registry, crawled: Map<string, NetworkInfo>): TokenGroupIndex {
+/** Every chain by selector: from /chains, or from the crawled messages for a chain /chains no longer lists. */
+function networksOf({ chains }: Registry, crawled: Map<string, NetworkInfo>): Map<string, NetworkInfo> {
   const networks = new Map(crawled);
   for (const chain of chains) networks.set(chain.chainSelector, chain);
+  return networks;
+}
+
+/** Indexes the registry's token groups. */
+function tokenGroupsOf(tokens: RegistryToken[], networks: Map<string, NetworkInfo>): TokenGroupIndex {
   return buildTokenGroupIndex(
     tokens.map(normalizeRegistryToken).map((t) => {
       const network = networks.get(t.chain);
       return tokenGroupEntry(t, network && chainRef(network));
     }),
   );
+}
+
+/**
+ * Seeds the Worker's coingecko_ids with the registry tokens the CoinGecko lists map, so live pricing has the CoinGecko
+ * step from the upload on, even before the Worker's own daily refresh first succeeds.
+ */
+function coingeckoSeeds(
+  tokens: RegistryToken[],
+  networks: Map<string, NetworkInfo>,
+  coingeckoIdOf: CoingeckoIdIndex,
+  updatedAt: string,
+): string[] {
+  return tokens.map(normalizeRegistryToken).flatMap((t) => {
+    const network = networks.get(t.chain);
+    const coinId = network && coingeckoIdOf(chainRef(network), t.address);
+    if (!coinId) return [];
+    const row = { chain: t.chain, address: t.address, coin_id: coinId, updated_at: updatedAt };
+    return [insertSql('coingecko_ids', row, COINGECKO_ID_CONFLICT)];
+  });
 }
 
 /** Every page file, least recently fetched (modified) first. */
@@ -558,8 +585,9 @@ class PriceCache {
    * `coingecko:` key has none and needs only its price.
    */
   lookupOn(day: string): PriceLookup {
+    const days = nearDays(day);
     return (key) => {
-      const price = nearDayPrice(this.data.history[key], day);
+      const price = nearDayPrice(this.data.history[key], days);
       if (price === undefined) return undefined;
       if (isCoingeckoKey(key)) return { price, decimals: COIN_PRICE_DECIMALS };
       const decimals = this.decimalsOf(key);
@@ -573,13 +601,32 @@ class PriceCache {
   }
 }
 
-function nearDayPrice(series: Record<string, number> | undefined, day: string): number | undefined {
+/** A day and the days around it that a price series may take a point from when it has none that day. */
+interface NearDays {
+  day: string;
+  earlier: string[];
+  later: string[];
+  nearestFirst: string[];
+}
+
+function nearDays(day: string): NearDays {
+  const at = (offset: number) => addDays(day, offset);
+  return { day, earlier: [at(-1), at(-2)], later: [at(1), at(2)], nearestFirst: [at(-1), at(1), at(-2), at(2)] };
+}
+
+/**
+ * The series' price on the day. For a gap with a point at most two days away on each side, the nearest of those points,
+ * the earlier on a tie. A gap at either end of a series stays empty, so a launch-day spike is not carried backwards and a
+ * delisted token's last print is not carried forwards.
+ */
+function nearDayPrice(series: Record<string, number> | undefined, days: NearDays): number | undefined {
   if (series === undefined) return undefined;
-  for (const offset of NEAR_DAY_OFFSETS) {
-    const price = series[addDays(day, offset)];
-    if (price !== undefined) return price;
-  }
-  return undefined;
+  const exact = series[days.day];
+  if (exact !== undefined) return exact;
+  const has = (day: string) => series[day] !== undefined;
+  if (!days.earlier.some(has) || !days.later.some(has)) return undefined;
+  const nearest = days.nearestFirst.find(has);
+  return nearest === undefined ? undefined : series[nearest];
 }
 
 async function readPriceCache(file: string): Promise<PriceCacheFile> {

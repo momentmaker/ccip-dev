@@ -11,9 +11,10 @@ const COINGECKO_PREFIX = 'coingecko:';
 
 /**
  * A `coingecko:` key names a coin rather than a token contract, so DefiLlama prices it without decimals. Its price carries
- * this placeholder, which nothing reads: the fallback values the coin with each token's own decimals.
+ * this placeholder: the fallback values the coin with each token's own decimals, and any path that scaled an amount by
+ * the placeholder instead would throw in `toUnits` rather than silently divide by 10^0.
  */
-export const COIN_PRICE_DECIMALS = 0;
+export const COIN_PRICE_DECIMALS = -1;
 
 /** DefiLlama's key for a CoinGecko coin id. */
 export function coingeckoKey(coinId: string): string {

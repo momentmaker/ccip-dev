@@ -303,6 +303,11 @@ export async function replaceCoingeckoIds(
   await db.prepare('DELETE FROM coingecko_ids WHERE updated_at <> ?').bind(nowIso).run();
 }
 
+export async function countCoingeckoIds(db: D1Database): Promise<number> {
+  const row = await db.prepare('SELECT COUNT(*) AS n FROM coingecko_ids').first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
 /** The registry tokens' CoinGecko coin ids, by chain selector and address. */
 export async function coingeckoIds(db: D1Database): Promise<CoingeckoIdLookup> {
   const { results } = await db

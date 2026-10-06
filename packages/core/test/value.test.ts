@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { COIN_PRICE_DECIMALS } from '../src/prices';
 import type { ChainRef, NormalizedMessage, PriceInfo, PriceLookup } from '../src/types';
 import { priceKeys, toUnits, valueFee, valueTokens } from '../src/value';
 
@@ -23,6 +24,9 @@ describe('toUnits', () => {
     expect(toUnits('0', 6)).toBe(0);
     expect(toUnits('000123', 2)).toBeCloseTo(1.23, 12);
     expect(toUnits('42', 0)).toBe(42);
+  });
+  it('refuses negative decimals, so a coin price\'s placeholder can never scale an amount', () => {
+    expect(() => toUnits('1000000', COIN_PRICE_DECIMALS)).toThrow('decimals must be a non-negative integer, got -1');
   });
 });
 

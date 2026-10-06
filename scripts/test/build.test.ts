@@ -428,6 +428,18 @@ describe('build with the CoinGecko price fallback', () => {
     expect(existsSync(path.join(dir, 'days'))).toBe(false);
   });
 
+  it('seeds the Worker\'s coingecko_ids with the registry tokens the lists map', async () => {
+    const dir = await crawlDir();
+    const registry = fakeCcip({ chains: [NETWORKS.base], tokens: [coinedToken(), registryToken(NETWORKS.base, GROUPED, 6)] });
+    await build({ dir, liveStartDay: '2026-10-08', prices: prices(), registry, coingecko: coingeckoLists(), now: () => NOW });
+    const seeds = (await allSql(dir)).split('\n').filter((line) => line.startsWith('INSERT INTO coingecko_ids '));
+    expect(seeds).toEqual([
+      "INSERT INTO coingecko_ids (chain, address, coin_id, updated_at) VALUES ('15971525489660198786', " +
+        `'${COINED}', 'coined', '${NOW.toISOString()}') ON CONFLICT(chain, address) DO UPDATE SET coin_id = excluded.coin_id, ` +
+        'updated_at = excluded.updated_at;',
+    ]);
+  });
+
   it('keeps the fetched CoinGecko lists in registry/', async () => {
     const dir = await crawlDir();
     await build({ dir, liveStartDay: '2026-10-08', prices: prices(), registry: fakeCcip(), coingecko: coingeckoLists(), now: () => NOW });
@@ -443,37 +455,50 @@ describe('build with the CoinGecko price fallback', () => {
 describe('build near-day price fill', () => {
   const NEAR = '0x7777777777777777777777777777777777777777';
   const NEAR_KEY = `base:${NEAR}`;
+  /** A data-only message that starts the build's price range on 10-02, so a gap on 10-04 can reach two days back. */
+  const early = listMessage({ id: 'early', sendTs: '2026-10-02T12:00:00.000Z' });
   const sentOn = (id: string, sendTs: string) => listMessage({ id, sendTs, token: { address: NEAR, amount: '5000000' } });
   const pricesWith = (history: Record<string, number>) =>
     fakePrices({ latest: { [NEAR_KEY]: { price: 99, decimals: 6 } }, history: { [NEAR_KEY]: history } });
+  const nearDir = (...messages: ReturnType<typeof listMessage>[]) => crawlDir([[today1, a2, a1], [a1, ...messages, b1, c1, early]]);
   const valueOf = async (message: ReturnType<typeof listMessage>, history: Record<string, number>) => {
-    const dir = await crawlDir([[today1, a2, a1], [a1, message, b1, c1]]);
+    const dir = await nearDir(message);
     await build({ dir, liveStartDay: '2026-10-08', prices: pricesWith(history), ...emptyRegistries(), now: () => NOW });
     return tokenRows(await allSql(dir), message.messageId)[0]?.match(/'5000000', ([^)]*)\) ON CONFLICT/)?.[1];
   };
 
-  it('takes the day before over the day after when a series lacks the day', async () => {
+  it('fills a gap with points on both sides from the nearest one, the earlier on a tie', async () => {
     expect(await valueOf(sentOn('n5', '2026-10-05T12:00:00.000Z'), { '2026-10-04': 1, '2026-10-06': 9 })).toBe('5');
   });
 
-  it('reaches two days either side', async () => {
-    const twoBefore = await valueOf(sentOn('n6', '2026-10-06T12:00:00.000Z'), { '2026-10-04': 1 });
-    const twoAfter = await valueOf(sentOn('n4', '2026-10-04T23:30:00.000Z'), { '2026-10-06': 9 });
-    expect([twoBefore, twoAfter]).toEqual(['5', '45']);
+  it('takes a nearer later point over a farther earlier one', async () => {
+    expect(await valueOf(sentOn('n5', '2026-10-05T12:00:00.000Z'), { '2026-10-03': 1, '2026-10-06': 9 })).toBe('45');
   });
 
-  it('leaves a token unpriced when its nearest point is three days away', async () => {
-    expect(await valueOf(sentOn('n4', '2026-10-04T23:30:00.000Z'), { '2026-10-07': 9 })).toBe('NULL');
+  it('reaches two days on each side', async () => {
+    expect(await valueOf(sentOn('n4', '2026-10-04T23:30:00.000Z'), { '2026-10-02': 1, '2026-10-06': 9 })).toBe('5');
+  });
+
+  it('does not carry a series back before its first point', async () => {
+    expect(await valueOf(sentOn('n4', '2026-10-04T23:30:00.000Z'), { '2026-10-05': 9, '2026-10-06': 9 })).toBe('NULL');
+  });
+
+  it('does not carry a series forward after its last point', async () => {
+    expect(await valueOf(sentOn('n6', '2026-10-06T12:00:00.000Z'), { '2026-10-04': 1, '2026-10-05': 1 })).toBe('NULL');
+  });
+
+  it('leaves a gap unpriced when the point on one side is three days away', async () => {
+    expect(await valueOf(sentOn('n5', '2026-10-05T12:00:00.000Z'), { '2026-10-02': 1, '2026-10-06': 9 })).toBe('NULL');
   });
 
   it('fills a sibling\'s and a coin\'s series the same way', async () => {
     const tokens = [registryToken(NETWORKS.base, NEAR, 6), registryToken(NETWORKS.ethereum, SIBLING, 18), coinedToken()];
     const viaSibling = sentOn('s5', '2026-10-05T12:00:00.000Z');
     const viaCoin = listMessage({ id: 'c5', sendTs: '2026-10-05T13:00:00.000Z', token: { address: COINED, amount: '5000000' } });
-    const dir = await crawlDir([[today1, a2, a1], [a1, viaSibling, viaCoin, b1, c1]]);
+    const dir = await nearDir(viaSibling, viaCoin);
     const prices = fakePrices({
       latest: { [SIBLING_KEY]: { price: 99, decimals: 18 } },
-      history: { [SIBLING_KEY]: { '2026-10-04': 3 }, [COIN_KEY]: { '2026-10-07': 7 } },
+      history: { [SIBLING_KEY]: { '2026-10-04': 3, '2026-10-06': 50 }, [COIN_KEY]: { '2026-10-03': 7, '2026-10-07': 70 } },
     });
     const registry = fakeCcip({ chains: [NETWORKS.base, NETWORKS.ethereum], tokens });
     await build({ dir, liveStartDay: '2026-10-08', prices, registry, coingecko: coingeckoLists(), now: () => NOW });
@@ -482,6 +507,18 @@ describe('build near-day price fill', () => {
       [expect.stringContaining("'5000000', 15) ON CONFLICT")],
       [expect.stringContaining("'5000000', 35) ON CONFLICT")],
     ]);
+  });
+
+  it('prefers the token\'s own near-day price to a sibling\'s price that day', async () => {
+    const dir = await nearDir(sentOn('s5', '2026-10-05T12:00:00.000Z'));
+    const prices = fakePrices({
+      latest: { [NEAR_KEY]: { price: 99, decimals: 6 }, [SIBLING_KEY]: { price: 99, decimals: 18 } },
+      history: { [NEAR_KEY]: { '2026-10-04': 1, '2026-10-06': 9 }, [SIBLING_KEY]: { '2026-10-05': 50 } },
+    });
+    const tokens = [registryToken(NETWORKS.base, NEAR, 6), registryToken(NETWORKS.ethereum, SIBLING, 18)];
+    const registry = fakeCcip({ chains: [NETWORKS.base, NETWORKS.ethereum], tokens });
+    await build({ dir, liveStartDay: '2026-10-08', prices, registry, coingecko: fakeCoingecko(), now: () => NOW });
+    expect(tokenRows(await allSql(dir), 's5')).toEqual([expect.stringContaining("'5000000', 5) ON CONFLICT")]);
   });
 });
 
