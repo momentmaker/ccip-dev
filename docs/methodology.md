@@ -104,6 +104,7 @@ All data sources are free:
 - **Weekly:** UTC weeks starting Monday. The weekly USD is the deposit-time value of the LINK deposited, not
   Chainlink's revenue.
 - **Pace:** the 4-week figures average the last four complete weeks. The milestone date assumes that pace continues.
+- **Cadence:** the average gap between deposits; the next deposit is expected at the last deposit plus the median gap, and is flagged overdue 24 hours after that; the streak counts consecutive deposits no more than 8 days apart.
 
 ## Cross-check
 @CCIPMetrics posts its "#CCIP today" totals just after midnight UTC. Each post is dated the day it is posted and

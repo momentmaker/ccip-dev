@@ -58,6 +58,10 @@ describe('reserveStats', () => {
   it('averages the last four complete weeks and projects the next million', () => {
     // Complete weeks 09-07 … 09-28: 110,000 LINK / 4 = 27,500; 1,000,000 USD / 4 = 250,000.
     // (1,000,000 − 250,004) / 27,500 = 27.2726 weeks after NOW, which lands on 2027-04-15.
+    // Deposits: 09-01T10:00, 09-16T15:00, 09-30T15:00, 10-06T10:00
+    // Gaps: 15.2083, 14.0, 5.7917 days; mean = 11.67, median = 14 days
+    // Next deposit: 10-06T10:00 + 14 d = 2026-10-20T10:00:00.000Z
+    // Streak: 2 (5.79 <= 8 counts, 14 > 8 breaks it)
     expect(stats.pace).toEqual({
       deposits: 4,
       last_deposit: { ts: '2026-10-06T10:00:00.000Z', tx: '0x06', link: 40_000, price_usd: 12.5, usd: 500_000 },
@@ -67,6 +71,52 @@ describe('reserveStats', () => {
       annualized_link: 1_430_000,
       supply_share_pct: 0.025,
       next_milestone: { link: 1_000_000, eta: '2027-04-15' },
+      avg_days_between_deposits: 11.67,
+      next_expected_deposit: '2026-10-20T10:00:00.000Z',
+      deposit_overdue: false,
+      deposit_streak: 2,
+    });
+  });
+
+  it('has a pace for weekly deposits without overdue flag when recent', () => {
+    // 8 deposits of 50,000 LINK at price 10, every 7 days starting 2026-08-13T15:35:00.000Z
+    const weeklyDeposits: PricedTransfer[] = [];
+    for (let i = 0; i < 8; i++) {
+      const ts = new Date('2026-08-13T15:35:00.000Z');
+      ts.setDate(ts.getDate() + i * 7);
+      weeklyDeposits.push(t(ts.toISOString(), `0x${i}`, 'in', 50_000, 10));
+    }
+    // now = last deposit + 1 day
+    const last = new Date('2026-08-13T15:35:00.000Z');
+    last.setDate(last.getDate() + 7 * 7);
+    const now = new Date(last.getTime() + 86_400_000);
+
+    const weekly = reserveStats({ transfers: weeklyDeposits, linkPriceUsd: 10, now });
+    expect(weekly.pace).toMatchObject({
+      deposits: 8,
+      avg_days_between_deposits: 7,
+      next_expected_deposit: new Date(last.getTime() + 7 * 86_400_000).toISOString(),
+      deposit_overdue: false,
+      deposit_streak: 8,
+    });
+  });
+
+  it('flags deposit as overdue when now exceeds next expected by grace hours', () => {
+    // Same 8 deposits as above, now = last + 8.5 days
+    const weeklyDeposits: PricedTransfer[] = [];
+    for (let i = 0; i < 8; i++) {
+      const ts = new Date('2026-08-13T15:35:00.000Z');
+      ts.setDate(ts.getDate() + i * 7);
+      weeklyDeposits.push(t(ts.toISOString(), `0x${i}`, 'in', 50_000, 10));
+    }
+    // now = last deposit + 8.5 days (1 hour past grace period)
+    const last = new Date('2026-08-13T15:35:00.000Z');
+    last.setDate(last.getDate() + 7 * 7);
+    const now = new Date(last.getTime() + 8.5 * 86_400_000);
+
+    const weekly = reserveStats({ transfers: weeklyDeposits, linkPriceUsd: 10, now });
+    expect(weekly.pace).toMatchObject({
+      deposit_overdue: true,
     });
   });
 
@@ -106,6 +156,7 @@ describe('reserveStats', () => {
     expect(empty.weekly).toEqual([]);
     expect(empty.pace).toMatchObject({
       deposits: 0, last_deposit: null, days_since_last_deposit: null, avg_weekly_link_4w: null, annualized_link: null, next_milestone: null,
+      avg_days_between_deposits: null, next_expected_deposit: null, deposit_overdue: false, deposit_streak: 0,
     });
     expect(empty.performance).toEqual({ best: null, worst: null, above: 0, below: 0 });
   });

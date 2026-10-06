@@ -4,6 +4,8 @@ import { toUnits } from './value';
 export const DEPOSIT_MIN_LINK = 1_000;
 export const LINK_TOTAL_SUPPLY = 1_000_000_000;
 export const MILESTONE_STEP_LINK = 1_000_000;
+export const DEPOSIT_STREAK_MAX_GAP_DAYS = 8;
+export const DEPOSIT_OVERDUE_GRACE_HOURS = 24;
 
 const DAY_MS = 86_400_000;
 const WEEK_MS = 7 * DAY_MS;
@@ -57,6 +59,10 @@ export interface ReserveStats {
     annualized_link: number | null;
     supply_share_pct: number;
     next_milestone: { link: number; eta: string } | null;
+    avg_days_between_deposits: number | null;
+    next_expected_deposit: string | null;
+    deposit_overdue: boolean;
+    deposit_streak: number;
   };
   weekly: WeekView[];
   performance: {
@@ -136,6 +142,32 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
   const milestone = (Math.floor(net / MILESTONE_STEP_LINK) + 1) * MILESTONE_STEP_LINK;
   const last = deposits.at(-1);
 
+  // Calculate deposit timing metrics
+  const gaps = deposits.length > 1
+    ? deposits.slice(1).map((d, i) => (Date.parse(d.ts) - Date.parse(deposits[i]!.ts)) / DAY_MS)
+    : [];
+  const avgGaps = gaps.length > 0 ? sum(gaps) / gaps.length : null;
+  const sortedGaps = [...gaps].sort((a, b) => a - b);
+  const medianGap = gaps.length === 0
+    ? null
+    : gaps.length % 2 === 1
+      ? sortedGaps[Math.floor(gaps.length / 2)]!
+      : (sortedGaps[gaps.length / 2 - 1]! + sortedGaps[gaps.length / 2]!) / 2;
+  const nextExpected = deposits.length < 2 || medianGap === null
+    ? null
+    : new Date(Date.parse(last!.ts) + medianGap * DAY_MS).toISOString();
+  const isOverdue = nextExpected !== null && now.getTime() > Date.parse(nextExpected) + DEPOSIT_OVERDUE_GRACE_HOURS * 3_600_000;
+
+  // Calculate deposit streak: walk back from latest deposit counting consecutive gaps <= 8 days
+  let streak = deposits.length === 0 ? 0 : 1;
+  for (let i = gaps.length - 1; i >= 0; i--) {
+    if (gaps[i]! <= DEPOSIT_STREAK_MAX_GAP_DAYS) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
   const byPrice = [...pricedDeposits].sort((a, b) => a.linkUsd! - b.linkUsd!);
   const entry = (r: Row | undefined) => (r === undefined ? null : { ts: r.ts, tx: r.tx, price_usd: round(r.linkUsd!, 4) });
 
@@ -180,6 +212,10 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
         avgLink === null || avgLink <= 0
           ? null
           : { link: milestone, eta: dayOf(new Date(now.getTime() + ((milestone - net) / avgLink) * WEEK_MS)) },
+      avg_days_between_deposits: avgGaps === null ? null : round(avgGaps, 2),
+      next_expected_deposit: nextExpected,
+      deposit_overdue: isOverdue,
+      deposit_streak: streak,
     },
     weekly: series.map((w) => ({ ...w, link: round(w.link, 2), usd: round(w.usd, 2) })),
     performance: {

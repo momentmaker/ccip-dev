@@ -132,7 +132,11 @@ the changes are additions.
     "avg_weekly_usd_4w": 1186514.52,
     "annualized_link": 4567984.2,
     "supply_share_pct": 0.6122,            // balance / 1,000,000,000 LINK
-    "next_milestone": { "link": 7000000, "eta": "2026-12-24" }
+    "next_milestone": { "link": 7000000, "eta": "2026-12-24" },
+    "avg_days_between_deposits": 7.0,
+    "next_expected_deposit": "2026-10-10T15:35:00.000Z",
+    "deposit_overdue": false,
+    "deposit_streak": 60
   },
   "weekly": [ { "week": "2026-09-28", "deposits": 1, "link": 74703.04, "usd": 1065007.88 } ],
   "performance": {
@@ -167,6 +171,10 @@ Definitions:
 - `next_milestone.link` is the next multiple of 1,000,000 LINK above the balance. `eta` is the UTC date when the
   balance reaches it at `avg_weekly_link_4w`. It is null when that average is 0.
 - `days_since_last_deposit` is measured from the file's `updated_at`.
+- `avg_days_between_deposits` is the mean gap between consecutive deposits, rounded to 2 decimals. Null with fewer than 2 deposits.
+- `next_expected_deposit` is the last deposit's time plus the median gap between all consecutive deposits (rounded to millisecond precision). With an even number of gaps, the median is the mean of the two middle gaps. Null with fewer than 2 deposits.
+- `deposit_overdue` is true when `next_expected_deposit` is not null and now is more than 24 hours after it. False otherwise.
+- `deposit_streak` is the count of consecutive deposits from the latest, each with a gap to the previous of at most 8 days. 0 with no deposits, 1 with one deposit.
 - Rounding: LINK to 2 decimals, USD to 2, percentages to 2 (except `supply_share_pct`, to 4), prices to 4.
 - Before the first catch-up, `cost_basis`, `pace`, `performance` and `latest_transfer` are null, and `weekly` and
   `transfers` are empty arrays.
