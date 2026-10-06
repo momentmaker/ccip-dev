@@ -1,4 +1,4 @@
-import { UpstreamSchemaError } from '@ccip-dev/core';
+import { UpstreamHttpError, UpstreamSchemaError } from '@ccip-dev/core';
 import { createRunContext, type RunContext } from './context';
 import { realDeps } from './deps';
 import type { Env } from './env';
@@ -21,6 +21,12 @@ export const JOBS: Readonly<Record<string, Job[]>> = {
   '0 6 * * *': [['finalize', (c) => runFinalize(c, 'late')]],
 };
 
+const POISON_HINT = ' — possibly a poison message (one message that makes every list page containing it fail); see runbook "Poison message"';
+
+function poisonHint(err: unknown): string {
+  return err instanceof UpstreamHttpError && err.status === 500 && err.endpoint.includes('/messages') ? POISON_HINT : '';
+}
+
 export async function runJobsFor(cron: string, c: RunContext, jobs: Readonly<Record<string, Job[]>> = JOBS): Promise<void> {
   const scheduled = jobs[cron];
   if (!scheduled) {
@@ -32,7 +38,7 @@ export async function runJobsFor(cron: string, c: RunContext, jobs: Readonly<Rec
       await run(c);
     } catch (err) {
       const sample = err instanceof UpstreamSchemaError ? ` (response sample: ${err.sample.slice(0, 200)})` : '';
-      const message = `${err instanceof Error ? err.message : String(err)}${sample}`;
+      const message = `${err instanceof Error ? err.message : String(err)}${sample}${poisonHint(err)}`;
       console.error(`job ${name} failed: ${message}`);
       try {
         await c.alert(`job-failed:${name}`, `${name} failed: ${message}`);
