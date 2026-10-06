@@ -1,0 +1,86 @@
+name = "Folks Finance"
+x = "folksfinance"
+url = "https://folks.finance"
+kind = "protocol"
+verified = true
+
+# Source for every address: https://docs.xapp.folks.finance/developers/contracts (per-chain tables)
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd"
+note = "xChain CCIP Data Adapter (Folks docs, Avalanche)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x5f2f4771b7dc7e2f7e9c1308b154e1e8957ecab0"
+note = "xChain CCIP Token Adapter (Folks docs, Avalanche)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9"
+note = "xChain CCIP Data Adapter (Folks docs, Base)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e"
+note = "xChain CCIP Token Adapter (Folks docs, Base)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9"
+note = "xChain CCIP Data Adapter (Folks docs, Ethereum)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e"
+note = "xChain CCIP Token Adapter (Folks docs, Ethereum)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e"
+note = "xChain CCIP Data Adapter (Folks docs, BSC)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x802063a23e78d0f5d158feaac605028ee490b03b"
+note = "xChain CCIP Token Adapter (Folks docs, BSC)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x7218bd1050d41a9ecfc517abdd294fb8116aee81"
+note = "xChain CCIP Data Adapter (Folks docs, Arbitrum)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x0700b2cb26688c035bd5dbbda070be408c20779c"
+note = "xChain CCIP Token Adapter (Folks docs, Arbitrum)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e"
+note = "xChain CCIP Data Adapter (Folks docs, Polygon)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd"
+note = "xChain CCIP Token Adapter (Folks docs, Polygon)"
+
+[[addresses]]
+chain = "sei-mainnet"
+address = "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9"
+note = "xChain CCIP Data Adapter (Folks docs, Sei)"
+
+[[addresses]]
+chain = "sei-mainnet"
+address = "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e"
+note = "xChain CCIP Token Adapter (Folks docs, Sei)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9"
+note = "xChain CCIP Data Adapter (Folks docs, Monad)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e"
+note = "xChain CCIP Token Adapter (Folks docs, Monad)"

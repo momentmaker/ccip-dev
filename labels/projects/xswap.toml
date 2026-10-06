@@ -1,0 +1,36 @@
+name = "XSwap"
+x = "xswap_link"
+url = "https://xswap.link"
+kind = "protocol"
+# Unverified: the address is listed only in github.com/xswaplink/xSwapRouter, a repo that xswap.link and its docs do not link.
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"

@@ -1,0 +1,27 @@
+name = "Chainlink CCIP tests"
+x = "chainlink"
+url = "https://chain.link"
+kind = "protocol"
+verified = true
+
+# Source: https://github.com/smartcontractkit/ccip/blob/ccip-develop/integration-tests/ccip-tests/testconfig/override/mainnet.toml
+# (receiver_dapp for every mainnet lane; the dapp sends self-addressed test messages)
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0xb509c046e1182c7b36d2d9733554bc268716803c"
+note = "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xb509c046e1182c7b36d2d9733554bc268716803c"
+note = "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xb509c046e1182c7b36d2d9733554bc268716803c"
+note = "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+
+[[addresses]]
+chain = "wemix-mainnet"
+address = "0xb509c046e1182c7b36d2d9733554bc268716803c"
+note = "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"

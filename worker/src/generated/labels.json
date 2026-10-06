@@ -1,1 +1,182 @@
-{}
+{
+  "polkadot-mainnet-astar:0x4036a6ff8c1a29677108aef299b560f6e4fa5e71": {
+    "name": "Astar Network",
+    "x": "AstarNetwork",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0x20ea2f2ecf36bcb6df086d923a120496dc616f76": {
+    "name": "Auto Finance",
+    "x": "autopools",
+    "kind": "protocol"
+  },
+  "soneium-mainnet:0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2": {
+    "name": "Bifrost",
+    "x": "Bifrost",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-optimism-1:0xb509c046e1182c7b36d2d9733554bc268716803c": {
+    "name": "Chainlink CCIP tests",
+    "x": "chainlink",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-arbitrum-1:0xb509c046e1182c7b36d2d9733554bc268716803c": {
+    "name": "Chainlink CCIP tests",
+    "x": "chainlink",
+    "kind": "protocol"
+  },
+  "avalanche-mainnet:0xb509c046e1182c7b36d2d9733554bc268716803c": {
+    "name": "Chainlink CCIP tests",
+    "x": "chainlink",
+    "kind": "protocol"
+  },
+  "wemix-mainnet:0xb509c046e1182c7b36d2d9733554bc268716803c": {
+    "name": "Chainlink CCIP tests",
+    "x": "chainlink",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-base-1:0x0ae1b2730066ad46481ab0a5fd2b5893f8aba323": {
+    "name": "Concero",
+    "x": "concero_io",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-arbitrum-1:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
+    "name": "Concero",
+    "x": "concero_io",
+    "kind": "protocol"
+  },
+  "avalanche-mainnet:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
+    "name": "Concero",
+    "x": "concero_io",
+    "kind": "protocol"
+  },
+  "polygon-mainnet:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
+    "name": "Concero",
+    "x": "concero_io",
+    "kind": "protocol"
+  },
+  "avalanche-mainnet:0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "avalanche-mainnet:0x5f2f4771b7dc7e2f7e9c1308b154e1e8957ecab0": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-base-1:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-base-1:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "binance_smart_chain-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "binance_smart_chain-mainnet:0x802063a23e78d0f5d158feaac605028ee490b03b": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-arbitrum-1:0x7218bd1050d41a9ecfc517abdd294fb8116aee81": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-arbitrum-1:0x0700b2cb26688c035bd5dbbda070be408c20779c": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "polygon-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "polygon-mainnet:0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "sei-mainnet:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "sei-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "monad-mainnet:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "monad-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-base-1:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "binance_smart_chain-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "polygon-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {
+    "name": "Stake DAO",
+    "x": "StakeDAOHQ",
+    "kind": "protocol"
+  },
+  "polygon-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {
+    "name": "Stake DAO",
+    "x": "StakeDAOHQ",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-arbitrum-1:0xf0000058000021003e4754dca700c766de7601c2": {
+    "name": "Stake DAO",
+    "x": "StakeDAOHQ",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-optimism-1:0xf0000058000021003e4754dca700c766de7601c2": {
+    "name": "Stake DAO",
+    "x": "StakeDAOHQ",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-base-1:0xf0000058000021003e4754dca700c766de7601c2": {
+    "name": "Stake DAO",
+    "x": "StakeDAOHQ",
+    "kind": "protocol"
+  }
+}

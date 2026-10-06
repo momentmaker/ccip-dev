@@ -1,0 +1,31 @@
+name = "Stake DAO"
+x = "StakeDAOHQ"
+url = "https://www.stakedao.org"
+kind = "protocol"
+verified = true
+
+# Source: https://github.com/stake-dao/laposte (README deployment table: same address on all five chains)
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf0000058000021003e4754dca700c766de7601c2"
+note = "LaPoste cross-chain messenger (stake-dao/laposte README)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0xf0000058000021003e4754dca700c766de7601c2"
+note = "LaPoste cross-chain messenger (stake-dao/laposte README)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xf0000058000021003e4754dca700c766de7601c2"
+note = "LaPoste cross-chain messenger (stake-dao/laposte README)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0xf0000058000021003e4754dca700c766de7601c2"
+note = "LaPoste cross-chain messenger (stake-dao/laposte README)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xf0000058000021003e4754dca700c766de7601c2"
+note = "LaPoste cross-chain messenger (stake-dao/laposte README)"

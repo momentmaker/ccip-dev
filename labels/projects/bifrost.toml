@@ -1,0 +1,10 @@
+name = "Bifrost"
+x = "Bifrost"
+url = "https://bifrost.io"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "soneium-mainnet"
+address = "0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2"
+note = "SLPx on Soneium (bifrost-io/slpx-contracts deployments/soneium/SoneiumSlpx.json)"

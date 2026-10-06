@@ -1,0 +1,10 @@
+name = "Auto Finance"
+x = "autopools"
+url = "https://auto.finance"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x20ea2f2ecf36bcb6df086d923a120496dc616f76"
+note = "MessageProxy (docs.auto.finance contract addresses)"

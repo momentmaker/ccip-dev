@@ -1,0 +1,11 @@
+name = "Kryptomon"
+x = "KryptomonTeam"
+url = "https://kryptomon.co"
+kind = "app"
+# Unverified: listed in github.com/KryptomonDAO/contracts, an org that kryptomon.co does not link.
+verified = false
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xbda9cd774dfc54db1752b7dd84f4ab1783f47683"
+note = "CCIPSender proxy (KryptomonDAO/contracts addresses.json)"

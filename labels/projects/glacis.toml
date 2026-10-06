@@ -1,0 +1,26 @@
+name = "Glacis Labs"
+x = "glacislabs"
+url = "https://www.glacislabs.com"
+kind = "protocol"
+verified = true
+
+# Source: https://docs.glacislabs.com/airlift/supported-chains-and-tokens (Airlift address table)
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
+note = "Airlift (Glacis docs, supported chains)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
+note = "Airlift (Glacis docs, supported chains)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
+note = "Airlift (Glacis docs, supported chains)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
+note = "Airlift (Glacis docs, supported chains)"

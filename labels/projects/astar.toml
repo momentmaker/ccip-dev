@@ -1,0 +1,10 @@
+name = "Astar Network"
+x = "AstarNetwork"
+url = "https://astar.network"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "polkadot-mainnet-astar"
+address = "0x4036a6ff8c1a29677108aef299b560f6e4fa5e71"
+note = "CCIP bridge etherSenderReceiverAstar (AstarNetwork/astar-apps, modules/ccip-bridge)"

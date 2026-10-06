@@ -1,0 +1,26 @@
+name = "Concero"
+x = "concero_io"
+url = "https://concero.io"
+kind = "protocol"
+verified = true
+
+# Source: https://github.com/concero/app.concero.io/blob/master/src/shared/consts/config/poolMainnetAddresses.ts
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x0ae1b2730066ad46481ab0a5fd2b5893f8aba323"
+note = "Parent pool on Base (concero/app.concero.io poolMainnetAddresses.ts)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d"
+note = "Child pool on Arbitrum (concero/app.concero.io poolMainnetAddresses.ts)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d"
+note = "Child pool on Avalanche (concero/app.concero.io poolMainnetAddresses.ts)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d"
+note = "Child pool on Polygon (concero/app.concero.io poolMainnetAddresses.ts)"
