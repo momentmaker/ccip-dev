@@ -136,8 +136,8 @@ describe('readReserveTransfers', () => {
     const filters = f.calls.map((call) => JSON.parse(String(call.init?.body)).params[0]);
     const reserve = word(LINK_RESERVE);
     expect(filters).toEqual([
-      { address: LINK_TOKEN, fromBlock: '0x15f8f35', toBlock: '0x15fb644', topics: [TRANSFER, null, reserve] },
-      { address: LINK_TOKEN, fromBlock: '0x15f8f35', toBlock: '0x15fb644', topics: [TRANSFER, reserve] },
+      { address: LINK_TOKEN, fromBlock: '0x15f8e35', toBlock: '0x15fb544', topics: [TRANSFER, null, reserve] },
+      { address: LINK_TOKEN, fromBlock: '0x15f8e35', toBlock: '0x15fb544', topics: [TRANSFER, reserve] },
     ]);
   });
 
