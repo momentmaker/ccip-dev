@@ -231,7 +231,11 @@ describe('runDetails', () => {
 
   it('still applies the detail unpriced and alerts when the price fetch fails', async () => {
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
-    const prices = { latest: async () => { throw new Error('prices down'); }, dailyHistory: async () => new Map() };
+    const prices = {
+      latest: async () => { throw new Error('prices down'); },
+      dailyHistory: async () => new Map(),
+      historicalAt: async () => new Map(),
+    };
     const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
     await runDetails(c, { limit: 10 });
     expect(await row(detailToken.messageId)).toMatchObject({ detail_fetched_at: NOW, unpriced: 1 });

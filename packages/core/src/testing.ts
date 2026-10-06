@@ -171,14 +171,18 @@ export function fakeKeysetApi(opts: FakeKeysetApiOptions): FakeKeysetApi {
 export interface FakePricesOptions {
   latest?: Record<string, PriceInfo>;
   history?: Record<string, Record<string, number>>;
+  historical?: Record<string, Record<number, number>>;
+  failHistorical?: Error;
 }
 
-export type FakePrices = PricesClient & { latestCalls: string[][] };
+export type FakePrices = PricesClient & { latestCalls: string[][]; historicalCalls: { key: string; timestamps: number[] }[] };
 
 export function fakePrices(opts: FakePricesOptions = {}): FakePrices {
   const latestCalls: string[][] = [];
+  const historicalCalls: { key: string; timestamps: number[] }[] = [];
   return {
     latestCalls,
+    historicalCalls,
     async latest(keys) {
       latestCalls.push(keys);
       return new Map(keys.flatMap((k) => (opts.latest?.[k] ? [[k, opts.latest[k]] as const] : [])));
@@ -186,6 +190,12 @@ export function fakePrices(opts: FakePricesOptions = {}): FakePrices {
     async dailyHistory(key, fromDay, toDay) {
       const series = opts.history?.[key] ?? {};
       return new Map(Object.entries(series).filter(([day]) => day >= fromDay && day <= toDay));
+    },
+    async historicalAt(key, timestamps) {
+      historicalCalls.push({ key, timestamps });
+      if (opts.failHistorical) throw opts.failHistorical;
+      const series = opts.historical?.[key] ?? {};
+      return new Map(timestamps.flatMap((t) => (series[t] === undefined ? [] : [[t, series[t]!] as const])));
     },
   };
 }

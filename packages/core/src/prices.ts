@@ -5,6 +5,7 @@ import type { PriceInfo } from './types';
 
 export const LLAMA_BASE = 'https://coins.llama.fi';
 export const PRICE_BATCH = 100;
+export const PRICE_SEARCH_WIDTH_SECONDS = 600;
 export const MAX_CHART_POINTS = 500;
 const HALF_DAY_SECONDS = 43_200;
 const COINGECKO_PREFIX = 'coingecko:';
@@ -35,6 +36,7 @@ const ChartResponse = z.object({
 export interface PricesClient {
   latest(keys: string[]): Promise<Map<string, PriceInfo>>;
   dailyHistory(key: string, fromDay: string, toDay: string): Promise<Map<string, number>>;
+  historicalAt(key: string, timestamps: number[]): Promise<Map<number, number>>;
 }
 
 export function createPricesClient(
@@ -73,6 +75,27 @@ export function createPricesClient(
         const series = parseWith(ChartResponse, json, 'GET /chart').coins[key]?.prices ?? [];
         // DefiLlama stamps daily points a few minutes either side of midnight, so round to the nearest day.
         for (const point of series) out.set(dayOf(new Date((point.timestamp + HALF_DAY_SECONDS) * 1000)), point.price);
+      }
+      return out;
+    },
+
+    async historicalAt(key, timestamps) {
+      const out = new Map<number, number>();
+      const wanted = [...new Set(timestamps)];
+      for (let i = 0; i < wanted.length; i += PRICE_BATCH) {
+        const batch = wanted.slice(i, i + PRICE_BATCH);
+        const coins = encodeURIComponent(JSON.stringify({ [key]: batch }));
+        const json = await getJson(deps, `${base}/batchHistorical?coins=${coins}&searchWidth=${PRICE_SEARCH_WIDTH_SECONDS}`, {
+          endpoint: 'GET /batchHistorical', maxRetries, throttle,
+        });
+        const points = parseWith(ChartResponse, json, 'GET /batchHistorical').coins[key]?.prices ?? [];
+        for (const ts of batch) {
+          let nearest: { timestamp: number; price: number } | undefined;
+          for (const point of points) {
+            if (nearest === undefined || Math.abs(point.timestamp - ts) < Math.abs(nearest.timestamp - ts)) nearest = point;
+          }
+          if (nearest !== undefined && Math.abs(nearest.timestamp - ts) <= PRICE_SEARCH_WIDTH_SECONDS) out.set(ts, nearest.price);
+        }
       }
       return out;
     },

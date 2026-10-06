@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COIN_PRICE_DECIMALS, coingeckoKey, createPricesClient, isCoingeckoKey } from '../src/prices';
-import { fakeFetch, instantDeps, jsonResponse } from '../src/testing';
+import { fakeFetch, fakePrices, instantDeps, jsonResponse } from '../src/testing';
 
 describe('createPricesClient', () => {
   it('fetches current prices in batches of 100 and drops entries without decimals', async () => {
@@ -51,5 +51,43 @@ describe('createPricesClient', () => {
     expect(spans).toEqual(['500', '143']);
     expect(new URL(f.calls[1]!.url).searchParams.get('start')).toBe(String(Date.parse('2026-05-16T00:00:00Z') / 1000));
     expect(Object.fromEntries(history)).toEqual({ '2025-01-01': 7.55, '2025-01-02': 7.62, '2026-10-05': 14.2 });
+  });
+
+  it('prices each requested time from batchHistorical, matching the nearest point within 600 seconds', async () => {
+    const key = 'ethereum:0x514910771AF9Ca656af840dff83E8264EcF986CA';
+    const f = fakeFetch((url) => {
+      const parsed = new URL(url);
+      expect(parsed.pathname).toBe('/batchHistorical');
+      expect(parsed.searchParams.get('searchWidth')).toBe('600');
+      expect(JSON.parse(parsed.searchParams.get('coins')!)).toEqual({ [key]: [1000, 5000, 9000] });
+      return jsonResponse({ coins: { [key]: { prices: [
+        { timestamp: 1030, price: 11.5, confidence: 0.99 },
+        { timestamp: 5700, price: 12, confidence: 0.99 },
+        { timestamp: 8990, price: 13.25, confidence: 0.99 },
+      ] } } });
+    });
+    const result = await createPricesClient(instantDeps(f), { minIntervalMs: 0 }).historicalAt(key, [1000, 5000, 9000, 1000]);
+    expect(result).toEqual(new Map([[1000, 11.5], [9000, 13.25]]));
+  });
+
+  it('asks for at most 100 times per request', async () => {
+    const key = 'ethereum:0x514910771AF9Ca656af840dff83E8264EcF986CA';
+    const f = fakeFetch(() => jsonResponse({ coins: {} }));
+    const times = Array.from({ length: 150 }, (_, i) => 1000 + i);
+    const result = await createPricesClient(instantDeps(f), { minIntervalMs: 0 }).historicalAt(key, times);
+    expect(f.calls).toHaveLength(2);
+    expect(result.size).toBe(0);
+  });
+});
+
+describe('fakePrices.historicalAt', () => {
+  it('returns configured points for the requested times and records the call', async () => {
+    const prices = fakePrices({ historical: { k: { 10: 1.5 } } });
+    await expect(prices.historicalAt('k', [10, 20])).resolves.toEqual(new Map([[10, 1.5]]));
+    expect(prices.historicalCalls).toEqual([{ key: 'k', timestamps: [10, 20] }]);
+  });
+
+  it('throws the configured failure', async () => {
+    await expect(fakePrices({ failHistorical: new Error('llama down') }).historicalAt('k', [1])).rejects.toThrow('llama down');
   });
 });
