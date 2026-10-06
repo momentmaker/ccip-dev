@@ -51,7 +51,7 @@ describe('groupFallback', () => {
     const index = buildTokenGroupIndex([usdcEth, usdcBsc]);
     const lookup = lookupOf({ [`bsc:${USDC_BSC}`]: { price: 1, decimals: 18 } });
     const v = valueTokens(fiveUsdc(ethereum, USDC_ETH), lookup, groupFallback(index, lookup));
-    expect(v).toEqual({ usdValue: 5, unpriced: false, tokenUsd: [5] });
+    expect(v).toEqual({ usdValue: 5, unpriced: false, tokenUsd: [5], outliers: [] });
   });
 
   it('prices a non-EVM token, which has no llama key, through an EVM sibling', () => {
@@ -167,7 +167,7 @@ describe('groupFallback with CoinGecko coin ids', () => {
     const index = buildTokenGroupIndex([usdcAptos, usdcBsc]);
     const lookup = lookupOf(coinAt(2));
     const v = valueTokens(fiveUsdc(aptos, USDC_APTOS), lookup, groupFallback(index, lookup, { coingeckoIdOf: usdcCoin }));
-    expect(v).toEqual({ usdValue: 10, unpriced: false, tokenUsd: [10] });
+    expect(v).toEqual({ usdValue: 10, unpriced: false, tokenUsd: [10], outliers: [] });
   });
 
   it('prefers a sibling\'s price to the coin\'s', () => {
@@ -220,5 +220,21 @@ describe('coingeckoKeys', () => {
       ...fiveUsdc(ethereum, LONE), ...fiveUsdc(base, LONE), ...fiveUsdc(bsc, LONE),
     ];
     expect(coingeckoKeys(index, tokens, lookup, coinIdOf)).toEqual(['coingecko:lone-coin']);
+  });
+});
+
+describe('groupFallback above MAX_TRANSFER_USD', () => {
+  const index = buildTokenGroupIndex([usdcAptos, usdcBsc]);
+  const reported = { usdValue: 0, unpriced: true, tokenUsd: [null], outliers: [`${aptos.selector}:${USDC_APTOS}`] };
+
+  it('leaves a token a sibling prices above the cap unpriced and reports it', () => {
+    const lookup = lookupOf({ [`bsc:${USDC_BSC}`]: { price: 1e10, decimals: 18 } });
+    expect(valueTokens(fiveUsdc(aptos, USDC_APTOS), lookup, groupFallback(index, lookup))).toEqual(reported);
+  });
+
+  it('leaves a token its CoinGecko coin prices above the cap unpriced and reports it', () => {
+    const lookup = lookupOf({ 'coingecko:usd-coin': { price: 1e10, decimals: COIN_PRICE_DECIMALS } });
+    const coingeckoIdOf: CoingeckoIdLookup = (chain) => (chain === aptos ? 'usd-coin' : undefined);
+    expect(valueTokens(fiveUsdc(aptos, USDC_APTOS), lookup, groupFallback(index, lookup, { coingeckoIdOf }))).toEqual(reported);
   });
 });

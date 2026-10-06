@@ -96,6 +96,23 @@ describe('runIngest', () => {
     ]);
   });
 
+  it('stores a token valued above MAX_TRANSFER_USD unpriced and raises one price-outlier alert for the run', async () => {
+    const glitched = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    await store.upsertPrices(env.DB, new Map([[`base:${glitched}`, { price: 125_176.45, decimals: 6 }]]), NOW);
+    const big = (id: string, minutesAgo: number) =>
+      listMessage({ id, sendTs: at(minutesAgo), token: { address: glitched, amount: '1000000000000000' } });
+    const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ messages: [big('o1', 1), big('o2', 2)] }) });
+    await runIngest(c);
+    const rows = await env.DB.prepare('SELECT message_id, usd_value, unpriced FROM messages ORDER BY message_id').all();
+    expect(rows.results).toEqual([
+      { message_id: 'o1', usd_value: 0, unpriced: 1 },
+      { message_id: 'o2', usd_value: 0, unpriced: 1 },
+    ]);
+    expect((await env.DB.prepare('SELECT usd_value FROM message_tokens WHERE message_id = ?').bind('o1').first())).toEqual({ usd_value: null });
+    expect(alerts.map((a) => a.signature)).toEqual(['price-outlier']);
+    expect(alerts[0]!.text).toContain(`base:${glitched}`);
+  });
+
   it('values a token without a prices_latest row through a priced group sibling, with its own decimals', async () => {
     const own = '0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
     const sibling = '0xcccccccccccccccccccccccccccccccccccccccc';

@@ -5,6 +5,7 @@ import type { RunContext } from '../context';
 import { publishLiveFiles } from '../publish';
 import * as store from '../store';
 import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
+import { alertPriceOutliers } from '../price-outliers';
 
 export interface IngestOptions {
   maxPages?: number;
@@ -89,13 +90,14 @@ export async function storeListMessages(c: RunContext, messages: ListMessage[], 
   const unique = [...new Map(messages.map((m) => [m.messageId, m])).values()].map(normalizeList);
   const prices = await store.getPrices(db, [...new Set(unique.flatMap(priceKeys))]);
   const fallback = await priceFallback(loader, unique.flatMap((m) => m.tokens), prices, (keys) => store.getPrices(db, keys));
-  const { rows, tokens } = buildRows(
+  const { rows, tokens, outliers } = buildRows(
     unique,
     (key) => prices.get(key),
     (m) => ({ source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }),
     fallback,
   );
   await store.upsertListRows(db, rows, tokens);
+  await alertPriceOutliers(c, outliers);
 }
 
 export async function ensureLiveStart(db: D1Database, now: Date): Promise<string> {

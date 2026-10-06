@@ -5,6 +5,7 @@ import {
 import type { RunContext } from '../context';
 import * as store from '../store';
 import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
+import { alertPriceOutliers } from '../price-outliers';
 
 const MINUTE = 60_000;
 
@@ -18,16 +19,19 @@ export async function runDetails(
       ? await store.liveMissingDetail(c.env.DB, scope.day)
       : await store.dueForDetail(c.env.DB, c.deps.now().toISOString(), scope.limit);
   const loader = options.fallback ?? fallbackLoader(c);
+  const outliers: string[] = [];
   for (const id of ids) {
     if (options.deadline !== undefined && c.deps.now().getTime() > options.deadline) {
       console.warn(`detail fill stopped at its deadline; ${ids.length - ids.indexOf(id)} message(s) left for the per-minute job`);
-      return;
+      break;
     }
-    await fillOne(c, id, loader);
+    outliers.push(...(await fillOne(c, id, loader)));
   }
+  await alertPriceOutliers(c, outliers);
 }
 
-async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promise<void> {
+/** Returns the token amounts valued above MAX_TRANSFER_USD, which were stored unpriced. */
+async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promise<string[]> {
   const db = c.env.DB;
   const now = c.deps.now();
   const later = (minutes: number) => new Date(now.getTime() + minutes * MINUTE).toISOString();
@@ -38,7 +42,7 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
   } catch (err) {
     console.warn(`detail fetch failed for ${id}: ${err instanceof Error ? err.message : String(err)}`);
     await store.pushBack(db, id, later(10), now.toISOString());
-    return;
+    return [];
   }
 
   const parsed = DetailMessage.safeParse(raw);
@@ -47,7 +51,7 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
     await c.env.ARCHIVE.put(`unparsed/${id}.json`, JSON.stringify(raw));
     await store.pushBack(db, id, later(60), now.toISOString());
     await c.alert(`detail-schema:${path}`, `Detail response for ${id} failed validation at ${path}; raw saved to unparsed/${id}.json`);
-    return;
+    return [];
   }
 
   const { message, version, feeShapeUnknown } = normalizeDetail(parsed.data);
@@ -71,6 +75,7 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
     nextCheckAt: next.nextCheckAt,
   });
   await store.applyDetail(db, row, toTokenRows(message, valuation));
+  return valuation.outliers;
 }
 
 /**

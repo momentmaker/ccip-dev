@@ -137,6 +137,20 @@ describe('runDetails', () => {
     });
   });
 
+  it('stores a token valued above MAX_TRANSFER_USD unpriced and raises one price-outlier alert for the run', async () => {
+    const second = { ...detailToken, messageId: 'second' };
+    await store.upsertListRows(env.DB, [due(detailToken.messageId), due('second')], []);
+    const prices = fakePrices({ latest: { [TOKEN_KEY]: { price: 1_000_000, decimals: 18 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const ccip = fakeCcip({ details: { [detailToken.messageId]: detailToken, second } });
+    const { c, alerts } = harness({ now: NOW, ccip, prices });
+    await runDetails(c, { limit: 10 });
+    expect(await row(detailToken.messageId)).toMatchObject({ usd_value: 0, unpriced: 1, detail_fetched_at: NOW });
+    expect(await row('second')).toMatchObject({ usd_value: 0, unpriced: 1 });
+    expect(await env.DB.prepare('SELECT usd_value FROM message_tokens WHERE message_id = ?').bind('second').first()).toEqual({ usd_value: null });
+    expect(alerts.map((a) => a.signature)).toEqual(['price-outlier']);
+    expect(alerts[0]!.text).toContain(TOKEN_KEY);
+  });
+
   it('applies the detail unpriced and alerts when the token groups cannot be read', async () => {
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
     const { db } = watchedDb(TOKEN_GROUPS_SQL, { fail: true });

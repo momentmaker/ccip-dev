@@ -6,12 +6,13 @@ import { pathToFileURL } from 'node:url';
 import {
   addDays, archiveKey, BREAKDOWN_CONFLICT, buildCoingeckoIdIndex, buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS,
   coingeckoKeys, createCcipClient, createCoingeckoClient, createPricesClient, dayOf, dayStartIso, fallbackKeys, groupFallback, gzipText,
-  insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize,
+  insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, MAX_TRANSFER_USD, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize,
   sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT, type CcipClient, type CoingeckoClient, type CoingeckoIdIndex,
   type CoingeckoLists, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
   type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
+import { dropPriceOutliers } from './price-outliers';
 import type { Source, SourceSummary, SourcesSummary } from './sources';
 
 export const MESSAGE_CONFLICT =
@@ -57,6 +58,10 @@ export interface BuildResult {
   skippedMessages: number;
   sqlFiles: number;
   buildId: string;
+  /** Token amounts valued above MAX_TRANSFER_USD, which were left unpriced. */
+  priceOutliers: number;
+  /** Glitched points dropped from the daily price series, over every key (see `dropPriceOutliers`). */
+  droppedPrices: number;
 }
 
 interface Coverage {
@@ -109,7 +114,9 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   const prices = await PriceCache.open(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), earliestDay ?? lastDay, lastDay);
   const firstSeen = new FirstSeen();
   const chains = new ChainHistory();
-  const result: BuildResult = { days: 0, messages: 0, unpricedMessages: 0, skippedMessages: plan.skipped.length, sqlFiles: 0, buildId: '' };
+  const result: BuildResult = {
+    days: 0, messages: 0, unpricedMessages: 0, skippedMessages: plan.skipped.length, sqlFiles: 0, buildId: '', priceOutliers: 0, droppedPrices: 0,
+  };
 
   const buildDay = async (day: string) => {
     const entries = await readDay(path.join(daysDir, `${day}.jsonl`));
@@ -121,7 +128,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     await prices.ensure(fallbackKeys(groups, amounts, lookup));
     await prices.ensure(coingeckoKeys(groups, amounts, lookup, coingeckoIdOf));
     const fallback = groupFallback(groups, lookup, { coingeckoIdOf, decimalsOf: (key) => prices.decimalsOf(key) });
-    const { rows, tokens } = buildRows(normalized, lookup, () => ({ source: 'backfill' }), fallback);
+    const { rows, tokens, outliers } = buildRows(normalized, lookup, () => ({ source: 'backfill' }), fallback);
     normalized.forEach((m) => firstSeen.add(m));
     entries.forEach((e) => chains.add(e.message));
     const statements = [
@@ -143,6 +150,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     result.days += 1;
     result.messages += rows.length;
     result.unpricedMessages += rows.filter((r) => r.unpriced === 1).length;
+    result.priceOutliers += outliers.length;
     log(`${day}: ${rows.length} messages${rollup ? '' : ' (before coverage_from, no rollup)'}`);
   };
 
@@ -161,7 +169,18 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   result.buildId = written.id;
   // At full history the spool holds several GB, and every build makes a new one.
   await rm(daysDir, { recursive: true, force: true });
+  result.droppedPrices = reportPriceGuards(prices.droppedPoints(), result.priceOutliers, log);
   return result;
+}
+
+/** Logs what the price guards left out of the totals, and returns how many daily price points were dropped. */
+function reportPriceGuards(droppedPoints: ReadonlyMap<string, number>, priceOutliers: number, log: (line: string) => void): number {
+  const byKey = [...droppedPoints].sort(([ka, a], [kb, b]) => b - a || (ka < kb ? -1 : 1));
+  const total = byKey.reduce((sum, [, n]) => sum + n, 0);
+  log(`${priceOutliers} token amount(s) valued above $${MAX_TRANSFER_USD.toLocaleString('en-US')} were left unpriced`);
+  log(`dropped ${total} glitched daily price(s) in total`);
+  for (const [key, n] of byKey) log(`  ${key}: ${n}`);
+  return total;
 }
 
 /** Per-source crawls decide coverage when `sources/summary.json` exists; otherwise the global crawl's coverage.json does. */
@@ -544,6 +563,10 @@ interface PriceCacheFile {
 }
 
 class PriceCache {
+  /** Each key's series without its glitched points, filtered once, the first time it is read. */
+  private readonly filtered = new Map<string, Record<string, number>>();
+  private readonly dropped = new Map<string, number>();
+
   private constructor(
     private readonly client: PricesClient,
     private readonly file: string,
@@ -581,18 +604,35 @@ class PriceCache {
   }
 
   /**
-   * Prices on `day` from the cache, including keys ensured after this call. A llama key counts only with decimals; a
-   * `coingecko:` key has none and needs only its price.
+   * Prices on `day` from the cache, including keys ensured after this call, without the glitched points
+   * `dropPriceOutliers` finds. A llama key counts only with decimals; a `coingecko:` key has none and needs only its price.
    */
   lookupOn(day: string): PriceLookup {
     const days = nearDays(day);
     return (key) => {
-      const price = nearDayPrice(this.data.history[key], days);
+      const price = nearDayPrice(this.series(key), days);
       if (price === undefined) return undefined;
       if (isCoingeckoKey(key)) return { price, decimals: COIN_PRICE_DECIMALS };
       const decimals = this.decimalsOf(key);
       return decimals === undefined ? undefined : { price, decimals };
     };
+  }
+
+  /** How many glitched points were dropped from each key's series read so far; keys with none are left out. */
+  droppedPoints(): ReadonlyMap<string, number> {
+    return this.dropped;
+  }
+
+  /** The cached series stays raw, so a change to the filter needs no refetch. */
+  private series(key: string): Record<string, number> | undefined {
+    const known = this.filtered.get(key);
+    if (known !== undefined) return known;
+    const raw = this.data.history[key];
+    if (raw === undefined) return undefined;
+    const { kept, dropped } = dropPriceOutliers(raw);
+    this.filtered.set(key, kept);
+    if (dropped.length > 0) this.dropped.set(key, dropped.length);
+    return kept;
   }
 
   /** DefiLlama's current decimals for a llama key, known even on a day its history has no price. */

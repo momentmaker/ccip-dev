@@ -48,20 +48,23 @@ export function toTokenRows(m: NormalizedMessage, v: Valuation): TokenRow[] {
   }));
 }
 
+/** Also returns every token amount valued above MAX_TRANSFER_USD, in `outliers` (see `Valuation`). */
 export function buildRows(
   messages: NormalizedMessage[],
   lookup: PriceLookup,
   extras: (m: NormalizedMessage) => RowExtras,
   fallback?: PriceFallback,
-): { rows: MessageRow[]; tokens: TokenRow[] } {
+): { rows: MessageRow[]; tokens: TokenRow[]; outliers: string[] } {
   const rows: MessageRow[] = [];
   const tokens: TokenRow[] = [];
+  const outliers: string[] = [];
   for (const m of messages) {
     const valuation = valueTokens(m.tokens, lookup, fallback);
     rows.push(toMessageRow(m, valuation, extras(m)));
     tokens.push(...toTokenRows(m, valuation));
+    outliers.push(...valuation.outliers);
   }
-  return { rows, tokens };
+  return { rows, tokens, outliers };
 }
 
 export function firstCheckAt(sendTs: string): string {

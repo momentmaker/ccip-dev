@@ -101,6 +101,6 @@ export async function seedRegistry(chains: NetworkInfo[], tokens: RegistryToken[
 
 export function liveRow(spec: ListMessageSpec, extras: Partial<MessageRow> = {}): MessageRow {
   const m = normalizeList(listMessage(spec));
-  const valuation = { usdValue: 0, unpriced: false, tokenUsd: m.tokens.map(() => null) };
+  const valuation = { usdValue: 0, unpriced: false, tokenUsd: m.tokens.map(() => null), outliers: [] };
   return { ...toMessageRow(m, valuation, { source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }), ...extras };
 }

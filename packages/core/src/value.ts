@@ -1,10 +1,18 @@
 import { llamaKey } from './chain-map';
 import type { ChainRef, Fee, NormalizedMessage, PriceFallback, PriceLookup, TokenAmount } from './types';
 
+/**
+ * No single CCIP transfer comes near this. A token amount valued above it was priced by a glitched print (elizaOS's
+ * $125,176 launch-day point valued single transfers at over $100 billion), so it counts as unpriced instead.
+ */
+export const MAX_TRANSFER_USD = 1e10;
+
 export interface Valuation {
   usdValue: number;
   unpriced: boolean;
   tokenUsd: (number | null)[];
+  /** The tokens valued above MAX_TRANSFER_USD, one entry per amount: the llama key, else `<chain selector>:<address>`. */
+  outliers: string[];
 }
 
 export function toUnits(amount: string, decimals: number): number {
@@ -14,11 +22,15 @@ export function toUnits(amount: string, decimals: number): number {
   return Number(raw / base) + Number(raw % base) / Number(base);
 }
 
-/** `fallback` prices a token that has no price of its own; a token it prices counts as priced. */
+/**
+ * `fallback` prices a token that has no price of its own; a token it prices counts as priced. A token valued above
+ * MAX_TRANSFER_USD, however it was priced, counts as unpriced and is reported in `outliers`.
+ */
 export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup, fallback?: PriceFallback): Valuation {
   let usdValue = 0;
   let unpriced = false;
   const tokenUsd: (number | null)[] = [];
+  const outliers: string[] = [];
   for (const t of tokens) {
     const key = llamaKey(t.chain, t.token);
     const info = (key ? lookup(key) : undefined) ?? fallback?.(t.chain, t.token);
@@ -28,10 +40,16 @@ export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup, fallback
       continue;
     }
     const usd = toUnits(t.amount, info.decimals) * info.price;
+    if (usd > MAX_TRANSFER_USD) {
+      outliers.push(key ?? `${t.chain.selector}:${t.token}`);
+      unpriced = true;
+      tokenUsd.push(null);
+      continue;
+    }
     tokenUsd.push(usd);
     usdValue += usd;
   }
-  return { usdValue, unpriced, tokenUsd };
+  return { usdValue, unpriced, tokenUsd, outliers };
 }
 
 export function valueFee(fee: Fee | null, chain: ChainRef, lookup: PriceLookup): number | null {

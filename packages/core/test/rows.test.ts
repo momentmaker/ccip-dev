@@ -5,7 +5,7 @@ import { buildRows, firstCheckAt, isFinal, scheduleNextCheck, toMessageRow, toTo
 import listPage from './fixtures/list-page.json';
 
 const m = normalizeList(ListMessage.parse(listPage.data[0]));
-const v = { usdValue: 48001.16, unpriced: false, tokenUsd: [48001.16] };
+const v = { usdValue: 48001.16, unpriced: false, tokenUsd: [48001.16], outliers: [] };
 
 describe('row building', () => {
   it('builds a live message row', () => {
@@ -53,6 +53,16 @@ describe('row building', () => {
     expect(rows[0]).toMatchObject({ message_id: m.messageId, source: 'backfill', next_check_at: null, unpriced: 0 });
     expect(rows[0]!.usd_value).toBeCloseTo(24000.580226526876, 6);
     expect(tokens).toEqual([expect.objectContaining({ message_id: m.messageId, idx: 0 })]);
+  });
+
+  it('returns the outliers of every message, a token valued above MAX_TRANSFER_USD left unpriced', () => {
+    const glitched = () => ({ price: 1e9, decimals: 18 });
+    const { rows, tokens, outliers } = buildRows([m, { ...m, messageId: 'second' }], glitched, () => ({ source: 'backfill' }));
+    expect([rows.map((r) => [r.usd_value, r.unpriced]), tokens.map((t) => t.usd_value), outliers]).toEqual([
+      [[0, 1], [0, 1]],
+      [null, null],
+      [`base:${m.tokens[0]!.token}`, `base:${m.tokens[0]!.token}`],
+    ]);
   });
 
   it('values tokens without a price of their own through the fallback', () => {

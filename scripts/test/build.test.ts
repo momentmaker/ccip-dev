@@ -522,6 +522,57 @@ describe('build near-day price fill', () => {
   });
 });
 
+describe('build price sanity guards', () => {
+  const ELIZA = '0x8888888888888888888888888888888888888888';
+  const ELIZA_KEY = `base:${ELIZA}`;
+  const sent = (id: string, sendTs: string, amount: string) => listMessage({ id, sendTs, token: { address: ELIZA, amount } });
+  /** elizaOS's launch: one transfer on the bogus $125,176 first day of its DefiLlama history, one the day after. */
+  const launch = sent('g1', '2026-10-04T12:00:00.000Z', '1000000000');
+  const nextDay = sent('g2', '2026-10-05T12:00:00.000Z', '1000000000');
+
+  async function buildWith(history: Record<string, number>, ...messages: ReturnType<typeof listMessage>[]) {
+    const dir = await crawlDir([[today1, a2, a1], [a1, b1, c1, ...messages]]);
+    await writeCoverage(dir, true, { stopped_at_depth_wall: false });
+    const log: string[] = [];
+    const prices = fakePrices({ latest: { [ELIZA_KEY]: { price: 0.00037, decimals: 6 } }, history: { [ELIZA_KEY]: history } });
+    const result = await build({ dir, liveStartDay: '2026-10-08', prices, ...emptyRegistries(), now: () => NOW, log: (line) => log.push(line) });
+    return { result, log, sql: await allSql(dir) };
+  }
+
+  function totalsOn(sql: string, day: string): Record<string, string> {
+    const line = sql.split('\n').find((l) => l.startsWith('INSERT INTO daily_totals ') && l.includes(`VALUES ('${day}'`)) ?? '';
+    const [, columns = '', values = ''] = /^INSERT INTO daily_totals \(([^)]*)\) VALUES \(([^)]*)\)/.exec(line) ?? [];
+    return Object.fromEntries(columns.split(', ').map((column, i) => [column, values.split(', ')[i] ?? '']));
+  }
+
+  it('drops a glitched launch-day price, so the transfers that day stay unpriced and out of the day\'s total', async () => {
+    const { sql } = await buildWith({ '2026-10-04': 125_176.45, '2026-10-05': 0.0101, '2026-10-06': 0.0092, '2026-10-07': 0.0095 }, launch, nextDay);
+    expect([totalsOn(sql, '2026-10-04').usd_value, totalsOn(sql, '2026-10-04').unpriced_messages, tokenRows(sql, 'g1'), tokenRows(sql, 'g2')]).toEqual([
+      '0',
+      '1',
+      [expect.stringContaining("'1000000000', NULL) ON CONFLICT")],
+      [expect.stringContaining("'1000000000', 10.1) ON CONFLICT")],
+    ]);
+  });
+
+  it('reports how many daily prices it dropped, per key, at the end of the build', async () => {
+    const { result, log } = await buildWith({ '2026-10-04': 125_176.45, '2026-10-05': 0.0101, '2026-10-06': 0.0092, '2026-10-07': 0.0095 }, launch);
+    expect([result.droppedPrices, log.slice(-2)]).toEqual([1, [`dropped 1 glitched daily price(s) in total`, `  ${ELIZA_KEY}: 1`]]);
+  });
+
+  it('leaves a transfer valued above MAX_TRANSFER_USD unpriced and counts it in priceOutliers', async () => {
+    const flat = { '2026-10-04': 2, '2026-10-05': 2, '2026-10-06': 2, '2026-10-07': 2 };
+    const { result, sql, log } = await buildWith(flat, sent('g1', '2026-10-04T12:00:00.000Z', '10000000000000000'), nextDay);
+    expect([result.priceOutliers, result.droppedPrices, tokenRows(sql, 'g1'), totalsOn(sql, '2026-10-04').usd_value]).toEqual([
+      1,
+      0,
+      [expect.stringContaining("'10000000000000000', NULL) ON CONFLICT")],
+      '0',
+    ]);
+    expect(log).toContain('1 token amount(s) valued above $10,000,000,000 were left unpriced');
+  });
+});
+
 describe('build from per-source crawls', () => {
   it('rolls up each day once when sources and the global crawl cover the same days', async () => {
     const dir = await sourcesDir();
