@@ -74,6 +74,22 @@ All data sources are free:
 - **DefiLlama coins API**: latest and daily token prices, with no API key.
 - **CoinGecko public API**: coin-id mapping only, with no API key.
 
+## Chainlink Reserve
+- **Balance:** read every hour with `balanceOf` on the LINK token for the Reserve, `0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6`.
+- **Transfers:** every LINK `Transfer` into or out of the Reserve since its first transfer (block 23,039,541,
+  2025-07-31). They come from Ethereum logs through free public RPC endpoints, 12 blocks behind the chain head.
+  Each run checks that transfers in minus transfers out equal the balance at the last block scanned, and alerts if
+  they differ.
+- **Price at transfer:** DefiLlama's LINK price at the transfer's block time, within 10 minutes. This is the market
+  price when the LINK arrived, not the price Chainlink paid for it.
+- **Cost basis:** every inbound transfer at its own time price, minus every outbound transfer at its own time price.
+  **Value now** is the net LINK at DefiLlama's current price.
+- **Deposits:** inbound transfers of at least 1,000 LINK. Smaller inbound transfers (a 1-LINK test and gifts of up
+  to 7 LINK) count toward the balance and the cost basis, but not toward pace, weekly deposits or performance.
+- **Weekly:** UTC weeks starting Monday. The weekly USD is the deposit-time value of the LINK deposited, not
+  Chainlink's revenue.
+- **Pace:** the 4-week figures average the last four complete weeks. The milestone date assumes that pace continues.
+
 ## Cross-check
 @CCIPMetrics posts its "#CCIP today" totals just after midnight UTC. Each post is dated the day it is posted and
 covers the previous UTC day: on every day below, its transaction count equals our message count for the previous

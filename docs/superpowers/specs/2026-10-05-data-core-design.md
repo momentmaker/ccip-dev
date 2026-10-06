@@ -192,7 +192,7 @@ Every file includes `schema_version`, `updated_at`, and `attribution: "Data: Cha
 | `history.json` | One row per day from `daily_totals` | 5 min |
 | `top/{dim}.json` | Top 100 for 7 days, 30 days and all time, per dimension | 5 min |
 | `chains.json`, `tokens.json` | Registries with `first_seen` | 1 h |
-| `reserve.json` | Latest balance and a 90-day hourly series | 5 min |
+| `reserve.json` | Latest balance and a 90-day hourly series, plus cost basis, pace, weekly deposits, performance and transfers (see `2026-10-06-reserve-and-link-metrics-design.md`) | 5 min |
 | `status.json` | `last_ingest_ok_at`, lag in seconds, `last_finalize_day`, `coverage_from` | 30 s |
 
 Labels in public files only ever come from `verified = true` entries.

@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ATTRIBUTION, publishLiveFiles, putJson, retryPut } from '../src/publish';
+import { ATTRIBUTION, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
+import { LINK_PRICE_KEY } from '@ccip-dev/core';
+import { fakePrices } from '@ccip-dev/core/testing';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage } from './helpers';
 
@@ -105,6 +107,64 @@ describe('publishLiveFiles', () => {
       lag_seconds: 30,
       last_finalize_day: '2026-10-07',
       coverage_from: null,
+    });
+  });
+});
+
+describe('reserve.json statistics', () => {
+  const NOW_RESERVE = '2026-10-06T16:00:00.000Z';
+  const D = '0x5680681ed3767b96914ce741a308155c7fb9171d';
+  const linkRaw = (n: bigint) => (n * 10n ** 18n).toString();
+
+  async function seedReserve(): Promise<void> {
+    await store.insertReserve(env.DB, '2026-10-06T16:00:00.000Z', linkRaw(150_000n));
+    await store.insertReserveTransfers(env.DB, [
+      { txHash: '0xe1', logIndex: 0, blockNumber: 1, ts: '2026-09-15T15:35:00.000Z', direction: 'in', counterparty: D, amount: linkRaw(100_000n) },
+      { txHash: '0xe2', logIndex: 0, blockNumber: 2, ts: '2026-09-30T15:35:00.000Z', direction: 'in', counterparty: D, amount: linkRaw(50_000n) },
+    ]);
+    await store.setReserveTransferPrices(env.DB, [
+      { txHash: '0xe1', logIndex: 0, linkUsd: 10 },
+      { txHash: '0xe2', logIndex: 0, linkUsd: 20 },
+    ]);
+  }
+
+  it('publishes cost basis, pace, weeks and transfers once the scan has caught up, keeping the existing fields', async () => {
+    await seedReserve();
+    await store.setMeta(env.DB, 'reserve_scan_caught_up', '1');
+    const prices = fakePrices({ latest: { [LINK_PRICE_KEY]: { price: 14.05836, decimals: 18 } } });
+    await publishRegistryFiles(harness({ now: NOW_RESERVE, prices }).c);
+    const doc = await readPublic('reserve.json');
+    expect(doc).toMatchObject({
+      schema_version: 1,
+      latest: { ts: '2026-10-06T16:00:00.000Z', link: 150_000 },
+      link_price_usd: 14.0584,
+      cost_basis: { link_in: 150_000, link_out: 0, cost_usd: 2_000_000, value_usd: 2_108_754, unpriced_transfers: 0 },
+      pace: { deposits: 2, last_deposit: { tx: '0xe2', link: 50_000, price_usd: 20, usd: 1_000_000 } },
+      performance: { best: { tx: '0xe1', price_usd: 10 }, worst: { tx: '0xe2', price_usd: 20 }, above: 1, below: 1 },
+    });
+    expect(doc.weekly.map((w: { week: string }) => w.week)).toEqual(['2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05']);
+    expect(doc.transfers).toHaveLength(2);
+    expect(doc.latest_transfer).toEqual(doc.transfers[1]);
+    expect(Array.isArray(doc.series)).toBe(true);
+  });
+
+  it('publishes empty statistics before the scan has caught up', async () => {
+    await seedReserve();
+    const prices = fakePrices({ latest: { [LINK_PRICE_KEY]: { price: 14, decimals: 18 } } });
+    await publishRegistryFiles(harness({ now: NOW_RESERVE, prices }).c);
+    expect(await readPublic('reserve.json')).toMatchObject({
+      link_price_usd: 14, cost_basis: null, pace: null, weekly: [], performance: null, transfers: [], latest_transfer: null,
+    });
+  });
+
+  it('publishes the cost basis without now-values when the LINK price is unavailable', async () => {
+    await seedReserve();
+    await store.setMeta(env.DB, 'reserve_scan_caught_up', '1');
+    const prices = { ...fakePrices(), latest: async () => { throw new Error('llama down'); } };
+    await publishRegistryFiles(harness({ now: NOW_RESERVE, prices }).c);
+    expect(await readPublic('reserve.json')).toMatchObject({
+      link_price_usd: null,
+      cost_basis: { cost_usd: 2_000_000, value_usd: null, change_usd: null, change_pct: null },
     });
   });
 });
