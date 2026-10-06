@@ -31,13 +31,14 @@ describe('reserveStats', () => {
 
   it('computes cost at transfer-time prices and value at the current price', () => {
     // in 250,005, out 1, so net 250,004. Cost: 1,000,000 + 50 + 1,000,000 + 500,000 − 18 = 2,500,032 (0x05 is unpriced).
+    // Change covers priced rows only: net 190,004 × 15 = 2,850,060, minus cost 2,500,032.
     expect(stats.cost_basis).toEqual({
       link_in: 250_005,
       link_out: 1,
       cost_usd: 2_500_032,
       value_usd: 3_750_060,
-      change_usd: 1_250_028,
-      change_pct: 50,
+      change_usd: 350_028,
+      change_pct: 14,
       avg_deposit_price_usd: 13.1579,
       unpriced_transfers: 1,
     });

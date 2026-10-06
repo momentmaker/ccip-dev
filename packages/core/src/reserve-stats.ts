@@ -125,7 +125,8 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
   const net = linkIn - linkOut;
   const cost = sum(inflows.map((r) => r.usd ?? 0)) - sum(outflows.map((r) => r.usd ?? 0));
   const value = linkPriceUsd === null ? null : net * linkPriceUsd;
-  const change = value === null ? null : value - cost;
+  const pricedNet = sum(inflows.filter((r) => r.linkUsd !== null).map((r) => r.link)) - sum(outflows.filter((r) => r.linkUsd !== null).map((r) => r.link));
+  const change = linkPriceUsd === null ? null : pricedNet * linkPriceUsd - cost;
   const pricedDepositLink = sum(pricedDeposits.map((r) => r.link));
 
   const series = weeks(deposits, now);
