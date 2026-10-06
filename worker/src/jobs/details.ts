@@ -16,7 +16,7 @@ export async function runDetails(
 ): Promise<void> {
   const ids =
     'day' in scope
-      ? await store.liveMissingDetail(c.env.DB, scope.day)
+      ? await store.liveNeedingDetail(c.env.DB, scope.day)
       : await store.dueForDetail(c.env.DB, c.deps.now().toISOString(), scope.limit);
   const loader = options.fallback ?? fallbackLoader(c);
   const outliers: string[] = [];

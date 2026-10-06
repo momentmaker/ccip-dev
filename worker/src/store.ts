@@ -185,9 +185,11 @@ export async function dueForDetail(db: D1Database, nowIso: string, limit: number
   return results.map((r) => r.message_id);
 }
 
-export async function liveMissingDetail(db: D1Database, day: string): Promise<string[]> {
+export async function liveNeedingDetail(db: D1Database, day: string): Promise<string[]> {
   const { results } = await db
-    .prepare("SELECT message_id FROM messages WHERE day = ? AND source = 'live' AND detail_fetched_at IS NULL ORDER BY send_ts")
+    .prepare(
+      "SELECT message_id FROM messages WHERE day = ? AND source = 'live' AND (detail_fetched_at IS NULL OR unpriced = 1) ORDER BY send_ts",
+    )
     .bind(day)
     .all<{ message_id: string }>();
   return results.map((r) => r.message_id);

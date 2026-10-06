@@ -75,6 +75,72 @@ describe('runFinalize', () => {
     expect(total!.usd_value).toBeCloseTo(24000.580226526876, 6);
   });
 
+  describe('live messages detailed earlier', () => {
+    const sendTs = '2026-10-09T20:00:00.000Z';
+    const detail = { ...detailToken, messageId: 'd9b', sendTimestamp: sendTs, status: 'SUCCESS', receiptTimestamp: '2026-10-09T20:01:00.000Z' };
+    const detailedRow = (unpriced: boolean) =>
+      liveRow(
+        { id: 'd9b', sendTs, status: 'SUCCESS', receiptTs: '2026-10-09T20:01:00.000Z' },
+        { unpriced: unpriced ? 1 : 0, usd_value: unpriced ? 0 : 24000.580226526876, detail_fetched_at: '2026-10-09T20:02:00.000Z', next_check_at: null },
+      );
+    const priceKeys = {
+      'base:0x9818b6c09f5ecc843060927e8587c427c7c93583': { price: 1, decimals: 18 },
+      'base:0x4200000000000000000000000000000000000006': { price: 2500, decimals: 18 },
+    };
+    const trackedCcip = () => {
+      const ccip = fakeCcip({ messages: MESSAGES.filter((m) => m.messageId === 'd9b'), details: { d9b: detail } });
+      const detailCalls: string[] = [];
+      const getMessageRaw = ccip.getMessageRaw.bind(ccip);
+      ccip.getMessageRaw = async (id) => {
+        detailCalls.push(id);
+        return getMessageRaw(id);
+      };
+      return { ccip, detailCalls };
+    };
+    const messageRow = (id: string) =>
+      env.DB.prepare('SELECT unpriced, usd_value, next_check_at FROM messages WHERE message_id = ?')
+        .bind(id)
+        .first<{ unpriced: number; usd_value: number; next_check_at: string | null }>();
+    const dayTotals = () =>
+      env.DB.prepare('SELECT unpriced_messages, usd_value FROM daily_totals WHERE day = ?')
+        .bind('2026-10-09')
+        .first<{ unpriced_messages: number; usd_value: number }>();
+
+    it('re-values a message that was stored unpriced once its price is available', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      await store.upsertListRows(env.DB, [detailedRow(true)], []);
+      await store.upsertPrices(env.DB, new Map(Object.entries(priceKeys)), NOW);
+      const { ccip } = trackedCcip();
+      await runFinalize(harness({ now: NOW, ccip, prices: fakePrices({ latest: priceKeys }) }).c, 'early');
+
+      const row = await messageRow('d9b');
+      expect(row).toMatchObject({ unpriced: 0, next_check_at: null });
+      expect(row!.usd_value).toBeCloseTo(24000.580226526876, 6);
+      const totals = await dayTotals();
+      expect(totals!.unpriced_messages).toBe(0);
+      expect(totals!.usd_value).toBeCloseTo(24000.580226526876, 6);
+    });
+
+    it('does not re-fetch a message that is detailed and priced', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      await store.upsertListRows(env.DB, [detailedRow(false)], []);
+      const { ccip, detailCalls } = trackedCcip();
+      await runFinalize(harness({ now: NOW, ccip }).c, 'early');
+      expect(detailCalls).toEqual([]);
+    });
+
+    it('keeps a message that is still unpriceable unpriced and counts it', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      await store.upsertListRows(env.DB, [detailedRow(true)], []);
+      const { ccip, detailCalls } = trackedCcip();
+      await runFinalize(harness({ now: NOW, ccip }).c, 'early');
+
+      expect(detailCalls).toEqual(['d9b']);
+      expect(await messageRow('d9b')).toMatchObject({ unpriced: 1, next_check_at: null });
+      expect((await dayTotals())!.unpriced_messages).toBe(1);
+    });
+  });
+
   it('late run archives each unarchived day once, one line per message', async () => {
     await seedMeta('2026-10-09', '2026-10-07');
     await runFinalize(harness({ now: NOW, ccip: api() }).c, 'late');
