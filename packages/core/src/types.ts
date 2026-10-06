@@ -35,6 +35,7 @@ export interface NormalizedMessage {
 export interface PriceInfo {
   price: number;
   decimals: number;
+  symbol?: string;
 }
 
 export type PriceLookup = (llamaKey: string) => PriceInfo | undefined;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createThrottle, getJson, parseWith, type HttpDeps } from './http';
+import { sanitize } from './normalize';
 import { addDays, dayOf, dayStartIso, daysBetween } from './time';
 import type { PriceInfo } from './types';
 
@@ -7,6 +8,7 @@ export const LLAMA_BASE = 'https://coins.llama.fi';
 export const PRICE_BATCH = 100;
 export const PRICE_SEARCH_WIDTH_SECONDS = 600;
 export const MAX_CHART_POINTS = 500;
+const MAX_SYMBOL_LENGTH = 32;
 const HALF_DAY_SECONDS = 43_200;
 const COINGECKO_PREFIX = 'coingecko:';
 
@@ -27,7 +29,10 @@ export function isCoingeckoKey(key: string): boolean {
 }
 
 const CurrentResponse = z.object({
-  coins: z.record(z.string(), z.object({ price: z.number(), decimals: z.number().int().nonnegative().optional() })),
+  coins: z.record(
+    z.string(),
+    z.object({ price: z.number(), decimals: z.number().int().nonnegative().optional(), symbol: z.string().optional() }),
+  ),
 });
 const ChartResponse = z.object({
   coins: z.record(z.string(), z.object({ prices: z.array(z.object({ timestamp: z.number(), price: z.number() })) })),
@@ -56,8 +61,10 @@ export function createPricesClient(
           endpoint: 'GET /prices/current', maxRetries, throttle,
         });
         for (const [key, coin] of Object.entries(parseWith(CurrentResponse, json, 'GET /prices/current').coins)) {
-          if (coin.decimals !== undefined) out.set(key, { price: coin.price, decimals: coin.decimals });
-          else if (isCoingeckoKey(key)) out.set(key, { price: coin.price, decimals: COIN_PRICE_DECIMALS });
+          const symbol = coin.symbol === undefined ? '' : sanitize(coin.symbol, MAX_SYMBOL_LENGTH);
+          const named = symbol === '' ? {} : { symbol };
+          if (coin.decimals !== undefined) out.set(key, { price: coin.price, decimals: coin.decimals, ...named });
+          else if (isCoingeckoKey(key)) out.set(key, { price: coin.price, decimals: COIN_PRICE_DECIMALS, ...named });
         }
       }
       return out;

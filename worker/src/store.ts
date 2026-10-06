@@ -1,5 +1,5 @@
 import {
-  BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
+  BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
   type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
@@ -97,10 +97,11 @@ export async function getPrices(db: D1Database, keys: string[]): Promise<Map<str
 
 export async function upsertPrices(db: D1Database, prices: Map<string, PriceInfo>, nowIso: string): Promise<void> {
   const insert = db.prepare(
-    `INSERT INTO prices_latest (llama_key, usd, decimals, ts, seen_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(llama_key) DO UPDATE SET usd = excluded.usd, decimals = excluded.decimals, ts = excluded.ts`,
+    `INSERT INTO prices_latest (llama_key, usd, decimals, ts, seen_at, symbol) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(llama_key) DO UPDATE SET usd = excluded.usd, decimals = excluded.decimals, ts = excluded.ts,
+       symbol = COALESCE(excluded.symbol, prices_latest.symbol)`,
   );
-  await runBatch(db, [...prices].map(([key, p]) => insert.bind(key, p.price, p.decimals, nowIso, nowIso)));
+  await runBatch(db, [...prices].map(([key, p]) => insert.bind(key, p.price, p.decimals, nowIso, nowIso, p.symbol ?? null)));
 }
 
 export async function touchPrices(db: D1Database, keys: string[], nowIso: string): Promise<void> {
@@ -129,12 +130,14 @@ export interface LiveRow {
   sender: string;
   usd_value: number;
   symbol: string | null;
+  chain: string | null;
+  token: string | null;
 }
 
 export async function liveSince(db: D1Database, sinceIso: string): Promise<LiveRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, t.symbol
+      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, t.symbol, mt.chain, mt.token
        FROM messages m
        LEFT JOIN message_tokens mt ON mt.message_id = m.message_id AND mt.idx = 0
        LEFT JOIN tokens t ON t.chain = mt.chain AND t.address = mt.token
@@ -150,6 +153,49 @@ export async function liveSince(db: D1Database, sinceIso: string): Promise<LiveR
 export async function chainNames(db: D1Database): Promise<Map<string, string>> {
   const { results } = await db.prepare('SELECT selector, name FROM chains').all<{ selector: string; name: string }>();
   return new Map(results.map((r) => [r.selector, r.name]));
+}
+
+export async function chainRefs(db: D1Database): Promise<Map<string, ChainRef>> {
+  const { results } = await db
+    .prepare('SELECT selector, name, chain_id, family FROM chains')
+    .all<{ selector: string; name: string; chain_id: string; family: string }>();
+  return new Map(results.map((r) => [r.selector, { selector: r.selector, name: r.name, chainId: r.chain_id, family: r.family }]));
+}
+
+const tokenKey = (chain: string, address: string) => `${chain}:${normalizeAddress(address)}`;
+
+/** Symbols by `${chain}:${address}`: the CCIP registry's first, then DefiLlama's for the token's price key. */
+export async function tokenSymbols(db: D1Database, tokens: { chain: string; address: string }[]): Promise<Map<string, string>> {
+  const symbols = new Map<string, string>();
+  const wanted = [...new Map(tokens.map((t) => [tokenKey(t.chain, t.address), t])).values()];
+  for (const chunk of chunks(wanted, PARAM_CHUNK / 2)) {
+    const { results } = await db
+      .prepare(
+        `SELECT chain, address, symbol FROM tokens
+         WHERE ${chunk.map(() => '(chain = ? AND lower(address) = ?)').join(' OR ')}`,
+      )
+      .bind(...chunk.flatMap((t) => [t.chain, t.address.toLowerCase()]))
+      .all<{ chain: string; address: string; symbol: string }>();
+    for (const r of results) symbols.set(tokenKey(r.chain, r.address), r.symbol);
+  }
+
+  const unnamed = wanted.filter((t) => !symbols.has(tokenKey(t.chain, t.address)));
+  if (unnamed.length === 0) return symbols;
+  const refs = await chainRefs(db);
+  const keyed = unnamed.flatMap((t) => {
+    const ref = refs.get(t.chain);
+    const key = ref === undefined ? null : llamaKey(ref, t.address);
+    return key === null ? [] : [{ key, token: tokenKey(t.chain, t.address) }];
+  });
+  const tokenOfKey = new Map(keyed.map((k) => [k.key, k.token]));
+  for (const chunk of chunks([...tokenOfKey.keys()], PARAM_CHUNK)) {
+    const { results } = await db
+      .prepare(`SELECT llama_key, symbol FROM prices_latest WHERE symbol IS NOT NULL AND llama_key IN (${placeholders(chunk.length)})`)
+      .bind(...chunk)
+      .all<{ llama_key: string; symbol: string }>();
+    for (const r of results) symbols.set(tokenOfKey.get(r.llama_key)!, r.symbol);
+  }
+  return symbols;
 }
 
 export async function messagesForDay(db: D1Database, day: string): Promise<MessageRow[]> {

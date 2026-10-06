@@ -79,7 +79,7 @@ describe('publishLiveFiles', () => {
     const today = await readPublic('today.json');
     expect(today.day).toBe('2026-10-08');
     expect(today.totals).toMatchObject({ messages: 2, usd_value: 1244.57 });
-    expect(today.top.token).toEqual([{ key: `${BASE}:0xtok`, messages: 1, usd: 1234.57 }]);
+    expect(today.top.token).toEqual([{ key: `${BASE}:0xtok`, messages: 1, usd: 1234.57, symbol: 'USDC' }]);
     expect(today.top.sender[0]).toMatchObject({ key: `${BASE}:${SENDER}`, label: null });
   });
 
@@ -108,6 +108,58 @@ describe('publishLiveFiles', () => {
       last_finalize_day: '2026-10-07',
       coverage_from: null,
     });
+  });
+});
+
+describe('token symbols outside the CCIP registry', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const SYRUP = '0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b';
+  const SYRUP_KEY = `base:${SYRUP.toLowerCase()}`;
+
+  async function seedUnregisteredToken(): Promise<void> {
+    await seed();
+    await store.upsertPrices(env.DB, new Map([[SYRUP_KEY, { price: 1.1, decimals: 6, symbol: 'syrupUSDC' }]]), NOW);
+    await store.upsertListRows(env.DB, [liveRow({ id: 'syrup', sendTs: '2026-10-08T11:56:00.000Z' }, { usd_value: 99_999, token_count: 1 })], [
+      { message_id: 'syrup', idx: 0, chain: BASE, token: SYRUP.toLowerCase(), amount: '1', usd_value: 99_999 },
+    ]);
+  }
+
+  it('names the token from its DefiLlama price row in live.json and today.json', async () => {
+    await seedUnregisteredToken();
+    await publishLiveFiles(harness({ now: NOW }).c);
+    const live = await readPublic('live.json');
+    expect(live.messages.find((m: { id: string }) => m.id === 'syrup').token).toBe('syrupUSDC');
+    const today = await readPublic('today.json');
+    expect(today.top.token).toEqual([
+      { key: `${BASE}:${SYRUP.toLowerCase()}`, messages: 1, usd: 99_999, symbol: 'syrupUSDC' },
+      { key: `${BASE}:0xtok`, messages: 1, usd: 1234.57, symbol: 'USDC' },
+    ]);
+  });
+
+  it('prefers the registry symbol over the DefiLlama one', async () => {
+    await seedUnregisteredToken();
+    await store.upsertPrices(env.DB, new Map([['base:0xtok', { price: 1, decimals: 6, symbol: 'USDC.llama' }]]), NOW);
+    await publishLiveFiles(harness({ now: NOW }).c);
+    const live = await readPublic('live.json');
+    expect(live.messages.find((m: { id: string }) => m.id === 'recent').token).toBe('USDC');
+  });
+
+  it('names the token in top/token.json and leaves other dimensions without a symbol', async () => {
+    await seedUnregisteredToken();
+    await store.replaceDaily(
+      env.DB,
+      { day: '2026-10-07', messages: 1, token_messages: 1, usd_value: 5, fee_usd: null, unique_senders: 1, median_delivery_s: 1, unpriced_messages: 0 },
+      [
+        { day: '2026-10-07', dim: 'token', key: `${BASE}:${SYRUP.toLowerCase()}`, messages: 1, usd_value: 5, fee_usd: null },
+        { day: '2026-10-07', dim: 'token', key: `${BASE}:0xunknown`, messages: 1, usd_value: 4, fee_usd: null },
+        { day: '2026-10-07', dim: 'lane', key: 'a>b', messages: 1, usd_value: 5, fee_usd: null },
+      ],
+      NOW,
+    );
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    const top = await readPublic('top/token.json');
+    expect(top.windows['7d']).toMatchObject([{ symbol: 'syrupUSDC' }, { symbol: null }]);
+    expect((await readPublic('top/lane.json')).windows['7d'][0]).not.toHaveProperty('symbol');
   });
 });
 

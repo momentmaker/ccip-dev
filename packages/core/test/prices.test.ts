@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COIN_PRICE_DECIMALS, coingeckoKey, createPricesClient, isCoingeckoKey } from '../src/prices';
+import { sanitize } from '../src/normalize';
 import { fakeFetch, fakePrices, instantDeps, jsonResponse } from '../src/testing';
 
 describe('createPricesClient', () => {
@@ -22,7 +23,23 @@ describe('createPricesClient', () => {
       jsonResponse({ coins: { 'coingecko:dfx-finance': { price: 0.04, symbol: 'DFX' }, 'base:0xnodecimals': { price: 1 } } }),
     );
     const result = await createPricesClient(instantDeps(f), { minIntervalMs: 0 }).latest(['coingecko:dfx-finance', 'base:0xnodecimals']);
-    expect(result).toEqual(new Map([['coingecko:dfx-finance', { price: 0.04, decimals: COIN_PRICE_DECIMALS }]]));
+    expect(result).toEqual(new Map([['coingecko:dfx-finance', { price: 0.04, decimals: COIN_PRICE_DECIMALS, symbol: 'DFX' }]]));
+  });
+
+  it('parses and sanitizes the symbol DefiLlama returns, and omits it when absent', async () => {
+    const f = fakeFetch(() =>
+      jsonResponse({
+        coins: {
+          'ethereum:0xsyrup': { price: 1.1, decimals: 6, symbol: `syrup\u0000USDC${'x'.repeat(40)}` },
+          'ethereum:0xnone': { price: 2, decimals: 18 },
+        },
+      }),
+    );
+    const result = await createPricesClient(instantDeps(f), { minIntervalMs: 0 }).latest(['ethereum:0xsyrup', 'ethereum:0xnone']);
+    expect(result.get('ethereum:0xsyrup')?.symbol).toBe(sanitize(`syrup\u0000USDC${'x'.repeat(40)}`, 32));
+    expect(result.get('ethereum:0xsyrup')?.symbol?.length).toBeLessThanOrEqual(32);
+    expect(result.get('ethereum:0xsyrup')?.symbol).not.toContain('\u0000');
+    expect(result.get('ethereum:0xnone')).toEqual({ price: 2, decimals: 18 });
   });
 
   it('names the DefiLlama key of a CoinGecko coin id', () => {

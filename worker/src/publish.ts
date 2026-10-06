@@ -1,4 +1,4 @@
-import { addDays, dayOf, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
@@ -62,14 +62,43 @@ export function senderLabel(c: RunContext, names: Map<string, string>, senderKey
 export async function publishLiveFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
   const names = await store.chainNames(c.env.DB);
-  await publishLive(c, now, names);
-  await publishToday(c, now, names);
+  const since = new Date(now.getTime() - LIVE_WINDOW_MINUTES * 60_000).toISOString();
+  const rows = await store.liveSince(c.env.DB, since);
+  const today = await rollupToday(c, now);
+  const symbols = await store.tokenSymbols(c.env.DB, [
+    ...rows.flatMap((r) => (r.symbol === null && r.chain !== null && r.token !== null ? [{ chain: r.chain, address: r.token }] : [])),
+    ...topOf(today.breakdown, 'token', TOP_LIMIT).map((b) => splitTokenKey(b.key)),
+  ]);
+  await publishLive(c, now, names, rows, symbols);
+  await publishToday(c, now, names, today, symbols);
   await publishStatus(c, now);
 }
 
-async function publishLive(c: RunContext, now: Date, names: Map<string, string>): Promise<void> {
-  const since = new Date(now.getTime() - LIVE_WINDOW_MINUTES * 60_000).toISOString();
-  const rows = await store.liveSince(c.env.DB, since);
+const TOP_LIMIT = 10;
+
+function splitTokenKey(key: string): { chain: string; address: string } {
+  const split = key.indexOf(':');
+  return { chain: key.slice(0, split), address: key.slice(split + 1) };
+}
+
+function symbolOf(symbols: Map<string, string>, key: string): string | null {
+  const { chain, address } = splitTokenKey(key);
+  return symbols.get(`${chain}:${normalizeAddress(address)}`) ?? null;
+}
+
+async function rollupToday(c: RunContext, now: Date) {
+  const day = dayOf(now);
+  const messages = await store.messagesForDay(c.env.DB, day);
+  return { day, messages, ...rollupDay(day, messages, await store.tokensForDay(c.env.DB, day)) };
+}
+
+async function publishLive(
+  c: RunContext,
+  now: Date,
+  names: Map<string, string>,
+  rows: store.LiveRow[],
+  symbols: Map<string, string>,
+): Promise<void> {
   await putJson(
     c.env.PUBLIC,
     'live.json',
@@ -81,7 +110,7 @@ async function publishLive(c: RunContext, now: Date, names: Map<string, string>)
         status: r.status,
         src: r.src_chain,
         dst: r.dst_chain,
-        token: r.symbol,
+        token: r.symbol ?? (r.chain !== null && r.token !== null ? symbolOf(symbols, `${r.chain}:${r.token}`) : null),
         usd: usd(r.usd_value),
         sender_label: senderLabel(c, names, `${r.src_chain}:${r.sender}`),
       })),
@@ -91,16 +120,20 @@ async function publishLive(c: RunContext, now: Date, names: Map<string, string>)
   );
 }
 
-async function publishToday(c: RunContext, now: Date, names: Map<string, string>): Promise<void> {
-  const day = dayOf(now);
-  const messages = await store.messagesForDay(c.env.DB, day);
-  const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(c.env.DB, day));
+async function publishToday(
+  c: RunContext,
+  now: Date,
+  names: Map<string, string>,
+  { day, messages, totals, breakdown }: Awaited<ReturnType<typeof rollupToday>>,
+  symbols: Map<string, string>,
+): Promise<void> {
   const feeLink = linkFeeUsd(messages, day, linkFeeMatcher(await store.linkFeeTokens(c.env.DB)));
   const top = (dim: Dim) =>
-    topOf(breakdown, dim, 10).map((b) => ({
+    topOf(breakdown, dim, TOP_LIMIT).map((b) => ({
       key: b.key,
       messages: b.messages,
       usd: usd(b.usd_value),
+      ...(dim === 'token' ? { symbol: symbolOf(symbols, b.key) } : {}),
       ...(dim === 'sender' ? { label: senderLabel(c, names, b.key) } : {}),
     }));
   await putJson(
@@ -214,18 +247,28 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const lastDay = addDays(today, -1);
   const names = await store.chainNames(db);
   for (const dim of DIMS) {
-    const window = async (fromDay: string | null) =>
-      (await store.topBetween(db, dim, fromDay, lastDay, 100)).map((r) => ({
+    const windows = {
+      '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100),
+      '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100),
+      all: await store.topBetween(db, dim, null, lastDay, 100),
+    };
+    const symbols =
+      dim === 'token'
+        ? await store.tokenSymbols(db, Object.values(windows).flatMap((rows) => rows.map((r) => splitTokenKey(r.key))))
+        : new Map<string, string>();
+    const entries = (rows: typeof windows['all']) =>
+      rows.map((r) => ({
         key: r.key,
         messages: r.messages,
         usd: usd(r.usd_value),
         fee_usd: usd(r.fee_usd),
+        ...(dim === 'token' ? { symbol: symbolOf(symbols, r.key) } : {}),
         ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
       }));
     await putJson(
       c.env.PUBLIC,
       `top/${dim}.json`,
-      { dim, since, windows: { '7d': await window(addDays(today, -7)), '30d': await window(addDays(today, -30)), all: await window(null) } },
+      { dim, since, windows: { '7d': entries(windows['7d']), '30d': entries(windows['30d']), all: entries(windows.all) } },
       TTL.top,
       now,
     );
