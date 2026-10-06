@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0x290d5417"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "candidate: 5 messages, $89715 in the last 7 days, first seen 2025-11-25"
+

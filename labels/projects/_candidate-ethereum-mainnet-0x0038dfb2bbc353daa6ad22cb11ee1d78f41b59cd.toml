@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "MainnetBridgeSettler"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x0038dfb2bbc353daa6ad22cb11ee1d78f41b59cd"
+note = "candidate: 15 messages, $3415711 in the last 7 days, first seen 2026-09-15"
+

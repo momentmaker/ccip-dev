@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "BoringVault"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0xa024063b630d554078bbf985718b22f3c6870ee0"
+note = "candidate: 3 messages, $13709682 in the last 7 days, first seen 2026-10-01"
+

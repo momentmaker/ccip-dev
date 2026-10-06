@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "TransferReference"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf98c221661f51578f5e5236b189a493e2a8a1916"
+note = "candidate: 11 messages, $576664 in the last 7 days, first seen 2025-07-14"
+

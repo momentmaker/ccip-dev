@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "CcipAdapter"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072"
+note = "candidate: 65 messages, $7068042 in the last 7 days, first seen 2026-06-18"
+

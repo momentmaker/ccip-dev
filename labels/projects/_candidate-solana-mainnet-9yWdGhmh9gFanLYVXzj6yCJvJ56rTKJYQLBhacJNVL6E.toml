@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 9yWdGhmh9g"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "solana-mainnet"
+address = "9yWdGhmh9gFanLYVXzj6yCJvJ56rTKJYQLBhacJNVL6E"
+note = "candidate: 2 messages, $837723 in the last 7 days, first seen 2026-07-24"
+

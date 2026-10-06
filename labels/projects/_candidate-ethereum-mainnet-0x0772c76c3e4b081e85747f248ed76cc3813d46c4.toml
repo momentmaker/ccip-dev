@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "InterportCCIPTokenBridgeV2"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "candidate: 3 messages, $300107 in the last 7 days, first seen 2025-05-18"
+

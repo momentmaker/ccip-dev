@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0xd5fa238a"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "bittensor-mainnet"
+address = "0xd5fa238aa4177f6c1341491969d9cbeec94eed69"
+note = "candidate: 53 messages, $252501 in the last 7 days, first seen 2026-09-16"
+

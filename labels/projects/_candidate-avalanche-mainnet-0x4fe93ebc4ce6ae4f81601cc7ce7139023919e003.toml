@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0x4fe93ebc"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003"
+note = "candidate: 42 messages, $4242595 in the last 7 days, first seen 2026-01-23"
+
