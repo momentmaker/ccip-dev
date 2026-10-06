@@ -88,6 +88,8 @@ All data sources are free:
 - **CoinGecko public API**: coin-id mapping only, with no API key.
 - **Public Ethereum RPC endpoints** (keyless, e.g. rpc.mevblocker.io and 0xrpc.io): the Reserve's LINK balance and
   transfer logs.
+- **Chainlist** (`chainlist.org/rpcs.json`, from DefiLlama/chainlist): the source of the keyless RPC and Blockscout
+  endpoint lists in `config/endpoints.json`. Only the data is used. Every entry is checked live before it is written.
 
 ## Chainlink Reserve
 - **Balance:** read every hour with `balanceOf` on the LINK token for the Reserve, `0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6`.

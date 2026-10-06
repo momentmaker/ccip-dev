@@ -1,0 +1,43 @@
+name: endpoints
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm endpoints:refresh
+      - name: Open or update the endpoints PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain config/endpoints.json)" ]; then
+            echo "No endpoint changes"
+            exit 0
+          fi
+          day=$(date -u +%F)
+          git config user.name "ccip.dev bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B endpoints/refresh
+          git add config/endpoints.json
+          git commit -m "chore(endpoints): refresh the RPC and explorer maps for ${day}"
+          git push --force origin endpoints/refresh
+          pr=$(gh pr list --head endpoints/refresh --state open --json number --jq '.[0].number // empty')
+          if [ -n "${pr}" ]; then
+            gh pr edit "${pr}" --title "Endpoint maps — ${day}" --body-file endpoints-pr.md
+          else
+            gh pr create --head endpoints/refresh --base main --title "Endpoint maps — ${day}" --body-file endpoints-pr.md
+          fi

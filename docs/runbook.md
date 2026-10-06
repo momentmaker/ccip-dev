@@ -91,6 +91,14 @@ Run this once, after the Worker is deployed. The import makes D1 unavailable whi
    4. `pnpm backfill:upload`. The upload passes `--yes` to wrangler, so there are no import prompts to answer.
 5. If interrupted, re-run `pnpm backfill:upload`; it resumes from `.backfill/upload-state.json`. After a rebuild, the new build id makes it apply every SQL file and replace every archive again. The upserts only touch backfill rows.
 
+## Endpoint maps
+
+`config/endpoints.json` holds a keyless RPC and a Blockscout explorer for each CCIP chain, plus extra Ethereum log endpoints for the Reserve scan. The `endpoints` workflow rebuilds it every day at 03:17 UTC from chainlist.org, keeps every entry that still works, and replaces or drops the ones that died. When anything changes it opens or updates one PR from `endpoints/refresh`, with a table of the changes as its body.
+
+Review the new URLs before you merge. The label-candidates job reads the file straight away, and the `ethereumLogs` entries reach the Reserve scan after the next deploy.
+
+To run it by hand: `gh workflow run endpoints`, or `pnpm endpoints:refresh` locally.
+
 ## Incidents and alerts
 
 Alerts arrive in the Telegram chat.
