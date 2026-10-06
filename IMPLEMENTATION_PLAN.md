@@ -33,3 +33,9 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Success Criteria**: A manual workflow run opens or updates one PR with drafts set to verified = false.
 **Tests**: label-candidates.
 **Status**: Not Started
+
+## Stage 6: Reserve cost basis and LINK metrics
+**Goal**: Price every LINK transfer into and out of the Chainlink Reserve at its block time. Publish cost basis vs value now, pace, weekly deposits, performance and transfers in `reserve.json`, alert on outflows, and add the daily share of CCIP fees paid in LINK (plan `docs/superpowers/plans/2026-10-06-reserve-and-link-metrics.md`).
+**Success Criteria**: Spec `2026-10-06-reserve-and-link-metrics-design.md` §1 criteria 1–6 hold. After the backfill, `reserve.json` `cost_basis` is non-null and no `reserve-mismatch` alert has fired.
+**Tests**: reserve (RPC reads), prices (historicalAt), reserve-stats, reserve-job, hourly, publish, finalize, rollup (linkFeeUsd).
+**Status**: Not Started
