@@ -1,0 +1,65 @@
+name: label-candidates
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  candidates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Continue the open candidates branch, if any
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "ccip.dev bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pr=$(gh pr list --head labels/candidates --state open --json number --jq '.[0].number // empty')
+          echo "PR_NUMBER=${pr}" >> "${GITHUB_ENV}"
+          if [ -n "${pr}" ]; then
+            git checkout labels/candidates
+            git merge --no-edit origin/main
+          else
+            git checkout -B labels/candidates
+          fi
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm labels:candidates
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
+          CF_D1_READ_TOKEN: ${{ secrets.CF_D1_READ_TOKEN }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+          RPC_MAP: ${{ secrets.RPC_MAP }}
+          EXPLORER_MAP: ${{ vars.EXPLORER_MAP }}
+          CANDIDATE_MIN_USD_7D: ${{ vars.CANDIDATE_MIN_USD_7D }}
+          CANDIDATE_MIN_MESSAGES_7D: ${{ vars.CANDIDATE_MIN_MESSAGES_7D }}
+      - name: Open or update the candidates PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          week=$(date -u +%F)
+          git add labels/projects/_candidate-*.toml 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No new candidates this week"
+            exit 0
+          fi
+          git commit -m "chore(labels): candidates for the week of ${week}"
+          if [ -n "${PR_NUMBER}" ]; then
+            git push origin labels/candidates
+            gh pr edit "${PR_NUMBER}" --title "Label candidates, week of ${week}" --body-file pr-body.md
+          else
+            git push --force origin labels/candidates
+            gh pr create --head labels/candidates --base main --title "Label candidates, week of ${week}" --body-file pr-body.md
+          fi
