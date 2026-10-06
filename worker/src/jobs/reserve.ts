@@ -1,4 +1,4 @@
-import { RESERVE_FIRST_BLOCK, readBlockNumber, readReserveTransfers, toUnits, type ReserveTransfer } from '@ccip-dev/core';
+import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, readBlockNumber, readLinkBalance, readReserveTransfers, toUnits, type ReserveTransfer } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { logRpcUrls } from '../rpc';
 import * as store from '../store';
@@ -9,9 +9,12 @@ export const MAX_CHUNKS_PER_RUN = 50;
 export const SCAN_BUDGET_MS = 4 * 60_000;
 const SCAN_ALERT_AFTER = 3;
 const OUTFLOW_ALERT_WINDOW_MS = 24 * 3_600_000;
+const PRICE_ROWS_PER_RUN = 200;
 
 export async function runReserveTransfers(c: RunContext): Promise<void> {
-  await scanReserveTransfers(c);
+  const scannedTo = await scanReserveTransfers(c);
+  await priceReserveTransfers(c);
+  if (scannedTo !== null) await reconcileReserve(c, scannedTo);
 }
 
 export function formatLink(raw: string | bigint): string {
@@ -61,5 +64,42 @@ async function recordScanFailure(c: RunContext, err: unknown): Promise<void> {
     }
   } catch (metaErr) {
     console.warn(`Reserve scan failure could not be recorded: ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+  }
+}
+
+const unixSeconds = (iso: string) => Math.floor(Date.parse(iso) / 1000);
+
+export async function priceReserveTransfers(c: RunContext): Promise<void> {
+  try {
+    const rows = await store.unpricedReserveTransfers(c.env.DB, PRICE_ROWS_PER_RUN);
+    if (rows.length === 0) return;
+    const prices = await c.prices.historicalAt(LINK_PRICE_KEY, rows.map((r) => unixSeconds(r.ts)));
+    await store.setReserveTransferPrices(
+      c.env.DB,
+      rows.flatMap((r) => {
+        const linkUsd = prices.get(unixSeconds(r.ts));
+        return linkUsd === undefined ? [] : [{ txHash: r.tx_hash, logIndex: r.log_index, linkUsd }];
+      }),
+    );
+  } catch (err) {
+    console.warn(`Reserve transfer pricing failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+export async function reconcileReserve(c: RunContext, block: number): Promise<void> {
+  try {
+    const net = (await store.reserveTransfers(c.env.DB)).reduce(
+      (total, r) => (r.direction === 'in' ? total + BigInt(r.amount) : total - BigInt(r.amount)),
+      0n,
+    );
+    const balance = await readLinkBalance(c.deps, logRpcUrls(c.env), block);
+    if (balance !== net) {
+      await c.alert(
+        'reserve-mismatch',
+        `Reserve transfers net to ${formatLink(net)} LINK but balanceOf at block ${block} is ${formatLink(balance)} LINK`,
+      );
+    }
+  } catch (err) {
+    console.warn(`Reserve reconcile failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

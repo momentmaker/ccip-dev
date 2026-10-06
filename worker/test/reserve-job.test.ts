@@ -1,7 +1,8 @@
-import { RESERVE_FIRST_BLOCK } from '@ccip-dev/core';
+import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK } from '@ccip-dev/core';
+import { fakePrices } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CHUNK_BLOCKS, MAX_CHUNKS_PER_RUN, scanReserveTransfers } from '../src/jobs/reserve';
+import { CHUNK_BLOCKS, MAX_CHUNKS_PER_RUN, priceReserveTransfers, reconcileReserve, runReserveTransfers, scanReserveTransfers } from '../src/jobs/reserve';
 import * as store from '../src/store';
 import { harness, resetStorage, rpcFake, transferLog } from './helpers';
 
@@ -107,6 +108,95 @@ describe('scanReserveTransfers budget', () => {
     await expect(scanReserveTransfers(h.c)).resolves.toBeNull();
     expect(await store.getMeta(env.DB, 'reserve_scan_block')).toBe(String(FIRST - 1 + 2 * CHUNK_BLOCKS));
     expect(await store.getMeta(env.DB, 'reserve_scan_failures')).toBe('0');
+    expect(h.alerts).toEqual([]);
+  });
+});
+
+const seconds = (iso: string) => Date.parse(iso) / 1000;
+const T1 = '2025-08-07T10:14:59.000Z';
+const T2 = '2026-10-01T15:35:47.000Z';
+
+async function seedTwoDeposits(): Promise<void> {
+  await store.insertReserveTransfers(env.DB, [
+    { txHash: '0xc1', logIndex: 0, blockNumber: FIRST + 1, ts: T1, direction: 'in', counterparty: DEPOSITOR, amount: (100n * 10n ** 18n).toString() },
+    { txHash: '0xc2', logIndex: 0, blockNumber: FIRST + 2, ts: T2, direction: 'in', counterparty: DEPOSITOR, amount: (50n * 10n ** 18n).toString() },
+  ]);
+}
+
+describe('priceReserveTransfers', () => {
+  it('prices transfers at their block time and leaves the ones DefiLlama lacks for the next run', async () => {
+    await seedTwoDeposits();
+    const prices = fakePrices({ historical: { [LINK_PRICE_KEY]: { [seconds(T1)]: 16.8 } } });
+    await priceReserveTransfers(harness({ now: NOW, prices }).c);
+    expect(prices.historicalCalls).toEqual([{ key: LINK_PRICE_KEY, timestamps: [seconds(T1), seconds(T2)] }]);
+    expect((await store.reserveTransfers(env.DB)).map((r) => r.link_usd)).toEqual([16.8, null]);
+
+    const later = fakePrices({ historical: { [LINK_PRICE_KEY]: { [seconds(T2)]: 14.2564 } } });
+    await priceReserveTransfers(harness({ now: NOW, prices: later }).c);
+    expect(later.historicalCalls[0]!.timestamps).toEqual([seconds(T2)]);
+    expect((await store.reserveTransfers(env.DB)).map((r) => r.link_usd)).toEqual([16.8, 14.2564]);
+  });
+
+  it('does not throw when DefiLlama fails', async () => {
+    await seedTwoDeposits();
+    const prices = fakePrices({ failHistorical: new Error('llama down') });
+    await expect(priceReserveTransfers(harness({ now: NOW, prices }).c)).resolves.toBeUndefined();
+    expect((await store.reserveTransfers(env.DB)).map((r) => r.link_usd)).toEqual([null, null]);
+  });
+
+  it('asks DefiLlama nothing when every transfer is priced', async () => {
+    const prices = fakePrices();
+    await priceReserveTransfers(harness({ now: NOW, prices }).c);
+    expect(prices.historicalCalls).toEqual([]);
+  });
+});
+
+describe('reconcileReserve', () => {
+  it('stays quiet when the transfers net to the balance at the given block', async () => {
+    await seedTwoDeposits();
+    const f = rpcFake({ balanceAt: () => 150n * 10n ** 18n });
+    const h = harness({ now: NOW, fetch: f });
+    await reconcileReserve(h.c, FIRST + 9);
+    expect(h.alerts).toEqual([]);
+    const call = JSON.parse(String(f.calls[0]!.init?.body));
+    expect(call.params[1]).toBe(`0x${(FIRST + 9).toString(16)}`);
+  });
+
+  it('alerts with both amounts when they differ', async () => {
+    await seedTwoDeposits();
+    const h = harness({ now: NOW, fetch: rpcFake({ balanceAt: () => 149n * 10n ** 18n }) });
+    await reconcileReserve(h.c, FIRST + 9);
+    expect(h.alerts).toEqual([
+      { signature: 'reserve-mismatch', text: `Reserve transfers net to 150 LINK but balanceOf at block ${FIRST + 9} is 149 LINK` },
+    ]);
+  });
+
+  it('does not throw when the balance cannot be read', async () => {
+    await expect(reconcileReserve(harness({ now: NOW, fetch: rpcFake({ down: true }) }).c, FIRST)).resolves.toBeUndefined();
+  });
+});
+
+describe('runReserveTransfers', () => {
+  it('does not reconcile before the scan has caught up', async () => {
+    const f = rpcFake({ head: FIRST - 1 + MAX_CHUNKS_PER_RUN * CHUNK_BLOCKS + 100_000 });
+    const h = harness({ now: NOW, fetch: f });
+    await runReserveTransfers(h.c);
+    const methods = f.calls.map((call) => JSON.parse(String(call.init?.body)).method);
+    expect(methods).not.toContain('eth_call');
+  });
+
+  it('scans, prices and reconciles in one run once caught up', async () => {
+    const f = rpcFake({
+      logs: ({ direction }) =>
+        direction === 'in'
+          ? [transferLog({ block: FIRST, index: 0, tx: '0xd1', direction: 'in', counterparty: DEPOSITOR, link: 7n, ts: T2 })]
+          : [],
+      balanceAt: () => 7n * 10n ** 18n,
+    });
+    const prices = fakePrices({ historical: { [LINK_PRICE_KEY]: { [seconds(T2)]: 14 } } });
+    const h = harness({ now: NOW, fetch: f, prices });
+    await runReserveTransfers(h.c);
+    expect((await store.reserveTransfers(env.DB)).map((r) => r.link_usd)).toEqual([14]);
     expect(h.alerts).toEqual([]);
   });
 });

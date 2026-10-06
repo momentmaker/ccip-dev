@@ -459,3 +459,19 @@ export async function reserveTransfers(db: D1Database): Promise<ReserveTransferR
   const { results } = await db.prepare('SELECT * FROM reserve_transfers ORDER BY block_number, log_index').all<ReserveTransferRow>();
   return results;
 }
+
+export async function unpricedReserveTransfers(db: D1Database, limit: number): Promise<{ tx_hash: string; log_index: number; ts: string }[]> {
+  const { results } = await db
+    .prepare('SELECT tx_hash, log_index, ts FROM reserve_transfers WHERE link_usd IS NULL ORDER BY block_number, log_index LIMIT ?')
+    .bind(limit)
+    .all<{ tx_hash: string; log_index: number; ts: string }>();
+  return results;
+}
+
+export async function setReserveTransferPrices(
+  db: D1Database,
+  prices: { txHash: string; logIndex: number; linkUsd: number }[],
+): Promise<void> {
+  const update = db.prepare('UPDATE reserve_transfers SET link_usd = ? WHERE tx_hash = ? AND log_index = ?');
+  await runBatch(db, prices.map((p) => update.bind(p.linkUsd, p.txHash, p.logIndex)));
+}
