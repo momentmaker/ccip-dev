@@ -38,4 +38,4 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Price every LINK transfer into and out of the Chainlink Reserve at its block time. Publish cost basis vs value now, pace, weekly deposits, performance and transfers in `reserve.json`, alert on outflows, and add the daily share of CCIP fees paid in LINK (plan `docs/superpowers/plans/2026-10-06-reserve-and-link-metrics.md`).
 **Success Criteria**: Spec `2026-10-06-reserve-and-link-metrics-design.md` §1 criteria 1–6 hold. After the backfill, `reserve.json` `cost_basis` is non-null and no `reserve-mismatch` alert has fired.
 **Tests**: reserve (RPC reads), prices (historicalAt), reserve-stats, reserve-job, hourly, publish, finalize, rollup (linkFeeUsd).
-**Status**: Not Started
+**Status**: In Progress (code complete and reviewed at b740a73; Complete once deployed, the backfill has caught up and reserve.json shows cost_basis with no reserve-mismatch alert)
