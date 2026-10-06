@@ -47,7 +47,7 @@ export function priorityQuery(sinceDay: string) {
 
 type AddressKind = 'contract' | 'wallet' | 'unknown' | 'error';
 
-const EIP7702_PREFIX = '0xef0100';
+const EIP7702_MATCH = /^0xef0100[0-9a-f]{40}$/i;
 const SOLANA_SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
 export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<AddressKind> {
@@ -61,7 +61,7 @@ export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined
     if (!res.ok) return 'error';
     const body = (await res.json()) as { result?: unknown };
     if (typeof body.result !== 'string') return 'error';
-    if (body.result === '0x' || body.result === '0x0' || body.result.startsWith(EIP7702_PREFIX)) return 'wallet';
+    if (body.result === '0x' || body.result === '0x0' || EIP7702_MATCH.test(body.result)) return 'wallet';
     return 'contract';
   } catch {
     return 'error';

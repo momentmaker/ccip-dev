@@ -71,6 +71,11 @@ describe('label candidates', () => {
     expect(await classify(delegated, 'https://rpc', candidate.address)).toBe('wallet');
   });
 
+  it('classify treats an overlong EIP-7702 prefix as a contract', async () => {
+    const overlongPrefix = fakeFetch(() => jsonResponse({ jsonrpc: '2.0', id: 1, result: '0xef0100' + 'ab'.repeat(20) + '00' }));
+    expect(await classify(overlongPrefix, 'https://rpc', candidate.address)).toBe('contract');
+  });
+
   describe('classifySolana', () => {
     const address = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin';
     const account = (value: unknown) => fakeFetch(() => jsonResponse({ jsonrpc: '2.0', id: 1, result: { value } }));
