@@ -32,6 +32,15 @@ describe('getJson', () => {
     expect(sleeps).toEqual([7000]);
   });
 
+  it('caps a Retry-After of an hour at 30 seconds', async () => {
+    let n = 0;
+    const { deps: d, sleeps } = deps(
+      fakeFetch(() => (n++ === 0 ? jsonResponse({}, 429, { 'retry-after': '3600' }) : jsonResponse({ ok: 1 }))),
+    );
+    await getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 4 });
+    expect(sleeps).toEqual([30_000]);
+  });
+
   it('does not retry a 404', async () => {
     const f = fakeFetch(() => jsonResponse({}, 404));
     const { deps: d } = deps(f);

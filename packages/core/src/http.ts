@@ -6,6 +6,8 @@ export interface HttpDeps {
   clock: () => number;
 }
 
+const MAX_RETRY_AFTER_MS = 30_000;
+
 export const USER_AGENT = 'curl/8.7.1';
 
 export class UpstreamHttpError extends Error {
@@ -67,7 +69,7 @@ function retryAfterMs(res: Response): number | null {
   const header = res.headers.get('retry-after');
   if (header === null) return null;
   const seconds = Number(header);
-  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : null;
 }
 
 export function issuePath(error: z.ZodError): string {
