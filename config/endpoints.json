@@ -22,7 +22,7 @@
     "cronos-mainnet": "https://evm.cronos.org",
     "cronos-zkevm-mainnet": "https://mainnet.zkevm.cronos.org",
     "edge-mainnet": "https://edge.drpc.org",
-    "ethereum-mainnet": "https://xrpc.cl/eth",
+    "ethereum-mainnet": "https://ethereum-rpc.publicnode.com",
     "ethereum-mainnet-arbitrum-1": "https://arb1.arbitrum.io/rpc",
     "ethereum-mainnet-base-1": "https://mainnet.base.org",
     "ethereum-mainnet-blast-1": "https://rpc.blast.io",
