@@ -88,5 +88,56 @@ Run this once, after the Worker is deployed. The import makes D1 unavailable whi
    1. Wait for the Worker's first hourly run, which snapshots the token registry. The upload refuses to start until it has.
    2. `pnpm backfill:sources` until `complete: true` (see "History crawl"). Every source's crawl must start after 00:00 UTC of `live_start_day`, because a re-run does not refresh a finished source. The build enforces this: it refuses any source whose first page is older and names the directory to delete before re-running.
    3. `pnpm backfill:build --live-start <live_start_day>` (read it with `… wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'live_start_day'"`). Each build also fetches the CCIP token registry (`/chains` and every `/tokens` page, a few requests) and CoinGecko's keyless coin id lists (`/asset_platforms` and `/coins/list`, two requests; ids only, never prices) into `.backfill/registry/`. A token with no price on a day takes the price of another copy of the same token that day, then its CoinGecko coin's DefiLlama price that day: the fallback the Worker also uses. The SQL also seeds the Worker's `coingecko_ids` table with the registry tokens it maps. A price series without a point on a day uses its nearest point at most two days away (the earlier on a tie), but only when it has a point on both sides of that day.
-   4. `pnpm backfill:upload`. Answer `y` if wrangler asks to confirm a remote import.
+   4. `pnpm backfill:upload`. The upload passes `--yes` to wrangler, so there are no import prompts to answer.
 5. If interrupted, re-run `pnpm backfill:upload`; it resumes from `.backfill/upload-state.json`. After a rebuild, the new build id makes it apply every SQL file and replace every archive again. The upserts only touch backfill rows.
+
+## Incidents and alerts
+
+Alerts arrive in the Telegram chat.
+
+| Signature | What to check |
+|---|---|
+| `ingest-lag` | Ingest has not succeeded for a while. Check `lag_seconds` in `status.json`, then the CCIP API (see "Poison message"). |
+| `job-failed:<job>` | The named job threw. Read the message in the alert and the Worker logs (`wrangler tail`). |
+| `ingest-resume` | The ingest resume walk failed and was dropped. Nothing to do unless it repeats. |
+| `price-outlier` | A token amount valued above $10 billion was stored unpriced. Check the price of the listed token on DefiLlama. |
+| `price-jump` | A price refresh rejected a jump of more than 20×. Check the listed tokens on DefiLlama. |
+| `prices-fetch` | DefiLlama failed during detail valuation. Those tokens stay unpriced until finalize. |
+| `daily-usd-anomaly:<day>` | The day's USD moved over 10× against the trailing median. Check the day's top tokens for a bad price. |
+| `detail-schema:<path>` | A detail response failed validation. The raw copy is in `unparsed/<id>.json` in the archive bucket. |
+| `fee-version:<v>` | A message uses a CCIP version whose fee format is unknown. Add support for it. |
+| `archive-count:<day>` | The day's archive and D1 disagree on the message count. Re-finalize the day (below). |
+| `coingecko-ids` | CoinGecko ids could not be refreshed. Retried hourly. |
+| `coingecko-ids-read` | CoinGecko ids could not be read from D1. Tokens the group cannot price stay unpriced this run. |
+| `token-groups` | Token groups could not be read. Tokens without a price stay unpriced this run. |
+| `reserve-read` | The Reserve balance read failed several hours in a row. Check the RPC endpoints. |
+| `reserve-scan` | The Reserve transfer scan failed several hours in a row. Check the RPC endpoints. |
+| `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. |
+| `reserve-mismatch` | Transfers do not net to the balance. Re-scan from an earlier block (see "Health checks"). |
+| `ccip.dev watchdog: …` | `status.json` is old, unreadable, or ingest lag is high. Check the Worker and the CCIP API. |
+
+### Re-finalize a day
+
+Set `last_finalize_day` to the day before the one to redo. Set `last_archived_day` too if the archive must be
+rewritten. The next finalize run redoes everything after that day.
+
+`pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE meta SET value = '<day>' WHERE key = 'last_finalize_day'"`
+
+Use `last_archived_day` in place of `last_finalize_day` for the second key.
+
+### Stuck ingest resume
+
+If the ingest resume walk never finishes, delete its two meta keys. The next run starts a fresh walk.
+
+`pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key IN ('ingest_resume_cursor', 'ingest_resume_stop_id')"`
+
+### Poison message
+
+- **Symptoms:** `job-failed:ingest` or `job-failed:finalize` saying "GET /messages returned HTTP 500 … possibly a
+  poison message", and `lag_seconds` rising.
+- **Confirm:** `curl -s "https://api.ccip.chain.link/v2/messages?environment=mainnet&limit=1"` returns HTTP 500 or
+  times out.
+- **State:** live ingest cannot get past the message, and no automatic recovery exists yet (a per-source fallback is
+  a planned follow-up).
+- **Nothing is lost:** once the API recovers, or with the backfill crawler (`pnpm backfill:sources`, which skips
+  poison messages), the gap can be filled. `status.json` shows the delay meanwhile.

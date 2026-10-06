@@ -39,8 +39,10 @@ History starts on **2023-07-06**. This is the first CCIP mainnet message (2023-0
 figures are labeled "since 2023-07-06".
 
 How the history was collected:
-- The API's unfiltered message list fails (HTTP 500 after its 30-second limit) for pages older than about mid-January
-  2026. History is therefore crawled one source chain at a time, using the API's `sourceChainSelector` filter.
+- The API's unfiltered message list cannot be crawled back to the start. The January 2026 depth wall was the Sui
+  poison message (2026-01-15 01:28:06 UTC). The unfiltered list's 30-second timeouts also start somewhere between
+  September and December 2025. History is therefore crawled one source chain at a time, using the API's
+  `sourceChainSelector` filter, which avoids both.
 - All 95 source chains were crawled to their first message, and none stopped early. The source list is the CCIP chain
   registry plus every chain seen in a message, so chains that only receive were checked as well.
 - Three list pages fail with HTTP 500 whenever they contain one particular message. The crawler skipped past each
@@ -56,6 +58,8 @@ How the history was collected:
 The two Aptos records share a message id but have different send times, so both are listed. The detail endpoint
 returns 404 for the Sui message.
 
+Days with no messages (2023-08-03 to 2023-08-06 and 2023-08-31) have no row in `history.json`.
+
 Live ingest started on 2026-10-05. For that day, the API lists exactly 2,487 mainnet messages, and their ids match
 the stored ids one for one.
 
@@ -70,6 +74,10 @@ the stored ids one for one.
   already there by 2026-05, and recent months match within 0.7%, so it comes from older history. Its causes are not
   yet measured. Candidates are multi-token messages before 2026-10-05, unpriced long-tail tokens, and Chainlink's
   own outlier handling.
+- History statuses are as of crawl time, so a message still in flight when crawled keeps that status. Live messages
+  update until final.
+- Some tokens are not in CCIP's public token list. They are priced and named from DefiLlama where it knows them;
+  otherwise they show only their address.
 - The CCIP API publishes no rate limits or terms. We keep to 1 request per second per job and credit the source in
   every file.
 
