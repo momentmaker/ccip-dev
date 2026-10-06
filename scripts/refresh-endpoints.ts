@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { LINK_RESERVE, LINK_TOKEN } from '@ccip-dev/core';
+import { LINK_RESERVE, LINK_TOKEN, LOG_RPC_URLS } from '@ccip-dev/core';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const ENDPOINTS_FILE = path.join(ROOT, 'config/endpoints.json');
@@ -12,13 +12,13 @@ const RESERVE_TOPIC = `0x${LINK_RESERVE.slice(2).toLowerCase().padStart(64, '0')
 export const RESERVE_DEPOSIT_TX = '0x716918279bd52bbb4af6237af26423ac95f796731df725bd4a5a6c79c69ec70b';
 const PROBE_FROM_BLOCK = 26_089_400;
 const PROBE_TO_BLOCK = 26_099_399;
-const TRUSTED_LOG_ENDPOINTS = ['https://rpc.mevblocker.io', 'https://0xrpc.io/eth'];
+const TRUSTED_LOG_HOSTS = new Set(LOG_RPC_URLS.map((u) => new URL(u).hostname));
 const LOG_ENDPOINT_TARGET = 4;
 const MAX_RPC_CANDIDATES = 6;
 const MAX_EXPLORER_CANDIDATES = 3;
 const PROBE_TIMEOUT_MS = 8_000;
 const LOG_PROBE_TIMEOUT_MS = 20_000;
-const KEYED_URL = /api[_-]?key|apikey|\/v\d\/[0-9a-f]{20,}/i;
+const KEYED_URL = /api[_-]?key|apikey|demo|\/vk_|\/v\d\/[0-9a-f]{20,}/i;
 
 export interface ChainlistEntry {
   chainId: number;
@@ -46,9 +46,21 @@ export interface CcipChain {
   chain_id: string;
 }
 
+export function isKeylessHttps(url: string): boolean {
+  return url.startsWith('https://') && !url.includes('${') && !KEYED_URL.test(url);
+}
+
+function isTrustedLogHost(url: string): boolean {
+  try {
+    return TRUSTED_LOG_HOSTS.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function candidateRpcs(entry: ChainlistEntry): string[] {
   return (entry.rpc ?? [])
-    .filter((r) => r.url.startsWith('https://') && !r.url.includes('${') && !KEYED_URL.test(r.url))
+    .filter((r) => isKeylessHttps(r.url))
     .filter((r) => r.tracking === undefined || r.tracking === 'none')
     .map((r) => r.url);
 }
@@ -159,7 +171,7 @@ export async function refreshEndpoints(input: {
   const rpc = await refreshMap(evmNames, current.rpc, 'rpc', async (name) => {
     const chainId = Number(chainOf.get(name)!.chain_id);
     const existing = current.rpc[name];
-    if (existing && (await verifyEvmRpc(fetchFn, existing, chainId))) return { keep: true, found: undefined };
+    if (existing && isKeylessHttps(existing) && (await verifyEvmRpc(fetchFn, existing, chainId))) return { keep: true, found: undefined };
     const candidates = entryOf(name) ? candidateRpcs(entryOf(name)!) : [];
     return { keep: false, found: await firstVerified(candidates, MAX_RPC_CANDIDATES, (url) => verifyEvmRpc(fetchFn, url, chainId)) };
   });
@@ -177,14 +189,13 @@ export async function refreshEndpoints(input: {
   const logChanges: Change[] = [];
   const ethereumLogs: string[] = [];
   for (const url of current.ethereumLogs) {
-    if (TRUSTED_LOG_ENDPOINTS.includes(url)) continue;
-    if (await verifyEthereumLogs(fetchFn, url)) ethereumLogs.push(url);
+    if (isKeylessHttps(url) && !isTrustedLogHost(url) && (await verifyEthereumLogs(fetchFn, url))) ethereumLogs.push(url);
     else logChanges.push({ kind: 'ethereumLogs', change: 'removed', url });
   }
   const mainnetCandidates = byChainId.get(1) ? candidateRpcs(byChainId.get(1)!) : [];
   for (const url of mainnetCandidates) {
     if (ethereumLogs.length >= LOG_ENDPOINT_TARGET) break;
-    if (TRUSTED_LOG_ENDPOINTS.includes(url) || ethereumLogs.includes(url)) continue;
+    if (isTrustedLogHost(url) || ethereumLogs.includes(url)) continue;
     if (await verifyEthereumLogs(fetchFn, url)) {
       ethereumLogs.push(url);
       logChanges.push({ kind: 'ethereumLogs', change: 'added', url });

@@ -22,7 +22,7 @@
     "cronos-mainnet": "https://evm.cronos.org",
     "cronos-zkevm-mainnet": "https://mainnet.zkevm.cronos.org",
     "edge-mainnet": "https://edge.drpc.org",
-    "ethereum-mainnet": "https://one.valve.city/rpc/vk_demo/evm/1",
+    "ethereum-mainnet": "https://xrpc.cl/eth",
     "ethereum-mainnet-arbitrum-1": "https://arb1.arbitrum.io/rpc",
     "ethereum-mainnet-base-1": "https://mainnet.base.org",
     "ethereum-mainnet-blast-1": "https://rpc.blast.io",
@@ -49,7 +49,7 @@
     "hedera-mainnet": "https://hedera.linkpool.pro",
     "hemi-mainnet": "https://rpc.hemi.network/rpc",
     "hyperliquid-mainnet": "https://rpc.hyperliquid.xyz/evm",
-    "jovay-mainnet": "https://jovay.drpc.org",
+    "jovay-mainnet": "https://rpc.jovay.io",
     "kaia-mainnet": "https://public-en.node.kaia.io",
     "kusama-mainnet-moonriver": "https://moonriver.api.pocket.network",
     "lens-mainnet": "https://rpc.lens.xyz",
@@ -72,6 +72,7 @@
     "rootstock-mainnet": "https://mycrypto.rsk.co",
     "sei-mainnet": "https://evm-rpc.sei-apis.com",
     "shibarium-mainnet": "https://shibarium.drpc.org",
+    "solana-mainnet": "https://solana-rpc.publicnode.com",
     "soneium-mainnet": "https://rpc.soneium.org",
     "sonic-mainnet": "https://rpc.soniclabs.com",
     "stable-mainnet": "https://rpc.stable.xyz",
@@ -104,9 +105,9 @@
     "tac-mainnet": "https://tac.blockscout.com"
   },
   "ethereumLogs": [
-    "https://one.valve.city/rpc/vk_demo/evm/1",
     "https://eth.api.pocket.network",
     "https://rpc-eth.blockmachine.io",
-    "https://rpc.mevblocker.io/fast"
+    "https://xrpc.cl/eth",
+    "https://ethereum-json-rpc.stakely.io"
   ]
 }

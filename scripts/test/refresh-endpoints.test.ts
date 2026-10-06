@@ -34,6 +34,7 @@ describe('candidateRpcs', () => {
         { url: 'https://b.example/?apikey=abc' },
         { url: 'https://c.example/v3/0123456789abcdef0123456789abcdef' },
         { url: 'https://tracked.example', tracking: 'yes' },
+        { url: 'https://one.valve.city/rpc/vk_demo/evm/1' },
         { url: 'wss://socket.example' },
         { url: 'https://good-1.example', tracking: 'none' },
         { url: 'https://good-2.example' },
@@ -140,9 +141,9 @@ describe('refreshEndpoints', () => {
   });
 
   it('keeps verified log endpoints, tops up to four from chain 1 and skips the trusted pair', async () => {
-    const urls = ['https://rpc.mevblocker.io', 'https://0xrpc.io/eth', 'https://liar.example', 'https://a.example', 'https://b.example', 'https://c.example', 'https://d.example', 'https://e.example'];
+    const urls = ['https://rpc.mevblocker.io', 'https://rpc.mevblocker.io/fast', 'https://0xrpc.io/eth', 'https://liar.example', 'https://a.example', 'https://b.example', 'https://c.example', 'https://d.example', 'https://e.example'];
     const fetch = fakeFetch(
-      rpcRoute('https://kept.example'), rpcRoute('https://liar.example', { logs: [] }), dead('https://stale.example'),
+      rpcRoute('https://kept.example'), rpcRoute('https://rpc.mevblocker.io/fast'), rpcRoute('https://liar.example', { logs: [] }), dead('https://stale.example'),
       ...['a', 'b', 'c', 'd', 'e'].map((n) => rpcRoute(`https://${n}.example`)),
     );
     const { endpoints, changes } = await refreshEndpoints({
@@ -152,6 +153,17 @@ describe('refreshEndpoints', () => {
     expect(endpoints.ethereumLogs).toEqual(['https://kept.example', 'https://a.example', 'https://b.example', 'https://c.example']);
     expect(changes).toContainEqual({ kind: 'ethereumLogs', change: 'removed', url: 'https://stale.example' });
     expect(changes).toContainEqual({ kind: 'ethereumLogs', change: 'added', url: 'https://a.example' });
+  });
+
+  it('drops a current RPC or log endpoint that carries a demo key', async () => {
+    const demo = 'https://one.valve.city/rpc/vk_demo/evm/1';
+    const fetch = fakeFetch(rpcRoute(demo), rpcRoute('https://ok.example'));
+    const { endpoints } = await refreshEndpoints({
+      fetch, ccipChains: [evmChain('ethereum-mainnet', '1')], chainlist: [entry(1, ['https://ok.example'])],
+      current: { ...base, rpc: { 'ethereum-mainnet': demo }, explorer: {}, ethereumLogs: [demo] },
+    });
+    expect(endpoints.rpc).toEqual({ 'ethereum-mainnet': 'https://ok.example' });
+    expect(endpoints.ethereumLogs).toEqual(['https://ok.example']);
   });
 
   it('sorts the keys of every map', async () => {
