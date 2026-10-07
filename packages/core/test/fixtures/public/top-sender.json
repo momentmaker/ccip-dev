@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T00:12:56.476Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "dim": "sender",
+  "since": "2023-07-06",
+  "windows": {
+    "7d": [
+      {
+        "key": "5009297550715157269:0xc6160f5bc3c673ac390f11c492e8ed0d0693579a",
+        "messages": 13,
+        "usd": 34307625.61,
+        "fee_usd": null,
+        "label": null
+      },
+      {
+        "key": "124615329519749607:DWNkc2yq3GSX8N2ZBcBAN6ABmHvk4VwNNW8KyVKTdftT",
+        "messages": 7,
+        "usd": 32518755.87,
+        "fee_usd": null,
+        "label": null
+      },
+      {
+        "key": "5009297550715157269:0x815f5bb257e88b67216a344c7c83a3ea4ee74748",
+        "messages": 7,
+        "usd": 21032390.49,
+        "fee_usd": 7.19,
+        "label": null
+      }
+    ],
+    "30d": [
+      {
+        "key": "124615329519749607:DWNkc2yq3GSX8N2ZBcBAN6ABmHvk4VwNNW8KyVKTdftT",
+        "messages": 18,
+        "usd": 78280452.9,
+        "fee_usd": null,
+        "label": null
+      },
+      {
+        "key": "9335212494177455608:0xa711a3a64f2b2d7e05dc3f564d3862d7499c6d69",
+        "messages": 9,
+        "usd": 71068606.88,
+        "fee_usd": null,
+        "label": null
+      },
+      {
+        "key": "8481857512324358265:0xdf2609ec3d2e07a79d2e25e52960e75250bd9aaa",
+        "messages": 29,
+        "usd": 65307858.89,
+        "fee_usd": 0.78,
+        "label": null
+      }
+    ],
+    "all": [
+      {
+        "key": "5009297550715157269:0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "messages": 1920,
+        "usd": 1022455153.07,
+        "fee_usd": 1.02,
+        "label": null
+      },
+      {
+        "key": "9335212494177455608:0x643eb044df69192f35af088adff3c3dab7b2dcc0",
+        "messages": 173,
+        "usd": 752861107.04,
+        "fee_usd": null,
+        "label": null
+      },
+      {
+        "key": "5009297550715157269:0x815f5bb257e88b67216a344c7c83a3ea4ee74748",
+        "messages": 263,
+        "usd": 669944498.47,
+        "fee_usd": 7.19,
+        "label": null
+      }
+    ]
+  }
+}

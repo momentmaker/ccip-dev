@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T00:12:56.476Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "since": "2023-07-06",
+  "days": [
+    {
+      "day": "2023-07-06",
+      "messages": 2,
+      "token_messages": 2,
+      "usd_value": 0,
+      "fee_usd": null,
+      "unique_senders": 1,
+      "median_delivery_s": 3068,
+      "unpriced_messages": 0,
+      "fee_link_usd": null
+    },
+    {
+      "day": "2023-07-07",
+      "messages": 31,
+      "token_messages": 31,
+      "usd_value": 0,
+      "fee_usd": null,
+      "unique_senders": 7,
+      "median_delivery_s": 1302,
+      "unpriced_messages": 8,
+      "fee_link_usd": null
+    },
+    {
+      "day": "2023-07-08",
+      "messages": 210,
+      "token_messages": 210,
+      "usd_value": 0,
+      "fee_usd": null,
+      "unique_senders": 6,
+      "median_delivery_s": 1242,
+      "unpriced_messages": 62,
+      "fee_link_usd": null
+    }
+  ]
+}

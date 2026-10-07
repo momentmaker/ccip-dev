@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T02:01:03.101Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "chains": [
+    {
+      "selector": "4426351306075016396",
+      "name": "0g-mainnet",
+      "display_name": "0G Mainnet",
+      "family": "EVM",
+      "chain_id": "16661",
+      "first_seen": "2025-09-18T18:29:21.000Z"
+    },
+    {
+      "selector": "4829375610284793157",
+      "name": "ab-mainnet",
+      "display_name": "AB Mainnet",
+      "family": "EVM",
+      "chain_id": "36888",
+      "first_seen": "2025-10-31T05:52:11.000Z"
+    },
+    {
+      "selector": "3577778157919314504",
+      "name": "abstract-mainnet",
+      "display_name": "Abstract Mainnet",
+      "family": "EVM",
+      "chain_id": "2741",
+      "first_seen": "2025-04-24T00:58:03.000Z"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
 import { LINK_PRICE_KEY } from '@ccip-dev/core';
+import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
@@ -252,5 +253,22 @@ describe('history.json for a day without fee data', () => {
     await publishHistoryFiles(harness({ now: '2026-10-08T12:00:00.000Z' }).c);
     const history = await readPublic('history.json');
     expect(history.days.find((d: { day: string }) => d.day === '2026-09-01')).toMatchObject({ fee_usd: null, fee_link_usd: null });
+  });
+});
+
+describe('public file contract', () => {
+  it('writes only files whose shape matches their public schema', async () => {
+    await seed();
+    const { c } = harness({ now: '2026-10-08T12:00:00.000Z' });
+    await publishLiveFiles(c);
+    await publishRegistryFiles(c);
+    await publishHistoryFiles(c);
+    const names = (await env.PUBLIC.list({ prefix: 'v1/' })).objects.map((o) => o.key.slice('v1/'.length));
+    expect(names.length).toBeGreaterThanOrEqual(12);
+    for (const name of names) {
+      const schema = PUBLIC_SCHEMAS[name as PublicFileName];
+      expect(schema, name).toBeDefined();
+      expect(schema.safeParse(await readPublic(name)).error?.issues ?? [], name).toEqual([]);
+    }
   });
 });

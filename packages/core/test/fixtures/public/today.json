@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T02:14:22.991Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "day": "2026-10-07",
+  "totals": {
+    "day": "2026-10-07",
+    "messages": 207,
+    "token_messages": 155,
+    "usd_value": 1840555.22,
+    "fee_usd": 105.11,
+    "unique_senders": 70,
+    "median_delivery_s": 62,
+    "unpriced_messages": 5,
+    "fee_link_usd": 0,
+    "fee_link_share_pct": 0
+  },
+  "top": {
+    "lane": [
+      {
+        "key": "2442541497099098535>5009297550715157269",
+        "messages": 2,
+        "usd": 1000115.17
+      },
+      {
+        "key": "124615329519749607>5009297550715157269",
+        "messages": 2,
+        "usd": 199977.15
+      },
+      {
+        "key": "5009297550715157269>8481857512324358265",
+        "messages": 1,
+        "usd": 159806.67
+      }
+    ],
+    "token": [
+      {
+        "key": "2442541497099098535:0xfd739d4e423301ce9385c1fb8850539d657c296d",
+        "messages": 2,
+        "usd": 1000115.17,
+        "symbol": "kHYPE"
+      },
+      {
+        "key": "124615329519749607:AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+        "messages": 1,
+        "usd": 199977.15,
+        "symbol": "SYRUPUSDC"
+      },
+      {
+        "key": "5009297550715157269:0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b",
+        "messages": 1,
+        "usd": 159806.67,
+        "symbol": "syrupUSDC"
+      }
+    ],
+    "sender": [
+      {
+        "key": "2442541497099098535:0x169a99b9958386a5d91e732ed08b344946a92391",
+        "messages": 2,
+        "usd": 1000115.17,
+        "label": null
+      },
+      {
+        "key": "124615329519749607:CS9a4zj4ZECh7r84a2raSaQdpkp1H6E39vkSEJXdRRWe",
+        "messages": 1,
+        "usd": 199977.15,
+        "label": null
+      },
+      {
+        "key": "5009297550715157269:0x0038dfb2bbc353daa6ad22cb11ee1d78f41b59cd",
+        "messages": 1,
+        "usd": 159806.67,
+        "label": null
+      }
+    ]
+  },
+  "arrivals": [
+    {
+      "kind": "token",
+      "key": "8481857512324358265:0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "first_seen": "2026-10-02T19:46:53.000Z"
+    },
+    {
+      "kind": "token",
+      "key": "2442541497099098535:0xb88339cb7199b77e23db6e890353e22632ba630f",
+      "first_seen": "2026-09-29T15:17:00.000Z"
+    },
+    {
+      "kind": "token",
+      "key": "2442541497099098535:0x000000000000780555bd0bca3791f89f9542c2d6",
+      "first_seen": "2026-09-28T18:55:20.000Z"
+    }
+  ]
+}
