@@ -10,7 +10,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 400 15px/1.5 va
 }
 a { color: var(--blue-2); text-decoration: none; }
 a:hover { text-decoration: underline; }
-:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 2px; box-shadow: var(--focus); border-radius: 4px; }
 .page { max-width: 1280px; margin: 0 auto; padding: 16px 20px 80px; }
 .mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
@@ -37,7 +37,8 @@ h2 { font-size: 20px; font-weight: 600; margin: 32px 0 12px; }
 .hex-btn:hover { transform: translateY(-1px); text-decoration: none; }
 .hex-btn:hover::before, .hex-btn[aria-current='page']::before { background: var(--blue); }
 .hex-btn[aria-current='page']::after { background: #13244d; }
-.hex-btn:focus-visible { box-shadow: none; filter: drop-shadow(0 0 3px rgba(47, 98, 223, 0.6)); }
+.hex-btn:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 2px; box-shadow: none; }
+.share-note { margin: 0; padding: 8px 10px; font-size: 12px; color: var(--warn); }
 .more { position: relative; }
 .more summary { list-style: none; }
 .more summary::-webkit-details-marker { display: none; }
