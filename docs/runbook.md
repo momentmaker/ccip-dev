@@ -118,6 +118,7 @@ Alerts arrive in the Telegram chat.
 | `coingecko-ids` | CoinGecko ids could not be refreshed. Retried hourly. |
 | `coingecko-ids-read` | CoinGecko ids could not be read from D1. Tokens the group cannot price stay unpriced this run. |
 | `token-groups` | Token groups could not be read. Tokens without a price stay unpriced this run. |
+| `replay-publish` | `replay.json` was not published; the other history files still were. Check the D1 lane rows (`daily_breakdown`) and the finalize logs. |
 | `reserve-read` | The Reserve balance read failed several hours in a row. Check the RPC endpoints. |
 | `reserve-scan` | The Reserve transfer scan failed several hours in a row. Check the RPC endpoints. |
 | `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. |

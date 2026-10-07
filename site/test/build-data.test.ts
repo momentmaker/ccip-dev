@@ -27,6 +27,17 @@ describe('buildData', () => {
     await expect(buildData('status.json')).rejects.toThrow('status.json: HTTP 500');
   });
 
+  it('fails the build fast when the data host never answers', async () => {
+    vi.stubEnv('CCIP_DATA_TIMEOUT_MS', '20');
+    vi.stubGlobal(
+      'fetch',
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))),
+    );
+    const { buildData } = await import('../src/lib/build-data');
+    await expect(buildData('status.json')).rejects.toThrow('status.json: request failed');
+  });
+
   it('dates the build in UTC', async () => {
     const { BUILD_DATE } = await import('../src/lib/build-data');
     expect(BUILD_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);

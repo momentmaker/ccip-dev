@@ -28,13 +28,13 @@ class MemoryCache {
   }
 }
 
-function setup(overrides: Partial<OgDeps> = {}, broken: string[] = []) {
+function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Record<string, unknown> = DATA) {
   const dataUrls: string[] = [];
   const fetchFn = (async (url: string) => {
     dataUrls.push(url);
     const name = url.replace('https://data.ccip.dev/v1/', '');
     if (broken.includes(name)) return new Response('down', { status: 500 });
-    return name in DATA ? new Response(JSON.stringify(DATA[name])) : new Response('missing', { status: 404 });
+    return name in data ? new Response(JSON.stringify(data[name])) : new Response('missing', { status: 404 });
   }) as unknown as typeof fetch;
   const env: OgEnv = {
     ASSETS: {
@@ -74,6 +74,15 @@ describe('handleOg', () => {
     expect((await get('/og/top/chain/7d.png')).status).toBe(404);
     expect(dataUrls).toEqual([]);
     expect((await get('/og/day/2026-01-01.png')).status).toBe(404);
+    expect(renderPng).not.toHaveBeenCalled();
+  });
+
+  it('serves the one-minute fallback card for the daily card while the finalized day has no history row', async () => {
+    const { get, renderPng } = setup({}, [], { ...DATA, 'status.json': { ...status, last_finalize_day: '2026-01-01' } });
+    const res = await get('/og/daily.png');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('public, max-age=60');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(FALLBACK);
     expect(renderPng).not.toHaveBeenCalled();
   });
 

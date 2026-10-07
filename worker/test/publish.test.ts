@@ -308,3 +308,18 @@ describe('replay.json', () => {
     expect(object?.httpMetadata?.cacheControl).toBe('public, max-age=300');
   });
 });
+
+describe('replay.json failure', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+
+  it('still writes the top lists and raises one replay-publish alert', async () => {
+    vi.spyOn(store, 'laneHistory').mockRejectedValueOnce(new Error('D1 unavailable'));
+    const { c, alerts } = harness({ now: NOW });
+    await publishHistoryFiles(c);
+    for (const dim of ['lane', 'token', 'sender']) {
+      expect(await env.PUBLIC.get(`v1/top/${dim}.json`), dim).not.toBeNull();
+    }
+    expect(await env.PUBLIC.get('v1/replay.json')).toBeNull();
+    expect(alerts).toEqual([{ signature: 'replay-publish', text: 'replay.json was not published: D1 unavailable' }]);
+  });
+});

@@ -85,7 +85,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
     const cached = await deps.cache?.match(cacheKey);
     if (cached) return cached;
     const built = await build(route, deps);
-    if (!built) return new Response('Not found', { status: 404 });
+    if (!built) return route.kind === 'daily' ? fallback(env, url.origin) : new Response('Not found', { status: 404 });
     const spark = built.spec.spark ? sparkSvg(built.spec.spark, 560, 110) : null;
     const png = await deps.renderPng(
       cardTree(built.spec, {

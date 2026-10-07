@@ -242,13 +242,6 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
     TTL.history,
     now,
   );
-  await putJson(
-    c.env.PUBLIC,
-    'replay.json',
-    { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) },
-    TTL.replay,
-    now,
-  );
 
   const today = dayOf(now);
   const lastDay = addDays(today, -1);
@@ -279,5 +272,16 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
       TTL.top,
       now,
     );
+  }
+  try {
+    await putJson(
+      c.env.PUBLIC,
+      'replay.json',
+      { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) },
+      TTL.replay,
+      now,
+    );
+  } catch (err) {
+    await c.alert('replay-publish', `replay.json was not published: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
