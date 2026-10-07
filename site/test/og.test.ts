@@ -28,7 +28,7 @@ class MemoryCache {
   }
 }
 
-function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Record<string, unknown> = DATA) {
+function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Record<string, unknown> = DATA, assets: Record<string, string> = {}) {
   const dataUrls: string[] = [];
   const fetchFn = (async (url: string) => {
     dataUrls.push(url);
@@ -42,6 +42,7 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Rec
         const path = new URL(typeof req === 'string' ? req : req.url).pathname;
         if (path === '/card-sky.svg') return new Response('<svg xmlns="http://www.w3.org/2000/svg"/>');
         if (path === '/og-default.png') return new Response(FALLBACK);
+        if (path in assets) return new Response(assets[path]);
         return new Response('missing', { status: 404 });
       },
     },
@@ -58,7 +59,35 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Rec
   return { get, renderPng, dataUrls };
 }
 
+function imgSrcs(node: unknown): string[] {
+  if (typeof node !== 'object' || node === null) return [];
+  const { type, props } = node as { type?: string; props?: { src?: string; children?: unknown } };
+  const own = type === 'img' && typeof props?.src === 'string' ? [props.src] : [];
+  const kids = props?.children;
+  return [...own, ...(Array.isArray(kids) ? kids.flatMap(imgSrcs) : imgSrcs(kids))];
+}
+
 describe('handleOg', () => {
+  it('places the coins from /card-coins.json on the card', async () => {
+    const coins = { coins: [{ x: 100, y: 80, d: 32, src: 'data:image/svg+xml;base64,AAAA' }] };
+    const { get, renderPng } = setup({}, [], DATA, { '/card-coins.json': JSON.stringify(coins) });
+    expect((await get('/og/home.png')).status).toBe(200);
+    expect(imgSrcs(renderPng.mock.calls[0]![0])).toContain('data:image/svg+xml;base64,AAAA');
+  });
+
+  it('renders without coins when /card-coins.json is missing, invalid or unsafe', async () => {
+    const unusable: Record<string, string>[] = [
+      {},
+      { '/card-coins.json': '{not json' },
+      { '/card-coins.json': JSON.stringify({ coins: [{ x: 1, y: 1, d: 10, src: 'https://evil.example/x.svg' }, { x: 'a', y: 1, d: 10, src: 'data:image/svg+xml;base64,AA' }] }) },
+    ];
+    for (const assets of unusable) {
+      const { get, renderPng } = setup({}, [], DATA, assets);
+      expect((await get('/og/home.png')).status).toBe(200);
+      expect(imgSrcs(renderPng.mock.calls[0]![0]).filter((s) => !s.startsWith('data:image/svg+xml;base64,PHN2Zy'))).toEqual([]);
+    }
+  });
+
   it('renders a known card as a cacheable PNG', async () => {
     const { get, renderPng } = setup();
     const res = await get('/og/home.png?v=2026-10-07');

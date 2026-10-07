@@ -1,8 +1,10 @@
 import { h, type VNode } from '../h';
+import type { CardCoin } from '../../src/sky/card-coins';
 import type { CardSpec } from './content';
 
 export const CARD_W = 1200;
 export const CARD_H = 630;
+const SKY_W = 640;
 
 export function bigFontSize(text: string): number {
   if (text.length <= 7) return 120;
@@ -22,7 +24,7 @@ export function sparkSvg(values: readonly number[], width: number, height: numbe
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><path d="${d}" fill="none" stroke="#4a7ff0" stroke-width="4" stroke-linejoin="round"/></svg>`;
 }
 
-export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; sparkDataUri: string | null; sponsorLine: string | null }): VNode {
+export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; coins: readonly CardCoin[]; sparkDataUri: string | null; sponsorLine: string | null }): VNode {
   return h(
     'div',
     {
@@ -37,7 +39,15 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; spar
         color: '#e8eaed',
       },
     },
-    opts.skyDataUri ? h('img', { src: opts.skyDataUri, width: 640, height: 630, style: { position: 'absolute', right: 0, top: 0, opacity: 0.6 } }) : null,
+    opts.skyDataUri ? h('img', { src: opts.skyDataUri, width: SKY_W, height: 630, style: { position: 'absolute', right: 0, top: 0, opacity: 0.6 } }) : null,
+    ...opts.coins.map((c) =>
+      h('img', {
+        src: c.src,
+        width: c.d,
+        height: c.d,
+        style: { position: 'absolute', left: CARD_W - SKY_W + c.x - c.d / 2, top: c.y - c.d / 2, width: c.d, height: c.d, borderRadius: c.d / 2, boxShadow: '0 0 0 1px rgba(255,255,255,0.18)' },
+      }),
+    ),
     h(
       'div',
       { style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '64px 72px', width: '100%', height: '100%' } },

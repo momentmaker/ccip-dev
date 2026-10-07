@@ -4,6 +4,7 @@ import { parseCardPath, type CardRoute } from '../src/lib/card-paths';
 import { fetchPublic } from '../src/lib/data';
 import { chainNameMap } from '../src/lib/names';
 import { sponsorView } from '../src/lib/sponsor';
+import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
 import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, reserveCard, topCard, type CardSpec } from './cards/content';
 import { cardTree, sparkSvg } from './cards/frame';
@@ -32,6 +33,25 @@ const toDataUri = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
 async function skyDataUri(env: OgEnv, origin: string): Promise<string | null> {
   const res = await env.ASSETS.fetch(new Request(`${origin}/card-sky.svg`));
   return res.ok ? toDataUri(await res.text()) : null;
+}
+
+function isCardCoin(value: unknown): value is CardCoin {
+  if (typeof value !== 'object' || value === null) return false;
+  const c = value as Record<string, unknown>;
+  const finite = (k: string) => typeof c[k] === 'number' && Number.isFinite(c[k]);
+  return finite('x') && finite('y') && finite('d') && typeof c.src === 'string' && c.src.startsWith('data:image/');
+}
+
+async function coinLayer(env: OgEnv, origin: string): Promise<CardCoin[]> {
+  const res = await env.ASSETS.fetch(new Request(`${origin}/card-coins.json`));
+  if (!res.ok) return [];
+  try {
+    const body = (await res.json()) as { coins?: unknown };
+    return Array.isArray(body.coins) ? body.coins.filter(isCardCoin) : [];
+  } catch (err) {
+    console.warn(`card-coins.json is unreadable: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
 }
 
 async function build(route: CardRoute, deps: OgDeps): Promise<Built | null> {
@@ -87,9 +107,11 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
     const built = await build(route, deps);
     if (!built) return route.kind === 'daily' ? fallback(env, url.origin) : new Response('Not found', { status: 404 });
     const spark = built.spec.spark ? sparkSvg(built.spec.spark, 560, 110) : null;
+    const [sky, coins] = await Promise.all([skyDataUri(env, url.origin), coinLayer(env, url.origin)]);
     const png = await deps.renderPng(
       cardTree(built.spec, {
-        skyDataUri: await skyDataUri(env, url.origin),
+        skyDataUri: sky,
+        coins,
         sparkDataUri: spark ? toDataUri(spark) : null,
         sponsorLine: sponsorView(sponsor).cardLine,
       }),
