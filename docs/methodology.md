@@ -116,7 +116,7 @@ figures, so it is compared by month in a separate table.
 
 | Day (UTC) | ccip.dev messages | ccip.dev USD | CCIPMetrics messages | CCIPMetrics USD | Gap and reason |
 |---|---|---|---|---|---|
-| 2026-10-05 | 2,487 | 22,082,420 | 2,488 | 22,921,006.7 | Messages −1: the API lists exactly 2,487 mainnet messages for the day, matching our ids one for one. USD −3.66%: the first live day; 101 messages were valued before the pricing fallbacks were deployed, against 6 on 2026-10-04. They are valued again by the next finalize. Fees: ours $1,217.30, CCIPMetrics $1,252.4 (−2.80%). |
+| 2026-10-05 | 2,487 | 22,954,922 | 2,488 | 22,921,006.7 | Messages −1: the API lists exactly 2,487 mainnet messages for the day, matching our ids one for one. USD +0.15% after the 2026-10-07 finalize re-valued the 101 messages first valued before the pricing fallbacks were deployed (24 remain unpriced). Fees: ours $1,245.29, CCIPMetrics $1,252.4 (−0.57%). |
 | 2026-10-04 | 1,121 | 17,405,830 | 1,121 | 17,335,113.8 | +0.41% |
 | 2026-10-03 | 1,178 | 50,942,816 | 1,178 | 51,231,459.2 | −0.56% |
 | 2026-10-02 | 1,977 | 74,446,837 | 1,977 | 74,349,254.0 | +0.13% |

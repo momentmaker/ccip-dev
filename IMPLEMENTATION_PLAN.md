@@ -20,13 +20,13 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Worker deployed with all five cron jobs publishing to data.ccip.dev, plus the external watchdog (Tasks 9–16).
 **Success Criteria**: Spec §2 criteria 2, 4 and 6 hold in production.
 **Tests**: store, alerts, publish, ingest, details, prices job (including the status.json refresh), hourly, finalize, index.
-**Status**: In Progress
+**Status**: Complete (2026-10-07 00:12Z finalize republished top/* since 2023-07-06 with 7d/30d/all windows)
 
 ## Stage 4: Backfill load and verification
 **Goal**: Top up the crawl, rebuild, and load history before live_start_day into D1 and R2; cross-check recorded; 10–20 hand-written labels (Task 18).
 **Success Criteria**: Spec §2 criteria 1, 3 and 5 hold; after the upload, `lag_seconds` is under 120 and `last_finalize_day` is current.
 **Tests**: upload (resume and rebuild re-apply).
-**Status**: In Progress
+**Status**: Complete (2026-10-05 re-valued: +0.15% vs CCIPMetrics; cross-check in docs/methodology.md)
 
 ## Stage 5: Label candidates
 **Goal**: Weekly label-candidate PR (Task 19), built only after Stages 1–4 pass.
