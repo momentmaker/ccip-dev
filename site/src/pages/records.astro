@@ -1,0 +1,41 @@
+---
+import ShareButton from '../components/ShareButton';
+import Base from '../layouts/Base.astro';
+import { buildData } from '../lib/build-data';
+import { formatUtcDay } from '../lib/format';
+import { computeMilestones, computeRecords } from '../lib/records';
+
+const [history, replay] = await Promise.all([buildData('history.json'), buildData('replay.json')]);
+const records = computeRecords(history.days);
+const milestones = computeMilestones(history.days, replay.chains).filter((m) => m.kind !== 'join').reverse();
+---
+<Base title="Records" description="CCIP's all-time records and milestones since 2023-07-06." cardPath="records">
+  <div class="page-head">
+    <div>
+      <p class="label">Since {history.since}</p>
+      <h1>Records</h1>
+    </div>
+    <ShareButton client:load view="records" headline="CCIP all-time records" url="https://ccip.dev/records/" cardUrl="/og/records.png" />
+  </div>
+  <section class="tiles stagger">
+    {records.map((r, i) => (
+      <a class="tile lift" style={`--i:${i}`} href={`/day/${r.day}/`}>
+        <span class="label">{r.title}</span>
+        <p class="value">{r.display}</p>
+        <span class="sub">{formatUtcDay(r.day)}{r.note ? ` · ${r.note}` : ''}</span>
+      </a>
+    ))}
+  </section>
+  <h2>Milestones</h2>
+  <ol class="timeline">
+    {milestones.map((m) => (
+      <li><span class="mono muted">{m.day}</span> <a href={`/day/${m.day}/`}>{m.label}</a></li>
+    ))}
+  </ol>
+</Base>
+
+<style>
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--border); display: grid; gap: 10px; }
+  .timeline li { position: relative; }
+  .timeline li::before { content: ''; position: absolute; left: -22px; top: 8px; width: 10px; height: 10px; background: var(--blue-2); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+</style>
