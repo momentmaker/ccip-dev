@@ -159,4 +159,20 @@ describe('handleOg', () => {
     const bare = setup();
     expect((await bare.get('/og/replay/base.png')).headers.get('cache-control')).toBe('public, max-age=60');
   });
+
+  it('404s prototype-named slugs and entries with invalid or remote data', async () => {
+    const good = { name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: null };
+    const cards = {
+      base: good,
+      evil: { ...good, coin: 'https://evil.example/x.png' },
+      neg: { ...good, usd: -1 },
+      nodate: { ...good, since: 'soon' },
+      noname: { ...good, name: '' },
+    };
+    const { get } = setup({}, [], DATA, { '/replay-cards.json': JSON.stringify(cards) });
+    for (const slug of ['constructor', 'evil', 'neg', 'nodate', 'noname']) {
+      expect((await get(`/og/replay/${slug}.png`)).status).toBe(404);
+    }
+    expect((await get('/og/replay/base.png')).status).toBe(200);
+  });
 });

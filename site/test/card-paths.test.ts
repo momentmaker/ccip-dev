@@ -37,4 +37,12 @@ describe('card paths', () => {
     expect(parseCardPath('replay/../x')).toBeNull();
     expect(isOgImageUrl('https://ccip.dev/og/replay/base.png?v=2026-10-06')).toBe(true);
   });
+
+  it.each(['replay/', 'replay/a/b', 'replay/-x', 'replay/x-'])('rejects %j', (path) => {
+    expect(parseCardPath(path)).toBeNull();
+  });
+
+  it('still parses the plain replay card', () => {
+    expect(parseCardPath('replay')).toEqual({ kind: 'replay' });
+  });
 });

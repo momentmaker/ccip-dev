@@ -2,7 +2,7 @@ import type { HistoryFile, ReserveFile, TodayFile, TopFile } from '@ccip-dev/cor
 import { describe, expect, it } from 'vitest';
 import { cardMaxAge } from '../worker/cache';
 import { cardText, dayCard, flowCard, historyCard, homeCard, recordsCard, replayChainCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
-import { bigFontSize, sparkSvg } from '../worker/cards/frame';
+import { bigFontSize, cardTree, coinsClearOfBadge, sparkSvg } from '../worker/cards/frame';
 import { chainNameMap } from '../src/lib/names';
 
 const envelope = { schema_version: 1 as const, updated_at: '2026-10-07T00:00:00.000Z', attribution: 'Data: Chainlink CCIP API, DefiLlama' };
@@ -84,6 +84,22 @@ describe('card content', () => {
       spark: null,
       badge: 'data:image/svg+xml;base64,AA',
     });
+  });
+
+  it('drops sky coins the badge covers and keeps touching and clear ones', () => {
+    const at = (x: number, y: number) => ({ x, y, d: 20, src: 'data:image/svg+xml;base64,AA' });
+    const inside = at(330, 315);
+    const touching = at(320 + 76, 315);
+    const clear = at(320 + 200, 315);
+    expect(coinsClearOfBadge([inside, touching, clear], 320, 315, 66)).toEqual([touching, clear]);
+  });
+
+  it('caps the eyebrow and label lines short of the badge', () => {
+    const render = (coin: string | null) =>
+      JSON.stringify(cardTree(replayChainCard({ name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin }, 'base'), { skyDataUri: null, coins: [], sparkDataUri: null, sponsorLine: null }));
+    const capped = '"maxWidth":718,"whiteSpace":"nowrap","overflow":"hidden","textOverflow":"ellipsis"';
+    expect(render('data:image/svg+xml;base64,AA').split(capped)).toHaveLength(3);
+    expect(render(null).split(capped)).toHaveLength(1);
   });
 });
 

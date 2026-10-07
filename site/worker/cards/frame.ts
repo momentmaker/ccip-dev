@@ -5,6 +5,16 @@ import type { CardSpec } from './content';
 export const CARD_W = 1200;
 export const CARD_H = 630;
 const SKY_W = 640;
+const PAD_X = 72;
+const BADGE_R = 66;
+const BADGE_CX = 320;
+const BADGE_GAP = 24;
+const TEXT_MAX_W = CARD_W - SKY_W + BADGE_CX - BADGE_R - BADGE_GAP - PAD_X;
+const CAPPED_LINE = { maxWidth: TEXT_MAX_W, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;
+
+export function coinsClearOfBadge(coins: readonly CardCoin[], cx: number, cy: number, r: number): CardCoin[] {
+  return coins.filter((c) => Math.hypot(c.x - cx, c.y - cy) >= r + c.d / 2);
+}
 
 export function bigFontSize(text: string): number {
   if (text.length <= 7) return 120;
@@ -25,6 +35,7 @@ export function sparkSvg(values: readonly number[], width: number, height: numbe
 }
 
 export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; coins: readonly CardCoin[]; sparkDataUri: string | null; sponsorLine: string | null }): VNode {
+  const capped = spec.badge ? CAPPED_LINE : {};
   return h(
     'div',
     {
@@ -40,7 +51,7 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; coin
       },
     },
     opts.skyDataUri ? h('img', { src: opts.skyDataUri, width: SKY_W, height: 630, style: { position: 'absolute', right: 0, top: 0, opacity: 0.6 } }) : null,
-    ...opts.coins.map((c) =>
+    ...(spec.badge ? coinsClearOfBadge(opts.coins, BADGE_CX, CARD_H / 2, BADGE_R) : opts.coins).map((c) =>
       h('img', {
         src: c.src,
         width: c.d,
@@ -53,18 +64,18 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; coin
           src: spec.badge,
           width: 132,
           height: 132,
-          style: { position: 'absolute', left: CARD_W - SKY_W + 320 - 66, top: CARD_H / 2 - 66, width: 132, height: 132, borderRadius: 66, boxShadow: '0 0 0 2px rgba(255,255,255,0.25), 0 0 40px rgba(74,127,240,0.6)' },
+          style: { position: 'absolute', left: CARD_W - SKY_W + BADGE_CX - BADGE_R, top: CARD_H / 2 - BADGE_R, width: 132, height: 132, borderRadius: BADGE_R, boxShadow: '0 0 0 2px rgba(255,255,255,0.25), 0 0 40px rgba(74,127,240,0.6)' },
         })
       : null,
     h(
       'div',
-      { style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '64px 72px', width: '100%', height: '100%' } },
+      { style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: `64px ${PAD_X}px`, width: '100%', height: '100%' } },
       h(
         'div',
         { style: { display: 'flex', flexDirection: 'column' } },
-        h('div', { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4, color: '#8892a0' } }, spec.eyebrow),
+        h('div', { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4, color: '#8892a0', ...capped } }, spec.eyebrow),
         h('div', { style: { fontSize: bigFontSize(spec.big), fontWeight: 700, lineHeight: 1.05, marginTop: 18, maxWidth: 860 } }, spec.big),
-        h('div', { style: { fontSize: 34, marginTop: 14 } }, spec.label),
+        h('div', { style: { fontSize: 34, marginTop: 14, ...capped } }, spec.label),
         spec.date ? h('div', { style: { fontSize: 26, marginTop: 10, color: '#8892a0' } }, spec.date) : null,
         ...spec.extra.map((line) => h('div', { style: { fontSize: 26, marginTop: 10, color: '#8892a0' } }, line)),
         opts.sparkDataUri ? h('img', { src: opts.sparkDataUri, width: 560, height: 110, style: { marginTop: 24 } }) : null,

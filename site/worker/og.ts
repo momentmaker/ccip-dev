@@ -54,6 +54,24 @@ async function coinLayer(env: OgEnv, origin: string): Promise<CardCoin[]> {
   }
 }
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isReplayCardEntry(value: unknown): value is ReplayCardEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const e = value as Record<string, unknown>;
+  const count = (k: string) => typeof e[k] === 'number' && Number.isFinite(e[k]) && (e[k] as number) >= 0;
+  return (
+    typeof e.name === 'string' &&
+    e.name.length > 0 &&
+    typeof e.since === 'string' &&
+    DAY_RE.test(e.since) &&
+    count('usd') &&
+    count('messages') &&
+    count('partners') &&
+    (e.coin === null || (typeof e.coin === 'string' && e.coin.startsWith('data:image/')))
+  );
+}
+
 async function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, ReplayCardEntry>> {
   const res = await env.ASSETS.fetch(new Request(`${origin}/replay-cards.json`));
   if (!res.ok) throw new Error(`replay-cards.json: HTTP ${res.status}`);
@@ -87,8 +105,9 @@ async function build(route: CardRoute, deps: OgDeps, env: OgEnv, origin: string)
     case 'replay':
       return { spec: replayCard(await load('history.json')), maxAge: cardMaxAge(route, null) };
     case 'replay-chain': {
-      const entry = (await replayCardEntries(env, origin))[route.slug];
-      return entry ? { spec: replayChainCard(entry, route.slug), maxAge: cardMaxAge(route, null) } : null;
+      const entries = await replayCardEntries(env, origin);
+      const entry = Object.hasOwn(entries, route.slug) ? entries[route.slug] : undefined;
+      return isReplayCardEntry(entry) ? { spec: replayChainCard(entry, route.slug), maxAge: cardMaxAge(route, null) } : null;
     }
     case 'records':
       return { spec: recordsCard(await load('history.json')), maxAge: cardMaxAge(route, null) };
