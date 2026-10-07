@@ -1,6 +1,7 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { SLAM_S } from '../src/replay/director/beats';
+import { REPLAY_COMET_S } from '../src/replay/timeline';
 import { Show, yearsLabel } from '../src/replay/director/show';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
@@ -226,5 +227,21 @@ describe('Show', () => {
       }
     }
     expect(checked).toBeGreaterThan(0);
+  });
+
+  it('thins arrivals in a focus cut by the same spawn hash as comets', () => {
+    const focus = '5009297550715157269';
+    const s = show(focus, 30);
+    const focusStar = s.frameAt(0).focusStar;
+    let seen = 0;
+    for (let t = 3; t < 26; t += 0.05) {
+      for (const a of s.frameAt(t).base.arrivals) {
+        seen++;
+        const touches = a.from === focusStar || a.to === focusStar;
+        const spawn = Math.round((s.frameAt(t).base.t - a.age - REPLAY_COMET_S) * 30);
+        expect(touches || (a.from * 31 + a.to * 17 + spawn) % 4 === 0).toBe(true);
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 });

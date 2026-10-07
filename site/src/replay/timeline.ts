@@ -2,7 +2,7 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { linearWarp, type Warp } from './director/warp';
 import { daysBetween } from '../lib/days';
 import type { Milestone } from '../lib/records';
-import type { FrameComet, SkyFrame } from '../sky/frame';
+import type { CometKind, FrameComet, SkyFrame } from '../sky/frame';
 import type { StarPoint } from '../sky/layout';
 import { coinSelectors } from '../sky/coins';
 import { cometKind, cometSize } from '../sky/scene';
@@ -15,6 +15,8 @@ export const REPLAY_COMET_S = 0.8;
 export const CAPTION_S = 2;
 export const IGNITE_S = 1;
 export const MAX_REPLAY_COMETS = 250;
+export const ARRIVAL_S = 0.4;
+export const MAX_ARRIVALS = 120;
 export const REPLAY_COINS = 12;
 export const COIN_FADE_S = 0.5;
 const STAR_WINDOW_DAYS = 30;
@@ -76,6 +78,14 @@ export interface CoinOptions {
   eligible: (selector: string) => boolean;
 }
 
+export interface FrameArrival {
+  from: number;
+  to: number;
+  age: number;
+  size: number;
+  kind: CometKind;
+}
+
 export interface ReplayFrameState {
   t: number;
   dayIndex: number;
@@ -87,6 +97,7 @@ export interface ReplayFrameState {
   captions: string[];
   extent: number;
   coins: FrameCoin[];
+  arrivals: FrameArrival[];
   sky: SkyFrame;
 }
 
@@ -201,7 +212,7 @@ export class ReplayModel {
     const time = Math.max(this.warp.start, t);
     const empty: SkyFrame = { stars: [], lanes: [], comets: [], rings: [] };
     if (this.days.length === 0) {
-      return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], extent: 1, coins: [], sky: empty };
+      return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], extent: 1, coins: [], arrivals: [], sky: empty };
     }
     const dayIndex = Math.min(this.warp.dayAt(Math.min(time, this.warp.end - 1e-9)).index, this.days.length - 1);
     const day = this.days[dayIndex]!;
@@ -237,18 +248,22 @@ export class ReplayModel {
     });
 
     const comets: FrameComet[] = [];
-    const firstSpawnDay = this.warp.dayAt(Math.max(this.warp.start, time - REPLAY_COMET_S)).index;
+    const arrivals: FrameArrival[] = [];
+    const firstSpawnDay = this.warp.dayAt(Math.max(this.warp.start, time - REPLAY_COMET_S - ARRIVAL_S)).index;
     for (let d = firstSpawnDay; d <= dayIndex; d++) {
       const dayLanes = this.lanesByDay.get(this.days[d]!);
       if (!dayLanes) continue;
       for (const spawn of this.spawns(d, dayLanes)) {
         const progress = (time - (this.dayStart(d) + spawn.offset * this.warp.dayLength(d))) / REPLAY_COMET_S;
-        if (progress < 0 || progress >= 1) continue;
+        if (progress < 0) continue;
         const ends = this.replay.lanes[spawn.lane];
         const from = ends ? this.starOfChain[ends[0]] ?? -1 : -1;
         const to = ends ? this.starOfChain[ends[1]] ?? -1 : -1;
         if (from < 0 || to < 0) continue;
-        comets.push({ from, to, progress, size: cometSize(spawn.usd), kind: cometKind(spawn.usd, spawn.usd > 0 ? 'token' : null) });
+        const kind = cometKind(spawn.usd, spawn.usd > 0 ? 'token' : null);
+        const size = cometSize(spawn.usd);
+        if (progress < 1) comets.push({ from, to, progress, size, kind });
+        else if ((progress - 1) * REPLAY_COMET_S < ARRIVAL_S) arrivals.push({ from, to, age: (progress - 1) * REPLAY_COMET_S, size, kind });
       }
     }
 
@@ -268,6 +283,7 @@ export class ReplayModel {
       captions,
       extent,
       coins: this.coinsAt(time),
+      arrivals: arrivals.slice(-MAX_ARRIVALS),
       sky: { stars, lanes, comets: comets.slice(-MAX_REPLAY_COMETS), rings },
     };
   }

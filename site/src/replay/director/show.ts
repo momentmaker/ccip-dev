@@ -147,6 +147,7 @@ export class Show {
     const modelT = Math.min(Math.max(time, this.warp.start), this.warp.end - 1e-6);
     const raw = this.model.frameAt(modelT);
     const sky = { ...raw.sky, comets: [...raw.sky.comets], lanes: [...raw.sky.lanes], stars: [...raw.sky.stars] };
+    let arrivals = raw.arrivals;
     if (this.focusStar >= 0) {
       const touches = (a: number, b: number) => a === this.focusStar || b === this.focusStar;
       sky.lanes = sky.lanes.map((l) => (touches(l.from, l.to) ? l : { ...l, opacity: l.opacity * 0.25 }));
@@ -154,12 +155,16 @@ export class Show {
         const spawn = Math.round((modelT - c.progress * REPLAY_COMET_S) * 30);
         return touches(c.from, c.to) || (c.from * 31 + c.to * 17 + spawn) % 4 === 0;
       });
+      arrivals = raw.arrivals.filter((a) => {
+        const spawn = Math.round((modelT - a.age - REPLAY_COMET_S) * 30);
+        return touches(a.from, a.to) || (a.from * 31 + a.to * 17 + spawn) % 4 === 0;
+      });
       sky.stars = sky.stars.map((s, i) => (i === this.focusStar ? s : { ...s, brightness: s.brightness * 0.6 }));
     }
     if (phase === 'hook' && this.hookLane) {
       sky.comets.push({ ...this.hookLane, progress: clamp01(time / this.timing.hook), size: 0.4, kind: 'data' });
     }
-    const base: ReplayFrameState = { ...raw, sky };
+    const base: ReplayFrameState = { ...raw, sky, arrivals };
     const slamHit = this.slams.find((s) => time >= s.start && time < s.start + SLAM_S);
     const cardHit = this.cards.find((c) => time >= c.start && time < c.end);
     const finaleStart = this.length - this.timing.finale;

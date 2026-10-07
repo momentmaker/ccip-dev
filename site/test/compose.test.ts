@@ -19,6 +19,7 @@ const state = (endCard: boolean): ReplayFrameState => ({
   captions: ['Base joins'],
   extent: 1,
   coins: [],
+  arrivals: [],
   sky: { stars: [], lanes: [], comets: [], rings: [] },
 });
 

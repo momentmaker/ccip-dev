@@ -256,3 +256,26 @@ describe('ReplayModel with a warp', () => {
     expect(warped().warp).toBe(warp);
   });
 });
+
+describe('arrivals', () => {
+  it('reports comets that finished within the last 0.4 s, with their age', () => {
+    const m = model();
+    let found = false;
+    for (let t = 15; t < 30 && !found; t += 0.05) {
+      const f = m.frameAt(t);
+      if (f.arrivals.length > 0) {
+        found = true;
+        for (const a of f.arrivals) {
+          expect(a.age).toBeGreaterThanOrEqual(0);
+          expect(a.age).toBeLessThan(0.4);
+        }
+        expect(m.frameAt(t)).toEqual(f);
+      }
+    }
+    expect(found).toBe(true);
+  });
+
+  it('has no arrivals before any comet flies', () => {
+    expect(model().frameAt(0).arrivals).toEqual([]);
+  });
+});
