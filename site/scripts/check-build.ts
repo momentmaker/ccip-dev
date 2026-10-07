@@ -1,7 +1,9 @@
+import { existsSync, readdirSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isOgImageUrl } from '../src/lib/card-paths';
+import { iconFiles } from '../src/lib/chain-icons';
 import { METRIC_ANCHORS } from '../src/lib/metric-anchors';
 
 export interface PageFacts {
@@ -46,6 +48,10 @@ export function checkPages(pages: PageFacts[], methodologyIds: Set<string>, anch
   return problems;
 }
 
+export function checkIconFiles(files: readonly string[], present: ReadonlySet<string>): string[] {
+  return files.filter((f) => !present.has(f)).map((f) => `/chains/${f}: icon listed in the manifest is missing from the build`);
+}
+
 async function main(): Promise<void> {
   const dist = join(import.meta.dirname, '..', 'dist');
   const entries = await readdir(dist, { withFileTypes: true, recursive: true });
@@ -60,7 +66,9 @@ async function main(): Promise<void> {
     if (path === '/methodology/') methodologyIds = htmlIds(html);
     pages.push(pageFacts(path, html));
   }
-  const problems = checkPages(pages, methodologyIds, Object.values(METRIC_ANCHORS));
+  const chainsDir = join(dist, 'chains');
+  const iconsPresent = new Set(existsSync(chainsDir) ? readdirSync(chainsDir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name) : []);
+  const problems = [...checkPages(pages, methodologyIds, Object.values(METRIC_ANCHORS)), ...checkIconFiles(iconFiles(), iconsPresent)];
   if (problems.length > 0) {
     console.error(problems.join('\n'));
     process.exit(1);

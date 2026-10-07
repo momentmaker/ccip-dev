@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { checkPages, htmlIds, isRedirectPage, pageFacts } from '../scripts/check-build';
+import { checkIconFiles, checkPages, htmlIds, isRedirectPage, pageFacts } from '../scripts/check-build';
 
 const page = (title: string, og: string, canonical: string) =>
   `<html><head><title>${title}</title><meta property="og:image" content="${og}"><link rel="canonical" href="${canonical}"></head><body><h2 id="coverage">C</h2></body></html>`;
 const OG = 'https://ccip.dev/og/home.png?v=2026-10-07';
 
 describe('check-build', () => {
+  it('reports manifest icons missing from dist/chains', () => {
+    expect(checkIconFiles(['a.svg', 'b.svg'], new Set(['a.svg']))).toEqual(['/chains/b.svg: icon listed in the manifest is missing from the build']);
+    expect(checkIconFiles(['a.svg'], new Set(['a.svg']))).toEqual([]);
+  });
+
   it('reads the title, og:image and canonical URL of a page', () => {
     expect(pageFacts('/', page('ccip.dev', OG, 'https://ccip.dev/'))).toEqual({ path: '/', title: 'ccip.dev', ogImage: OG, canonical: 'https://ccip.dev/' });
   });
