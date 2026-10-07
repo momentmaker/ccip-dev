@@ -6,7 +6,7 @@ import { pruneStale, type Planned } from '../../lib/live-scheduler';
 import { chainName, type ChainNames } from '../../lib/names';
 import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
-import { skyOverlay, type OverlayCoin, type OverlayPoint } from '../../sky/overlay';
+import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint } from '../../sky/overlay';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
 import { LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
@@ -39,6 +39,7 @@ export default function SkyCanvas(props: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const pointsRef = useRef<OverlayPoint[]>([]);
   const widthRef = useRef(0);
+  const heightRef = useRef(0);
   const brokenRef = useRef(new Set<string>());
   sceneRef.current ??= new LiveScene(props.stars, new Map(props.chainValues), props.lanes);
 
@@ -75,10 +76,12 @@ export default function SkyCanvas(props: Props) {
       const overlay = skyOverlay(scene.starPoints, new Map(latest.current.chainValues), wrap.clientWidth, wrap.clientHeight, {
         coins: coinCount(wrap.clientWidth),
         labels: wrap.clientWidth < 640 ? 6 : 12,
+        bottomReserve: 72,
         hasIcon: (s) => hasIcon(s) && !brokenRef.current.has(s),
       });
       pointsRef.current = overlay.points;
       widthRef.current = wrap.clientWidth;
+      heightRef.current = wrap.clientHeight;
       setCoins(overlay.coins);
       setLabels(overlay.labels.map((l) => ({ ...l, text: chainName(latest.current.names, l.selector) })));
     };
@@ -226,8 +229,10 @@ export default function SkyCanvas(props: Props) {
         ))}
       </div>
       {hovered && (
-        <div className={`sky-card card${hovered.x > widthRef.current - 300 ? ' flip' : ''}`} aria-hidden="true" style={{ left: hovered.x, top: hovered.y }}>
-          {hasIcon(hovered.selector) && <img src={iconHref(hovered.selector)!} alt="" width={40} height={40} />}
+        <div className="sky-card card" aria-hidden="true" style={{ ...cardPosition(hovered, { width: widthRef.current, height: heightRef.current }, cardSize(widthRef.current)), width: cardSize(widthRef.current).width }}>
+          {hasIcon(hovered.selector) && !brokenRef.current.has(hovered.selector) && (
+            <img src={iconHref(hovered.selector)!} alt="" width={40} height={40} onError={() => dropCoin(hovered.selector)} />
+          )}
           <div>
             <strong>{chainName(props.names, hovered.selector)}</strong>
             <span className="muted">
