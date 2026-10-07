@@ -155,13 +155,15 @@ The camera is a pure function of `t`.
 | Beat | Source | Visual | Card | Sound |
 |---|---|---|---|---|
 | Join | the chain's `first_day` | supernova at the star; the coin pops in | "[logo] Base joins" | chime |
-| Milestone | `computeMilestones`: messages, value, chain count | shockwave plus camera punch-in; a large number slams in | none; the slam is the card | boom |
+| Milestone | `computeMilestones`, headline thresholds only: 1K, 10K, 100K and 1M messages; $1B and $10B; 25, 50 and 75 chains. A slam that would start more than 0.8 s late is dropped | shockwave plus camera punch-in; a large number slams in | none; the slam is the card | boom |
 | Record day | a new all-time daily-messages high, at most 3 per video, picking the largest relative jumps | the star flashes; a golden ripple | "Record day · 12,345 messages" | rising pluck run |
 | Lane opens (focus mode only) | the first day a lane between the focus chain and X has a row | a laser draws the lane | "[logo] Arbitrum ↔ Base" | chime |
 
 **Batching and pacing.**
 - Joins less than 1.0 s of video apart merge into one card: "+3 chains: Merlin · Core · Bitlayer", showing up to 3 logos.
-- Only one card shows at a time; it holds at least 1.2 s and at most 2.0 s, and cards queue.
+- Only one card shows at a time; it holds at least 1.0 s and at most 2.0 s.
+- Join and lane cards are scheduled first, and never start more than 1.0 s after their moment; batching absorbs bursts.
+- Record cards fill gaps within 1.0 s of their moment, or are dropped.
 - Milestone slams can overlap a card; the card dims to 40% while a slam is on.
 
 ### 7.5 Story values
