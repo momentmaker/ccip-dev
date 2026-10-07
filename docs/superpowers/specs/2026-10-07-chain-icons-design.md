@@ -133,13 +133,20 @@ The About page gains one line: "Chain icons: Chainlink documentation. Logos are 
 
 **Colors.** Logos are content, like the sponsor logo. The website spec's §11 color rules (gold only for $1M+ moments, one brand blue) keep governing interface accents, comets and rings.
 
-**Motion.** Coins do not animate on the home sky or static skies. On the replay they fade in (§7.2). Under reduced motion they appear without fading.
+**Motion.** Coins do not animate on the home sky or static skies. On the replay they fade in and out (§7.2). An opacity fade is not vestibular motion, so the fade also runs under reduced motion. Reduced-motion visitors start on the end card anyway.
 
 ## 7. Surfaces
 
 ### 7.1 Home live sky (`SkyCanvas.tsx`)
 
-**Coins.** A `.sky-coins` layer (`aria-hidden="true"`) sits next to `.sky-labels`. It holds `<img src={iconHref} alt="" width height decoding="async">` elements positioned at their stars with `border-radius: 50%`. They are recomputed on resize and when chain values change. Name labels keep their counts (12, or 6 under 640 px) and move outward by the coin's radius so they don't overlap it. Coin images load eagerly; they're about 12 small files.
+**Coins.** A `.sky-coins` layer (`aria-hidden="true"`) sits next to `.sky-labels`. It holds `<img src={iconHref} alt="" width height decoding="async">` elements positioned at their stars with `border-radius: 50%`. They are recomputed on resize and when chain values change. Name labels keep their counts (12, or 6 under 640 px) and move outward by the coin's radius so they don't overlap it.
+
+`SkyCanvas` measures the hero's UI boxes (the toolbar items and the headline card) and passes them to `skyOverlay` as rectangles to avoid:
+- A chain whose coin box hits one loses its coin to the next-ranked chain.
+- A label that would hit one moves to the star's left side, or is dropped if both sides are blocked.
+- Every star stays hoverable.
+
+The toolbar's own box has `pointer-events: none`, with only its children active, so it never blocks hover or tap on the sky behind it. Coin images load eagerly; they're about 12 small files.
 
 **Hover and tap card.**
 - **Opening:** `pointermove` with a mouse, or a tap with touch or pen, on the sky wrapper finds the nearest star within `max(12, coinDiameter/2 + 4)` CSS px of the pointer, using a pure `nearestStar(points, x, y, maxDist)`. A card then appears beside that star.
@@ -153,7 +160,7 @@ The About page gains one line: "Chain icons: Chainlink documentation. Logos are 
 
 **Drawing.** Coins are drawn in the compositor's 2D overlay pass, after the sky `drawImage` and before the text overlay. MP4 frames therefore contain them. Each coin is pre-rasterized once to an offscreen canvas at 2× its maximum pixel size, clipped to a circle, and then drawn with `drawImage`. This stays sharp at any device pixel ratio and at 1080p recording.
 
-**Images.** The player preloads all icons as soon as `replay.json` has loaded:
+**Images.** As soon as `replay.json` has loaded, the player preloads the icons of the chains that can ever wear a coin (`ReplayModel.coinSelectorsEver()`, about 45 of 92 today):
 - It fetches each SVG from the same origin and rewrites its root `width` and `height` to the raster size (128 px).
 - It loads that text through a Blob URL into an `Image` and awaits `decode()`.
 - It draws the result once into a circle-clipped canvas.
@@ -164,6 +171,7 @@ The player does not use `createImageBitmap`, because Chrome cannot decode SVG bl
 - Each day has a top-12 set by that day's star values: the replay's trailing 30-day USD, which also sizes the stars. Only chains with an icon and a value above 0 count.
 - At time `t`, a chain's coin alpha is `smoothstep(m)`, where `m` is the share of the replay-time window `[t − 0.5 s, t]` during which the chain was in its day's set. Time before day 0 counts as not in the set.
 - This fades a chain in over 0.5 s when it enters, and out over 0.5 s when it leaves. A chain that flickers in and out at 12th place shows partial alpha instead of strobing.
+- From the last day onward, time counts as inside the last day's set, so coins finish fading during the end card.
 - `frameAt` stays a pure function of `t`.
 - The star radius used for coin size is the frame's own star radius at `t`.
 
