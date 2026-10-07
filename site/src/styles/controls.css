@@ -3,7 +3,7 @@
 .btn:focus-visible, .share-btn:focus-visible, .sound-btn:focus-visible, .seg button:focus-visible, .chain-picker:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 2px; }
 .btn-primary { background: linear-gradient(180deg, #3b6ff0, #2f62df); border-color: transparent; box-shadow: 0 6px 20px rgba(47, 98, 223, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
 .btn-ghost { background: transparent; }
-.btn:disabled, .seg button:disabled, .chain-picker:disabled { opacity: 0.5; cursor: default; }
+.btn:disabled, .share-btn:disabled, .sound-btn:disabled, .seg button:disabled, .chain-picker:disabled { opacity: 0.5; cursor: default; }
 .sound-btn[aria-pressed='true'] { background: #13244d; border-color: var(--blue-2); }
 .icon-btn { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; background: rgba(22, 27, 35, 0.7); border: 1px solid var(--border); cursor: pointer; }
 .tri { width: 0; height: 0; border-left: 11px solid var(--fg); border-top: 7px solid transparent; border-bottom: 7px solid transparent; margin-left: 3px; }
@@ -31,7 +31,7 @@
 .player-time { font: 600 11px var(--font-mono); color: var(--muted); white-space: nowrap; }
 .scrubber { position: relative; flex: 1; height: 28px; }
 .scrubber input[type='range'] { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.scrubber input[type='range']:focus-visible + * , .scrubber:focus-within .scrub-rail { outline: 2px solid var(--blue-2); outline-offset: 4px; border-radius: 4px; }
+.scrubber:has(input:focus-visible) .scrub-rail { outline: 2px solid var(--blue-2); outline-offset: 4px; border-radius: 4px; }
 .scrub-rail { position: absolute; left: 0; right: 0; top: 9px; height: 4px; border-radius: 4px; background: rgba(232, 234, 237, 0.14); pointer-events: none; }
 .scrub-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: linear-gradient(90deg, #2f62df, #6c9bff); box-shadow: 0 0 10px rgba(74, 127, 240, 0.7); }
 .scrub-fill::after { content: ''; position: absolute; right: -7px; top: -5px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(74, 127, 240, 0.35), 0 0 12px rgba(74, 127, 240, 0.9); }

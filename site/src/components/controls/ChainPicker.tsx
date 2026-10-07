@@ -24,6 +24,10 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
     return () => document.removeEventListener('pointerdown', onDown);
   }, [open]);
 
+  useEffect(() => {
+    if (open) document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, open, listId]);
+
   const choose = (key: string) => {
     props.onChange(key === ALL ? null : key);
     setOpen(false);
@@ -39,13 +43,20 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
       const key = items[active];
       if (key) choose(key);
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setOpen(false);
       buttonRef.current?.focus();
     }
   };
 
   return (
-    <div className="chain-picker-wrap" ref={wrapRef}>
+    <div
+      className="chain-picker-wrap"
+      ref={wrapRef}
+      onBlur={(e) => {
+        if (open && !wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
+      }}
+    >
       <button
         ref={buttonRef}
         type="button"
@@ -55,7 +66,7 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
         disabled={props.disabled}
         onClick={() => {
           setOpen((o) => !o);
-          setActive(0);
+          setActive(Math.max(0, items.indexOf(props.value ?? ALL)));
         }}
       >
         {current?.icon ? <img src={current.icon} alt="" width={26} height={26} /> : <span className="all-coin" aria-hidden="true">✦</span>}
@@ -67,6 +78,7 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
           <input
             autoFocus
             role="combobox"
+            aria-autocomplete="list"
             aria-expanded="true"
             aria-controls={listId}
             aria-activedescendant={`${listId}-${active}`}

@@ -36,7 +36,7 @@ export default function Segmented<T extends string | number>(props: {
           type="button"
           role="radio"
           aria-checked={o.value === props.value}
-          tabIndex={o.value === props.value ? 0 : -1}
+          tabIndex={(index < 0 ? i === 0 : o.value === props.value) ? 0 : -1}
           title={o.title}
           disabled={props.disabled}
           onClick={() => props.onChange(o.value)}
