@@ -17,9 +17,9 @@ const project: Projector = (x, y) => [100 + x * 50, 100 + y * 50];
 const instance = (data: Float32Array, i: number) => [...data.subarray(i * FLOATS_PER_INSTANCE, (i + 1) * FLOATS_PER_INSTANCE)];
 
 describe('buildInstances', () => {
-  it('writes two instances per star, a head plus its trail per comet, and one per ring', () => {
-    expect(buildInstances(frame, project, 1)).toHaveLength((2 * 2 + 1 * 7 + 1) * FLOATS_PER_INSTANCE);
-    expect(buildInstances(frame, project, 1, { trail: 3 })).toHaveLength((2 * 2 + 1 * 4 + 1) * FLOATS_PER_INSTANCE);
+  it('writes two instances per star, a glowing head, a core and a trail per comet, and one per ring', () => {
+    expect(buildInstances(frame, project, 1)).toHaveLength((2 * 2 + 1 * 8 + 1) * FLOATS_PER_INSTANCE);
+    expect(buildInstances(frame, project, 1, { trail: 3 })).toHaveLength((2 * 2 + 1 * 5 + 1) * FLOATS_PER_INSTANCE);
   });
 
   it('draws a star as a blue halo and a bright core', () => {
@@ -33,13 +33,30 @@ describe('buildInstances', () => {
     const head = instance(buildInstances(frame, project, 1), 10);
     expect(head[0]).toBeCloseTo(100);
     expect(head[1]).toBeCloseTo(110);
-    expect(head[2]).toBeCloseTo(9);
+    expect(head[2]).toBeCloseTo(16);
     expect(head.slice(3, 6)).toEqual([...COLORS.gold].map((v) => expect.closeTo(v, 5)));
     expect(head[6]).toBe(1);
+    expect(head[7]).toBe(SHAPE.glow);
+  });
+
+  it('draws a bright core halfway between the comet color and the star color', () => {
+    const core = instance(buildInstances(frame, project, 1), 11);
+    expect(core[0]).toBeCloseTo(100);
+    expect(core[1]).toBeCloseTo(110);
+    expect(core[2]).toBeCloseTo(4);
+    expect(core.slice(3, 6)).toEqual([0, 1, 2].map((ch) => expect.closeTo((COLORS.gold[ch]! + COLORS.star[ch]!) / 2, 5)));
+    expect(core[6]).toBe(1);
+    expect(core[7]).toBe(SHAPE.disc);
+  });
+
+  it('fades the trail behind the head', () => {
+    const data = buildInstances(frame, project, 1);
+    expect(instance(data, 9)[6]).toBeCloseTo(0.55 * 0.72);
+    expect(instance(data, 9)[2]).toBeCloseTo(16 * 0.88);
   });
 
   it('grows and fades a ring', () => {
-    const ring = instance(buildInstances(frame, project, 1), 11);
+    const ring = instance(buildInstances(frame, project, 1), 12);
     expect(ring[0]).toBe(150);
     expect(ring[2]).toBeCloseTo(22.5);
     expect(ring[6]).toBeCloseTo(0.75);
@@ -58,6 +75,7 @@ describe('buildInstances', () => {
     const data = buildInstances(early, project, 1);
     expect(instance(data, 4)[6]).toBe(0);
     expect(instance(data, 10)[6]).toBe(1);
+    expect(instance(data, 11)[6]).toBe(1);
   });
 });
 

@@ -77,12 +77,12 @@ describe('Canvas2dRenderer.draw', () => {
   });
 
   it('draws every visible instance as one arc', () => {
-    expect(named(draw(frame), 'arc')).toHaveLength(2 * 2 + 4 + 1);
+    expect(named(draw(frame), 'arc')).toHaveLength(2 * 2 + 5 + 1);
   });
 
   it('skips zero-alpha trail points', () => {
     const early = { ...frame, comets: [{ ...frame.comets[0]!, progress: 0.01 }] };
-    expect(named(draw(early), 'arc')).toHaveLength(2 * 2 + 1 + 1);
+    expect(named(draw(early), 'arc')).toHaveLength(2 * 2 + 2 + 1);
   });
 
   it('restores source-over compositing when done', () => {

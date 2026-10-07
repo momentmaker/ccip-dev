@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LiveScheduler } from '../src/lib/live-scheduler';
+import { LiveScheduler, pruneStale } from '../src/lib/live-scheduler';
 
 const m = (id: string, ts: string) => ({ id, send_ts: `2026-10-07T00:${ts}.000Z` });
 const ats = (planned: { at: number }[]) => planned.map((p) => p.at);
@@ -49,5 +49,17 @@ describe('LiveScheduler', () => {
 
   it('returns nothing for an empty file', () => {
     expect(new LiveScheduler().ingest([], 0)).toEqual({ comets: [], feedOnly: [], catchUp: true });
+  });
+});
+
+describe('pruneStale', () => {
+  const planned = (at: number) => ({ at, message: at });
+
+  it('drops entries older than 2 s and keeps the order', () => {
+    expect(pruneStale([planned(1000), planned(7999), planned(8000), planned(9000)], 10_000).map((p) => p.at)).toEqual([8000, 9000]);
+  });
+
+  it('returns an empty queue unchanged', () => {
+    expect(pruneStale([], 10_000)).toEqual([]);
   });
 });

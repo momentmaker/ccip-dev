@@ -1,7 +1,7 @@
 import type { LiveMessage } from '@ccip-dev/core/public';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { formatUsd } from '../../lib/format';
-import type { Planned } from '../../lib/live-scheduler';
+import { pruneStale, type Planned } from '../../lib/live-scheduler';
 import { chainName, type ChainNames } from '../../lib/names';
 import { projector, type StarPoint } from '../../sky/layout';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
@@ -19,8 +19,6 @@ interface Props {
   onLaunch: (message: LiveMessage, caption: Caption | null) => void;
   onReady: (ready: boolean) => void;
 }
-
-const STALE_QUEUE_MS = 2_000;
 
 function captionText(m: LaunchInput, names: ChainNames): string {
   return `${formatUsd(m.usd)}${m.token ? ` ${m.token}` : ''} · ${chainName(names, m.src)} → ${chainName(names, m.dst)}`;
@@ -45,6 +43,7 @@ export default function SkyCanvas(props: Props) {
     try {
       renderer = createRenderer(canvas, { preferGl: !forceFlat });
     } catch (err) {
+      console.warn('sky renderer failed to start', err);
       if (!forceFlat) {
         setForceFlat(true);
         setCanvasKey((k) => k + 1);
@@ -97,6 +96,10 @@ export default function SkyCanvas(props: Props) {
       renderer.draw(scene.frame(now), project, sizeScale);
       raf = requestAnimationFrame(loop);
     };
+    const dropStaleComets = () => {
+      const queue = latest.current.queue.current;
+      queue.splice(0, queue.length, ...pruneStale(queue, performance.now()));
+    };
     const start = () => {
       if (!raf && !document.hidden && onScreen) raf = requestAnimationFrame(loop);
     };
@@ -106,14 +109,13 @@ export default function SkyCanvas(props: Props) {
     resize();
     const intersection = new IntersectionObserver(([entry]) => {
       onScreen = entry?.isIntersecting ?? true;
+      if (onScreen) dropStaleComets();
       start();
     });
     intersection.observe(wrap);
     const onVisibility = () => {
       if (document.hidden) return;
-      const queue = latest.current.queue.current;
-      const cutoff = performance.now() - STALE_QUEUE_MS;
-      queue.splice(0, queue.length, ...queue.filter((p) => p.at >= cutoff));
+      dropStaleComets();
       start();
     };
     document.addEventListener('visibilitychange', onVisibility);

@@ -21,6 +21,10 @@ export function spread<T extends Timed>(sorted: readonly T[], nowMs: number, win
   return sorted.map((message) => ({ at: nowMs + Math.round((Date.parse(message.send_ts) - t0) * factor), message }));
 }
 
+export function pruneStale<T>(queue: readonly Planned<T>[], nowMs: number, maxAgeMs = 2_000): Planned<T>[] {
+  return queue.filter((p) => p.at >= nowMs - maxAgeMs);
+}
+
 export class LiveScheduler<T extends Timed> {
   private seen = new Set<string>();
   private lastIngest: number | null = null;

@@ -5,7 +5,7 @@ import type { Projector } from './layout';
 export const FLOATS_PER_INSTANCE = 8;
 export const SHAPE = { glow: 0, ring: 1, disc: 2 } as const;
 export const LANE_SEGMENTS = 16;
-const TRAIL_STEP = 0.025;
+const TRAIL_STEP = 0.03;
 
 function projectStars(frame: SkyFrame, project: Projector): Point[] {
   return frame.stars.map((s) => {
@@ -16,7 +16,7 @@ function projectStars(frame: SkyFrame, project: Projector): Point[] {
 
 export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: number, opts = { trail: 6 }): Float32Array {
   const pts = projectStars(frame, project);
-  const count = frame.stars.length * 2 + frame.comets.length * (1 + opts.trail) + frame.rings.length;
+  const count = frame.stars.length * 2 + frame.comets.length * (2 + opts.trail) + frame.rings.length;
   const out = new Float32Array(count * FLOATS_PER_INSTANCE);
   let i = 0;
   const put = (x: number, y: number, radius: number, rgb: readonly number[], alpha: number, shape: number) => {
@@ -40,7 +40,8 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
     const a = pts[c.from];
     const b = pts[c.to];
     const color = COLORS[c.kind === 'gold' ? 'gold' : c.kind === 'token' ? 'blue' : 'pale'];
-    const head = (3 + 6 * c.size) * sizeScale;
+    const head = (6 + 10 * c.size) * sizeScale;
+    const core = COLORS.star.map((v, ch) => (color[ch]! + v) / 2);
     for (let k = opts.trail; k >= 0; k--) {
       const t = c.progress - k * TRAIL_STEP;
       if (!a || !b || t < 0) {
@@ -48,7 +49,8 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
         continue;
       }
       const p = quadPoint(a, laneControl(a, b), b, Math.min(1, t));
-      put(p.x, p.y, head * 0.85 ** k, color, k === 0 ? 1 : 0.5 * 0.7 ** k, SHAPE.glow);
+      put(p.x, p.y, head * 0.88 ** k, color, k === 0 ? 1 : 0.55 * 0.72 ** k, SHAPE.glow);
+      if (k === 0) put(p.x, p.y, (1.6 + 2.4 * c.size) * sizeScale, core, 1, SHAPE.disc);
     }
   }
 

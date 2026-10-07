@@ -2,7 +2,7 @@ import type { DayTotals, LiveMessage, TodayFile } from '@ccip-dev/core/public';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { trackDataError, track } from '../../lib/analytics';
 import { formatCount, formatUsd } from '../../lib/format';
-import { LiveScheduler, type Planned } from '../../lib/live-scheduler';
+import { LiveScheduler, pruneStale, type Planned } from '../../lib/live-scheduler';
 import { laneLabel } from '../../lib/names';
 import { startPoller } from '../../lib/poller';
 import { liveRecordBreaks, type DayRecord } from '../../lib/records';
@@ -75,9 +75,9 @@ export default function HomeLive(props: HomeLiveProps) {
         setFeed(file.messages);
         setLiveUpdatedAt(file.updated_at);
         setPaused((p) => ({ ...p, live: false }));
-        const { comets, feedOnly } = schedulerRef.current.ingest(file.messages, performance.now());
-        queueRef.current.push(...comets);
-        queueRef.current.sort((a, b) => a.at - b.at);
+        const now = performance.now();
+        const { comets, feedOnly } = schedulerRef.current.ingest(file.messages, now);
+        queueRef.current = [...pruneStale(queueRef.current, now), ...comets].sort((a, b) => a.at - b.at);
         if (firstIngestDone) {
           const fresh = [...comets.map((c) => c.message), ...feedOnly];
           setArrived((a) => ({ count: a.count + fresh.length, usd: a.usd + fresh.reduce((sum, m) => sum + (m.usd ?? 0), 0) }));
