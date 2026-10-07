@@ -2,12 +2,14 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { track, trackDataError } from '../lib/analytics';
 import { DataError, fetchPublic, pollDelay } from '../lib/data';
+import { hasIcon, iconHref } from '../lib/chain-icons';
 import { computeMilestones } from '../lib/records';
 import { usePrefersReducedMotion } from '../components/hooks';
 import { buildLayout } from '../sky/layout';
+import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
 import { canRecord, recordingFilename, recordReplay, totalFrames } from './recorder';
-import { REPLAY_LENGTHS, ReplayModel, type ReplayLength } from './timeline';
+import { REPLAY_COINS, REPLAY_LENGTHS, ReplayModel, type ReplayLength } from './timeline';
 
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
 export type Aspect = (typeof ASPECTS)[number];
@@ -34,6 +36,8 @@ export default function ReplayPlayer() {
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
   const [compositor, setCompositor] = useState<ReplayCompositor | null>(null);
+  const [coinImages, setCoinImages] = useState<ReadonlyMap<string, CanvasImageSource>>(new Map());
+  const coinLoadRef = useRef<Promise<ReadonlyMap<string, CanvasImageSource>> | null>(null);
   const [recordable, setRecordable] = useState<boolean | null>(null);
   const [recording, setRecording] = useState<{ progress: number; controller: AbortController } | null>(null);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -69,9 +73,28 @@ export default function ReplayPlayer() {
     };
   }, [attempt]);
 
+  useEffect(() => {
+    if (!data) return;
+    let alive = true;
+    const hrefs = new Map(
+      data.replay.chains.flatMap((c) => {
+        const href = iconHref(c.selector);
+        return href ? [[c.selector, href] as const] : [];
+      }),
+    );
+    const load = loadCoinImages(hrefs);
+    coinLoadRef.current = load;
+    void load.then((images) => {
+      if (alive) setCoinImages(images);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [data]);
+
   const stars = useMemo(() => (data ? buildLayout(data.replay.chains) : []), [data]);
   const model = useMemo(
-    () => (data ? new ReplayModel(data.replay, data.history, computeMilestones(data.history, data.replay.chains), stars, length) : null),
+    () => (data ? new ReplayModel(data.replay, data.history, computeMilestones(data.history, data.replay.chains), stars, length, { count: REPLAY_COINS, eligible: hasIcon }) : null),
     [data, stars, length],
   );
   const since = data?.replay.since ?? '';
@@ -120,6 +143,12 @@ export default function ReplayPlayer() {
     compositor.draw(tRef.current, ctx, width, height);
     canvas.closest('.replay-shell')?.classList.add('ready');
   }, [compositor]);
+
+  useEffect(() => {
+    if (!compositor) return;
+    compositor.setCoinImages(coinImages);
+    drawFrame();
+  }, [compositor, coinImages, drawFrame]);
 
   useEffect(() => {
     if (!model) return;
@@ -185,6 +214,8 @@ export default function ReplayPlayer() {
     let recorder: ReplayCompositor | null = null;
     try {
       recorder = new ReplayCompositor(model, stars, since, lastDay, () => new OffscreenCanvas(1, 1));
+      const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
+      recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
       const frames = recorder;
       await document.fonts.ready;
       const blob = await recordReplay({

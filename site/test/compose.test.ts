@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ReplayCompositor, drawOverlay, overlayText } from '../src/replay/compose';
+import { ReplayCompositor, drawCoins, drawOverlay, overlayText } from '../src/replay/compose';
 import type { ReplayFrameState, ReplayModel } from '../src/replay/timeline';
 
 const { renderer, createRenderer } = vi.hoisted(() => {
@@ -18,6 +18,7 @@ const state = (endCard: boolean): ReplayFrameState => ({
   activeChains: 95,
   captions: ['Base joins'],
   extent: 1,
+  coins: [],
   sky: { stars: [], lanes: [], comets: [], rings: [] },
 });
 
@@ -99,5 +100,46 @@ describe('ReplayCompositor', () => {
     expect(createCanvas).toHaveBeenCalledTimes(2);
     expect(createRenderer).toHaveBeenLastCalledWith(expect.anything(), { preferGl: false });
     createRenderer.mockImplementation(() => renderer);
+  });
+});
+
+const coinTarget = (drawn: unknown[][], alphas: number[]) =>
+  ({
+    fillRect: vi.fn(), createRadialGradient: () => ({ addColorStop: vi.fn() }),
+    save: vi.fn(), restore: vi.fn(), fillText: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(),
+    drawImage: (...args: unknown[]) => drawn.push(args),
+    set globalAlpha(v: number) { alphas.push(v); },
+    set font(_v: string) {}, set fillStyle(_v: unknown) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
+    set strokeStyle(_v: string) {}, set lineWidth(_v: number) {},
+  }) as unknown as CanvasRenderingContext2D;
+
+describe('drawCoins', () => {
+  it('draws each coin centered at its alpha with a ring', () => {
+    const drawn: unknown[][] = [];
+    const alphas: number[] = [];
+    const image = { tag: 'coin' } as unknown as CanvasImageSource;
+    drawCoins(coinTarget(drawn, alphas), [{ x: 100, y: 50, d: 20, alpha: 0.5, image }]);
+    expect(drawn).toEqual([[image, 90, 40, 20, 20]]);
+    expect(alphas).toEqual([0.5]);
+  });
+});
+
+describe('ReplayCompositor coins', () => {
+  it('draws a coin over its star once its image is set', () => {
+    const frame: ReplayFrameState = {
+      ...state(false),
+      coins: [{ star: 0, selector: 'a', alpha: 1 }],
+      sky: { stars: [{ x: 0, y: 0, radius: 10, brightness: 1, flash: 0 }], lanes: [], comets: [], rings: [] },
+    };
+    const model = { frameAt: () => frame } as unknown as ReplayModel;
+    const drawn: unknown[][] = [];
+    const target = coinTarget(drawn, []);
+    const compositor = new ReplayCompositor(model, [{ selector: 'a', x: 0, y: 0 }], '2023-07-06', '2026-10-06', () => ({ width: 800, height: 800 }) as never);
+    compositor.draw(1, target, 800, 800);
+    expect(drawn).toHaveLength(1);
+    const image = { tag: 'coin' } as unknown as CanvasImageSource;
+    compositor.setCoinImages(new Map([['a', image]]));
+    compositor.draw(1, target, 800, 800);
+    expect(drawn.find((args) => args[0] === image)).toEqual([image, 388, 388, 24, 24]);
   });
 });

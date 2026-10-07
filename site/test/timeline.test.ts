@@ -106,3 +106,58 @@ describe('ReplayModel', () => {
     expect(REPLAY_COMET_S).toBe(0.8);
   });
 });
+
+const POLYGON = '4051577828743386545';
+const ETHEREUM = '5009297550715157269';
+const coinModel = (eligible: (selector: string) => boolean = () => true) => new ReplayModel(replay, history, [], stars, 60, { count: 1, eligible });
+const coinsAt = (m: ReplayModel, t: number) => m.frameAt(t).coins.map((c) => [c.selector, Number(c.alpha.toFixed(3))]).sort();
+
+describe('replay coins', () => {
+  it('shows no coin while no chain has value', () => {
+    expect(coinModel().frameAt(0).coins).toEqual([]);
+    expect(coinModel().frameAt(14).coins).toEqual([]);
+  });
+
+  it('fades the day’s top chain in over half a second', () => {
+    const m = coinModel();
+    expect(coinsAt(m, m.dayStart(1) + 0.25)).toEqual([[POLYGON, 0.5]]);
+    expect(coinsAt(m, m.dayStart(1) + 0.6)).toEqual([[POLYGON, 1]]);
+  });
+
+  it('cross-fades when the top chain changes', () => {
+    const m = coinModel();
+    expect(coinsAt(m, m.dayStart(2) + 0.25)).toEqual([[POLYGON, 0.5], [ETHEREUM, 0.5]].sort());
+    expect(coinsAt(m, m.dayStart(2) + 0.6)).toEqual([[ETHEREUM, 1]]);
+  });
+
+  it('only gives coins to eligible chains', () => {
+    const m = coinModel((s) => s !== POLYGON);
+    expect(coinsAt(m, m.dayStart(1) + 0.6)).toEqual([[ETHEREUM, 1]]);
+  });
+
+  it('is a pure function of t and holds through the end card', () => {
+    const m = coinModel();
+    expect(m.frameAt(31.3).coins).toEqual(m.frameAt(31.3).coins);
+    expect(coinsAt(m, m.duration)).toEqual([[ETHEREUM, 1]]);
+  });
+
+  it('fades a chain that flickers at the cutoff instead of strobing it', () => {
+    const flicker: ReplayFile = {
+      ...replay,
+      since: '2024-01-01',
+      chains: [
+        { selector: 'A', name: 'a-mainnet', display_name: 'A', first_day: '2024-01-01' },
+        { selector: 'B', name: 'b-mainnet', display_name: 'B', first_day: '2024-01-01' },
+      ],
+      lanes: [[0, 0], [1, 1]],
+      days: [
+        { day: '2024-01-01', lanes: [[0, 1, 50]] },
+        { day: '2024-01-02', lanes: [[1, 1, 75]] },
+        { day: '2024-01-03', lanes: [[0, 1, 50]] },
+        { day: '2024-01-04', lanes: [[1, 1, 50]] },
+      ],
+    };
+    const m = new ReplayModel(flicker, [], [], buildLayout(flicker.chains), 1, { count: 1, eligible: () => true });
+    expect(coinsAt(m, 0.75)).toEqual([['A', 0.5], ['B', 0.5]]);
+  });
+});

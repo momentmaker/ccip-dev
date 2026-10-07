@@ -1,9 +1,34 @@
 import { formatCount, formatUsd, formatUtcDay } from '../lib/format';
-import { projector, type StarPoint } from '../sky/layout';
+import { coinDiameter } from '../sky/coins';
+import { projector, type Projector, type StarPoint } from '../sky/layout';
 import { createRenderer, type SkyCanvas, type SkyRenderer } from '../sky/renderer';
 import type { ReplayFrameState, ReplayModel } from './timeline';
 
 type Ctx2d = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+export const REPLAY_COIN_UNIT = 800;
+
+export interface DrawnCoin {
+  x: number;
+  y: number;
+  d: number;
+  alpha: number;
+  image: CanvasImageSource;
+}
+
+export function drawCoins(ctx: Ctx2d, coins: readonly DrawnCoin[]): void {
+  ctx.save();
+  for (const c of coins) {
+    ctx.globalAlpha = c.alpha;
+    ctx.drawImage(c.image, c.x - c.d / 2, c.y - c.d / 2, c.d, c.d);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.d / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = Math.max(1, c.d / 40);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 
 export interface OverlayText {
   date: string;
@@ -75,6 +100,7 @@ export class ReplayCompositor {
   private readonly skyCanvas: SkyCanvas;
   private readonly renderer: SkyRenderer;
   private destroyed = false;
+  private coinImages: ReadonlyMap<string, CanvasImageSource> = new Map();
 
   constructor(
     private readonly model: ReplayModel,
@@ -99,7 +125,8 @@ export class ReplayCompositor {
     if (this.destroyed) return this.model.frameAt(t);
     if (this.skyCanvas.width !== width || this.skyCanvas.height !== height) this.renderer.resize(width, height);
     const state = this.model.frameAt(t);
-    this.renderer.draw(state.sky, projector(width, height, this.stars, undefined, state.extent), Math.min(width, height) / 1000);
+    const project = projector(width, height, this.stars, undefined, state.extent);
+    this.renderer.draw(state.sky, project, Math.min(width, height) / 1000);
     target.fillStyle = '#0c0f14';
     target.fillRect(0, 0, width, height);
     const glow = target.createRadialGradient(width / 2, 0, 0, width / 2, 0, Math.max(width, height) * 0.7);
@@ -108,8 +135,24 @@ export class ReplayCompositor {
     target.fillStyle = glow;
     target.fillRect(0, 0, width, height);
     target.drawImage(this.skyCanvas, 0, 0);
+    drawCoins(target, this.placeCoins(state, project, width, height));
     drawOverlay(target, overlayText(state, this.since, this.lastDay), width, height);
     return state;
+  }
+
+  setCoinImages(images: ReadonlyMap<string, CanvasImageSource>): void {
+    this.coinImages = images;
+  }
+
+  private placeCoins(state: ReplayFrameState, project: Projector, width: number, height: number): DrawnCoin[] {
+    const unit = Math.min(width, height) / REPLAY_COIN_UNIT;
+    return state.coins.flatMap((c) => {
+      const image = this.coinImages.get(c.selector);
+      const star = state.sky.stars[c.star];
+      if (!image || !star || star.radius <= 0) return [];
+      const [x, y] = project(star.x, star.y);
+      return [{ x, y, d: coinDiameter(star.radius) * unit, alpha: c.alpha, image }];
+    });
   }
 
   destroy(): void {
