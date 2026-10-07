@@ -1,0 +1,83 @@
+---
+import InfoLink from '../../components/InfoLink';
+import ShareButton from '../../components/ShareButton';
+import Base from '../../layouts/Base.astro';
+import { buildData } from '../../lib/build-data';
+import { dayHighlights, dayView, type DayDelta } from '../../lib/day';
+import { formatCount, formatDuration, formatPct, formatUsd, formatUtcDay } from '../../lib/format';
+import { chainNameMap } from '../../lib/names';
+import { computeMilestones, computeRecords } from '../../lib/records';
+import { buildLayout } from '../../sky/layout';
+import { skySvg } from '../../sky/svg';
+import { windowWeights } from '../../sky/weights';
+
+export async function getStaticPaths() {
+  const history = await buildData('history.json');
+  return history.days.map((d) => ({ params: { day: d.day } }));
+}
+
+const day = Astro.params.day as string;
+const [history, replay, chains] = await Promise.all([buildData('history.json'), buildData('replay.json'), buildData('chains.json')]);
+const view = dayView(history.days, day)!;
+const highlights = dayHighlights(day, computeRecords(history.days), computeMilestones(history.days, replay.chains));
+const weights = windowWeights(replay, day, day);
+const svg = skySvg({
+  width: 960,
+  height: 540,
+  stars: buildLayout(replay.chains),
+  chainValues: weights.chains,
+  lanes: weights.lanes,
+  labels: chainNameMap([...replay.chains, ...chains.chains]),
+  labelCount: 8,
+  title: `CCIP lanes active on ${day}`,
+});
+const label = formatUtcDay(day);
+const delta = (d: DayDelta) => [
+  { text: d.vsPrevious === null ? null : `${formatPct(d.vsPrevious)} vs day before`, up: (d.vsPrevious ?? 0) >= 0 },
+  { text: d.vsAvg7 === null ? null : `${formatPct(d.vsAvg7)} vs 7-day avg`, up: (d.vsAvg7 ?? 0) >= 0 },
+];
+const tiles = [
+  { title: 'Messages', metric: 'messages', value: formatCount(view.row.messages), deltas: delta(view.deltas.messages) },
+  { title: 'Value transferred', metric: 'value', value: formatUsd(view.row.usd_value), deltas: delta(view.deltas.usd_value) },
+  { title: 'Unique senders', metric: 'senders', value: formatCount(view.row.unique_senders), deltas: delta(view.deltas.unique_senders) },
+  { title: 'Token transfers', metric: 'messages', value: formatCount(view.row.token_messages), deltas: [] },
+  { title: 'Median delivery', metric: 'delivery', value: formatDuration(view.row.median_delivery_s), deltas: [] },
+  { title: 'Fees', metric: 'fees', value: formatUsd(view.row.fee_usd), deltas: [] },
+] as const;
+---
+<Base title={`${label} (UTC)`} description={`${formatCount(view.row.messages)} CCIP messages and ${formatUsd(view.row.usd_value)} moved on ${label} (UTC).`} cardPath={`day/${day}`}>
+  <div class="page-head">
+    <div>
+      <p class="label">{label} · UTC</p>
+      <h1>{formatCount(view.row.messages)} CCIP messages</h1>
+      <p class="muted">{formatUsd(view.row.usd_value)} moved</p>
+    </div>
+    <ShareButton client:load view={`day/${day}`} headline={`${formatCount(view.row.messages)} CCIP messages on ${label}`} url={`https://ccip.dev/day/${day}/`} cardUrl={`/og/day/${day}.png`} />
+  </div>
+  {highlights.length > 0 && (
+    <ul class="highlights">{highlights.map((h) => <li>⬢ {h}</li>)}</ul>
+  )}
+  <section class="tiles">
+    {tiles.map((t) => (
+      <div class="tile">
+        <span class="label">{t.title}<InfoLink metric={t.metric} label={t.title.toLowerCase()} /></span>
+        <p class="value">{t.value}</p>
+        {t.deltas.map((d) => d.text && <span class={`sub ${d.up ? 'up' : 'down'}`}>{d.text}<br /></span>)}
+      </div>
+    ))}
+  </section>
+  <figure class="card day-sky" set:html={svg} />
+  <nav class="day-nav">
+    {view.prevDay ? <a href={`/day/${view.prevDay}/`}>← {view.prevDay}</a> : <span />}
+    <a href="/history/all/">All history</a>
+    {view.nextDay ? <a href={`/day/${view.nextDay}/`}>{view.nextDay} →</a> : <span />}
+  </nav>
+</Base>
+
+<style>
+  .highlights { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .highlights li { padding: 6px 12px; border: 1px solid var(--blue); border-radius: 999px; font-size: 13px; }
+  .day-sky { margin: 16px 0 0; padding: 0; overflow: hidden; }
+  .day-sky :global(svg) { display: block; width: 100%; height: auto; }
+  .day-nav { display: flex; justify-content: space-between; margin-top: 16px; font-family: var(--font-mono); }
+</style>
