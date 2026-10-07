@@ -39,6 +39,16 @@ export function nearestMark(marks: readonly { time: number }[], time: number, le
   return best;
 }
 
+export function spacedTicks<T extends { time: number }>(ticks: readonly T[], length: number, widthPx: number, minPx: number): T[] {
+  if (widthPx <= 0 || length <= 0) return [...ticks];
+  const kept: T[] = [];
+  for (const tick of [...ticks].sort((a, b) => b.time - a.time)) {
+    const next = kept[kept.length - 1];
+    if (!next || ((next.time - tick.time) / length) * widthPx >= minPx) kept.push(tick);
+  }
+  return kept.reverse();
+}
+
 export function formatClock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;

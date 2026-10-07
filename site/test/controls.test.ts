@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ChainPicker from '../src/components/controls/ChainPicker';
 import RecordPill from '../src/components/controls/RecordPill';
 import Scrubber from '../src/components/controls/Scrubber';
-import { activeAfterSearch, BAR_IDLE_MS, barVisible, filterChains, formatClock, moveIndex, nearestMark, pickableChains } from '../src/lib/controls';
+import { activeAfterSearch, BAR_IDLE_MS, barVisible, filterChains, formatClock, moveIndex, nearestMark, pickableChains, spacedTicks } from '../src/lib/controls';
 
 const chains = [
   { selector: 'e', name: 'Ethereum', value: 3, icon: null },
@@ -119,5 +119,24 @@ describe('control markup', () => {
     expect(html).toContain('aria-valuemax="100"');
     expect(html).toContain('Recording · 42%');
     expect(html).not.toMatch(/role="status"|aria-live/);
+  });
+});
+
+describe('spacedTicks', () => {
+  const ticks = [{ time: 2, label: '2023' }, { time: 2.6, label: '2024' }, { time: 12, label: '2025' }, { time: 22, label: '2026' }];
+
+  it('drops a year label that would print over a later one on a narrow scrubber, keeping the latest years', () => {
+    // #given a 280 px rail, where 2023 and 2024 sit 5.6 px apart
+    // #when ticks are spaced 32 px apart
+    // #then 2023 goes and the later years stay
+    expect(spacedTicks(ticks, 30, 280, 32).map((t) => t.label)).toEqual(['2024', '2025', '2026']);
+  });
+
+  it('keeps every year when the rail is wide enough', () => {
+    expect(spacedTicks(ticks, 30, 4000, 32)).toHaveLength(4);
+  });
+
+  it('keeps every year before the rail has been measured', () => {
+    expect(spacedTicks(ticks, 30, 0, 32)).toHaveLength(4);
   });
 });
