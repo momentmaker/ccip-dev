@@ -111,6 +111,54 @@ describe('Show', () => {
     expect(s.frameAt(26.9).focus).toBe(ethereum);
   });
 
+  it('keeps the all-chains warp exactly as it was', () => {
+    const at = (s: Show) => [0, 1, 2, 3, 4].map((i) => s.warp.dayStart(i));
+    const expected30 = [2, 8.323773499702234, 12.712717903798037, 20.026496840412666, 27];
+    const expected15 = [1.5, 4.408935809863028, 6.427850235747098, 9.792188546589827, 13];
+    at(show()).forEach((v, i) => expect(v).toBeCloseTo(expected30[i]!, 9));
+    at(show(null, 15)).forEach((v, i) => expect(v).toBeCloseTo(expected15[i]!, 9));
+  });
+
+  it('keeps the warp of a focus chain that joins on the first replay day exactly as it was', () => {
+    const expected = [2, 8.323773499702234, 12.712717903798037, 20.026496840412666, 27];
+    const s = show('5009297550715157269');
+    [0, 1, 2, 3, 4].forEach((i) => expect(s.warp.dayStart(i)).toBeCloseTo(expected[i]!, 9));
+  });
+
+  it('reaches a late-joining focus chain within the first 15% of the story', () => {
+    const solana = '124615329519749607';
+    const s = show(solana);
+    const joined = s.warp.dayStart(s.days.indexOf('2023-07-09'));
+    expect(joined).toBeLessThanOrEqual(s.timing.hook + 0.15 * (s.warp.end - s.warp.start) + 1e-9);
+  });
+
+  it('reaches a chain that joins after 180 of 200 days within the first 15% of the story, with a monotonic warp', () => {
+    const days = Array.from({ length: 200 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+    const late: ReplayFile = {
+      ...replay,
+      since: days[0]!,
+      chains: [
+        { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: days[0]! },
+        { selector: 'c', name: 'gamma-mainnet', display_name: 'Gamma', first_day: days[0]! },
+        { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: days[180]! },
+      ],
+      lanes: [[0, 1], [0, 2]],
+      days: days.map((day, i) => ({ day, lanes: i >= 180 ? [[0, 40, 1000], [1, 3, 100]] : [[0, 40, 1000]] })),
+    } as ReplayFile;
+    const lateHistory = late.days.map((d) => ({ ...history[0]!, day: d.day, messages: 43 }));
+    for (const length of [15, 30, 60]) {
+      const s = new Show({ replay: late, history: lateHistory, stars: buildLayout(late.chains), length, focus: 'b', eligible: () => true });
+      expect(s.warp.dayStart(180) - s.warp.start).toBeLessThanOrEqual(0.15 * (s.warp.end - s.warp.start) + 1e-9);
+      expect(s.warp.end).toBeCloseTo(length - s.timing.finale, 9);
+      let prev = { index: 0, progress: 0 };
+      for (let t = 0; t <= length; t += 0.02) {
+        const now = s.warp.dayAt(t);
+        expect(now.index > prev.index || (now.index === prev.index && now.progress >= prev.progress)).toBe(true);
+        prev = now;
+      }
+    }
+  });
+
   it('handles a 15 s cut', () => {
     const s = show(null, 15);
     expect(s.warp.start).toBe(1.5);

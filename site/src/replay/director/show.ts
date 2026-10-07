@@ -21,7 +21,7 @@ import { cameraAt, punch, type Camera } from './camera';
 import { Leaderboard, type BoardRow } from './leaderboard';
 import { phaseAt, shotTiming, type Phase, type ShotTiming } from './phases';
 import { StoryCounter, type StoryValues } from './story';
-import { storyWarp, type Warp } from './warp';
+import { storyWarp, WARP_PRE_JOIN_SHARE, type Warp } from './warp';
 
 export const LOOP_S = 0.5;
 
@@ -120,7 +120,8 @@ export class Show {
       ...milestoneEvents(milestones, this.days),
       ...(this.focus ? [] : recordEvents(history, this.days)),
     ];
-    this.warp = storyWarp(this.counter.dailyMessages(), dayFlags(events, this.days.length), this.timing.hook, length - this.timing.finale, length);
+    const preJoin = focusChain ? { preDays: Math.max(0, this.days.indexOf(focusChain.first_day)), preShareMax: WARP_PRE_JOIN_SHARE } : undefined;
+    this.warp = storyWarp(this.counter.dailyMessages(), dayFlags(events, this.days.length), this.timing.hook, length - this.timing.finale, length, preJoin);
     this.model = new ReplayModel(replay, history, [], stars, length, { count: REPLAY_COINS, eligible: input.eligible }, this.warp);
     this.cards = scheduleCards(events, this.warp, this.focusName);
     this.slams = scheduleSlams(events, this.warp);

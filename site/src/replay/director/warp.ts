@@ -18,6 +18,7 @@ export const WARP_JOIN = 1.5;
 export const WARP_MILESTONE = 2.5;
 export const WARP_RECORD = 1.5;
 export const WARP_DWELL_S = 0.6;
+export const WARP_PRE_JOIN_SHARE = 0.15;
 const MIN_PLAIN_SHARE = 0.5;
 const NO_FLAGS: DayFlags = { join: false, milestone: false, record: false };
 
@@ -62,16 +63,37 @@ export function dayWeight(messages: number, flags: DayFlags): number {
   );
 }
 
-export function storyWarp(messages: readonly number[], flags: readonly DayFlags[], start: number, end: number, length: number): Warp {
+export interface PreJoinLimit {
+  preDays: number;
+  preShareMax: number;
+}
+
+const total = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
+
+function limitPreShare(durations: number[], span: number, { preDays, preShareMax }: PreJoinLimit): number[] {
+  const pre = total(durations.slice(0, preDays));
+  const post = span - pre;
+  if (preDays <= 0 || preDays >= durations.length || pre <= preShareMax * span || post <= 0) return durations;
+  const preScale = (preShareMax * span) / pre;
+  const postScale = ((1 - preShareMax) * span) / post;
+  return durations.map((d, i) => d * (i < preDays ? preScale : postScale));
+}
+
+export function storyWarp(
+  messages: readonly number[],
+  flags: readonly DayFlags[],
+  start: number,
+  end: number,
+  length: number,
+  preJoin?: PreJoinLimit,
+): Warp {
   const span = end - start;
   const milestoneDays = flags.filter((f) => f.milestone).length;
   const totalDwell = Math.min(milestoneDays * WARP_DWELL_S * (length / 30), span * (1 - MIN_PLAIN_SHARE));
   const dwell = milestoneDays > 0 ? totalDwell / milestoneDays : 0;
   const weights = messages.map((m, i) => dayWeight(m, flags[i] ?? NO_FLAGS));
-  const sum = weights.reduce((a, b) => a + b, 0) || 1;
+  const sum = total(weights) || 1;
   const rest = span - totalDwell;
-  return durationWarp(
-    weights.map((w, i) => (rest * w) / sum + ((flags[i] ?? NO_FLAGS).milestone ? dwell : 0)),
-    start,
-  );
+  const durations = weights.map((w, i) => (rest * w) / sum + ((flags[i] ?? NO_FLAGS).milestone ? dwell : 0));
+  return durationWarp(preJoin ? limitPreShare(durations, span, preJoin) : durations, start);
 }
