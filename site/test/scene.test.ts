@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout } from '../src/sky/layout';
-import { CAPTION_MS, COMET_MS, cometKind, cometSize, LiveScene, MAX_COMETS } from '../src/sky/scene';
+import { ARRIVAL_FRESH_MS, ARRIVAL_REACH, ARRIVAL_RING_MS, CAPTION_MS, COMET_MS, cometKind, cometSize, LiveScene, MAX_COMETS } from '../src/sky/scene';
 
 const stars = buildLayout([{ selector: 'A', first_day: '2023-07-06' }, { selector: 'B', first_day: '2023-07-07' }]);
 const newScene = () => new LiveScene(stars, new Map([['A', 100], ['B', 25]]), [{ src: 'A', dst: 'B', usd: 50 }]);
@@ -46,6 +46,36 @@ describe('LiveScene', () => {
     scene.frame(CAPTION_MS);
     expect(scene.captions).toHaveLength(0);
     expect(scene.launch(msg('small', 10), 0, caption)).toBeNull();
+  });
+
+  it('reports each landing once, with its destination and kind', () => {
+    const scene = newScene();
+    scene.launch(msg('m1', null), 0, caption);
+    scene.frame(COMET_MS - 1);
+    expect(scene.takeArrivals()).toEqual([]);
+    scene.frame(COMET_MS + 16);
+    expect(scene.takeArrivals()).toEqual([{ star: 1, selector: 'B', kind: 'data' }]);
+    scene.frame(COMET_MS + 32);
+    expect(scene.takeArrivals()).toEqual([]);
+  });
+
+  it('stays quiet about landings it only notices long after, like a tab coming back', () => {
+    const scene = newScene();
+    scene.launch(msg('m1', 5), 0, caption);
+    const frame = scene.frame(COMET_MS + ARRIVAL_FRESH_MS + 1);
+    expect(scene.takeArrivals()).toEqual([]);
+    expect(frame.rings).toEqual([]);
+    expect(frame.stars[1]!.flash).toBe(0);
+  });
+
+  it('flares the destination star as the comet lands and ripples it in the comet’s color', () => {
+    const scene = newScene();
+    scene.launch(msg('m1', 5), 0, caption);
+    const landed = scene.frame(COMET_MS);
+    expect(landed.stars.map((s) => s.flash)).toEqual([0, 1]);
+    expect(landed.rings).toEqual([{ star: 1, progress: 0, kind: 'token', reach: ARRIVAL_REACH }]);
+    expect(scene.frame(COMET_MS + ARRIVAL_RING_MS / 2).rings).toEqual([{ star: 1, progress: 0.5, kind: 'token', reach: ARRIVAL_REACH }]);
+    expect(scene.frame(COMET_MS + ARRIVAL_RING_MS).rings).toEqual([]);
   });
 
   it('adds an unknown chain as a new star', () => {

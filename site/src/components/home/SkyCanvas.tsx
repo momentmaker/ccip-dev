@@ -4,6 +4,7 @@ import { formatCount, formatUsd } from '../../lib/format';
 import { hasIcon, iconHref } from '../../lib/chain-icons';
 import { pruneStale, type Planned } from '../../lib/live-scheduler';
 import { chainName, type ChainNames } from '../../lib/names';
+import { catchCoin } from '../../sky/arrival';
 import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
 import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
@@ -42,6 +43,7 @@ export default function SkyCanvas(props: Props) {
   const sceneRef = useRef<LiveScene | null>(null);
   const trackerRef = useRef(new ContextLossTracker());
   const latest = useRef(props);
+  const coinEls = useRef(new Map<string, HTMLImageElement>());
   latest.current = props;
   const [canvasKey, setCanvasKey] = useState(0);
   const [forceFlat, setForceFlat] = useState(false);
@@ -115,6 +117,7 @@ export default function SkyCanvas(props: Props) {
         if (scene.starPoints.length !== starsBefore) resize();
       }
       renderer.draw(scene.frame(now), project, sizeScale);
+      for (const arrival of scene.takeArrivals()) catchCoin(coinEls.current.get(arrival.selector), arrival.kind);
       raf = requestAnimationFrame(loop);
     };
     const dropStaleComets = () => {
@@ -223,6 +226,13 @@ export default function SkyCanvas(props: Props) {
         {shownCoins.map((c) => (
           <img
             key={c.selector}
+            ref={(el) => {
+              if (!el) return;
+              coinEls.current.set(c.selector, el);
+              return () => {
+                if (coinEls.current.get(c.selector) === el) coinEls.current.delete(c.selector);
+              };
+            }}
             src={iconHref(c.selector) ?? undefined}
             alt=""
             width={Math.round(c.d)}

@@ -1,4 +1,4 @@
-import { COLORS, type SkyFrame } from './frame';
+import { COLORS, kindColor, type SkyFrame } from './frame';
 import { laneControl, quadPoint, type Point } from './geometry';
 import type { Projector } from './layout';
 
@@ -6,6 +6,7 @@ export const FLOATS_PER_INSTANCE = 8;
 export const SHAPE = { glow: 0, ring: 1, disc: 2 } as const;
 export const LANE_SEGMENTS = 16;
 const TRAIL_STEP = 0.03;
+const GOLD_RING_REACH = 50;
 
 function projectStars(frame: SkyFrame, project: Projector): Point[] {
   return frame.stars.map((s) => {
@@ -39,7 +40,7 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
   for (const c of frame.comets) {
     const a = pts[c.from];
     const b = pts[c.to];
-    const color = COLORS[c.kind === 'gold' ? 'gold' : c.kind === 'token' ? 'blue' : 'pale'];
+    const color = kindColor(c.kind);
     const head = (10 + 16 * c.size) * sizeScale;
     const core = COLORS.star.map((v, ch) => (color[ch]! + v) / 2);
     for (let k = opts.trail; k >= 0; k--) {
@@ -56,7 +57,7 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
 
   for (const r of frame.rings) {
     const p = pts[r.star];
-    put(p?.x ?? 0, p?.y ?? 0, p ? (10 + 50 * r.progress) * sizeScale : 0, COLORS.gold, p ? 1 - r.progress : 0, SHAPE.ring);
+    put(p?.x ?? 0, p?.y ?? 0, p ? (10 + (r.reach ?? GOLD_RING_REACH) * r.progress) * sizeScale : 0, kindColor(r.kind ?? 'gold'), p ? 1 - r.progress : 0, SHAPE.ring);
   }
   return out;
 }

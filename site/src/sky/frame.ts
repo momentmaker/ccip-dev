@@ -25,6 +25,8 @@ export interface FrameComet {
 export interface FrameRing {
   star: number;
   progress: number;
+  kind?: CometKind;
+  reach?: number;
 }
 
 export interface SkyFrame {
@@ -40,3 +42,7 @@ export const COLORS = {
   gold: [245 / 255, 196 / 255, 81 / 255],
   star: [232 / 255, 234 / 255, 237 / 255],
 } as const;
+
+export function kindColor(kind: CometKind): readonly number[] {
+  return COLORS[kind === 'gold' ? 'gold' : kind === 'token' ? 'blue' : 'pale'];
+}

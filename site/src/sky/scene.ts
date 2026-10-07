@@ -9,6 +9,15 @@ export const LIVE_LANE_DIM = 0.35;
 export const RING_MS = 1_500;
 export const CAPTION_MS = 4_000;
 export const FLASH_MS = 900;
+export const ARRIVAL_RING_MS = 700;
+export const ARRIVAL_REACH = 16;
+export const ARRIVAL_FRESH_MS = 500;
+
+export interface Arrival {
+  star: number;
+  selector: string;
+  kind: CometKind;
+}
 
 export function cometSize(usd: number | null): number {
   return Math.min(1, Math.max(0.15, Math.log10((usd ?? 0) + 1) / 7));
@@ -41,6 +50,14 @@ interface LiveComet {
   kind: CometKind;
 }
 
+interface LiveRing {
+  star: number;
+  start: number;
+  ms: number;
+  kind?: CometKind;
+  reach?: number;
+}
+
 export class LiveScene {
   private stars: StarPoint[];
   private readonly radii: number[];
@@ -48,7 +65,8 @@ export class LiveScene {
   private readonly index = new Map<string, number>();
   private readonly lanes: SkyFrame['lanes'];
   private comets: LiveComet[] = [];
-  private rings: { star: number; start: number }[] = [];
+  private rings: LiveRing[] = [];
+  private arrivals: Arrival[] = [];
   private readonly flashes = new Map<number, number>();
   captions: Caption[] = [];
 
@@ -88,7 +106,7 @@ export class LiveScene {
     this.comets.push({ from, to, start: now, size: cometSize(m.usd), kind });
     if (this.comets.length > MAX_COMETS) this.comets.splice(0, this.comets.length - MAX_COMETS);
     if (kind !== 'gold') return null;
-    this.rings.push({ star: to, start: now + COMET_MS });
+    this.rings.push({ star: to, start: now + COMET_MS, ms: RING_MS });
     const caption = { id: m.id, text: captionText(m), until: now + CAPTION_MS };
     this.captions.push(caption);
     return caption;
@@ -99,9 +117,22 @@ export class LiveScene {
     this.flashes.set(this.starIndex(m.dst), now);
   }
 
+  takeArrivals(): Arrival[] {
+    return this.arrivals.splice(0);
+  }
+
+  private land(c: LiveComet, now: number): void {
+    const at = c.start + COMET_MS;
+    if (now - at > ARRIVAL_FRESH_MS) return;
+    this.flashes.set(c.to, at);
+    if (c.kind !== 'gold') this.rings.push({ star: c.to, start: at, ms: ARRIVAL_RING_MS, kind: c.kind, reach: ARRIVAL_REACH });
+    this.arrivals.push({ star: c.to, selector: this.stars[c.to]!.selector, kind: c.kind });
+  }
+
   frame(now: number): SkyFrame {
+    for (const c of this.comets) if (now - c.start >= COMET_MS) this.land(c, now);
     this.comets = this.comets.filter((c) => now - c.start < COMET_MS);
-    this.rings = this.rings.filter((r) => now - r.start < RING_MS);
+    this.rings = this.rings.filter((r) => now - r.start < r.ms);
     this.captions = this.captions.filter((c) => c.until > now);
     for (const [star, t] of this.flashes) if (now - t >= FLASH_MS) this.flashes.delete(star);
     return {
@@ -113,7 +144,9 @@ export class LiveScene {
       comets: this.comets
         .filter((c) => c.start <= now)
         .map((c) => ({ from: c.from, to: c.to, progress: (now - c.start) / COMET_MS, size: c.size, kind: c.kind })),
-      rings: this.rings.filter((r) => r.start <= now).map((r) => ({ star: r.star, progress: (now - r.start) / RING_MS })),
+      rings: this.rings
+        .filter((r) => r.start <= now)
+        .map((r) => ({ star: r.star, progress: (now - r.start) / r.ms, ...(r.kind && { kind: r.kind, reach: r.reach }) })),
     };
   }
 }

@@ -7,11 +7,12 @@ interface Props {
   headline: string;
   url: string;
   cardUrl: string | null;
+  iconOnly?: boolean;
 }
 
 const NOTE_MS = 3000;
 
-export default function ShareButton({ view, headline, url, cardUrl }: Props) {
+export default function ShareButton({ view, headline, url, cardUrl, iconOnly = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -96,8 +97,24 @@ export default function ShareButton({ view, headline, url, cardUrl }: Props) {
 
   return (
     <div className="share" ref={rootRef}>
-      <button type="button" className="share-btn" ref={triggerRef} aria-expanded={open} aria-controls={panelId} onClick={onShare}>
-        Share
+      <button
+        type="button"
+        className={iconOnly ? 'share-btn btn-icon' : 'share-btn'}
+        ref={triggerRef}
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={iconOnly ? 'Share' : undefined}
+        title={iconOnly ? 'Share' : undefined}
+        onClick={onShare}
+      >
+        {iconOnly ? (
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3v12M7 8l5-5 5 5" />
+            <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+          </svg>
+        ) : (
+          'Share'
+        )}
       </button>
       {open && (
         <div className="share-menu" id={panelId}>

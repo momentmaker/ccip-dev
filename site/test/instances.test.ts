@@ -61,6 +61,15 @@ describe('buildInstances', () => {
     expect(ring[2]).toBeCloseTo(22.5);
     expect(ring[6]).toBeCloseTo(0.75);
     expect(ring[7]).toBe(SHAPE.ring);
+    expect(ring.slice(3, 6)).toEqual([...COLORS.gold].map((v) => expect.closeTo(v, 5)));
+  });
+
+  it('draws an arrival ripple at its own reach, in its comet color', () => {
+    const ripple = { ...frame, rings: [{ star: 1, progress: 0.5, kind: 'data' as const, reach: 16 }] };
+    const ring = instance(buildInstances(ripple, project, 1), 12);
+    expect(ring[2]).toBeCloseTo(18);
+    expect(ring.slice(3, 6)).toEqual([...COLORS.pale].map((v) => expect.closeTo(v, 5)));
+    expect(ring[6]).toBeCloseTo(0.5);
   });
 
   it('draws nothing for a star that has not appeared yet', () => {
