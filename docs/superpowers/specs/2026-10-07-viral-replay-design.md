@@ -303,9 +303,9 @@ This is the approved mockup, `replay-a-detail-v2` in the brainstorm session.
 - **Picker:** choosing a chain swaps the cut in place, calls `history.pushState` to `/replay/<slug>/` (or `/replay/` for All chains), and updates `document.title` and the Share link. Back and forward restore the cut.
 - **Cards:**
   - The new card route is `replay/<slug>`.
-  - The build-time asset `/replay-cards.json` holds `{ [slug]: { name, since, usd, messages, lanes, coin } }`, where `coin` is the icon data URI. The Worker reads it from `ASSETS`, because `replay.json` is too large.
-  - The card reads "Base on Chainlink CCIP", with "since Nov 2023 · $X moved · N messages", the chain coin (96 px) over the card sky, and coins of its top partner chains.
-  - An unknown slug returns 404. A missing asset returns the fallback card, following the existing rules.
+  - The build-time asset `/replay-cards.json` holds `{ [slug]: { name, since, usd, messages, partners, coin } }`, where `partners` is the number of chains it has messaged and `coin` is the icon data URI. The Worker reads it from `ASSETS`, because `replay.json` is too large, and validates each entry (a `coin` must be a `data:image/` URI).
+  - The card reads "BASE ON CHAINLINK CCIP" over the big value moved, then "moved · N messages · P chains", "since Nov 3, 2023" and the page address. The chain's coin (132 px, with a blue glow) sits over the center of the card sky, and the network's sky coins stay around it, minus any the badge would cover. Long names end in an ellipsis before the badge.
+  - An unknown slug returns 404, including names that only exist on `Object.prototype`. A missing asset returns the fallback card, following the existing rules.
 - **File names:** `ccip-replay-<slug>-<lastDay>-<aspect>.mp4` in focus mode; the current name otherwise.
 
 ## 13. Controls kit (site-wide)
