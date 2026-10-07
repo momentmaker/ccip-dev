@@ -1,10 +1,9 @@
 ---
-import DepositCountdown from '../components/DepositCountdown';
 import HomeLive from '../components/home/HomeLive';
+import ReserveTeaser from '../components/home/ReserveTeaser';
 import SponsorCard from '../components/SponsorCard.astro';
 import Base from '../layouts/Base.astro';
 import { buildData } from '../lib/build-data';
-import { formatLink, formatPct } from '../lib/format';
 import { newestFirst } from '../components/home/Feed';
 import { chainNameMap } from '../lib/names';
 import { computeRecords } from '../lib/records';
@@ -52,14 +51,13 @@ const next = reserve.pace?.next_expected_deposit ?? null;
     <Fragment set:html={fallbackSvg} />
   </HomeLive>
   <section class="home-below">
-    <a class="card lift reserve-teaser" href="/reserve/">
-      <span class="label">Chainlink Reserve</span>
-      <p class="tile-value mono">{formatLink(reserve.latest?.link)}</p>
-      <p class="muted">
-        {reserve.cost_basis ? `${formatPct(reserve.cost_basis.change_pct)} vs cost basis · ` : ''}
-        <DepositCountdown client:visible next={next} overdue={reserve.pace?.deposit_overdue ?? false} />
-      </p>
-    </a>
+    <ReserveTeaser
+      client:visible
+      link={reserve.latest?.link}
+      changePct={reserve.cost_basis?.change_pct ?? null}
+      next={next}
+      overdue={reserve.pace?.deposit_overdue ?? false}
+    />
     <a class="card lift" href="/records/">
       <span class="label">Records</span>
       {records.slice(0, 3).map((r) => (
@@ -73,5 +71,5 @@ const next = reserve.pace?.next_expected_deposit ?? null;
 <style>
   .home-below a { color: var(--fg); }
   .home-below a:hover { text-decoration: none; }
-  .tile-value { font-size: 24px; font-weight: 600; margin: 6px 0 2px; }
+  :global(.tile-value) { font-size: 24px; font-weight: 600; margin: 6px 0 2px; }
 </style>

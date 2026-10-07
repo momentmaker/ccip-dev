@@ -11,6 +11,8 @@ const coinPoints = (cx: number, cy: number, r: number) =>
 
 export default function ReserveVault({ link, target, fraction, coins }: { link: number; target: number; fraction: number; coins: number }) {
   const reduced = usePrefersReducedMotion();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [level, setLevel] = useState(fraction);
   useEffect(() => {
     if (reduced) return;
@@ -34,7 +36,7 @@ export default function ReserveVault({ link, target, fraction, coins }: { link: 
         <polygon points={HEX} className="vault-shell" />
         <g clipPath="url(#vault-hex)">
           <rect x="0" y="0" width={W} height={H} fill="url(#vault-fill)" className="vault-level" style={{ transform: `translateY(${top}px)` }} />
-          {!reduced &&
+          {mounted && !reduced &&
             Array.from({ length: coins }, (_, i) => (
               <polygon key={i} className="coin" style={{ '--i': i } as CSSProperties} points={coinPoints(40 + ((i * 37) % 160), top + 18, 7)} />
             ))}
