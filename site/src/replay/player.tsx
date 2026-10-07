@@ -3,13 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { track, trackDataError } from '../lib/analytics';
 import { DataError, fetchPublic, pollDelay } from '../lib/data';
 import { hasIcon, iconHref } from '../lib/chain-icons';
-import { computeMilestones } from '../lib/records';
+import { chainNameMap } from '../lib/names';
 import { usePrefersReducedMotion } from '../components/hooks';
 import { buildLayout } from '../sky/layout';
 import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
 import { canRecord, recordingFilename, recordReplay, totalFrames } from './recorder';
-import { REPLAY_COINS, REPLAY_LENGTHS, ReplayModel, type ReplayLength } from './timeline';
+import { Show } from './director/show';
+import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
 
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
 export type Aspect = (typeof ASPECTS)[number];
@@ -31,7 +32,7 @@ export default function ReplayPlayer() {
   const [attempt, setAttempt] = useState(0);
   const loadFailuresRef = useRef(0);
   const trackedFilesRef = useRef(new Set<string>());
-  const [length, setLength] = useState<ReplayLength>(60);
+  const [length, setLength] = useState<ReplayLength>(30);
   const [aspect, setAspect] = useState<Aspect>('16:9');
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
@@ -78,11 +79,10 @@ export default function ReplayPlayer() {
   useEffect(() => {
     if (!data) return;
     let alive = true;
-    const coinModel = new ReplayModel(data.replay, data.history, [], stars, REPLAY_LENGTHS[0], { count: REPLAY_COINS, eligible: hasIcon });
     const hrefs = new Map(
-      coinModel.coinSelectorsEver().flatMap((selector) => {
-        const href = iconHref(selector);
-        return href ? [[selector, href] as const] : [];
+      data.replay.chains.flatMap((c) => {
+        const href = iconHref(c.selector);
+        return href ? [[c.selector, href] as const] : [];
       }),
     );
     const load = loadCoinImages(hrefs);
@@ -93,11 +93,21 @@ export default function ReplayPlayer() {
     return () => {
       alive = false;
     };
-  }, [data, stars]);
+  }, [data]);
 
-  const model = useMemo(
-    () => (data ? new ReplayModel(data.replay, data.history, computeMilestones(data.history, data.replay.chains), stars, length, { count: REPLAY_COINS, eligible: hasIcon }) : null),
+  const show = useMemo(
+    () => (data ? new Show({ replay: data.replay, history: data.history, stars, length, focus: null, eligible: hasIcon }) : null),
     [data, stars, length],
+  );
+  const assets = useMemo(
+    () =>
+      data && show
+        ? {
+            names: chainNameMap(data.replay.chains),
+            ticks: show.yearTicks().map((y) => ({ at: (y.time - show.warp.start) / (show.warp.end - show.warp.start), label: y.label })),
+          }
+        : null,
+    [data, show],
   );
   const since = data?.replay.since ?? '';
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
@@ -111,16 +121,16 @@ export default function ReplayPlayer() {
   }, [aspect]);
 
   useEffect(() => {
-    if (!model) return;
+    if (!show || !assets) return;
     let created: ReplayCompositor;
     try {
-      created = new ReplayCompositor(model, stars, since, lastDay, () => document.createElement('canvas'));
+      created = new ReplayCompositor(show, stars, assets, () => document.createElement('canvas'));
     } catch (err) {
       console.warn('Replay compositor failed to start', err);
       setError('Your browser could not start the animation.');
       return;
     }
-    tRef.current = reducedMotion ? model.duration - 0.01 : 0;
+    tRef.current = reducedMotion ? show.length - 0.01 : 0;
     setShown(tRef.current);
     setPlaying(false);
     setCompositor(created);
@@ -128,7 +138,7 @@ export default function ReplayPlayer() {
       created.destroy();
       setCompositor(null);
     };
-  }, [model, stars, since, lastDay, reducedMotion]);
+  }, [show, assets, stars, reducedMotion]);
 
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -153,7 +163,7 @@ export default function ReplayPlayer() {
   }, [compositor, coinImages, drawFrame]);
 
   useEffect(() => {
-    if (!model) return;
+    if (!show) return;
     if (!playing) {
       drawFrame();
       return;
@@ -161,10 +171,10 @@ export default function ReplayPlayer() {
     let raf = 0;
     let lastUi = 0;
     const tick = (frameTime: number) => {
-      const now = Math.min(clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000, model.duration);
+      const now = Math.min(clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000, show.length);
       tRef.current = now;
       drawFrame();
-      if (now >= model.duration) {
+      if (now >= show.length) {
         setShown(now);
         setPlaying(false);
         return;
@@ -177,7 +187,7 @@ export default function ReplayPlayer() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [model, playing, drawFrame, aspect]);
+  }, [show, playing, drawFrame, aspect]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -188,8 +198,8 @@ export default function ReplayPlayer() {
   }, [drawFrame, compositor]);
 
   const play = () => {
-    if (!model) return;
-    const from = tRef.current >= model.duration ? 0 : tRef.current;
+    if (!show) return;
+    const from = tRef.current >= show.length ? 0 : tRef.current;
     clockRef.current = { startedAt: performance.now(), offset: from };
     tRef.current = from;
     setShown(from);
@@ -207,7 +217,7 @@ export default function ReplayPlayer() {
   useEffect(() => () => recordAbortRef.current?.abort(), []);
 
   const record = async () => {
-    if (!model || recording) return;
+    if (!show || !assets || recording) return;
     setPlaying(false);
     setRecordError(null);
     const controller = new AbortController();
@@ -215,7 +225,7 @@ export default function ReplayPlayer() {
     setRecording({ progress: 0, controller });
     let recorder: ReplayCompositor | null = null;
     try {
-      recorder = new ReplayCompositor(model, stars, since, lastDay, () => new OffscreenCanvas(1, 1));
+      recorder = new ReplayCompositor(show, stars, assets, () => new OffscreenCanvas(1, 1));
       const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
       recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
       if (controller.signal.aborted) return;
@@ -249,7 +259,7 @@ export default function ReplayPlayer() {
   };
 
   if (error) return <p className="card">{error}</p>;
-  if (!data || !model) {
+  if (!data || !show) {
     if (!loadFailed) return null;
     return (
       <div className="replay-note">
@@ -270,14 +280,14 @@ export default function ReplayPlayer() {
       </div>
       <div className="player-controls">
         <button type="button" className="share-btn" onClick={() => (playing ? setPlaying(false) : play())}>
-          {playing ? 'Pause' : shown >= model.duration ? 'Replay' : 'Play'}
+          {playing ? 'Pause' : shown >= show.length ? 'Replay' : 'Play'}
         </button>
         <input
           type="range"
           min={0}
-          max={model.duration}
+          max={show.length}
           step={0.01}
-          value={Math.min(shown, model.duration)}
+          value={Math.min(shown, show.length)}
           aria-label="Position"
           onChange={(e) => scrub(Number(e.target.value))}
         />

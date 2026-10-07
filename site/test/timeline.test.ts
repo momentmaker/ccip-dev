@@ -47,7 +47,7 @@ describe('ReplayModel', () => {
     const m = model();
     expect(m.days).toEqual(['2023-07-06', '2023-07-07', '2023-07-08', '2023-07-09']);
     expect(m.warp.dayLength(0)).toBe(15);
-    expect(m.duration).toBe(62);
+    expect(m.duration).toBe(60);
   });
 
   it('ignites chains on their first day and counts the running totals', () => {

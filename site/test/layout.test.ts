@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendStar, buildLayout, orderChains, projector, spiralPoint } from '../src/sky/layout';
+import { appendStar, buildLayout, cameraProjector, orderChains, projector, spiralPoint } from '../src/sky/layout';
 
 const chains = [
   { selector: '5009297550715157269', first_day: '2023-07-06' },
@@ -71,5 +71,21 @@ describe('projector', () => {
   it('frames an explicit extent with 8% breathing room', () => {
     const p = projector(1000, 1000, stars, 0.08, 0.5);
     expect(p(0.5, 0)[0]).toBeCloseTo(500 + 460 / 1.08);
+  });
+});
+
+describe('cameraProjector', () => {
+  it('matches the plain projector when centered with no rotation', () => {
+    const plain = projector(800, 800, [], 0.08, 2);
+    const cam = cameraProjector(800, 800, { cx: 0, cy: 0, extent: 2, rotation: 0 });
+    expect(cam(0.5, -0.25)).toEqual(plain(0.5, -0.25));
+  });
+
+  it('moves the center to the middle of the canvas and rotates around it', () => {
+    const cam = cameraProjector(800, 800, { cx: 1, cy: 0, extent: 2, rotation: Math.PI / 2 });
+    expect(cam(1, 0)).toEqual([400, 400]);
+    const [x, y] = cam(2, 0);
+    expect(x).toBeCloseTo(400, 6);
+    expect(y).toBeGreaterThan(400);
   });
 });

@@ -160,7 +160,7 @@ The toolbar's own box has `pointer-events: none`, with only its children active,
 
 **Drawing.** Coins are drawn in the compositor's 2D overlay pass, after the sky `drawImage` and before the text overlay. MP4 frames therefore contain them. Each coin is pre-rasterized once to an offscreen canvas at 2× its maximum pixel size, clipped to a circle, and then drawn with `drawImage`. This stays sharp at any device pixel ratio and at 1080p recording.
 
-**Images.** As soon as `replay.json` has loaded, the player preloads the icons of the chains that can ever wear a coin (`ReplayModel.coinSelectorsEver()`, about 45 of 92 today):
+**Images.** As soon as `replay.json` has loaded, the player preloads the icons of every replay chain, because the replay's join cards and leaderboard (viral replay spec) show any chain's logo:
 - It fetches each SVG from the same origin and rewrites its root `width` and `height` to the raster size (128 px).
 - It loads that text through a Blob URL into an `Image` and awaits `decode()`.
 - It draws the result once into a circle-clipped canvas.

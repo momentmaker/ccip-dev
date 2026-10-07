@@ -55,3 +55,19 @@ export function projector(width: number, height: number, stars: readonly StarPoi
   const sy = height > width ? Math.min(height / width, STRETCH_MAX) : 1;
   return (x, y) => [width / 2 + (x / extent) * half * sx, height / 2 + (y / extent) * half * sy];
 }
+
+export function cameraProjector(
+  width: number,
+  height: number,
+  camera: { cx: number; cy: number; extent: number; rotation: number },
+  margin = 0.08,
+): Projector {
+  const base = projector(width, height, [], margin, camera.extent);
+  const cos = Math.cos(camera.rotation);
+  const sin = Math.sin(camera.rotation);
+  return (x, y) => {
+    const dx = x - camera.cx;
+    const dy = y - camera.cy;
+    return base(dx * cos - dy * sin, dx * sin + dy * cos);
+  };
+}

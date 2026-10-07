@@ -8,10 +8,9 @@ import { coinSelectors } from '../sky/coins';
 import { cometKind, cometSize } from '../sky/scene';
 import { laneOpacity, starRadius } from '../sky/weights';
 
-export const REPLAY_LENGTHS = [30, 60, 120] as const;
+export const REPLAY_LENGTHS = [15, 30, 60] as const;
 export type ReplayLength = (typeof REPLAY_LENGTHS)[number];
 export const REPLAY_FPS = 30;
-export const END_CARD_S = 2;
 export const REPLAY_COMET_S = 0.8;
 export const CAPTION_S = 2;
 export const IGNITE_S = 1;
@@ -118,7 +117,7 @@ export class ReplayModel {
     this.days = first && last ? daysBetween(first, last) : [];
     this.warp = warp ?? linearWarp(this.days.length, 0, length);
     this.length = length;
-    this.duration = length + END_CARD_S;
+    this.duration = length;
     this.lanesByDay = new Map(replay.days.map((d) => [d.day, d.lanes]));
     const historyByDay = new Map(history.map((d) => [d.day, d]));
     let messages = 0;

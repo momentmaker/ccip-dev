@@ -1,8 +1,12 @@
-import { formatCount, formatUsd, formatUtcDay } from '../lib/format';
+import type { ChainNames } from '../lib/names';
+import { cameraProjector, type Projector, type StarPoint } from '../sky/layout';
 import { coinDiameter } from '../sky/coins';
-import { projector, type Projector, type StarPoint } from '../sky/layout';
 import { createRenderer, type SkyCanvas, type SkyRenderer } from '../sky/renderer';
-import type { ReplayFrameState, ReplayModel } from './timeline';
+import type { Show, ShowFrame } from './director/show';
+import { drawStory } from './story/draw';
+import { layoutFor } from './story/layout';
+
+type ShowSource = Pick<Show, 'frameAt' | 'timing' | 'length' | 'warp'>;
 
 type Ctx2d = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -30,84 +34,23 @@ export function drawCoins(ctx: Ctx2d, coins: readonly DrawnCoin[]): void {
   ctx.restore();
 }
 
-export interface OverlayText {
-  date: string;
-  totals: string;
-  chains: string;
-  captions: string[];
-  watermark: string;
-  endCard: { title: string; lines: string[] } | null;
-}
-
-export function overlayText(state: ReplayFrameState, since: string, lastDay: string): OverlayText {
-  return {
-    date: formatUtcDay(state.day),
-    totals: `${formatCount(state.cumulativeMessages)} messages · ${formatUsd(state.cumulativeUsd)} moved`,
-    chains: `${state.activeChains} ${state.activeChains === 1 ? 'chain' : 'chains'}`,
-    captions: state.captions,
-    watermark: `ccip.dev · ${since} → ${lastDay}`,
-    endCard: state.endCard
-      ? {
-          title: 'ccip.dev',
-          lines: [
-            `${formatCount(state.cumulativeMessages)} CCIP messages`,
-            `${formatUsd(state.cumulativeUsd)} moved across ${state.activeChains} chains`,
-            'Live CCIP stats at ccip.dev',
-          ],
-        }
-      : null,
-  };
-}
-
-export function drawOverlay(ctx: Ctx2d, text: OverlayText, width: number, height: number): void {
-  const s = Math.min(width, height) / 1080;
-  const pad = 48 * s;
-  ctx.save();
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#e8eaed';
-  ctx.font = `600 ${56 * s}px "JetBrains Mono", monospace`;
-  ctx.fillText(text.date, pad, pad);
-  ctx.fillStyle = '#8892a0';
-  ctx.font = `400 ${28 * s}px Inter, sans-serif`;
-  ctx.fillText(text.totals, pad, pad + 72 * s);
-  ctx.fillText(text.chains, pad, pad + 112 * s);
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#f5c451';
-  ctx.font = `600 ${34 * s}px Inter, sans-serif`;
-  text.captions.forEach((caption, i) => ctx.fillText(caption, width / 2, height - pad - 160 * s + i * 46 * s));
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = '#4a7ff0';
-  ctx.font = `600 ${24 * s}px Inter, sans-serif`;
-  ctx.fillText(text.watermark, width - pad, height - pad);
-  if (text.endCard) {
-    ctx.fillStyle = 'rgba(12, 15, 20, 0.86)';
-    ctx.fillRect(0, 0, width, height);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#4a7ff0';
-    ctx.font = `800 ${120 * s}px Inter, sans-serif`;
-    ctx.fillText(text.endCard.title, width / 2, height / 2 - 140 * s);
-    ctx.fillStyle = '#e8eaed';
-    ctx.font = `600 ${40 * s}px Inter, sans-serif`;
-    text.endCard.lines.forEach((line, i) => ctx.fillText(line, width / 2, height / 2 + i * 60 * s));
-  }
-  ctx.restore();
+export interface CompositorAssets {
+  names: ChainNames;
+  ticks: readonly { at: number; label: string }[];
 }
 
 export class ReplayCompositor {
   private readonly skyCanvas: SkyCanvas;
   private readonly renderer: SkyRenderer;
-  private destroyed = false;
   private coinImages: ReadonlyMap<string, CanvasImageSource> = new Map();
+  private loopCache: { width: number; height: number; canvas: SkyCanvas } | null = null;
+  private destroyed = false;
 
   constructor(
-    private readonly model: ReplayModel,
+    private readonly show: ShowSource,
     private readonly stars: readonly StarPoint[],
-    private readonly since: string,
-    private readonly lastDay: string,
-    createCanvas: () => SkyCanvas,
+    private readonly assets: CompositorAssets,
+    private readonly createCanvas: () => SkyCanvas,
   ) {
     let canvas = createCanvas();
     let renderer: SkyRenderer;
@@ -121,12 +64,39 @@ export class ReplayCompositor {
     this.renderer = renderer;
   }
 
-  draw(t: number, target: Ctx2d, width: number, height: number): ReplayFrameState {
-    if (this.destroyed) return this.model.frameAt(t);
+  setCoinImages(images: ReadonlyMap<string, CanvasImageSource>): void {
+    this.coinImages = images;
+  }
+
+  draw(t: number, target: Ctx2d, width: number, height: number): ShowFrame {
+    const frame = this.show.frameAt(t);
+    if (this.destroyed) return frame;
+    if (frame.loop > 0) this.ensureLoopCache(width, height);
+    this.compose(frame, target, width, height);
+    if (frame.loop > 0 && this.loopCache) {
+      target.save();
+      target.globalAlpha = frame.loop;
+      target.drawImage(this.loopCache.canvas, 0, 0);
+      target.restore();
+    }
+    return frame;
+  }
+
+  private ensureLoopCache(width: number, height: number): void {
+    if (this.loopCache && this.loopCache.width === width && this.loopCache.height === height) return;
+    const canvas = this.createCanvas();
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d') as Ctx2d | null;
+    if (!ctx) return;
+    this.compose(this.show.frameAt(0), ctx, width, height);
+    this.loopCache = { width, height, canvas };
+  }
+
+  private compose(frame: ShowFrame, target: Ctx2d, width: number, height: number): void {
     if (this.skyCanvas.width !== width || this.skyCanvas.height !== height) this.renderer.resize(width, height);
-    const state = this.model.frameAt(t);
-    const project = projector(width, height, this.stars, undefined, state.extent);
-    this.renderer.draw(state.sky, project, Math.min(width, height) / 1000);
+    const project = cameraProjector(width, height, frame.camera);
+    this.renderer.draw(frame.base.sky, project, Math.min(width, height) / 1000);
     target.fillStyle = '#0c0f14';
     target.fillRect(0, 0, width, height);
     const glow = target.createRadialGradient(width / 2, 0, 0, width / 2, 0, Math.max(width, height) * 0.7);
@@ -135,20 +105,35 @@ export class ReplayCompositor {
     target.fillStyle = glow;
     target.fillRect(0, 0, width, height);
     target.drawImage(this.skyCanvas, 0, 0);
-    drawCoins(target, this.placeCoins(state, project, width, height));
-    drawOverlay(target, overlayText(state, this.since, this.lastDay), width, height);
-    return state;
+    const coins = this.placeCoins(frame, project, width, height);
+    drawCoins(target, coins);
+    if (frame.phase === 'finale') this.drawCoinWave(target, frame, coins, project, width, height);
+    drawStory(target, frame, layoutFor(width, height), { names: this.assets.names, coins: this.coinImages, ticks: this.assets.ticks });
   }
 
-  setCoinImages(images: ReadonlyMap<string, CanvasImageSource>): void {
-    this.coinImages = images;
+  private drawCoinWave(target: Ctx2d, frame: ShowFrame, coins: readonly DrawnCoin[], project: Projector, width: number, height: number): void {
+    const [ox, oy] = project(this.stars[0]?.x ?? 0, this.stars[0]?.y ?? 0);
+    const reach = Math.hypot(width, height) / 2;
+    const seconds = frame.finale * this.show.timing.finale;
+    target.save();
+    for (const c of coins) {
+      const p = (seconds - 0.6 * (Math.hypot(c.x - ox, c.y - oy) / reach)) / 0.5;
+      if (p <= 0 || p >= 1) continue;
+      target.globalAlpha = 1 - p;
+      target.beginPath();
+      target.arc(c.x, c.y, (c.d / 2) * (1 + 0.8 * p), 0, Math.PI * 2);
+      target.strokeStyle = '#6c9bff';
+      target.lineWidth = Math.max(1.5, c.d / 18);
+      target.stroke();
+    }
+    target.restore();
   }
 
-  private placeCoins(state: ReplayFrameState, project: Projector, width: number, height: number): DrawnCoin[] {
+  private placeCoins(frame: ShowFrame, project: Projector, width: number, height: number): DrawnCoin[] {
     const unit = Math.min(width, height) / REPLAY_COIN_UNIT;
-    return state.coins.flatMap((c) => {
+    return frame.base.coins.flatMap((c) => {
       const image = this.coinImages.get(c.selector);
-      const star = state.sky.stars[c.star];
+      const star = frame.base.sky.stars[c.star];
       if (!image || !star || star.radius <= 0) return [];
       const [x, y] = project(star.x, star.y);
       return [{ x, y, d: coinDiameter(star.radius) * unit, alpha: c.alpha, image }];

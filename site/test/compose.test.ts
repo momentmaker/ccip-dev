@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ReplayCompositor, drawCoins, drawOverlay, overlayText } from '../src/replay/compose';
-import type { ReplayFrameState, ReplayModel } from '../src/replay/timeline';
+import { ReplayCompositor, drawCoins } from '../src/replay/compose';
+import type { ReplayFrameState } from '../src/replay/timeline';
 
 const { renderer, createRenderer } = vi.hoisted(() => {
   const renderer = { draw: vi.fn(), resize: vi.fn(), destroy: vi.fn() };
@@ -22,64 +22,29 @@ const state = (endCard: boolean): ReplayFrameState => ({
   sky: { stars: [], lanes: [], comets: [], rings: [] },
 });
 
-describe('overlayText', () => {
-  it('describes the frame', () => {
-    expect(overlayText(state(false), '2023-07-06', '2026-10-06')).toEqual({
-      date: 'Jul 7, 2023',
-      totals: '1,565,729 messages · $25.3B moved',
-      chains: '95 chains',
-      captions: ['Base joins'],
-      watermark: 'ccip.dev · 2023-07-06 → 2026-10-06',
-      endCard: null,
-    });
-  });
-
-  it('says "1 chain" for a single chain', () => {
-    expect(overlayText({ ...state(false), activeChains: 1 }, '2023-07-06', '2026-10-06').chains).toBe('1 chain');
-  });
-
-  it('adds the end card after the last day', () => {
-    expect(overlayText(state(true), '2023-07-06', '2026-10-06').endCard).toEqual({
-      title: 'ccip.dev',
-      lines: ['1,565,729 CCIP messages', '$25.3B moved across 95 chains', 'Live CCIP stats at ccip.dev'],
-    });
-  });
+const showFrame = (base = state(false)) => ({
+  t: 10, phase: 'story' as const, base, camera: { cx: 0, cy: 0, extent: 1, rotation: 0 },
+  card: null, slam: null, story: { usd: 0, messages: 0, chains: 0, day: '2023-07-07', timeline: 0.3 },
+  board: [], hook: null, finale: 0, loop: 0, punch: 0, focus: null, focusStar: -1,
 });
-
-describe('drawOverlay', () => {
-  it('writes the date, totals, captions and watermark, plus the end card when present', () => {
-    const texts: string[] = [];
-    const ctx = {
-      save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(),
-      fillText: (t: string) => texts.push(t),
-      set font(_v: string) {}, set fillStyle(_v: string) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
-    } as unknown as CanvasRenderingContext2D;
-    drawOverlay(ctx, overlayText(state(true), '2023-07-06', '2026-10-06'), 1920, 1080);
-    expect(texts).toEqual([
-      'Jul 7, 2023',
-      '1,565,729 messages · $25.3B moved',
-      '95 chains',
-      'Base joins',
-      'ccip.dev · 2023-07-06 → 2026-10-06',
-      'ccip.dev',
-      '1,565,729 CCIP messages',
-      '$25.3B moved across 95 chains',
-      'Live CCIP stats at ccip.dev',
-    ]);
-  });
-});
+const showStub = (frame: ReturnType<typeof showFrame>) =>
+  ({ frameAt: () => frame, timing: { hook: 2, finale: 3 }, length: 30, warp: { start: 2, end: 27 } }) as never;
+const assets = { names: new Map<string, string>(), ticks: [] };
+const storyMethods = {
+  beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(), translate: vi.fn(), scale: vi.fn(), rect: vi.fn(), clip: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(), fill: vi.fn(),
+  measureText: () => ({ width: 0 }), createLinearGradient: () => ({ addColorStop() {} }),
+};
 
 describe('ReplayCompositor', () => {
   it('stops drawing once destroyed', () => {
-    const frame = state(false);
-    const model = { frameAt: () => frame } as unknown as ReplayModel;
+    const frame = showFrame();
     const gradient = { addColorStop: vi.fn() };
     const target = {
-      fillRect: vi.fn(), drawImage: vi.fn(), createRadialGradient: () => gradient,
+      ...storyMethods, fillRect: vi.fn(), drawImage: vi.fn(), createRadialGradient: () => gradient,
       save: vi.fn(), restore: vi.fn(), fillText: vi.fn(),
       set font(_v: string) {}, set fillStyle(_v: unknown) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
     } as unknown as CanvasRenderingContext2D;
-    const compositor = new ReplayCompositor(model, [], '2023-07-06', '2026-10-06', () => ({ width: 10, height: 10 }) as never);
+    const compositor = new ReplayCompositor(showStub(frame), [], assets, () => ({ width: 10, height: 10 }) as never);
     compositor.draw(1, target, 10, 10);
     expect(renderer.draw).toHaveBeenCalledTimes(1);
     compositor.destroy();
@@ -95,8 +60,7 @@ describe('ReplayCompositor', () => {
     });
     createRenderer.mockImplementationOnce(() => renderer);
     const createCanvas = vi.fn(() => ({ width: 10, height: 10 }) as never);
-    const model = { frameAt: () => state(false) } as unknown as ReplayModel;
-    expect(() => new ReplayCompositor(model, [], '2023-07-06', '2026-10-06', createCanvas)).not.toThrow();
+    expect(() => new ReplayCompositor(showStub(showFrame()), [], assets, createCanvas)).not.toThrow();
     expect(createCanvas).toHaveBeenCalledTimes(2);
     expect(createRenderer).toHaveBeenLastCalledWith(expect.anything(), { preferGl: false });
     createRenderer.mockImplementation(() => renderer);
@@ -105,7 +69,7 @@ describe('ReplayCompositor', () => {
 
 const coinTarget = (drawn: unknown[][], alphas: number[]) =>
   ({
-    fillRect: vi.fn(), createRadialGradient: () => ({ addColorStop: vi.fn() }),
+    ...storyMethods, fillRect: vi.fn(), createRadialGradient: () => ({ addColorStop: vi.fn() }),
     save: vi.fn(), restore: vi.fn(), fillText: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(),
     drawImage: (...args: unknown[]) => drawn.push(args),
     set globalAlpha(v: number) { alphas.push(v); },
@@ -126,15 +90,14 @@ describe('drawCoins', () => {
 
 describe('ReplayCompositor coins', () => {
   it('draws a coin over its star once its image is set', () => {
-    const frame: ReplayFrameState = {
+    const frame = showFrame({
       ...state(false),
       coins: [{ star: 0, selector: 'a', alpha: 1 }],
       sky: { stars: [{ x: 0, y: 0, radius: 10, brightness: 1, flash: 0 }], lanes: [], comets: [], rings: [] },
-    };
-    const model = { frameAt: () => frame } as unknown as ReplayModel;
+    });
     const drawn: unknown[][] = [];
     const target = coinTarget(drawn, []);
-    const compositor = new ReplayCompositor(model, [{ selector: 'a', x: 0, y: 0 }], '2023-07-06', '2026-10-06', () => ({ width: 800, height: 800 }) as never);
+    const compositor = new ReplayCompositor(showStub(frame), [{ selector: 'a', x: 0, y: 0 }], assets, () => ({ width: 800, height: 800 }) as never);
     compositor.draw(1, target, 800, 800);
     expect(drawn).toHaveLength(1);
     const image = { tag: 'coin' } as unknown as CanvasImageSource;

@@ -49,8 +49,8 @@ afterEach(() => {
 });
 
 describe('recording helpers', () => {
-  it('counts frames including the 2 s end card and names the file', () => {
-    expect(totalFrames(60)).toBe(1860);
+  it('counts one frame per fps-second of the length and names the file', () => {
+    expect(totalFrames(60)).toBe(1800);
     expect(recordingFilename('2026-10-06', '9:16')).toBe('ccip-replay-2026-10-06-9x16.mp4');
   });
 
@@ -81,7 +81,7 @@ describe('recordReplay', () => {
       onProgress: (p) => progress.push(p),
       signal: new AbortController().signal,
     });
-    expect(draws).toHaveLength(90);
+    expect(draws).toHaveLength(30);
     expect(calls.added[1]).toEqual([1 / 30, 1 / 30]);
     expect(progress.at(-1)).toBe(1);
     expect(calls.finalized).toBe(1);

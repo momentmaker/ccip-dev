@@ -1,5 +1,5 @@
 import type { Aspect } from './player';
-import { END_CARD_S, REPLAY_FPS } from './timeline';
+import { REPLAY_FPS } from './timeline';
 
 export const RECORD_BITRATE = 8_000_000;
 export const AVC_CODEC = 'avc1.640028';
@@ -10,7 +10,7 @@ export const ASPECT_SIZE: Record<Aspect, { width: number; height: number }> = {
 };
 
 export function totalFrames(lengthS: number): number {
-  return REPLAY_FPS * (lengthS + END_CARD_S);
+  return REPLAY_FPS * lengthS;
 }
 
 export function recordingFilename(lastDay: string, aspect: Aspect): string {
