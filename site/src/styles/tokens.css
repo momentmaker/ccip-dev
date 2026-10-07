@@ -1,0 +1,24 @@
+:root {
+  --bg: #0c0f14;
+  --card: #161b23;
+  --card-2: #1a2030;
+  --border: rgba(47, 98, 223, 0.3);
+  --border-soft: rgba(47, 98, 223, 0.14);
+  --fg: #e8eaed;
+  --muted: #8892a0;
+  --blue: #2f62df;
+  --blue-2: #4a7ff0;
+  --gold: #f5c451;
+  --up: #3ccf8e;
+  --down: #f06a6a;
+  --warn: #f2b84b;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --focus: 0 0 0 6px rgba(47, 98, 223, 0.2);
+  --font-sans: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', Menlo, Monaco, monospace;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: dark;
+}

@@ -1,0 +1,58 @@
+---
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-600.css';
+import '@fontsource/inter/latin-800.css';
+import '@fontsource/jetbrains-mono/latin-400.css';
+import '@fontsource/jetbrains-mono/latin-600.css';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { SITE_URL, UMAMI_SRC, UMAMI_WEBSITE_ID } from '../config';
+import { BUILD_DATE } from '../lib/build-data';
+import { ogImageUrl } from '../lib/card-paths';
+
+interface Props {
+  title: string;
+  description: string;
+  cardPath?: string | null;
+}
+
+const { title, description, cardPath = null } = Astro.props;
+const fullTitle = title === 'ccip.dev' ? title : `${title} · ccip.dev`;
+const canonical = new URL(Astro.url.pathname, SITE_URL).href;
+const ogImage = ogImageUrl(cardPath, BUILD_DATE);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#2f62df" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ccip.dev" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={fullTitle} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@ccipdev" />
+    {UMAMI_WEBSITE_ID && <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>}
+  </head>
+  <body>
+    <div class="ground" aria-hidden="true"></div>
+    <Header />
+    <main class="page"><slot /></main>
+    <Footer />
+  </body>
+</html>

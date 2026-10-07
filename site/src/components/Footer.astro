@@ -1,0 +1,15 @@
+---
+import sponsor from '../../sponsor.json';
+import { ATTRIBUTION, DISCLAIMER, REPO_URL } from '../config';
+import { sponsorView } from '../lib/sponsor';
+
+const view = sponsorView(sponsor);
+---
+<footer class="site-footer">
+  <p class="footer-links">
+    <a href="/methodology/">Methodology</a> · <a href="/status/">Status</a> · <a href="/about/">About</a> ·
+    <a href={REPO_URL}>Source on GitHub</a> ·
+    <a href={view.footer.href} rel={view.kind === 'sponsor' ? 'sponsored noopener' : undefined}>{view.footer.text}</a>
+  </p>
+  <p>{ATTRIBUTION} · {DISCLAIMER}</p>
+</footer>

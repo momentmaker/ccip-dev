@@ -1,0 +1,10 @@
+export const SITE_URL = 'https://ccip.dev';
+export const REPO_URL = 'https://github.com/momentmaker/ccip-dev';
+export const X_HANDLE = 'ccipdev';
+export const X_URL = 'https://x.com/ccipdev';
+export const TELEGRAM_URL = 'https://t.me/ccipdev';
+export const UMAMI_SRC = 'https://analytics.jivx.com/script.js';
+export const UMAMI_WEBSITE_ID = '';
+export const TAGLINE = 'Live Chainlink CCIP stats · unofficial';
+export const DISCLAIMER = 'Unofficial — not affiliated with Chainlink Labs';
+export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';

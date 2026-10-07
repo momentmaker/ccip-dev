@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import { DISCLAIMER, REPO_URL, TELEGRAM_URL, X_URL } from '../config';
+---
+<Base title="About" description="What ccip.dev is, where its numbers come from, and who runs it.">
+  <article class="prose">
+    <h1>About ccip.dev</h1>
+    <p>
+      ccip.dev follows every mainnet Chainlink CCIP message since the first one on 2023-07-06: live as it happens, with daily
+      history, top lanes, tokens and senders, records, and the Chainlink Reserve.
+    </p>
+    <p>
+      Messages come from Chainlink's public CCIP API. Token values use DefiLlama prices. Every figure links to the
+      <a href="/methodology/">methodology</a>, which explains how it is measured and how it compares with other sources.
+    </p>
+    <p><strong>{DISCLAIMER}.</strong> ccip.dev is a community project. The code is open source on <a href={REPO_URL}>GitHub</a>.</p>
+    <p>Follow along on <a href={X_URL}>X @ccipdev</a> and the <a href={TELEGRAM_URL}>t.me/ccipdev</a> Telegram channel.</p>
+  </article>
+</Base>

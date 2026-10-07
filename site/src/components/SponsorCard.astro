@@ -1,0 +1,13 @@
+---
+import sponsor from '../../sponsor.json';
+import { sponsorView } from '../lib/sponsor';
+
+const view = sponsorView(sponsor);
+---
+<aside class={`card sponsor-card sponsor-${view.kind}`} aria-label="Sponsor">
+  <span class="label">Sponsor</span>
+  <a class="sponsor-body" href={view.card.href} rel={view.kind === 'sponsor' ? 'sponsored noopener' : undefined}>
+    {view.card.logo && <img src={view.card.logo} alt="" width="40" height="40" />}
+    <span>{view.card.name && <strong>{view.card.name} </strong>}<span class="muted">{view.card.text}</span></span>
+  </a>
+</aside>

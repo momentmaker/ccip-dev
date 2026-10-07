@@ -1,0 +1,15 @@
+---
+import StatusPanel from '../components/StatusPanel';
+import Base from '../layouts/Base.astro';
+---
+<Base title="Status" description="Live ingest lag, the last finalized day and data coverage for ccip.dev.">
+  <h1>Status</h1>
+  <StatusPanel client:load />
+  <h2>Data sources</h2>
+  <ul>
+    <li>Messages, fees and delivery times: Chainlink's public CCIP API (<code>api.ccip.chain.link/v2</code>), polled every minute.</li>
+    <li>Token prices: DefiLlama's free coins API.</li>
+    <li>Chainlink Reserve: LINK transfers read from public Ethereum RPC endpoints every hour.</li>
+  </ul>
+  <p>Details and known limitations are in the <a href="/methodology/">methodology</a>.</p>
+</Base>
