@@ -262,10 +262,10 @@
     },
     "ethereum-mainnet-polygon-zkevm-1": {
       "selector": "4348158687435793198",
-      "file": "ethereum-mainnet-polygon-zkevm-1.svg",
-      "kind": "lettermark",
-      "slug": null,
-      "rule": "none"
+      "file": "ethereum-mainnet-polygon-zkevm-1.png",
+      "kind": "logo",
+      "slug": "polygonzkevm",
+      "rule": "override"
     },
     "ethereum-mainnet-scroll-1": {
       "selector": "13204309965629103672",
@@ -297,10 +297,10 @@
     },
     "ethereum-mainnet-xlayer-1": {
       "selector": "3016212468291539606",
-      "file": "ethereum-mainnet-xlayer-1.svg",
-      "kind": "lettermark",
-      "slug": null,
-      "rule": "none"
+      "file": "ethereum-mainnet-xlayer-1.png",
+      "kind": "logo",
+      "slug": "xlayer",
+      "rule": "child"
     },
     "ethereum-mainnet-zircuit-1": {
       "selector": "17198166215261833993",
@@ -437,7 +437,7 @@
     },
     "mind-mainnet": {
       "selector": "11690709103138290329",
-      "file": "mind-mainnet.svg",
+      "file": "mind-mainnet.png",
       "kind": "logo",
       "slug": "mindnetwork",
       "rule": "override"
@@ -661,10 +661,10 @@
     },
     "zora-mainnet": {
       "selector": "3555797439612589184",
-      "file": "zora-mainnet.svg",
-      "kind": "lettermark",
-      "slug": null,
-      "rule": "none"
+      "file": "zora-mainnet.png",
+      "kind": "logo",
+      "slug": "zora",
+      "rule": "stem"
     }
   }
 }

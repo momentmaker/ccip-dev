@@ -5,6 +5,7 @@ import { fetchPublic } from '../src/lib/data';
 import { cleanIcon } from './chain-icons/clean';
 import { lettermarkSvg } from './chain-icons/lettermark';
 import { matchIcon, type MatchRule, type Overrides } from './chain-icons/match';
+import { embedsRaster, rasterizeIcon } from './chain-icons/rasterize';
 import { contactSheet, type SheetRow } from './chain-icons/sheet';
 
 const SOURCE = 'https://github.com/smartcontractkit/documentation/tree/main/public/assets/chains';
@@ -38,7 +39,8 @@ async function main(): Promise<void> {
     readFile(OVERRIDES, 'utf8').then((t) => JSON.parse(t) as Overrides),
   ]);
   const slugs = new Set(listing.filter((f) => f.name.endsWith('.svg')).map((f) => f.name.slice(0, -4)));
-  const files = new Map<string, string>();
+  const files = new Map<string, string | Uint8Array>();
+  let rasterized = 0;
   const icons: Record<string, ManifestEntry> = {};
   const rows: SheetRow[] = [];
   for (const chain of [...chains].sort((a, b) => a.name.localeCompare(b.name))) {
@@ -46,8 +48,10 @@ async function main(): Promise<void> {
     const match = matchIcon(chain, slugs, overrides);
     const displayName = chain.display_name ?? chain.name;
     const raw = match.slug ? await getText(iconUrl(match.slug)) : await lettermarkSvg(displayName);
-    const file = `${chain.name}.svg`;
-    files.set(file, cleanIcon(raw, chain.name));
+    const raster = match.slug !== null && embedsRaster(raw);
+    const file = `${chain.name}.${raster ? 'png' : 'svg'}`;
+    files.set(file, raster ? await rasterizeIcon(raw) : cleanIcon(raw, chain.name));
+    if (raster) rasterized++;
     icons[chain.name] = { selector: chain.selector, file, kind: match.slug ? 'logo' : 'lettermark', slug: match.slug, rule: match.rule };
     rows.push({ file, displayName, slug: match.slug, rule: match.rule });
   }
@@ -59,7 +63,7 @@ async function main(): Promise<void> {
   await writeFile(SHEET, contactSheet(rows));
   const byRule = new Map<string, number>();
   for (const r of rows) byRule.set(r.rule, (byRule.get(r.rule) ?? 0) + 1);
-  console.log(`icons: ${rows.length} chains · ${[...byRule].map(([rule, n]) => `${rule} ${n}`).join(' · ')}`);
+  console.log(`icons: ${rows.length} chains · ${[...byRule].map(([rule, n]) => `${rule} ${n}`).join(' · ')} · rasterized ${rasterized}`);
   console.log(`lettermarks: ${rows.filter((r) => r.slug === null).map((r) => r.displayName).join(', ') || 'none'}`);
   console.log(`review: ${SHEET}`);
 }
