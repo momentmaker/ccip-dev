@@ -1,4 +1,5 @@
 ---
+import ChainIcons from '../../components/ChainIcons.astro';
 import FlowChord from '../../components/FlowChord';
 import ShareButton from '../../components/ShareButton';
 import Base from '../../layouts/Base.astro';
@@ -39,7 +40,7 @@ const leader = data.topLanes[0];
     <table class="data">
       <thead><tr><th>Lane</th><th class="num">Messages</th><th class="num">Value</th></tr></thead>
       <tbody>
-        {data.topLanes.map((l) => <tr><td>{l.label}</td><td class="num">{formatCount(l.messages)}</td><td class="num">{formatUsd(l.usd)}</td></tr>)}
+        {data.topLanes.map((l) => <tr><td><ChainIcons selectors={[l.src, l.dst]} />{l.label}</td><td class="num">{formatCount(l.messages)}</td><td class="num">{formatUsd(l.usd)}</td></tr>)}
       </tbody>
     </table>
   </div>

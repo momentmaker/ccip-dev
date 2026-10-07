@@ -19,7 +19,7 @@ export interface FlowData {
   groups: FlowGroup[];
   usd: number[][];
   messages: number[][];
-  topLanes: { label: string; usd: number; messages: number }[];
+  topLanes: { label: string; src: string; dst: string; usd: number; messages: number }[];
 }
 
 const square = (n: number) => Array.from({ length: n }, () => new Array<number>(n).fill(0));
@@ -58,6 +58,6 @@ export function flowData(replay: ReplayFile, window: Window, names: ChainNames, 
     topLanes: [...weights.lanes]
       .sort((a, b) => b.usd - a.usd || b.messages - a.messages)
       .slice(0, FLOW_TOP)
-      .map((l) => ({ label: laneLabel(names, `${l.src}>${l.dst}`), usd: l.usd, messages: l.messages })),
+      .map((l) => ({ label: laneLabel(names, `${l.src}>${l.dst}`), src: l.src, dst: l.dst, usd: l.usd, messages: l.messages })),
   };
 }

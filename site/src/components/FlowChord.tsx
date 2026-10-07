@@ -1,12 +1,14 @@
 import { chordDirected, ribbonArrow, type Chord, type ChordGroup, type ChordSubgroup } from 'd3-chord';
 import { arc } from 'd3-shape';
 import { useMemo, useState } from 'react';
+import { iconHref } from '../lib/chain-icons';
 import { OTHER, type FlowData } from '../lib/flow';
 import { formatCount, formatUsd } from '../lib/format';
 
 const SIZE = 640;
 const OUTER = SIZE / 2 - 90;
 const INNER = OUTER - 14;
+const LABEL_ICON = 14;
 
 const groupColor = (key: string, i: number) => (key === OTHER ? '#4b5563' : `hsl(${218 + ((i * 7) % 24)} 78% ${46 + ((i * 11) % 26)}%)`);
 
@@ -29,6 +31,11 @@ export default function FlowChord({ data }: { data: FlowData }) {
         <button type="button" className={metric === 'messages' ? 'active' : ''} aria-pressed={metric === 'messages'} onClick={() => setMetric('messages')}>Messages</button>
       </div>
       <svg viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`} role="group" aria-label="Flows between CCIP chains" onClick={() => setSelected(null)} onPointerLeave={(e) => e.pointerType === 'mouse' && setHovered(null)}>
+        <defs>
+          <clipPath id="flow-icon-clip" clipPathUnits="objectBoundingBox">
+            <circle cx="0.5" cy="0.5" r="0.5" />
+          </clipPath>
+        </defs>
         <g>
           {chords.map((c, i) => (
             <path
@@ -46,6 +53,7 @@ export default function FlowChord({ data }: { data: FlowData }) {
             const mid = (g.startAngle + g.endAngle) / 2;
             const flip = mid > Math.PI;
             const group = data.groups[g.index]!;
+            const href = iconHref(group.key);
             return (
               <g
                 key={g.index}
@@ -70,14 +78,12 @@ export default function FlowChord({ data }: { data: FlowData }) {
               >
                 <path d={arcPath(g) ?? ''} fill={groupColor(group.key, g.index)} />
                 {g.endAngle - g.startAngle > 0.05 && (
-                  <text
-                    transform={`rotate(${(mid * 180) / Math.PI - 90}) translate(${OUTER + 8}) ${flip ? 'rotate(180)' : ''}`}
-                    textAnchor={flip ? 'end' : 'start'}
-                    dominantBaseline="middle"
-                    className="flow-label"
-                  >
-                    {group.label}
-                  </text>
+                  <g transform={`rotate(${(mid * 180) / Math.PI - 90}) translate(${OUTER + 8}) ${flip ? 'rotate(180)' : ''}`}>
+                    {href && <image href={href} x={flip ? -LABEL_ICON : 0} y={-LABEL_ICON / 2} width={LABEL_ICON} height={LABEL_ICON} clipPath="url(#flow-icon-clip)" />}
+                    <text x={href ? (flip ? -(LABEL_ICON + 4) : LABEL_ICON + 4) : 0} textAnchor={flip ? 'end' : 'start'} dominantBaseline="middle" className="flow-label">
+                      {group.label}
+                    </text>
+                  </g>
                 )}
                 <title>{`${group.label}: ${format(metric === 'usd' ? group.usd : group.messages)}`}</title>
               </g>

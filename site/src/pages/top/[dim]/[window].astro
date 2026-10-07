@@ -1,4 +1,5 @@
 ---
+import ChainIcons from '../../../components/ChainIcons.astro';
 import InfoLink from '../../../components/InfoLink';
 import ShareButton from '../../../components/ShareButton';
 import Base from '../../../layouts/Base.astro';
@@ -54,7 +55,7 @@ const showFees = rows.some((r) => r.fee !== null);
           <tr>
             <td class="num muted">{r.rank}</td>
             <td>
-              {r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}
+              <ChainIcons selectors={r.chains} />{r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}
               {r.secondary && <span class="secondary">{r.secondary}</span>}
             </td>
             <td class="num">{formatCount(r.messages)}</td>

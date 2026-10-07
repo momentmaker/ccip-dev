@@ -1,4 +1,5 @@
 import type { LiveMessage } from '@ccip-dev/core/public';
+import ChainIcons from '../ChainIcons';
 import { formatUsd } from '../../lib/format';
 import { laneLabel, type ChainNames } from '../../lib/names';
 import { GOLD_USD } from '../../sky/scene';
@@ -17,7 +18,10 @@ export default function Feed({ messages, names }: { messages: readonly LiveMessa
       {rows.map((m) => (
         <li key={m.id} className={(m.usd ?? 0) >= GOLD_USD ? 'gold' : undefined}>
           <span className="mono muted">{m.send_ts.slice(11, 19)}</span>
-          <span className="lane">{laneLabel(names, `${m.src}>${m.dst}`)}</span>
+          <span className="lane">
+            <ChainIcons selectors={[m.src, m.dst]} />
+            {laneLabel(names, `${m.src}>${m.dst}`)}
+          </span>
           <span className="mono">
             {m.token ?? 'data'}
             {m.usd ? ` ${formatUsd(m.usd)}` : ''}

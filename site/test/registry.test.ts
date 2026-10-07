@@ -32,5 +32,6 @@ describe('registry', () => {
       '2026-10-07',
     );
     expect(rows.map((r) => [r.symbol, r.chain, r.isNew])).toEqual([['USDC', 'A', true], ['0x1111…1111', 'A', false]]);
+    expect(rows.map((r) => r.chainSelector)).toEqual(['1', '1']);
   });
 });

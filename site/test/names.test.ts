@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chainName, chainNameMap, laneLabel, senderLabel, shortAddress, shortChainName, tokenLabel } from '../src/lib/names';
+import { chainName, chainNameMap, keyChains, laneLabel, senderLabel, shortAddress, shortChainName, tokenLabel } from '../src/lib/names';
 
 const ETH = '5009297550715157269';
 const BASE = '15971525489660198786';
@@ -28,5 +28,20 @@ describe('names', () => {
     expect(tokenLabel(names, `${ETH}:0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b`, null)).toEqual({ primary: '0x80ac…cc0b', secondary: 'Ethereum' });
     expect(senderLabel(names, `${BASE}:0xc6160f5bc3c673ac390f11c492e8ed0d0693579a`, 'Aave')).toEqual({ primary: 'Aave', secondary: 'Base', verified: true });
     expect(senderLabel(names, `${BASE}:0xc6160f5bc3c673ac390f11c492e8ed0d0693579a`, null)).toEqual({ primary: '0xc616…579a', secondary: 'Base', verified: false });
+  });
+});
+
+describe('keyChains', () => {
+  it('reads both ends of a lane key', () => {
+    expect(keyChains('1>2')).toEqual(['1', '2']);
+  });
+
+  it('reads the chain of a token or sender key', () => {
+    expect(keyChains('5009297550715157269:0xabc')).toEqual(['5009297550715157269']);
+  });
+
+  it('returns nothing for a key without a chain', () => {
+    expect(keyChains('0xabc')).toEqual([]);
+    expect(keyChains('1>2>3')).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 ---
+import ChainIcons from '../components/ChainIcons.astro';
 import Base from '../layouts/Base.astro';
 import { BUILD_DATE, buildData } from '../lib/build-data';
 import { formatCount, formatUtcDay } from '../lib/format';
@@ -19,7 +20,7 @@ const tokenList = tokenRows(tokens.tokens, names, BUILD_DATE);
       <thead><tr><th>Chain</th><th>Family</th><th>First seen</th></tr></thead>
       <tbody>
         {chainList.map((c) => (
-          <tr><td>{c.name}{c.isNew && <span class="badge">new</span>}</td><td class="muted">{c.family ?? '—'}</td><td class="mono">{c.firstSeen ? formatUtcDay(c.firstSeen) : '—'}</td></tr>
+          <tr><td><ChainIcons selectors={[c.selector]} />{c.name}{c.isNew && <span class="badge">new</span>}</td><td class="muted">{c.family ?? '—'}</td><td class="mono">{c.firstSeen ? formatUtcDay(c.firstSeen) : '—'}</td></tr>
         ))}
       </tbody>
     </table>
@@ -30,7 +31,7 @@ const tokenList = tokenRows(tokens.tokens, names, BUILD_DATE);
       <thead><tr><th>Token</th><th>Chain</th><th>First seen</th></tr></thead>
       <tbody>
         {tokenList.map((t) => (
-          <tr><td>{t.symbol}{t.isNew && <span class="badge">new</span>}{t.name && <span class="secondary">{t.name}</span>}</td><td>{t.chain}</td><td class="mono">{t.firstSeen ? formatUtcDay(t.firstSeen) : '—'}</td></tr>
+          <tr><td>{t.symbol}{t.isNew && <span class="badge">new</span>}{t.name && <span class="secondary">{t.name}</span>}</td><td><ChainIcons selectors={[t.chainSelector]} />{t.chain}</td><td class="mono">{t.firstSeen ? formatUtcDay(t.firstSeen) : '—'}</td></tr>
         ))}
       </tbody>
     </table>

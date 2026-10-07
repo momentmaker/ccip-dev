@@ -42,11 +42,15 @@ describe('flowData', () => {
 
   it('lists the top lanes by value with readable names', () => {
     expect(flowData(replay, '7d', names).topLanes).toEqual([
-      { label: 'Ethereum → Base', usd: 1_500_700, messages: 12 },
-      { label: 'Ethereum → Polygon', usd: 3_000, messages: 43 },
-      { label: 'Polygon → Ethereum', usd: 500, messages: 4 },
-      { label: 'Solana → Ethereum', usd: 300, messages: 1 },
+      { label: 'Ethereum → Base', src: '5009297550715157269', dst: '15971525489660198786', usd: 1_500_700, messages: 12 },
+      { label: 'Ethereum → Polygon', src: '5009297550715157269', dst: '4051577828743386545', usd: 3_000, messages: 43 },
+      { label: 'Polygon → Ethereum', src: '4051577828743386545', dst: '5009297550715157269', usd: 500, messages: 4 },
+      { label: 'Solana → Ethereum', src: '124615329519749607', dst: '5009297550715157269', usd: 300, messages: 1 },
     ]);
+  });
+
+  it('carries the source and destination of the busiest lane first', () => {
+    expect(flowData(replay, '7d', names).topLanes[0]).toMatchObject({ src: '5009297550715157269', dst: '15971525489660198786' });
   });
 
   it('has no Other group when every chain fits', () => {

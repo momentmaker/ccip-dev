@@ -1,0 +1,24 @@
+---
+import { iconHref } from '../lib/chain-icons';
+
+interface Props {
+  selectors: readonly string[];
+  size?: number;
+}
+
+const { selectors, size = 16 } = Astro.props;
+const hrefs = selectors.flatMap((s) => {
+  const href = iconHref(s);
+  return href ? [href] : [];
+});
+---
+
+{
+  hrefs.length > 0 && (
+    <span class="chain-icons" aria-hidden="true">
+      {hrefs.map((href, i) => (
+        <img src={href} alt="" width={size} height={size} loading="lazy" decoding="async" style={i > 0 ? `margin-left: ${-size / 4}px` : undefined} />
+      ))}
+    </span>
+  )
+}

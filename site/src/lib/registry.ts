@@ -28,6 +28,7 @@ export interface TokenRow {
   symbol: string;
   name: string | null;
   chain: string;
+  chainSelector: string;
   address: string;
   firstSeen: string | null;
   isNew: boolean;
@@ -40,6 +41,7 @@ export function tokenRows(tokens: readonly Token[], names: ChainNames, buildDate
       symbol: t.symbol || shortAddress(t.address),
       name: t.name,
       chain: chainName(names, t.chain),
+      chainSelector: t.chain,
       address: t.address,
       firstSeen: t.first_seen,
       isNew: isNew(t.first_seen, buildDate),

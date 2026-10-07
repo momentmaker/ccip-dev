@@ -48,3 +48,10 @@ export function senderLabel(
   const { chain, address } = splitKey(key);
   return { primary: label || shortAddress(address), secondary: chainName(names, chain), verified: Boolean(label) };
 }
+
+export function keyChains(key: string): string[] {
+  const ends = key.split('>');
+  if (ends.length === 2 && ends[0] && ends[1]) return [ends[0], ends[1]];
+  const split = key.indexOf(':');
+  return split > 0 ? [key.slice(0, split)] : [];
+}

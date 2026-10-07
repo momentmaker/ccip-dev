@@ -1,12 +1,13 @@
 import type { TopEntry } from '@ccip-dev/core/public';
 import type { TopDim } from './card-paths';
-import { laneLabel, senderLabel, tokenLabel, type ChainNames } from './names';
+import { keyChains, laneLabel, senderLabel, tokenLabel, type ChainNames } from './names';
 
 export interface TopRow {
   rank: number;
   primary: string;
   secondary: string | null;
   verified: boolean;
+  chains: string[];
   messages: number;
   usd: number | null;
   fee: number | null;
@@ -25,6 +26,7 @@ export function topRows(entries: readonly TopEntry[], dim: TopDim, names: ChainN
     return {
       rank: i + 1,
       ...label,
+      chains: keyChains(e.key),
       messages: e.messages,
       usd: e.usd,
       fee: e.fee_usd ?? null,
