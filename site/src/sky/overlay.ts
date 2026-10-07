@@ -54,7 +54,7 @@ export const CARD_EDGE = 8;
 export const CARD_GAP = 12;
 
 export function cardSize(wrapWidth: number): { width: number; height: number } {
-  return { width: Math.min(320, wrapWidth - 2 * CARD_EDGE), height: 64 };
+  return { width: Math.min(340, wrapWidth - 2 * CARD_EDGE), height: 64 };
 }
 
 export function cardPosition(

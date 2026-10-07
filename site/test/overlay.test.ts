@@ -88,8 +88,9 @@ describe('cardPosition', () => {
     expect(top).toBeLessThanOrEqual(700 - 64 - 8);
   });
 
-  it('sizes the card to 320 px, or the wrap minus its edges when narrow', () => {
+  it('sizes the card to 340 px, or the wrap minus its edges when narrow', () => {
     expect(cardSize(300).width).toBe(284);
-    expect(cardSize(1440).width).toBe(320);
+    expect(cardSize(390).width).toBe(340);
+    expect(cardSize(1440).width).toBe(340);
   });
 });
