@@ -60,6 +60,28 @@ describe('drawStory', () => {
     expect(texts).toContain('ccip.dev');
   });
 
+  it('keeps the timeline labels and watermark by default', () => {
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), show.frameAt(15), layoutFor(1920, 1080), assets);
+    expect(texts).toContain('2023');
+    expect(texts).toContain('ccip.dev · @ccipdev');
+  });
+
+  it('leaves out the timeline labels and watermark without chrome', () => {
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), show.frameAt(15), layoutFor(1920, 1080), assets, { chrome: false });
+    expect(texts).not.toContain('2023');
+    expect(texts).not.toContain('ccip.dev · @ccipdev');
+    expect(texts.some((t) => t.includes('messages'))).toBe(true);
+  });
+
+  it('still draws the hook title without chrome', () => {
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), show.frameAt(1), layoutFor(1920, 1080), assets, { chrome: false });
+    expect(texts).toContain('in 30 seconds');
+    expect(texts).not.toContain('ccip.dev · @ccipdev');
+  });
+
   it('balances save and restore in every phase and layout', () => {
     const card = show.cards[0]!;
     const frames = [

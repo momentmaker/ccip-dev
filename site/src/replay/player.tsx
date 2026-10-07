@@ -187,7 +187,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     if (!show || !assets) return;
     let created: ReplayCompositor;
     try {
-      created = new ReplayCompositor(show, stars, assets, () => document.createElement('canvas'));
+      created = new ReplayCompositor(show, stars, assets, () => document.createElement('canvas'), { chrome: false });
     } catch (err) {
       console.warn('Replay compositor failed to start', err);
       setError('Your browser could not start the animation.');

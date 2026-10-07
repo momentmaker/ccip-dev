@@ -53,6 +53,21 @@ describe('ReplayCompositor', () => {
     expect(renderer.destroy).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    [undefined, true],
+    [{ chrome: false }, false],
+  ])('draws the watermark only when chrome is on (%j)', (options, expected) => {
+    const texts: string[] = [];
+    const target = {
+      ...storyMethods, fillRect: vi.fn(), drawImage: vi.fn(), createRadialGradient: () => ({ addColorStop: vi.fn() }),
+      save: vi.fn(), restore: vi.fn(), fillText: (s: string) => texts.push(s),
+      set font(_v: string) {}, set fillStyle(_v: unknown) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
+    } as unknown as CanvasRenderingContext2D;
+    const compositor = new ReplayCompositor(showStub(showFrame()), [], assets, () => ({ width: 10, height: 10 }) as never, options);
+    compositor.draw(10, target, 100, 100);
+    expect(texts.includes('ccip.dev · @ccipdev')).toBe(expected);
+  });
+
   it('retries on a fresh canvas without WebGL when the first renderer throws', () => {
     createRenderer.mockReset();
     createRenderer.mockImplementationOnce(() => {

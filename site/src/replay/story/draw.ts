@@ -278,18 +278,19 @@ function drawEndTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.restore();
 }
 
-export function drawStory(ctx: Ctx, frame: ShowFrame, layout: StoryLayout, assets: StoryAssets): void {
+export function drawStory(ctx: Ctx, frame: ShowFrame, layout: StoryLayout, assets: StoryAssets, opts: { chrome?: boolean } = {}): void {
+  const chrome = opts.chrome ?? true;
   if (frame.hook) {
     drawTitle(ctx, frame, layout);
-    drawWatermark(ctx, layout);
+    if (chrome) drawWatermark(ctx, layout);
     return;
   }
   drawDate(ctx, frame, layout);
   drawCounter(ctx, frame, layout);
-  drawTimeline(ctx, frame, layout, assets);
+  if (chrome) drawTimeline(ctx, frame, layout, assets);
   drawBoard(ctx, frame, layout, assets);
   if (frame.card) drawCard(ctx, frame, layout, assets);
   if (frame.slam) drawSlam(ctx, frame, layout);
-  drawWatermark(ctx, layout);
+  if (chrome) drawWatermark(ctx, layout);
   if (frame.phase === 'finale') drawEndTitle(ctx, frame, layout);
 }

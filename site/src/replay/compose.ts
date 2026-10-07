@@ -51,6 +51,7 @@ export class ReplayCompositor {
     private readonly stars: readonly StarPoint[],
     private readonly assets: CompositorAssets,
     private readonly createCanvas: () => SkyCanvas,
+    private readonly options: { chrome?: boolean } = {},
   ) {
     let canvas = createCanvas();
     let renderer: SkyRenderer;
@@ -109,7 +110,7 @@ export class ReplayCompositor {
     const coins = this.placeCoins(frame, project, width, height);
     drawCoins(target, coins);
     if (frame.phase === 'finale') this.drawCoinWave(target, frame, coins, project, width, height);
-    drawStory(target, frame, layoutFor(width, height), { names: this.assets.names, coins: this.coinImages, ticks: this.assets.ticks });
+    drawStory(target, frame, layoutFor(width, height), { names: this.assets.names, coins: this.coinImages, ticks: this.assets.ticks }, { chrome: this.options.chrome ?? true });
   }
 
   private drawCoinWave(target: Ctx2d, frame: ShowFrame, coins: readonly DrawnCoin[], project: Projector, width: number, height: number): void {
