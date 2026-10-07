@@ -216,6 +216,7 @@ export default function ReplayPlayer() {
       recorder = new ReplayCompositor(model, stars, since, lastDay, () => new OffscreenCanvas(1, 1));
       const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
       recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
+      if (controller.signal.aborted) return;
       const frames = recorder;
       await document.fonts.ready;
       const blob = await recordReplay({

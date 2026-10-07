@@ -161,3 +161,35 @@ describe('replay coins', () => {
     expect(coinsAt(m, 0.75)).toEqual([['A', 0.5], ['B', 0.5]]);
   });
 });
+
+describe('replay coin window', () => {
+  const longReplay: ReplayFile = {
+    ...replay,
+    since: '2024-01-01',
+    chains: [
+      { selector: 'A', name: 'a-mainnet', display_name: 'A', first_day: '2024-01-01' },
+      { selector: 'B', name: 'b-mainnet', display_name: 'B', first_day: '2024-01-01' },
+    ],
+    lanes: [[0, 0], [1, 1]],
+    days: Array.from({ length: 40 }, (_, i) => ({
+      day: new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10),
+      lanes: i === 0 ? [[0, 1, 1000]] : [[1, 1, 1]],
+    })),
+  };
+  const longModel = () => new ReplayModel(longReplay, [], [], buildLayout(longReplay.chains), 40, { count: 1, eligible: () => true });
+
+  it('keeps a chain for 30 days then evicts it', () => {
+    const m = longModel();
+    expect(coinsAt(m, m.dayStart(29) + 0.9)).toEqual([['A', 1]]);
+    expect(coinsAt(m, m.dayStart(30) + 0.9)).toEqual([['B', 1]]);
+  });
+
+  it('puts full-alpha coins on the largest star', () => {
+    const m = longModel();
+    for (const t of [1.2, 5.7, 12.3, 20.5, 29.9, 30.9, 33.4, 39.9]) {
+      const frame = m.frameAt(t);
+      const max = Math.max(...frame.sky.stars.map((s) => s.radius));
+      for (const coin of frame.coins.filter((c) => c.alpha === 1)) expect(frame.sky.stars[coin.star]!.radius).toBe(max);
+    }
+  });
+});
