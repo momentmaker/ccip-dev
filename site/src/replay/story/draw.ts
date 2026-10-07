@@ -20,6 +20,14 @@ const CARD = 'rgba(22, 27, 35, 0.88)';
 const BORDER = 'rgba(47, 98, 223, 0.45)';
 const SANS = 'Inter, sans-serif';
 const MONO = '"JetBrains Mono", monospace';
+const CANVAS_FONTS = ['400 16px Inter', '600 16px Inter', '800 16px Inter', '600 16px "JetBrains Mono"'] as const;
+
+export function loadCanvasFonts(fonts: Pick<FontFaceSet, 'load'>): Promise<void> {
+  return Promise.all(CANVAS_FONTS.map((font) => fonts.load(font))).then(
+    () => undefined,
+    () => undefined,
+  );
+}
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (x: number) => 1 - (1 - clamp01(x)) ** 3;
 const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;

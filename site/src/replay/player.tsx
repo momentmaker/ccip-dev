@@ -19,6 +19,7 @@ import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
 import { canRecord, recordingFilename, recordReplay } from './recorder';
 import { Show } from './director/show';
+import { loadCanvasFonts } from './story/draw';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
 
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
@@ -226,6 +227,15 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   }, [compositor, coinImages, drawFrame]);
 
   useEffect(() => {
+    if (!compositor) return;
+    let alive = true;
+    void loadCanvasFonts(document.fonts).then(() => alive && drawFrame());
+    return () => {
+      alive = false;
+    };
+  }, [compositor, drawFrame]);
+
+  useEffect(() => {
     if (!show) return;
     if (!playing) {
       drawFrame();
@@ -312,7 +322,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
       if (controller.signal.aborted) return;
       const frames = recorder;
-      await document.fonts.ready;
+      await loadCanvasFonts(document.fonts);
       const blob = await recordReplay({
         draw: (frameT, ctx, width, height) => frames.draw(frameT, ctx, width, height),
         aspect,

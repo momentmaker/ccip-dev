@@ -2,7 +2,7 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import type { BoardRow } from '../src/replay/director/leaderboard';
 import { Show } from '../src/replay/director/show';
-import { drawStory } from '../src/replay/story/draw';
+import { drawStory, loadCanvasFonts } from '../src/replay/story/draw';
 import { layoutFor } from '../src/replay/story/layout';
 import { chainNameMap } from '../src/lib/names';
 import { buildLayout } from '../src/sky/layout';
@@ -334,5 +334,17 @@ describe('drawStory board', () => {
     const drawn = draw([row('down', 0, 0, 1), row('up', 1, 1, 1), row('third', 2, 3, 0.5), row('fourth', 3, 2, 0.5)], 1080, 1920);
     const xs = new Set(drawn.filter((d) => ['Faller', 'Climber', 'Third', 'Fourth'].includes(d.text)).map((d) => Math.round(d.x - l.board.x)));
     expect([...xs].sort((a, b) => a - b)).toEqual([0, 1, 2].map((c) => Math.round(c * (l.board.w / 3) + 60 * l.unit)));
+  });
+});
+
+describe('loadCanvasFonts', () => {
+  it('loads every face the story layer draws with, so a poster drawn after it uses the real fonts', async () => {
+    const loaded: string[] = [];
+    await loadCanvasFonts({ load: async (font: string) => (loaded.push(font), []) });
+    expect(loaded).toEqual(['400 16px Inter', '600 16px Inter', '800 16px Inter', '600 16px "JetBrains Mono"']);
+  });
+
+  it('settles even when a face fails to load, so drawing and recording never hang on fonts', async () => {
+    await expect(loadCanvasFonts({ load: async () => Promise.reject(new Error('offline')) })).resolves.toBeUndefined();
   });
 });
