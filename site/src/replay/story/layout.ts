@@ -46,7 +46,7 @@ export function layoutFor(width: number, height: number): StoryLayout {
   const title = centered(width, Math.min(1200 * u, width - 2 * pad), height / 2 - 130 * u, 260 * u);
   if (aspect === 'wide') {
     const boardW = 380 * u;
-    const board: Box = { x: width - pad - boardW, y: pad, w: boardW, h: 320 * u };
+    const board: Box = { x: width - pad - boardW, y: pad, w: boardW, h: 360 * u };
     const watermark: Box = { x: width - pad - boardW, y: height - pad - 30 * u, w: boardW, h: 30 * u };
     const timeline: Box = { x: pad, y: height - pad - timelineH, w: width - 2 * pad - boardW - 40 * u, h: timelineH };
     const card = centered(width, 640 * u, timeline.y - 24 * u - 90 * u, 90 * u);

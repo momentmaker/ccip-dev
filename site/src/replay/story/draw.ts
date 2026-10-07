@@ -22,6 +22,15 @@ const MONO = '"JetBrains Mono", monospace';
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (x: number) => 1 - (1 - clamp01(x)) ** 3;
 
+export function fitText(ctx: Ctx, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  for (let n = text.length - 1; n > 0; n--) {
+    const cut = `${text.slice(0, n)}…`;
+    if (ctx.measureText(cut).width <= maxWidth) return cut;
+  }
+  return ctx.measureText('…').width <= maxWidth ? '…' : '';
+}
+
 function roundRect(ctx: Ctx, b: Box, r: number): void {
   ctx.beginPath();
   ctx.moveTo(b.x + r, b.y);
@@ -91,22 +100,29 @@ function drawCounter(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.textAlign = 'left';
   ctx.font = `700 ${size}px ${MONO}`;
   ctx.fillStyle = FG;
-  const digitIndex = text.search(/\d(?=[^\d]*$)/);
-  const digit = digitIndex >= 0 ? Number(text[digitIndex]) : null;
-  const tail = digitIndex >= 0 ? text.slice(digitIndex + 1) : '';
-  const prefix = digitIndex >= 0 ? text.slice(0, digitIndex) : text;
-  ctx.fillText(prefix, l.counter.x, l.counter.y);
-  if (digit !== null) {
-    const x = l.counter.x + ctx.measureText(prefix).width;
-    const w = ctx.measureText('0').width;
+  const lastDigit = text.search(/\d(?=[^\d]*$)/);
+  let carrying = true;
+  const rolling = new Set<number>();
+  for (let i = text.length - 1; i >= 0 && lastDigit >= 0; i--) {
+    if (!/\d/.test(text[i]!)) continue;
+    if (carrying) rolling.add(i);
+    carrying = carrying && (i === lastDigit || text[i] === '9');
+  }
+  const cell = ctx.measureText('0').width;
+  for (let i = 0; i < text.length; i++) {
+    const x = l.counter.x + ctx.measureText(text.slice(0, i)).width;
+    if (!rolling.has(i)) {
+      ctx.fillText(text[i]!, x, l.counter.y);
+      continue;
+    }
+    const digit = Number(text[i]);
     ctx.save();
     ctx.beginPath();
-    ctx.rect(x, l.counter.y, w, size * 1.1);
+    ctx.rect(x, l.counter.y, cell, size * 1.1);
     ctx.clip();
     ctx.fillText(String(digit), x, l.counter.y - frac * size);
     ctx.fillText(String((digit + 1) % 10), x, l.counter.y + (1 - frac) * size);
     ctx.restore();
-    ctx.fillText(tail, x + w, l.counter.y);
   }
   ctx.font = `400 ${26 * u}px ${SANS}`;
   ctx.fillStyle = MUTED;
@@ -160,11 +176,14 @@ function drawCard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsset
   ctx.stroke();
   const d = 56 * u;
   card.selectors.forEach((s, i) => coin(ctx, assets, s, b.x + 24 * u + d / 2 + i * d * 0.7, b.y + b.h / 2, d));
-  ctx.font = `600 ${32 * u}px ${SANS}`;
+  const labelX = b.x + 24 * u + d + Math.max(0, card.selectors.length - 1) * d * 0.7 + 18 * u;
+  const maxWidth = b.x + b.w - 24 * u - labelX;
   ctx.fillStyle = FG;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  ctx.fillText(card.label, b.x + 24 * u + d + Math.max(0, card.selectors.length - 1) * d * 0.7 + 18 * u, b.y + b.h / 2);
+  ctx.font = `600 ${32 * u}px ${SANS}`;
+  if (ctx.measureText(card.label).width > maxWidth) ctx.font = `600 ${26 * u}px ${SANS}`;
+  ctx.fillText(fitText(ctx, card.label, maxWidth), labelX, b.y + b.h / 2);
   ctx.restore();
 }
 
@@ -175,6 +194,8 @@ function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   const alpha = ease(slam.progress / 0.15) * (1 - ease((slam.progress - 0.8) / 0.2));
   ctx.save();
   ctx.globalAlpha = alpha;
+  const blur = (1 - ease(slam.progress / 0.25)) * 12 * u;
+  ctx.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
   ctx.translate(l.width / 2, l.slam.y + l.slam.h / 2);
   ctx.scale(scale, scale);
   ctx.textAlign = 'center';
@@ -206,7 +227,7 @@ function drawBoard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsse
       ctx.fillStyle = FG;
       ctx.font = `600 ${24 * u}px ${SANS}`;
       ctx.textAlign = 'left';
-      ctx.fillText(chainName(assets.names, r.selector), l.board.x + 48 * u, y + rowH / 2 - 8 * u);
+      ctx.fillText(fitText(ctx, chainName(assets.names, r.selector), l.board.w - 48 * u - 110 * u), l.board.x + 48 * u, y + rowH / 2 - 8 * u);
       ctx.fillStyle = 'rgba(74, 127, 240, 0.55)';
       ctx.fillRect(l.board.x + 48 * u, y + rowH / 2 + 10 * u, (l.board.w - 160 * u) * (r.value / max), 6 * u);
       ctx.fillStyle = MUTED;
@@ -224,7 +245,7 @@ function drawBoard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsse
       ctx.fillStyle = r.focus ? BLUE : FG;
       ctx.font = `600 ${22 * u}px ${SANS}`;
       ctx.textAlign = 'left';
-      ctx.fillText(chainName(assets.names, r.selector), x + 60 * u, l.board.y + 30 * u);
+      ctx.fillText(fitText(ctx, chainName(assets.names, r.selector), colW - 68 * u), x + 60 * u, l.board.y + 30 * u);
       ctx.fillStyle = MUTED;
       ctx.font = `600 ${18 * u}px ${MONO}`;
       ctx.fillText(odometer(r.value).text, x + 60 * u, l.board.y + 58 * u);

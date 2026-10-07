@@ -12,11 +12,12 @@ const history = replay.days.map((d) => ({ day: d.day, messages: 10, token_messag
 const show = new Show({ replay, history, stars: buildLayout(replay.chains), length: 30, focus: null, eligible: () => true });
 const assets = { names: chainNameMap(replay.chains), coins: new Map<string, CanvasImageSource>(), ticks: [{ at: 0, label: '2023' }] };
 
-function fakeCtx(texts: string[]) {
+function fakeCtx(texts: string[], calls: Record<string, number> = {}) {
   return new Proxy(
     {},
     {
       get: (_t, key) => {
+        if (key === 'save' || key === 'restore') return () => void (calls[key] = (calls[key] ?? 0) + 1);
         if (key === 'fillText') return (s: string) => texts.push(s);
         if (key === 'measureText') return (s: string) => ({ width: s.length * 10 });
         if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
@@ -57,5 +58,50 @@ describe('drawStory', () => {
     const texts: string[] = [];
     drawStory(fakeCtx(texts), show.frameAt(29), layoutFor(1920, 1080), assets);
     expect(texts).toContain('ccip.dev');
+  });
+
+  it('balances save and restore in every phase and layout', () => {
+    const card = show.cards[0]!;
+    const frames = [
+      show.frameAt(1),
+      show.frameAt(card.start + 0.1),
+      { ...show.frameAt(15), slam: { start: 14.5, label: '$10B moved', progress: 0.4 } },
+      show.frameAt(29),
+    ];
+    for (const [w, h] of [[1920, 1080], [1080, 1080], [1080, 1920]] as const) {
+      for (const frame of frames) {
+        const calls: Record<string, number> = {};
+        drawStory(fakeCtx([], calls), frame, layoutFor(w, h), assets);
+        expect(calls.save ?? 0).toBe(calls.restore ?? 0);
+      }
+    }
+  });
+
+  it('truncates a card label that does not fit', () => {
+    const card = show.cards[0]!;
+    const frame = { ...show.frameAt(card.start + 0.5), card: { ...card, label: 'x'.repeat(120), progress: 0.5 } };
+    const texts: string[] = [];
+    const l = layoutFor(1080, 1080);
+    drawStory(fakeCtx(texts), frame, l, assets);
+    const drawn = texts.find((t) => t.startsWith('xx'))!;
+    expect(drawn.endsWith('…')).toBe(true);
+    expect(drawn.length * 10).toBeLessThanOrEqual(l.card.w);
+  });
+
+  it('truncates a long chain name on the board', () => {
+    const frame = { ...show.frameAt(15), board: [{ selector: 'long', value: 5, rank: 0, alpha: 1, focus: false }] };
+    const names = new Map([['long', 'N'.repeat(60)]]);
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), frame, layoutFor(1080, 1920), { ...assets, names });
+    expect(texts.find((t) => t.startsWith('NN'))!.endsWith('…')).toBe(true);
+  });
+
+  it('rolls a carrying digit column with the last digit', () => {
+    const frame = { ...show.frameAt(15), story: { ...show.frameAt(15).story, usd: 1.95e6 } };
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), frame, layoutFor(1080, 1080), assets);
+    expect(texts).toContain('1');
+    expect(texts).toContain('2');
+    expect(texts).toContain('0');
   });
 });
