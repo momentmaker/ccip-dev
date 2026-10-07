@@ -34,6 +34,7 @@ interface Programs {
 
 export class CinemaRenderer {
   private programs: Programs | null = null;
+  private built: WebGLProgram[] = [];
   private quadVao: WebGLVertexArrayObject | null = null;
   private coinVao: WebGLVertexArrayObject | null = null;
   private lineVao: WebGLVertexArrayObject | null = null;
@@ -45,12 +46,22 @@ export class CinemaRenderer {
   private black: WebGLTexture | null = null;
   private atlas: WebGLTexture | null = null;
   private format: TargetFormat;
+  private failed = false;
+  private warned = false;
+  private readonly uniformCache = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>();
 
+  // Returns null on any failure. The canvas keeps its webgl2 context, so callers must fall back on a FRESH canvas.
   static create(canvas: SkyCanvas): CinemaRenderer | null {
     const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: true }) as WebGL2RenderingContext | null;
     if (!gl) return null;
     const r = new CinemaRenderer(canvas, gl);
-    r.init();
+    try {
+      r.init();
+    } catch (error) {
+      console.warn('cinema renderer: init failed', error);
+      r.destroy();
+      return null;
+    }
     return r;
   }
 
@@ -62,26 +73,36 @@ export class CinemaRenderer {
   }
 
   get lost(): boolean {
-    return this.gl.isContextLost();
+    return this.failed || this.gl.isContextLost();
   }
 
   private init(): void {
     const gl = this.gl;
-    this.programs = {
-      background: link(gl, FULLSCREEN_VERT, BACKGROUND_FRAG),
-      quad: link(gl, QUAD_VERT, QUAD_FRAG),
-      line: link(gl, LINE_VERT, LINE_FRAG),
-      coin: link(gl, COIN_VERT, COIN_FRAG),
-      bright: link(gl, FULLSCREEN_VERT, BRIGHT_FRAG),
-      down: link(gl, FULLSCREEN_VERT, DOWN_FRAG),
-      up: link(gl, FULLSCREEN_VERT, UP_FRAG),
-      composite: link(gl, FULLSCREEN_VERT, COMPOSITE_FRAG),
+    const build = (vert: string, frag: string): WebGLProgram => {
+      const program = link(gl, vert, frag);
+      this.built.push(program);
+      return program;
     };
-    const corners = gl.createBuffer()!;
-    const quads = gl.createBuffer()!;
-    const coins = gl.createBuffer()!;
-    const lines = gl.createBuffer()!;
-    this.buffers = [corners, quads, coins, lines];
+    const programs: Programs = {
+      background: build(FULLSCREEN_VERT, BACKGROUND_FRAG),
+      quad: build(QUAD_VERT, QUAD_FRAG),
+      line: build(LINE_VERT, LINE_FRAG),
+      coin: build(COIN_VERT, COIN_FRAG),
+      bright: build(FULLSCREEN_VERT, BRIGHT_FRAG),
+      down: build(FULLSCREEN_VERT, DOWN_FRAG),
+      up: build(FULLSCREEN_VERT, UP_FRAG),
+      composite: build(FULLSCREEN_VERT, COMPOSITE_FRAG),
+    };
+    const makeBuffer = (): WebGLBuffer => {
+      const buffer = gl.createBuffer();
+      if (!buffer) throw new Error('WebGL: createBuffer failed');
+      this.buffers.push(buffer);
+      return buffer;
+    };
+    const corners = makeBuffer();
+    const quads = makeBuffer();
+    const coins = makeBuffer();
+    const lines = makeBuffer();
     const cornerData = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
     this.quadVao = gl.createVertexArray();
@@ -124,10 +145,12 @@ export class CinemaRenderer {
     gl.bindTexture(gl.TEXTURE_2D, this.black);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
     gl.disable(gl.DEPTH_TEST);
+    this.programs = programs;
   }
 
   setAtlas(source: TexImageSource | null): void {
     const gl = this.gl;
+    if (gl.isContextLost()) return;
     if (this.atlas) gl.deleteTexture(this.atlas);
     this.atlas = null;
     if (!source) return;
@@ -142,6 +165,7 @@ export class CinemaRenderer {
   }
 
   resize(width: number, height: number): void {
+    if (this.gl.isContextLost()) return;
     if (this.canvas.width === width && this.canvas.height === height && this.scene) return;
     this.canvas.width = width;
     this.canvas.height = height;
@@ -165,6 +189,7 @@ export class CinemaRenderer {
   private ensureBloom(mode: CinemaScene['bloom']): void {
     if (this.bloomMode === mode) return;
     this.releaseBloom();
+    this.bloomMode = mode;
     if (mode === 'off') return;
     let w = Math.max(1, Math.floor(this.canvas.width / (mode === 'full' ? 2 : 4)));
     let h = Math.max(1, Math.floor(this.canvas.height / (mode === 'full' ? 2 : 4)));
@@ -173,7 +198,6 @@ export class CinemaRenderer {
       w = Math.floor(w / 2);
       h = Math.floor(h / 2);
     }
-    this.bloomMode = mode;
   }
 
   private fullscreen(program: WebGLProgram, target: Target | null, setup: (u: (name: string) => WebGLUniformLocation | null) => void): void {
@@ -181,9 +205,19 @@ export class CinemaRenderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null);
     gl.viewport(0, 0, target ? target.width : this.canvas.width, target ? target.height : this.canvas.height);
     gl.useProgram(program);
-    setup((name) => gl.getUniformLocation(program, name));
+    setup((name) => this.uniform(program, name));
     gl.bindVertexArray(this.emptyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  private uniform(program: WebGLProgram, name: string): WebGLUniformLocation | null {
+    let byName = this.uniformCache.get(program);
+    if (!byName) {
+      byName = new Map();
+      this.uniformCache.set(program, byName);
+    }
+    if (!byName.has(name)) byName.set(name, this.gl.getUniformLocation(program, name));
+    return byName.get(name)!;
   }
 
   private bindTexture(unit: number, tex: WebGLTexture | null): void {
@@ -192,9 +226,18 @@ export class CinemaRenderer {
   }
 
   render(scene: CinemaScene): void {
+    if (!this.programs || this.failed || this.gl.isContextLost()) return;
+    try {
+      this.draw(scene, this.programs);
+    } catch (error) {
+      this.failed = true;
+      if (!this.warned) console.warn('cinema renderer: render failed', error);
+      this.warned = true;
+    }
+  }
+
+  private draw(scene: CinemaScene, p: Programs): void {
     const gl = this.gl;
-    const p = this.programs;
-    if (!p || gl.isContextLost()) return;
     this.resize(scene.width, scene.height);
     const target = this.scene!;
     const { width, height } = scene;
@@ -210,14 +253,14 @@ export class CinemaRenderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(p.line);
-    gl.uniform2f(gl.getUniformLocation(p.line, 'u_resolution'), width, height);
+    gl.uniform2f(this.uniform(p.line, 'u_resolution'), width, height);
     gl.bindVertexArray(this.lineVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[3]!);
     gl.bufferData(gl.ARRAY_BUFFER, scene.lines, gl.DYNAMIC_DRAW);
     gl.drawArrays(gl.LINES, 0, scene.lines.length / LINE_FLOATS);
 
     gl.useProgram(p.quad);
-    gl.uniform2f(gl.getUniformLocation(p.quad, 'u_resolution'), width, height);
+    gl.uniform2f(this.uniform(p.quad, 'u_resolution'), width, height);
     gl.bindVertexArray(this.quadVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[1]!);
     gl.bufferData(gl.ARRAY_BUFFER, scene.quads, gl.DYNAMIC_DRAW);
@@ -226,9 +269,9 @@ export class CinemaRenderer {
     if (this.atlas && scene.coins.length > 0) {
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(p.coin);
-      gl.uniform2f(gl.getUniformLocation(p.coin, 'u_resolution'), width, height);
+      gl.uniform2f(this.uniform(p.coin, 'u_resolution'), width, height);
       this.bindTexture(0, this.atlas);
-      gl.uniform1i(gl.getUniformLocation(p.coin, 'u_atlas'), 0);
+      gl.uniform1i(this.uniform(p.coin, 'u_atlas'), 0);
       gl.bindVertexArray(this.coinVao);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[2]!);
       gl.bufferData(gl.ARRAY_BUFFER, scene.coins, gl.DYNAMIC_DRAW);
@@ -287,9 +330,15 @@ export class CinemaRenderer {
     this.releaseTargets();
     for (const b of this.buffers) gl.deleteBuffer(b);
     for (const vao of [this.quadVao, this.coinVao, this.lineVao, this.emptyVao]) if (vao) gl.deleteVertexArray(vao);
-    if (this.programs) for (const program of Object.values(this.programs)) gl.deleteProgram(program);
+    for (const program of this.built) gl.deleteProgram(program);
     if (this.black) gl.deleteTexture(this.black);
     if (this.atlas) gl.deleteTexture(this.atlas);
+    this.buffers = [];
+    this.built = [];
+    this.quadVao = this.coinVao = this.lineVao = this.emptyVao = null;
+    this.black = this.atlas = null;
+    this.programs = null;
+    this.uniformCache.clear();
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
 }

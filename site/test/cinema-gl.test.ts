@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTarget, targetFormat } from '../src/replay/cinema/gl';
+import { CinemaRenderer } from '../src/replay/cinema/renderer';
+import type { CinemaScene } from '../src/replay/cinema/scene';
 
 const CONSTANTS = {
   RGBA16F: 0x881a,
@@ -76,5 +78,132 @@ describe('createTarget', () => {
   it('throws when even RGBA8 is incomplete', () => {
     const { gl } = fakeGl(false, []);
     expect(() => createTarget(gl, 64, 32, targetFormat(gl))).toThrow('render target incomplete');
+  });
+});
+
+interface ProxyGl {
+  gl: WebGL2RenderingContext;
+  calls: string[];
+  state: { lost: boolean; compileOk: boolean; linkOk: boolean; framebufferOk: boolean };
+  loseContext: ReturnType<typeof vi.fn>;
+}
+
+function proxyGl(): ProxyGl {
+  const calls: string[] = [];
+  const state = { lost: false, compileOk: true, linkOk: true, framebufferOk: true };
+  const loseContext = vi.fn();
+  const constants = new Map<string, number>();
+  const overrides: Record<string, (...args: unknown[]) => unknown> = {
+    isContextLost: () => state.lost,
+    getShaderParameter: () => state.compileOk,
+    getProgramParameter: () => state.linkOk,
+    getShaderInfoLog: () => 'bad shader',
+    getProgramInfoLog: () => 'bad link',
+    getExtension: (name) => (name === 'WEBGL_lose_context' ? { loseContext } : {}),
+    checkFramebufferStatus: () => (state.framebufferOk ? constants.get('FRAMEBUFFER_COMPLETE') : 0),
+  };
+  const gl = new Proxy(
+    {},
+    {
+      get(_target, name: string) {
+        if (/^[A-Z0-9_]+$/.test(name)) {
+          if (!constants.has(name)) constants.set(name, constants.size + 1);
+          return constants.get(name);
+        }
+        return (...args: unknown[]) => {
+          calls.push(name);
+          if (overrides[name]) return overrides[name](...args);
+          return name.startsWith('create') ? { name } : undefined;
+        };
+      },
+    },
+  ) as unknown as WebGL2RenderingContext;
+  return { gl, calls, state, loseContext };
+}
+
+const canvasFor = (gl: WebGL2RenderingContext | null) =>
+  ({ width: 0, height: 0, getContext: () => gl }) as unknown as HTMLCanvasElement;
+
+const sceneWith = (bloom: CinemaScene['bloom']): CinemaScene => ({
+  width: 320,
+  height: 180,
+  nebula: null,
+  lines: new Float32Array(0),
+  quads: new Float32Array(0),
+  coins: new Float32Array(0),
+  shock: null,
+  exposure: 1,
+  bloom,
+  frame: 0,
+});
+
+describe('CinemaRenderer', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('returns null without WebGL2', () => {
+    expect(CinemaRenderer.create(canvasFor(null))).toBeNull();
+  });
+
+  it('returns null, warns and loses the context when a shader fails to compile', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = proxyGl();
+    f.state.compileOk = false;
+    expect(CinemaRenderer.create(canvasFor(f.gl))).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    expect(f.loseContext).toHaveBeenCalled();
+  });
+
+  it('returns null, warns and loses the context when a program fails to link', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = proxyGl();
+    f.state.linkOk = false;
+    expect(CinemaRenderer.create(canvasFor(f.gl))).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    expect(f.loseContext).toHaveBeenCalled();
+  });
+
+  it('never throws once the context is lost', () => {
+    const f = proxyGl();
+    const r = CinemaRenderer.create(canvasFor(f.gl))!;
+    f.state.lost = true;
+    expect(() => {
+      r.resize(100, 100);
+      r.setAtlas({} as TexImageSource);
+      r.render(sceneWith('full'));
+    }).not.toThrow();
+    expect(r.lost).toBe(true);
+  });
+
+  it('reports lost and does not throw when a target cannot be created in render', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = proxyGl();
+    const r = CinemaRenderer.create(canvasFor(f.gl))!;
+    f.state.framebufferOk = false;
+    expect(() => r.render(sceneWith('full'))).not.toThrow();
+    expect(r.lost).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes the bloom targets when bloom turns off', () => {
+    const f = proxyGl();
+    const r = CinemaRenderer.create(canvasFor(f.gl))!;
+    r.render(sceneWith('full'));
+    const before = f.calls.filter((c) => c === 'deleteFramebuffer').length;
+    r.render(sceneWith('off'));
+    const released = f.calls.filter((c) => c === 'deleteFramebuffer').length - before;
+    expect(released).toBeGreaterThan(0);
+    r.render(sceneWith('off'));
+    expect(f.calls.filter((c) => c === 'deleteFramebuffer').length - before).toBe(released);
+  });
+
+  it('ends destroy with loseContext and tolerates a second destroy and a later render', () => {
+    const f = proxyGl();
+    const r = CinemaRenderer.create(canvasFor(f.gl))!;
+    r.destroy();
+    expect(f.loseContext).toHaveBeenCalledTimes(1);
+    expect(() => {
+      r.destroy();
+      r.render(sceneWith('full'));
+    }).not.toThrow();
   });
 });
