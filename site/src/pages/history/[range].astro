@@ -7,6 +7,7 @@ import { BUILD_DATE, buildData } from '../../lib/build-data';
 import { HISTORY_RANGES, type HistoryRange } from '../../lib/card-paths';
 import { rangeRows, rangeTotals } from '../../lib/charts';
 import { formatCount, formatUsd } from '../../lib/format';
+import { FEES_SINCE } from '../../lib/records';
 import '../../styles/history.css';
 
 export function getStaticPaths() {
@@ -35,7 +36,7 @@ const scope = range === 'all' ? `since ${history.since}` : `last ${LABEL[range]}
   <section class="tiles">
     <div class="tile"><span class="label">Messages<InfoLink metric="messages" label="messages" /></span><p class="value">{formatCount(totals.messages)}</p></div>
     <div class="tile"><span class="label">Value transferred<InfoLink metric="value" label="value transferred" /></span><p class="value">{formatUsd(totals.usd_value)}</p></div>
-    <div class="tile"><span class="label">Fees<InfoLink metric="fees" label="fees" /></span><p class="value">{formatUsd(totals.fee_usd)}</p><span class="sub">since 2026-10-05</span></div>
+    <div class="tile"><span class="label">Fees<InfoLink metric="fees" label="fees" /></span><p class="value">{formatUsd(totals.fee_usd)}</p><span class="sub">since {FEES_SINCE}</span></div>
   </section>
   <HistoryCharts client:visible rows={rows} />
 </Base>

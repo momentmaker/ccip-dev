@@ -1,7 +1,8 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { useMemo, useState } from 'react';
-import { ADDITIVE, CHART_H, CHART_W, chartGeometry, chartSeries, nearestIndex, pointX, type HistoryMetric } from '../lib/charts';
+import { ADDITIVE, CHART_H, CHART_W, chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, stepIndex, type HistoryMetric } from '../lib/charts';
 import { formatCount, formatDuration, formatUsd, formatUtcDay } from '../lib/format';
+import { FEES_SINCE } from '../lib/records';
 import type { MetricKey } from '../lib/metric-anchors';
 import InfoLink from './InfoLink';
 
@@ -25,8 +26,7 @@ function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec
   const geo = useMemo(() => chartGeometry(points, CHART_W, CHART_H), [points]);
   const [hover, setHover] = useState<number | null>(null);
   const shown = hover !== null ? points[hover] ?? null : geo.last;
-  const shownRow = shown ? rows.find((r) => r.day === shown.day) : undefined;
-  const linkShare = spec.key === 'fee_usd' && shownRow?.fee_usd && shownRow.fee_link_usd !== null ? Math.round((shownRow.fee_link_usd / shownRow.fee_usd) * 100) : null;
+  const share = spec.key === 'fee_usd' && shown ? linkShare(rows, shown.day, cumulative) : null;
   return (
     <figure className="card chart">
       <figcaption>
@@ -35,17 +35,27 @@ function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec
           {cumulative ? ' (cumulative)' : ''}
           <InfoLink metric={spec.metric} label={spec.title.toLowerCase()} />
         </span>
-        <span className="chart-value mono">{spec.format(shown?.value ?? null)}</span>
-        <span className="muted small">
-          {shown ? formatUtcDay(shown.day) : ''}
-          {linkShare !== null ? ` · ${linkShare}% paid in LINK` : ''}
+        <span aria-live="polite">
+          <span className="chart-value mono">{spec.format(shown?.value ?? null)}</span>{' '}
+          <span className="muted small">
+            {shown ? formatUtcDay(shown.day) : ''}
+            {share !== null ? ` · ${Math.round(share)}% paid in LINK` : ''}
+          </span>
         </span>
       </figcaption>
       <svg
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label={`${spec.title} per day`}
+        tabIndex={0}
+        aria-label={chartSummary(spec.title, points, spec.format, cumulative)}
+        onKeyDown={(e) => {
+          const next = stepIndex(hover, e.key, points.length);
+          if (next === hover) return;
+          e.preventDefault();
+          setHover(next);
+        }}
+        onBlur={() => setHover(null)}
         onPointerMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
           setHover(nearestIndex(((e.clientX - box.left) / box.width) * CHART_W, CHART_W, points.length));
@@ -58,7 +68,7 @@ function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec
           <line className="chart-cursor" x1={pointX(hover, points.length, CHART_W)} x2={pointX(hover, points.length, CHART_W)} y1={0} y2={CHART_H} />
         )}
       </svg>
-      {spec.key === 'fee_usd' && <p className="muted small">Fees are collected from 2026-10-05 onward.</p>}
+      {spec.key === 'fee_usd' && <p className="muted small">Fees are collected from {FEES_SINCE} onward.</p>}
     </figure>
   );
 }

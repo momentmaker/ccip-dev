@@ -2,6 +2,7 @@ import type { DayTotals } from '@ccip-dev/core/public';
 import { area, line } from 'd3-shape';
 import type { HistoryRange } from './card-paths';
 import { addDays } from './days';
+import { formatUtcDay } from './format';
 
 export type HistoryMetric = 'messages' | 'usd_value' | 'fee_usd' | 'unique_senders' | 'median_delivery_s';
 
@@ -73,4 +74,41 @@ export function rangeTotals(rows: readonly DayTotals[]): { messages: number; usd
     usd_value: rows.reduce((s, d) => s + d.usd_value, 0),
     fee_usd: fees.length === 0 ? null : fees.reduce((s, v) => s + v, 0),
   };
+}
+
+export function linkShare(rows: readonly DayTotals[], day: string, cumulative: boolean): number | null {
+  const scoped = rows.filter((d) => (cumulative ? d.day <= day : d.day === day));
+  let fee = 0;
+  let link = 0;
+  for (const d of scoped) {
+    if (d.fee_usd === null || d.fee_link_usd === null) continue;
+    fee += d.fee_usd;
+    link += d.fee_link_usd;
+  }
+  return fee === 0 ? null : (link / fee) * 100;
+}
+
+export function stepIndex(current: number | null, key: string, count: number): number | null {
+  const last = count - 1;
+  switch (key) {
+    case 'ArrowLeft':
+      return current === null ? last : Math.max(current - 1, 0);
+    case 'ArrowRight':
+      return current === null ? 0 : Math.min(current + 1, last);
+    case 'Home':
+      return 0;
+    case 'End':
+      return last;
+    default:
+      return current;
+  }
+}
+
+export function chartSummary(title: string, points: readonly ChartPoint[], format: (v: number | null) => string, cumulative: boolean): string {
+  const present = points.filter((p) => p.value !== null);
+  if (present.length === 0) return `${title}: no data`;
+  const max = Math.max(...present.map((p) => p.value!));
+  const first = present[0]!;
+  const last = present[present.length - 1]!;
+  return `${title}${cumulative ? ', cumulative' : ''}, ${formatUtcDay(first.day)} to ${formatUtcDay(last.day)}: latest ${format(last.value)}, high ${format(max)}`;
 }
