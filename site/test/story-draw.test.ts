@@ -28,6 +28,33 @@ function fakeCtx(texts: string[], calls: Record<string, number> = {}) {
   ) as unknown as CanvasRenderingContext2D;
 }
 
+interface Drawn {
+  text: string;
+  font: string;
+}
+
+function fontCtx(drawn: Drawn[]) {
+  let font = '';
+  return new Proxy(
+    {},
+    {
+      get: (_t, key) => {
+        if (key === 'fillText') return (text: string) => drawn.push({ text, font });
+        if (key === 'measureText') return (s: string) => ({ width: s.length * 10 });
+        if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
+        return () => {};
+      },
+      set: (_t, key, value) => {
+        if (key === 'font') font = value as string;
+        return true;
+      },
+    },
+  ) as unknown as CanvasRenderingContext2D;
+}
+
+const px = (font: string) => Number(/([\d.]+)px/.exec(font)![1]);
+const fontOf = (drawn: Drawn[], text: string) => drawn.find((d) => d.text === text)!.font;
+
 describe('drawStory', () => {
   it('draws the hook title and the watermark during the hook', () => {
     const texts: string[] = [];
@@ -147,5 +174,74 @@ describe('drawStory', () => {
     const calls: Record<string, number> = {};
     drawStory(fakeCtx([], calls), show.frameAt(29), layoutFor(1080, 1080), assets);
     expect(calls.clip ?? 0).toBe(0);
+  });
+});
+
+describe('drawStory text fitting', () => {
+  const hookFrame = (title: string, subtitle = 'in 30 seconds') => ({ ...show.frameAt(1), hook: { title, subtitle, progress: 0.5 } });
+  const slamFrame = (label: string, progress: number) => ({ ...show.frameAt(15), slam: { start: 14.5, label, progress } });
+  const sizes = [[1920, 1080], [1080, 1080], [1080, 1920]] as const;
+
+  it.each(sizes)('scales a 200-character hook title and subtitle down to the title box at %ix%i', (w, h) => {
+    const l = layoutFor(w, h);
+    const title = 'T'.repeat(200);
+    const subtitle = 's'.repeat(200);
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), hookFrame(title, subtitle), l, assets);
+    const widthAt = (text: string, base: number) => text.length * 10 * (px(fontOf(drawn, text)) / base);
+    expect(widthAt(title, 86 * l.unit)).toBeLessThanOrEqual(l.title.w + 1e-6);
+    expect(widthAt(subtitle, 44 * l.unit)).toBeLessThanOrEqual(l.title.w + 1e-6);
+  });
+
+  it.each(sizes)('fits a long slam label to the slam box at its rest scale at %ix%i', (w, h) => {
+    const l = layoutFor(w, h);
+    const label = '1,000,000 messages · '.repeat(6);
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), slamFrame(label, 0.5), l, assets);
+    expect(label.length * 10 * (px(fontOf(drawn, label)) / (110 * l.unit))).toBeLessThanOrEqual(l.slam.w + 1e-6);
+  });
+
+  it('keeps the fitted slam size through the pop, so the 1.4 to 1.0 scale stays relative to it', () => {
+    const l = layoutFor(1080, 1080);
+    const label = '1,000,000 messages · '.repeat(6);
+    const popping: Drawn[] = [];
+    const resting: Drawn[] = [];
+    drawStory(fontCtx(popping), slamFrame(label, 0.05), l, assets);
+    drawStory(fontCtx(resting), slamFrame(label, 0.5), l, assets);
+    expect(fontOf(popping, label)).toBe(fontOf(resting, label));
+  });
+
+  it('keeps the base size for short text', () => {
+    const l = layoutFor(1080, 1080);
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), hookFrame('CCIP', 'in 30 seconds'), l, assets);
+    drawStory(fontCtx(drawn), slamFrame('$1B moved', 0.5), l, assets);
+    expect([px(fontOf(drawn, 'CCIP')), px(fontOf(drawn, 'in 30 seconds')), px(fontOf(drawn, '$1B moved'))]).toEqual([86 * l.unit, 44 * l.unit, 110 * l.unit]);
+  });
+});
+
+describe('a short focus show', () => {
+  it('builds a 2-day focus show and draws every frame without throwing', () => {
+    const twoDays = {
+      ...replay,
+      since: '2024-01-01',
+      chains: [
+        { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: '2024-01-01' },
+        { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: '2024-01-02' },
+      ],
+      lanes: [[0, 1], [1, 0]],
+      days: [
+        { day: '2024-01-01', lanes: [[0, 3, 1000]] },
+        { day: '2024-01-02', lanes: [[1, 2, 500], [0, 1, 50]] },
+      ],
+    } as ReplayFile;
+    const twoHistory = twoDays.days.map((d) => ({ ...history[0]!, day: d.day }));
+    const focusShow = new Show({ replay: twoDays, history: twoHistory, stars: buildLayout(twoDays.chains), length: 15, focus: 'b', eligible: () => true });
+    expect(focusShow.days).toEqual(['2024-01-01', '2024-01-02']);
+    expect(() => {
+      for (const [w, h] of [[1920, 1080], [1080, 1080], [1080, 1920]] as const) {
+        for (let t = 0; t <= focusShow.length; t += 0.25) drawStory(fakeCtx([]), focusShow.frameAt(t), layoutFor(w, h), assets);
+      }
+    }).not.toThrow();
   });
 });

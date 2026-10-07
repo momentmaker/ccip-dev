@@ -32,6 +32,12 @@ export function fitText(ctx: Ctx, text: string, maxWidth: number): string {
   return ctx.measureText('…').width <= maxWidth ? '…' : '';
 }
 
+function setFittedFont(ctx: Ctx, text: string, weight: number, basePx: number, family: string, maxWidth: number): void {
+  ctx.font = `${weight} ${basePx}px ${family}`;
+  const width = ctx.measureText(text).width;
+  if (width > maxWidth) ctx.font = `${weight} ${(basePx * maxWidth) / width}px ${family}`;
+}
+
 function roundRect(ctx: Ctx, b: Box, r: number): void {
   ctx.beginPath();
   ctx.moveTo(b.x + r, b.y);
@@ -84,10 +90,10 @@ function drawTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   sweep.addColorStop(Math.min(1, at + 0.08), FG);
   sweep.addColorStop(1, FG);
   ctx.fillStyle = sweep;
-  ctx.font = `800 ${86 * u}px ${SANS}`;
+  setFittedFont(ctx, hook.title, 800, 86 * u, SANS, l.title.w);
   ctx.fillText(hook.title, cx, l.title.y + l.title.h * 0.38);
   ctx.fillStyle = BLUE;
-  ctx.font = `600 ${44 * u}px ${SANS}`;
+  setFittedFont(ctx, hook.subtitle, 600, 44 * u, SANS, l.title.w);
   ctx.fillText(hook.subtitle, cx, l.title.y + l.title.h * 0.78);
   ctx.restore();
 }
@@ -195,6 +201,7 @@ function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   const scale = 1.4 - 0.4 * ease(slam.progress / 0.25);
   const alpha = ease(slam.progress / 0.15) * (1 - ease((slam.progress - 0.8) / 0.2));
   ctx.save();
+  setFittedFont(ctx, slam.label, 800, 110 * u, SANS, l.slam.w);
   ctx.globalAlpha = alpha;
   const blur = (1 - ease(slam.progress / 0.25)) * 12 * u;
   ctx.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
@@ -202,7 +209,6 @@ function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.scale(scale, scale);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `800 ${110 * u}px ${SANS}`;
   ctx.fillStyle = FG;
   ctx.fillText(slam.label, 0, 0);
   ctx.restore();
