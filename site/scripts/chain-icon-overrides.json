@@ -1,0 +1,10 @@
+{
+  "ab-mainnet": "abchain",
+  "adi-mainnet": "adi-network",
+  "cronos-zkevm-mainnet": "cronoszkevm",
+  "ethereum-mainnet-polygon-zkevm-1": null,
+  "ethereum-mainnet-xlayer-1": null,
+  "mind-mainnet": "mindnetwork",
+  "polygon-mainnet-katana": "polygonkatana",
+  "zora-mainnet": null
+}

@@ -1,0 +1,670 @@
+{
+  "source": "https://github.com/smartcontractkit/documentation/tree/main/public/assets/chains",
+  "icons": {
+    "0g-mainnet": {
+      "selector": "4426351306075016396",
+      "file": "0g-mainnet.svg",
+      "kind": "logo",
+      "slug": "0g",
+      "rule": "stem"
+    },
+    "ab-mainnet": {
+      "selector": "4829375610284793157",
+      "file": "ab-mainnet.svg",
+      "kind": "logo",
+      "slug": "abchain",
+      "rule": "override"
+    },
+    "abstract-mainnet": {
+      "selector": "3577778157919314504",
+      "file": "abstract-mainnet.svg",
+      "kind": "logo",
+      "slug": "abstract",
+      "rule": "stem"
+    },
+    "adi-mainnet": {
+      "selector": "4059281736450291836",
+      "file": "adi-mainnet.svg",
+      "kind": "logo",
+      "slug": "adi-network",
+      "rule": "override"
+    },
+    "apechain-mainnet": {
+      "selector": "14894068710063348487",
+      "file": "apechain-mainnet.svg",
+      "kind": "logo",
+      "slug": "apechain",
+      "rule": "stem"
+    },
+    "aptos-mainnet": {
+      "selector": "4741433654826277614",
+      "file": "aptos-mainnet.svg",
+      "kind": "logo",
+      "slug": "aptos",
+      "rule": "stem"
+    },
+    "arc-mainnet": {
+      "selector": "6370580034781731079",
+      "file": "arc-mainnet.svg",
+      "kind": "logo",
+      "slug": "arc",
+      "rule": "stem"
+    },
+    "avalanche-mainnet": {
+      "selector": "6433500567565415381",
+      "file": "avalanche-mainnet.svg",
+      "kind": "logo",
+      "slug": "avalanche",
+      "rule": "stem"
+    },
+    "berachain-mainnet": {
+      "selector": "1294465214383781161",
+      "file": "berachain-mainnet.svg",
+      "kind": "logo",
+      "slug": "berachain",
+      "rule": "stem"
+    },
+    "binance_smart_chain-mainnet": {
+      "selector": "11344663589394136015",
+      "file": "binance_smart_chain-mainnet.svg",
+      "kind": "logo",
+      "slug": "bnb-chain",
+      "rule": "display"
+    },
+    "binance_smart_chain-mainnet-opbnb-1": {
+      "selector": "465944652040885897",
+      "file": "binance_smart_chain-mainnet-opbnb-1.svg",
+      "kind": "logo",
+      "slug": "opbnb",
+      "rule": "child"
+    },
+    "bitcoin-mainnet-bitlayer-1": {
+      "selector": "7937294810946806131",
+      "file": "bitcoin-mainnet-bitlayer-1.svg",
+      "kind": "logo",
+      "slug": "bitlayer",
+      "rule": "child"
+    },
+    "bitcoin-mainnet-bob-1": {
+      "selector": "3849287863852499584",
+      "file": "bitcoin-mainnet-bob-1.svg",
+      "kind": "logo",
+      "slug": "bob",
+      "rule": "child"
+    },
+    "bitcoin-mainnet-botanix": {
+      "selector": "4560701533377838164",
+      "file": "bitcoin-mainnet-botanix.svg",
+      "kind": "logo",
+      "slug": "botanix",
+      "rule": "child"
+    },
+    "bitcoin-mainnet-bsquared-1": {
+      "selector": "5406759801798337480",
+      "file": "bitcoin-mainnet-bsquared-1.svg",
+      "kind": "logo",
+      "slug": "bsquared",
+      "rule": "child"
+    },
+    "bitcoin-merlin-mainnet": {
+      "selector": "241851231317828981",
+      "file": "bitcoin-merlin-mainnet.svg",
+      "kind": "logo",
+      "slug": "merlin",
+      "rule": "display"
+    },
+    "bittensor-mainnet": {
+      "selector": "2135107236357186872",
+      "file": "bittensor-mainnet.svg",
+      "kind": "logo",
+      "slug": "bittensor",
+      "rule": "stem"
+    },
+    "canton-mainnet": {
+      "selector": "2308837218439511688",
+      "file": "canton-mainnet.svg",
+      "kind": "logo",
+      "slug": "canton",
+      "rule": "stem"
+    },
+    "celo-mainnet": {
+      "selector": "1346049177634351622",
+      "file": "celo-mainnet.svg",
+      "kind": "logo",
+      "slug": "celo",
+      "rule": "stem"
+    },
+    "core-mainnet": {
+      "selector": "1224752112135636129",
+      "file": "core-mainnet.svg",
+      "kind": "logo",
+      "slug": "core",
+      "rule": "stem"
+    },
+    "corn-mainnet": {
+      "selector": "9043146809313071210",
+      "file": "corn-mainnet.svg",
+      "kind": "logo",
+      "slug": "corn",
+      "rule": "stem"
+    },
+    "creditcoin-mainnet": {
+      "selector": "18240105181246962294",
+      "file": "creditcoin-mainnet.svg",
+      "kind": "logo",
+      "slug": "creditcoin",
+      "rule": "stem"
+    },
+    "cronos-mainnet": {
+      "selector": "1456215246176062136",
+      "file": "cronos-mainnet.svg",
+      "kind": "logo",
+      "slug": "cronos",
+      "rule": "stem"
+    },
+    "cronos-zkevm-mainnet": {
+      "selector": "8788096068760390840",
+      "file": "cronos-zkevm-mainnet.svg",
+      "kind": "logo",
+      "slug": "cronoszkevm",
+      "rule": "override"
+    },
+    "edge-mainnet": {
+      "selector": "6325494908023253251",
+      "file": "edge-mainnet.svg",
+      "kind": "logo",
+      "slug": "edge",
+      "rule": "stem"
+    },
+    "ethereum-mainnet": {
+      "selector": "5009297550715157269",
+      "file": "ethereum-mainnet.svg",
+      "kind": "logo",
+      "slug": "ethereum",
+      "rule": "stem"
+    },
+    "ethereum-mainnet-arbitrum-1": {
+      "selector": "4949039107694359620",
+      "file": "ethereum-mainnet-arbitrum-1.svg",
+      "kind": "logo",
+      "slug": "arbitrum",
+      "rule": "child"
+    },
+    "ethereum-mainnet-base-1": {
+      "selector": "15971525489660198786",
+      "file": "ethereum-mainnet-base-1.svg",
+      "kind": "logo",
+      "slug": "base",
+      "rule": "child"
+    },
+    "ethereum-mainnet-blast-1": {
+      "selector": "4411394078118774322",
+      "file": "ethereum-mainnet-blast-1.svg",
+      "kind": "logo",
+      "slug": "blast",
+      "rule": "child"
+    },
+    "ethereum-mainnet-hashkey-1": {
+      "selector": "7613811247471741961",
+      "file": "ethereum-mainnet-hashkey-1.svg",
+      "kind": "logo",
+      "slug": "hashkey",
+      "rule": "child"
+    },
+    "ethereum-mainnet-ink-1": {
+      "selector": "3461204551265785888",
+      "file": "ethereum-mainnet-ink-1.svg",
+      "kind": "logo",
+      "slug": "ink",
+      "rule": "child"
+    },
+    "ethereum-mainnet-kroma-1": {
+      "selector": "3719320017875267166",
+      "file": "ethereum-mainnet-kroma-1.svg",
+      "kind": "logo",
+      "slug": "kroma",
+      "rule": "child"
+    },
+    "ethereum-mainnet-linea-1": {
+      "selector": "4627098889531055414",
+      "file": "ethereum-mainnet-linea-1.svg",
+      "kind": "logo",
+      "slug": "linea",
+      "rule": "child"
+    },
+    "ethereum-mainnet-mantle-1": {
+      "selector": "1556008542357238666",
+      "file": "ethereum-mainnet-mantle-1.svg",
+      "kind": "logo",
+      "slug": "mantle",
+      "rule": "child"
+    },
+    "ethereum-mainnet-metis-1": {
+      "selector": "8805746078405598895",
+      "file": "ethereum-mainnet-metis-1.svg",
+      "kind": "logo",
+      "slug": "metis",
+      "rule": "child"
+    },
+    "ethereum-mainnet-mode-1": {
+      "selector": "7264351850409363825",
+      "file": "ethereum-mainnet-mode-1.svg",
+      "kind": "logo",
+      "slug": "mode",
+      "rule": "child"
+    },
+    "ethereum-mainnet-optimism-1": {
+      "selector": "3734403246176062136",
+      "file": "ethereum-mainnet-optimism-1.svg",
+      "kind": "logo",
+      "slug": "optimism",
+      "rule": "child"
+    },
+    "ethereum-mainnet-polygon-zkevm-1": {
+      "selector": "4348158687435793198",
+      "file": "ethereum-mainnet-polygon-zkevm-1.svg",
+      "kind": "lettermark",
+      "slug": null,
+      "rule": "none"
+    },
+    "ethereum-mainnet-scroll-1": {
+      "selector": "13204309965629103672",
+      "file": "ethereum-mainnet-scroll-1.svg",
+      "kind": "logo",
+      "slug": "scroll",
+      "rule": "child"
+    },
+    "ethereum-mainnet-taiko-1": {
+      "selector": "16468599424800719238",
+      "file": "ethereum-mainnet-taiko-1.svg",
+      "kind": "logo",
+      "slug": "taiko",
+      "rule": "child"
+    },
+    "ethereum-mainnet-unichain-1": {
+      "selector": "1923510103922296319",
+      "file": "ethereum-mainnet-unichain-1.svg",
+      "kind": "logo",
+      "slug": "unichain",
+      "rule": "child"
+    },
+    "ethereum-mainnet-worldchain-1": {
+      "selector": "2049429975587534727",
+      "file": "ethereum-mainnet-worldchain-1.svg",
+      "kind": "logo",
+      "slug": "worldchain",
+      "rule": "child"
+    },
+    "ethereum-mainnet-xlayer-1": {
+      "selector": "3016212468291539606",
+      "file": "ethereum-mainnet-xlayer-1.svg",
+      "kind": "lettermark",
+      "slug": null,
+      "rule": "none"
+    },
+    "ethereum-mainnet-zircuit-1": {
+      "selector": "17198166215261833993",
+      "file": "ethereum-mainnet-zircuit-1.svg",
+      "kind": "logo",
+      "slug": "zircuit",
+      "rule": "child"
+    },
+    "ethereum-mainnet-zksync-1": {
+      "selector": "1562403441176082196",
+      "file": "ethereum-mainnet-zksync-1.svg",
+      "kind": "logo",
+      "slug": "zksync",
+      "rule": "child"
+    },
+    "etherlink-mainnet": {
+      "selector": "13624601974233774587",
+      "file": "etherlink-mainnet.svg",
+      "kind": "logo",
+      "slug": "etherlink",
+      "rule": "stem"
+    },
+    "everclear-mainnet": {
+      "selector": "9723842205701363942",
+      "file": "everclear-mainnet.svg",
+      "kind": "logo",
+      "slug": "everclear",
+      "rule": "stem"
+    },
+    "fantom-mainnet": {
+      "selector": "3768048213127883732",
+      "file": "fantom-mainnet.svg",
+      "kind": "logo",
+      "slug": "fantom",
+      "rule": "stem"
+    },
+    "fraxtal-mainnet": {
+      "selector": "1462016016387883143",
+      "file": "fraxtal-mainnet.svg",
+      "kind": "logo",
+      "slug": "fraxtal",
+      "rule": "stem"
+    },
+    "gnosis_chain-mainnet": {
+      "selector": "465200170687744372",
+      "file": "gnosis_chain-mainnet.svg",
+      "kind": "logo",
+      "slug": "gnosis-chain",
+      "rule": "display"
+    },
+    "gravity-mainnet": {
+      "selector": "2988178761202034333",
+      "file": "gravity-mainnet.svg",
+      "kind": "logo",
+      "slug": "gravity",
+      "rule": "stem"
+    },
+    "hedera-mainnet": {
+      "selector": "3229138320728879060",
+      "file": "hedera-mainnet.svg",
+      "kind": "logo",
+      "slug": "hedera",
+      "rule": "stem"
+    },
+    "hemi-mainnet": {
+      "selector": "1804312132722180201",
+      "file": "hemi-mainnet.svg",
+      "kind": "logo",
+      "slug": "hemi",
+      "rule": "stem"
+    },
+    "hyperliquid-mainnet": {
+      "selector": "2442541497099098535",
+      "file": "hyperliquid-mainnet.svg",
+      "kind": "logo",
+      "slug": "hyperliquid",
+      "rule": "stem"
+    },
+    "jovay-mainnet": {
+      "selector": "1523760397290643893",
+      "file": "jovay-mainnet.svg",
+      "kind": "logo",
+      "slug": "jovay",
+      "rule": "stem"
+    },
+    "kaia-mainnet": {
+      "selector": "9813823125703490621",
+      "file": "kaia-mainnet.svg",
+      "kind": "logo",
+      "slug": "kaia",
+      "rule": "stem"
+    },
+    "kusama-mainnet-moonriver": {
+      "selector": "1355020143337428062",
+      "file": "kusama-mainnet-moonriver.svg",
+      "kind": "logo",
+      "slug": "moonriver",
+      "rule": "child"
+    },
+    "lens-mainnet": {
+      "selector": "5608378062013572713",
+      "file": "lens-mainnet.svg",
+      "kind": "logo",
+      "slug": "lens",
+      "rule": "stem"
+    },
+    "lisk-mainnet": {
+      "selector": "15293031020466096408",
+      "file": "lisk-mainnet.svg",
+      "kind": "logo",
+      "slug": "lisk",
+      "rule": "stem"
+    },
+    "megaeth-mainnet": {
+      "selector": "6093540873831549674",
+      "file": "megaeth-mainnet.svg",
+      "kind": "logo",
+      "slug": "megaeth",
+      "rule": "stem"
+    },
+    "memento-mainnet": {
+      "selector": "6473245816409426016",
+      "file": "memento-mainnet.svg",
+      "kind": "logo",
+      "slug": "memento",
+      "rule": "stem"
+    },
+    "metal-mainnet": {
+      "selector": "13447077090413146373",
+      "file": "metal-mainnet.svg",
+      "kind": "logo",
+      "slug": "metal",
+      "rule": "stem"
+    },
+    "mind-mainnet": {
+      "selector": "11690709103138290329",
+      "file": "mind-mainnet.svg",
+      "kind": "logo",
+      "slug": "mindnetwork",
+      "rule": "override"
+    },
+    "mint-mainnet": {
+      "selector": "17164792800244661392",
+      "file": "mint-mainnet.svg",
+      "kind": "logo",
+      "slug": "mint",
+      "rule": "stem"
+    },
+    "monad-mainnet": {
+      "selector": "8481857512324358265",
+      "file": "monad-mainnet.svg",
+      "kind": "logo",
+      "slug": "monad",
+      "rule": "stem"
+    },
+    "morph-mainnet": {
+      "selector": "18164309074156128038",
+      "file": "morph-mainnet.svg",
+      "kind": "logo",
+      "slug": "morph",
+      "rule": "stem"
+    },
+    "mova-mainnet-2": {
+      "selector": "4215185756725900654",
+      "file": "mova-mainnet-2.svg",
+      "kind": "logo",
+      "slug": "mova",
+      "rule": "display"
+    },
+    "neox-mainnet": {
+      "selector": "7222032299962346917",
+      "file": "neox-mainnet.svg",
+      "kind": "logo",
+      "slug": "neox",
+      "rule": "stem"
+    },
+    "nexon-mainnet-henesys": {
+      "selector": "12657445206920369324",
+      "file": "nexon-mainnet-henesys.svg",
+      "kind": "logo",
+      "slug": "henesys",
+      "rule": "child"
+    },
+    "pharos-mainnet": {
+      "selector": "7801139999541420232",
+      "file": "pharos-mainnet.svg",
+      "kind": "logo",
+      "slug": "pharos",
+      "rule": "stem"
+    },
+    "plasma-mainnet": {
+      "selector": "9335212494177455608",
+      "file": "plasma-mainnet.svg",
+      "kind": "logo",
+      "slug": "plasma",
+      "rule": "stem"
+    },
+    "plume-mainnet": {
+      "selector": "17912061998839310979",
+      "file": "plume-mainnet.svg",
+      "kind": "logo",
+      "slug": "plume",
+      "rule": "stem"
+    },
+    "polkadot-mainnet-astar": {
+      "selector": "6422105447186081193",
+      "file": "polkadot-mainnet-astar.svg",
+      "kind": "logo",
+      "slug": "astar",
+      "rule": "child"
+    },
+    "polkadot-mainnet-moonbeam": {
+      "selector": "1252863800116739621",
+      "file": "polkadot-mainnet-moonbeam.svg",
+      "kind": "logo",
+      "slug": "moonbeam",
+      "rule": "child"
+    },
+    "polygon-mainnet": {
+      "selector": "4051577828743386545",
+      "file": "polygon-mainnet.svg",
+      "kind": "logo",
+      "slug": "polygon",
+      "rule": "stem"
+    },
+    "polygon-mainnet-katana": {
+      "selector": "2459028469735686113",
+      "file": "polygon-mainnet-katana.svg",
+      "kind": "logo",
+      "slug": "polygonkatana",
+      "rule": "override"
+    },
+    "robinhood-mainnet": {
+      "selector": "6180753054346818345",
+      "file": "robinhood-mainnet.svg",
+      "kind": "logo",
+      "slug": "robinhood",
+      "rule": "stem"
+    },
+    "ronin-mainnet": {
+      "selector": "6916147374840168594",
+      "file": "ronin-mainnet.svg",
+      "kind": "logo",
+      "slug": "ronin",
+      "rule": "stem"
+    },
+    "rootstock-mainnet": {
+      "selector": "11964252391146578476",
+      "file": "rootstock-mainnet.svg",
+      "kind": "logo",
+      "slug": "rootstock",
+      "rule": "stem"
+    },
+    "sei-mainnet": {
+      "selector": "9027416829622342829",
+      "file": "sei-mainnet.svg",
+      "kind": "logo",
+      "slug": "sei",
+      "rule": "stem"
+    },
+    "shibarium-mainnet": {
+      "selector": "3993510008929295315",
+      "file": "shibarium-mainnet.svg",
+      "kind": "logo",
+      "slug": "shibarium",
+      "rule": "stem"
+    },
+    "solana-mainnet": {
+      "selector": "124615329519749607",
+      "file": "solana-mainnet.svg",
+      "kind": "logo",
+      "slug": "solana",
+      "rule": "stem"
+    },
+    "soneium-mainnet": {
+      "selector": "12505351618335765396",
+      "file": "soneium-mainnet.svg",
+      "kind": "logo",
+      "slug": "soneium",
+      "rule": "stem"
+    },
+    "sonic-mainnet": {
+      "selector": "1673871237479749969",
+      "file": "sonic-mainnet.svg",
+      "kind": "logo",
+      "slug": "sonic",
+      "rule": "stem"
+    },
+    "stable-mainnet": {
+      "selector": "16978377838628290997",
+      "file": "stable-mainnet.svg",
+      "kind": "logo",
+      "slug": "stable",
+      "rule": "stem"
+    },
+    "sui-mainnet": {
+      "selector": "17529533435026248318",
+      "file": "sui-mainnet.svg",
+      "kind": "lettermark",
+      "slug": null,
+      "rule": "none"
+    },
+    "superseed-mainnet": {
+      "selector": "470401360549526817",
+      "file": "superseed-mainnet.svg",
+      "kind": "logo",
+      "slug": "superseed",
+      "rule": "stem"
+    },
+    "tac-mainnet": {
+      "selector": "5936861837188149645",
+      "file": "tac-mainnet.svg",
+      "kind": "logo",
+      "slug": "tac",
+      "rule": "stem"
+    },
+    "tempo-mainnet": {
+      "selector": "7281642695469137430",
+      "file": "tempo-mainnet.svg",
+      "kind": "logo",
+      "slug": "tempo",
+      "rule": "stem"
+    },
+    "ton-mainnet": {
+      "selector": "16448340667252469081",
+      "file": "ton-mainnet.svg",
+      "kind": "logo",
+      "slug": "ton",
+      "rule": "stem"
+    },
+    "treasure-mainnet": {
+      "selector": "5214452172935136222",
+      "file": "treasure-mainnet.svg",
+      "kind": "logo",
+      "slug": "treasure",
+      "rule": "stem"
+    },
+    "tron-mainnet-evm": {
+      "selector": "1546563616611573946",
+      "file": "tron-mainnet-evm.svg",
+      "kind": "logo",
+      "slug": "tron",
+      "rule": "display"
+    },
+    "wemix-mainnet": {
+      "selector": "5142893604156789321",
+      "file": "wemix-mainnet.svg",
+      "kind": "logo",
+      "slug": "wemix",
+      "rule": "stem"
+    },
+    "xdc-mainnet": {
+      "selector": "17673274061779414707",
+      "file": "xdc-mainnet.svg",
+      "kind": "logo",
+      "slug": "xdc",
+      "rule": "stem"
+    },
+    "zora-mainnet": {
+      "selector": "3555797439612589184",
+      "file": "zora-mainnet.svg",
+      "kind": "lettermark",
+      "slug": null,
+      "rule": "none"
+    }
+  }
+}

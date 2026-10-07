@@ -8,3 +8,4 @@ pr-body.md
 endpoints-pr.md
 site/dist/
 site/.astro/
+site/.icons-review.html
