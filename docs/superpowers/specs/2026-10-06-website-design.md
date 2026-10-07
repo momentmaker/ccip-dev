@@ -151,7 +151,7 @@ site/
     replay/               timeline.ts, player.tsx, recorder.ts
     lib/                  data.ts, records.ts, format.ts, live-scheduler.ts, sound.ts
     styles/               tokens.css, base.css
-  worker/                 index.ts, cards/*.tsx, fonts/
+  worker/                 index.ts, og.ts, cache.ts, h.ts, cards/*.ts, fonts.ts
   public/                 favicons, og-default.png, fonts
   test/
 ```
@@ -257,7 +257,7 @@ Days with no messages, which have no row, have no page. `/og/daily.png` renders 
 - **New chains:** a chain seen live but absent from the layout takes the next index.
 - **Size and labels:** star radius scales with the square root of the chain's 30-day value. The 12 largest are labeled, and 6 on screens narrower than 640 px.
 - **Lanes:** faint quadratic arcs between their two stars, with opacity by 30-day value.
-- **Phones:** below 640 px the layout rotates to fit a portrait frame.
+- **Phones:** in a portrait frame, such as a phone below 640 px, the sky stretches vertically by up to 1.6× to fill it. A landscape frame stretches horizontally the same way.
 - **Output:** the build writes `layout.json`, `[{ selector, x, y }]` normalized to [-1, 1]. The renderers, the replay, day-page SVGs and share cards all use it.
 
 ### 7.2 Rendering
@@ -365,7 +365,7 @@ Anything else returns 404 with no render.
 
 ### 9.2 Rendering
 
-- **Pipeline:** satori turns JSX into SVG, and resvg-wasm turns that into a 1200×630 PNG. Inter Regular and Bold are bundled in `worker/fonts/`.
+- **Pipeline:** satori turns an element tree into SVG, and resvg-wasm turns that into a 1200×630 PNG. Inter Regular and Bold are embedded in `worker/fonts.ts`. Inter's latin subset has no "→", so lane names on cards read "Ethereum to Base".
 - **Layout:**
   - `#0c0f14` ground with the hex lattice;
   - the sky from `svg.ts` in silhouette on the right;
@@ -483,7 +483,7 @@ On `/`, today's running `messages`, `usd_value` and `unique_senders` are compare
   - a pulsing ring on the status light.
 
   There is no 3D tilt on data tiles.
-- **Theme:** dark only. `<meta name="theme-color" content="#2f62df">`, and SVG, ICO and Apple touch favicons using the hex glyph.
+- **Theme:** dark only. `<meta name="theme-color" content="#2f62df">`, and SVG, 32 px PNG and Apple touch favicons using the hex glyph.
 - **Layout:** a 1280 px max-width column. Mobile-first, with breakpoints at 640 px and 1024 px.
 
 ## 12. Trust, sponsor slot and analytics
