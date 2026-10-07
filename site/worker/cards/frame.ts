@@ -48,6 +48,14 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; coin
         style: { position: 'absolute', left: CARD_W - SKY_W + c.x - c.d / 2, top: c.y - c.d / 2, width: c.d, height: c.d, borderRadius: c.d / 2, boxShadow: '0 0 0 1px rgba(255,255,255,0.18)' },
       }),
     ),
+    spec.badge
+      ? h('img', {
+          src: spec.badge,
+          width: 132,
+          height: 132,
+          style: { position: 'absolute', left: CARD_W - SKY_W + 320 - 66, top: CARD_H / 2 - 66, width: 132, height: 132, borderRadius: 66, boxShadow: '0 0 0 2px rgba(255,255,255,0.25), 0 0 40px rgba(74,127,240,0.6)' },
+        })
+      : null,
     h(
       'div',
       { style: { display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '64px 72px', width: '100%', height: '100%' } },

@@ -1,7 +1,7 @@
 import type { HistoryFile, ReserveFile, TodayFile, TopFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { cardMaxAge } from '../worker/cache';
-import { cardText, dayCard, flowCard, historyCard, homeCard, recordsCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
+import { cardText, dayCard, flowCard, historyCard, homeCard, recordsCard, replayChainCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
 import { bigFontSize, sparkSvg } from '../worker/cards/frame';
 import { chainNameMap } from '../src/lib/names';
 
@@ -71,6 +71,19 @@ describe('card content', () => {
     expect(sparkPoints([1, 2], 100)).toEqual([1, 2]);
     expect(sparkSvg([0, 10], 100, 50)).toContain('d="M0.0,50.0L100.0,0.0"');
     expect(sparkSvg([5], 100, 50)).toBeNull();
+  });
+
+  it('describes a chain replay card', () => {
+    const spec = replayChainCard({ name: 'Base', since: '2023-11-03', usd: 611_000_000, messages: 123_456, partners: 31, coin: 'data:image/svg+xml;base64,AA' }, 'base');
+    expect(spec).toEqual({
+      eyebrow: 'BASE ON CHAINLINK CCIP',
+      big: '$611.0M',
+      label: 'moved · 123,456 messages · 31 chains',
+      date: 'since Nov 3, 2023',
+      extra: ['ccip.dev/replay/base'],
+      spark: null,
+      badge: 'data:image/svg+xml;base64,AA',
+    });
   });
 });
 

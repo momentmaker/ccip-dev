@@ -29,4 +29,12 @@ describe('card paths', () => {
     expect(isOgImageUrl('https://ccip.dev/og/top/chain/7d.png?v=2026-10-07')).toBe(false);
     expect(isOgImageUrl('https://ccip.dev/og/home.png')).toBe(false);
   });
+
+  it('parses and formats per-chain replay cards, rejecting unsafe slugs', () => {
+    expect(parseCardPath('replay/base')).toEqual({ kind: 'replay-chain', slug: 'base' });
+    expect(cardPathOf({ kind: 'replay-chain', slug: 'bnb-chain' })).toBe('replay/bnb-chain');
+    expect(parseCardPath('replay/Base')).toBeNull();
+    expect(parseCardPath('replay/../x')).toBeNull();
+    expect(isOgImageUrl('https://ccip.dev/og/replay/base.png?v=2026-10-06')).toBe(true);
+  });
 });

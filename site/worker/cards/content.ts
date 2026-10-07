@@ -13,6 +13,16 @@ export interface CardSpec {
   date: string;
   extra: string[];
   spark: number[] | null;
+  badge?: string | null;
+}
+
+export interface ReplayCardEntry {
+  name: string;
+  since: string;
+  usd: number;
+  messages: number;
+  partners: number;
+  coin: string | null;
 }
 
 const RANGE_LABEL: Record<HistoryRange, string> = { '30d': 'LAST 30 DAYS', '90d': 'LAST 90 DAYS', '1y': 'LAST YEAR', all: 'ALL TIME' };
@@ -34,6 +44,18 @@ export function sparkPoints(values: readonly number[], n = SPARK_POINTS): number
 
 export function defaultCard(): CardSpec {
   return { eyebrow: 'LIVE CHAINLINK CCIP STATS', big: 'ccip.dev', label: 'Every CCIP message, live', date: '', extra: [], spark: null };
+}
+
+export function replayChainCard(entry: ReplayCardEntry, slug: string): CardSpec {
+  return {
+    eyebrow: `${entry.name.toUpperCase()} ON CHAINLINK CCIP`,
+    big: formatUsd(entry.usd),
+    label: `moved · ${formatCount(entry.messages)} messages · ${entry.partners} chains`,
+    date: `since ${formatUtcDay(entry.since)}`,
+    extra: [`ccip.dev/replay/${slug}`],
+    spark: null,
+    badge: entry.coin,
+  };
 }
 
 export function homeCard(today: TodayFile): CardSpec {

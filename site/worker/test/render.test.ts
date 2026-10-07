@@ -49,6 +49,8 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   requested.length = 0;
   delete assets['/card-coins.json'];
+  delete assets['/replay-cards.json'];
+  await caches.default.delete(new Request('https://ccip.dev/og/replay/base.png'));
 });
 
 describe('site Worker', () => {
@@ -72,6 +74,17 @@ describe('site Worker', () => {
     const png = await renderCard('/og/home.png');
     expectPng(png);
     const [r, g, b] = await pngPixel(png, 1200 - 640 + 560, 80);
+    expect(r).toBeGreaterThan(200);
+    expect(g).toBeLessThan(60);
+    expect(b).toBeLessThan(60);
+  });
+
+  it('draws the chain badge from /replay-cards.json onto the replay card', async () => {
+    const red = btoa('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#ff0000"/></svg>');
+    assets['/replay-cards.json'] = JSON.stringify({ base: { name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: `data:image/svg+xml;base64,${red}` } });
+    const png = await renderCard('/og/replay/base.png');
+    expectPng(png);
+    const [r, g, b] = await pngPixel(png, 1200 - 640 + 320, 315);
     expect(r).toBeGreaterThan(200);
     expect(g).toBeLessThan(60);
     expect(b).toBeLessThan(60);

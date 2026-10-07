@@ -150,4 +150,13 @@ describe('handleOg', () => {
     const { get } = setup({ renderPng: async () => { throw new Error('wasm trap'); } });
     expect(new Uint8Array(await (await get('/og/records.png')).arrayBuffer())).toEqual(FALLBACK);
   });
+
+  it('renders a chain replay card from the build-time card data, 404s an unknown chain, and falls back without the data', async () => {
+    const cards = { base: { name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: null } };
+    const { get } = setup({}, [], DATA, { '/replay-cards.json': JSON.stringify(cards) });
+    expect((await get('/og/replay/base.png')).status).toBe(200);
+    expect((await get('/og/replay/nope.png')).status).toBe(404);
+    const bare = setup();
+    expect((await bare.get('/og/replay/base.png')).headers.get('cache-control')).toBe('public, max-age=60');
+  });
 });

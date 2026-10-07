@@ -1,0 +1,14 @@
+---
+import ReplayPage from '../../components/ReplayPage.astro';
+import { buildData } from '../../lib/build-data';
+import { slugMap } from '../../lib/chain-slug';
+
+export async function getStaticPaths() {
+  const replay = await buildData('replay.json');
+  const slugs = slugMap(replay.chains);
+  return replay.chains.map((c) => ({ params: { slug: slugs.get(c.selector)! }, props: { selector: c.selector, slugs: Object.fromEntries(slugs) } }));
+}
+
+const { selector, slugs } = Astro.props;
+---
+<ReplayPage focus={selector} slugs={slugs} />

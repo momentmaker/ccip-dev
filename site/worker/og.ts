@@ -6,7 +6,7 @@ import { chainNameMap } from '../src/lib/names';
 import { sponsorView } from '../src/lib/sponsor';
 import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
-import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, reserveCard, topCard, type CardSpec } from './cards/content';
+import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
 import { cardTree, sparkSvg } from './cards/frame';
 import type { VNode } from './h';
 
@@ -54,7 +54,13 @@ async function coinLayer(env: OgEnv, origin: string): Promise<CardCoin[]> {
   }
 }
 
-async function build(route: CardRoute, deps: OgDeps): Promise<Built | null> {
+async function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, ReplayCardEntry>> {
+  const res = await env.ASSETS.fetch(new Request(`${origin}/replay-cards.json`));
+  if (!res.ok) throw new Error(`replay-cards.json: HTTP ${res.status}`);
+  return (await res.json()) as Record<string, ReplayCardEntry>;
+}
+
+async function build(route: CardRoute, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
   const load = <N extends PublicFileName>(name: N) => fetchPublic(name, { fetch: deps.fetch });
   switch (route.kind) {
     case 'home':
@@ -80,6 +86,10 @@ async function build(route: CardRoute, deps: OgDeps): Promise<Built | null> {
       return { spec: reserveCard(await load('reserve.json')), maxAge: cardMaxAge(route, null) };
     case 'replay':
       return { spec: replayCard(await load('history.json')), maxAge: cardMaxAge(route, null) };
+    case 'replay-chain': {
+      const entry = (await replayCardEntries(env, origin))[route.slug];
+      return entry ? { spec: replayChainCard(entry, route.slug), maxAge: cardMaxAge(route, null) } : null;
+    }
     case 'records':
       return { spec: recordsCard(await load('history.json')), maxAge: cardMaxAge(route, null) };
   }
@@ -104,7 +114,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   try {
     const cached = await deps.cache?.match(cacheKey);
     if (cached) return cached;
-    const built = await build(route, deps);
+    const built = await build(route, deps, env, url.origin);
     if (!built) return route.kind === 'daily' ? fallback(env, url.origin) : new Response('Not found', { status: 404 });
     const spark = built.spec.spark ? sparkSvg(built.spec.spark, 560, 110) : null;
     const [sky, coins] = await Promise.all([skyDataUri(env, url.origin), coinLayer(env, url.origin)]);

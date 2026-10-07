@@ -14,8 +14,10 @@ export type CardRoute =
   | { kind: 'day'; day: string }
   | { kind: 'history'; range: HistoryRange }
   | { kind: 'top'; dim: TopDim; window: Window }
-  | { kind: 'flow'; window: Window };
+  | { kind: 'flow'; window: Window }
+  | { kind: 'replay-chain'; slug: string };
 
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const DEFAULT_CARD_URL = 'https://ccip.dev/og-default.png';
 const OG_RE = /^https:\/\/ccip\.dev\/og\/(.+)\.png\?v=(\d{4}-\d{2}-\d{2})$/;
 
@@ -25,6 +27,7 @@ const oneOf = <T extends string>(list: readonly T[], value: string | undefined):
 export function parseCardPath(path: string): CardRoute | null {
   const parts = path.split('/');
   const [head, a, b] = parts;
+  if (head === 'replay' && parts.length === 2) return a !== undefined && SLUG.test(a) ? { kind: 'replay-chain', slug: a } : null;
   if (oneOf(SIMPLE, head)) return parts.length === 1 ? { kind: head } : null;
   if (head === 'day') return parts.length === 2 && a !== undefined && isDay(a) ? { kind: 'day', day: a } : null;
   if (head === 'history') return parts.length === 2 && oneOf(HISTORY_RANGES, a) ? { kind: 'history', range: a } : null;
@@ -43,6 +46,8 @@ export function cardPathOf(route: CardRoute): string {
       return `top/${route.dim}/${route.window}`;
     case 'flow':
       return `flow/${route.window}`;
+    case 'replay-chain':
+      return `replay/${route.slug}`;
     default:
       return route.kind;
   }
