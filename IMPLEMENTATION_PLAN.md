@@ -38,7 +38,7 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Price every LINK transfer into and out of the Chainlink Reserve at its block time. Publish cost basis vs value now, pace, weekly deposits, performance and transfers in `reserve.json`, alert on outflows, and add the daily share of CCIP fees paid in LINK (plan `docs/superpowers/plans/2026-10-06-reserve-and-link-metrics.md`).
 **Success Criteria**: Spec `2026-10-06-reserve-and-link-metrics-design.md` §1 criteria 1–6 hold. After the backfill, `reserve.json` `cost_basis` is non-null and no `reserve-mismatch` alert has fired.
 **Tests**: reserve (RPC reads), prices (historicalAt), reserve-stats, reserve-job, hourly, publish, finalize, rollup (linkFeeUsd).
-**Status**: In Progress (code complete and reviewed at b740a73; Complete once deployed, the backfill has caught up and reserve.json shows cost_basis with no reserve-mismatch alert)
+**Status**: Complete (2026-10-07 01:01Z: scan caught up at block 26,137,072 with no failures; cost basis $67.98M at an average $11.10 over 61 deposits, 0 unpriced; LINK in − out equals the on-chain balance; no reserve-mismatch alert)
 
 ## Stage 7: Endpoint maps from chainlist
 **Goal**: Commit `config/endpoints.json` (RPC, Blockscout explorer and Ethereum log endpoints per CCIP chain, built from chainlist.org data). Add `pnpm endpoints:refresh`, which keeps working entries and fills new chains or dead ones. A daily `endpoints.yml` workflow opens one PR when the map changes. The label-candidates job and the Worker's Reserve log fallbacks read the file.
