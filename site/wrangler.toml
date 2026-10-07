@@ -1,0 +1,14 @@
+name = "ccip-dev-site"
+main = "worker/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [{ pattern = "ccip.dev", custom_domain = true }]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = ["/og/*"]
+not_found_handling = "404-page"
+
+[observability]
+enabled = true

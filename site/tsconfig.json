@@ -1,5 +1,6 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": { "jsx": "react-jsx", "types": ["node"] },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test", "scripts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test", "scripts", "vitest.config.ts"],
+  "exclude": ["worker"]
 }
