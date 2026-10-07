@@ -1,4 +1,5 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
+import { linearWarp, type Warp } from './director/warp';
 import { daysBetween } from '../lib/days';
 import type { Milestone } from '../lib/records';
 import type { FrameComet, SkyFrame } from '../sky/frame';
@@ -92,7 +93,7 @@ export interface ReplayFrameState {
 
 export class ReplayModel {
   readonly days: string[];
-  readonly secondsPerDay: number;
+  readonly warp: Warp;
   readonly length: number;
   readonly duration: number;
   private readonly lanesByDay: Map<string, readonly LaneRow[]>;
@@ -110,12 +111,13 @@ export class ReplayModel {
     private readonly stars: readonly StarPoint[],
     length: number,
     coinOptions: CoinOptions = { count: REPLAY_COINS, eligible: () => true },
+    warp?: Warp,
   ) {
     const first = replay.since ?? replay.days[0]?.day;
     const last = replay.days.at(-1)?.day;
     this.days = first && last ? daysBetween(first, last) : [];
+    this.warp = warp ?? linearWarp(this.days.length, 0, length);
     this.length = length;
-    this.secondsPerDay = this.days.length > 0 ? length / this.days.length : length;
     this.duration = length + END_CARD_S;
     this.lanesByDay = new Map(replay.days.map((d) => [d.day, d.lanes]));
     const historyByDay = new Map(history.map((d) => [d.day, d]));
@@ -142,7 +144,7 @@ export class ReplayModel {
   }
 
   dayStart(i: number): number {
-    return i * this.secondsPerDay;
+    return this.warp.dayStart(i);
   }
 
   private spawns(i: number, lanes: readonly LaneRow[]): Spawn[] {
@@ -182,8 +184,8 @@ export class ReplayModel {
   private coinsAt(time: number): FrameCoin[] {
     const end = time;
     const start = end - COIN_FADE_S;
-    const firstDay = Math.min(this.days.length - 1, Math.floor(Math.max(0, start) / this.secondsPerDay));
-    const lastDay = Math.min(this.days.length - 1, Math.floor(Math.max(0, end) / this.secondsPerDay));
+    const firstDay = Math.min(this.days.length - 1, this.warp.dayAt(Math.max(this.warp.start, start)).index);
+    const lastDay = Math.min(this.days.length - 1, this.warp.dayAt(Math.max(this.warp.start, end)).index);
     const share = new Map<number, number>();
     for (let d = firstDay; d <= lastDay; d++) {
       const dayEnd = d === this.days.length - 1 ? end : this.dayStart(d + 1);
@@ -202,7 +204,7 @@ export class ReplayModel {
     if (this.days.length === 0) {
       return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], extent: 1, coins: [], sky: empty };
     }
-    const dayIndex = Math.min(Math.floor(Math.min(time, this.length - 1e-9) / this.secondsPerDay), this.days.length - 1);
+    const dayIndex = Math.min(this.warp.dayAt(Math.min(time, this.warp.end - 1e-9)).index, this.days.length - 1);
     const day = this.days[dayIndex]!;
 
     const values = new Map<number, number>();
@@ -236,12 +238,12 @@ export class ReplayModel {
     });
 
     const comets: FrameComet[] = [];
-    const lookback = Math.ceil(REPLAY_COMET_S / this.secondsPerDay) + 1;
-    for (let d = Math.max(0, dayIndex - lookback); d <= dayIndex; d++) {
+    const firstSpawnDay = this.warp.dayAt(Math.max(this.warp.start, time - REPLAY_COMET_S)).index;
+    for (let d = firstSpawnDay; d <= dayIndex; d++) {
       const dayLanes = this.lanesByDay.get(this.days[d]!);
       if (!dayLanes) continue;
       for (const spawn of this.spawns(d, dayLanes)) {
-        const progress = (time - (this.dayStart(d) + spawn.offset * this.secondsPerDay)) / REPLAY_COMET_S;
+        const progress = (time - (this.dayStart(d) + spawn.offset * this.warp.dayLength(d))) / REPLAY_COMET_S;
         if (progress < 0 || progress >= 1) continue;
         const ends = this.replay.lanes[spawn.lane];
         const from = ends ? this.starOfChain[ends[0]] ?? -1 : -1;

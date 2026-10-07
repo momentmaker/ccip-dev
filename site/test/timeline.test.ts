@@ -2,6 +2,7 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { computeMilestones } from '../src/lib/records';
 import { cometCount, daySpawns, mulberry32, REPLAY_COMET_S, ReplayModel } from '../src/replay/timeline';
+import { durationWarp } from '../src/replay/director/warp';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
 
@@ -45,7 +46,7 @@ describe('ReplayModel', () => {
   it('spreads the calendar days evenly over the run', () => {
     const m = model();
     expect(m.days).toEqual(['2023-07-06', '2023-07-07', '2023-07-08', '2023-07-09']);
-    expect(m.secondsPerDay).toBe(15);
+    expect(m.warp.dayLength(0)).toBe(15);
     expect(m.duration).toBe(62);
   });
 
@@ -96,7 +97,7 @@ describe('ReplayModel', () => {
   it('keeps every comet on a known lane and inside its flight', () => {
     const m = model();
     const first = daySpawns(replay.days[1]!.lanes, 1)[0]!;
-    const frame = m.frameAt(m.dayStart(1) + first.offset * m.secondsPerDay + 0.1);
+    const frame = m.frameAt(m.dayStart(1) + first.offset * m.warp.dayLength(0) + 0.1);
     expect(frame.sky.comets.length).toBeGreaterThan(0);
     for (const c of frame.sky.comets) {
       expect(c.progress).toBeGreaterThanOrEqual(0);
@@ -220,5 +221,30 @@ describe('replay coin window', () => {
       const max = Math.max(...frame.sky.stars.map((s) => s.radius));
       for (const coin of frame.coins.filter((c) => c.alpha === 1)) expect(frame.sky.stars[coin.star]!.radius).toBe(max);
     }
+  });
+});
+
+describe('ReplayModel with a warp', () => {
+  const warp = durationWarp([1, 10, 1, 1], 2);
+  const warped = () => new ReplayModel(replay, history, [], stars, 60, { count: 1, eligible: () => true }, warp);
+
+  it('maps time to days through the warp', () => {
+    expect(warped().frameAt(2.5).dayIndex).toBe(0);
+    expect(warped().frameAt(3.5).dayIndex).toBe(1);
+    expect(warped().frameAt(12.9).dayIndex).toBe(1);
+    expect(warped().frameAt(13.5).dayIndex).toBe(2);
+  });
+
+  it('spreads a long day\u2019s comets across its whole length', () => {
+    const m = warped();
+    const early = m.frameAt(4).sky.comets.length + m.frameAt(5).sky.comets.length;
+    const late = m.frameAt(11).sky.comets.length + m.frameAt(12).sky.comets.length;
+    expect(early + late).toBeGreaterThan(0);
+    expect(m.frameAt(11)).toEqual(m.frameAt(11));
+  });
+
+  it('starts the day clock at the warp start', () => {
+    expect(warped().frameAt(0).sky.comets).toEqual([]);
+    expect(warped().warp).toBe(warp);
   });
 });
