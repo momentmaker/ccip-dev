@@ -57,7 +57,7 @@ void main() {
   outColor = vec4(vec3(0.290, 0.498, 0.941) * v_alpha, v_alpha);
 }`;
 
-function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
+export function compile(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
   if (!shader) throw new Error('WebGL: createShader failed');
   gl.shaderSource(shader, source);
@@ -66,7 +66,7 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string): WebG
   return shader;
 }
 
-function link(gl: WebGL2RenderingContext, vert: string, frag: string): WebGLProgram {
+export function link(gl: WebGL2RenderingContext, vert: string, frag: string): WebGLProgram {
   const program = gl.createProgram();
   if (!program) throw new Error('WebGL: createProgram failed');
   gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, vert));
