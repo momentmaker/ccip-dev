@@ -49,9 +49,9 @@ export async function recordReplay(opts: RecordOptions): Promise<Blob> {
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
   const source = new CanvasSource(canvas, { codec: 'avc', bitrate: RECORD_BITRATE });
   output.addVideoTrack(source, { frameRate: REPLAY_FPS });
-  await output.start();
   const frames = totalFrames(opts.lengthS);
   try {
+    await output.start();
     for (let f = 0; f < frames; f++) {
       if (opts.signal.aborted) throw new DOMException('Recording cancelled', 'AbortError');
       const t = f / REPLAY_FPS;
@@ -59,9 +59,14 @@ export async function recordReplay(opts: RecordOptions): Promise<Blob> {
       await source.add(t, 1 / REPLAY_FPS);
       opts.onProgress((f + 1) / frames);
     }
+    if (opts.signal.aborted) throw new DOMException('Recording cancelled', 'AbortError');
     await output.finalize();
   } catch (err) {
-    await output.cancel();
+    try {
+      await output.cancel();
+    } catch (cancelErr) {
+      console.warn('recording: cancelling the output failed', cancelErr);
+    }
     throw err;
   }
   const buffer = output.target.buffer;

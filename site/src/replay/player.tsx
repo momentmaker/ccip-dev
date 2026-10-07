@@ -33,6 +33,7 @@ export default function ReplayPlayer() {
   const [recordable, setRecordable] = useState<boolean | null>(null);
   const [recording, setRecording] = useState<{ progress: number; controller: AbortController } | null>(null);
   const [recordError, setRecordError] = useState<string | null>(null);
+  const recordAbortRef = useRef<AbortController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tRef = useRef(0);
   const clockRef = useRef({ startedAt: 0, offset: 0 });
@@ -149,22 +150,28 @@ export default function ReplayPlayer() {
     if (!playing) drawFrame();
   };
 
+  useEffect(() => () => recordAbortRef.current?.abort(), []);
+
   const record = async () => {
-    if (!model) return;
+    if (!model || recording) return;
     setPlaying(false);
     setRecordError(null);
     const controller = new AbortController();
+    recordAbortRef.current = controller;
     setRecording({ progress: 0, controller });
-    const recorder = new ReplayCompositor(model, stars, since, lastDay, () => new OffscreenCanvas(1, 1));
+    let recorder: ReplayCompositor | null = null;
     try {
+      recorder = new ReplayCompositor(model, stars, since, lastDay, () => new OffscreenCanvas(1, 1));
+      const frames = recorder;
       await document.fonts.ready;
       const blob = await recordReplay({
-        draw: (frameT, ctx, width, height) => recorder.draw(frameT, ctx, width, height),
+        draw: (frameT, ctx, width, height) => frames.draw(frameT, ctx, width, height),
         aspect,
         lengthS: length,
         onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),
         signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       const href = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = href;
@@ -178,7 +185,8 @@ export default function ReplayPlayer() {
         setRecordError('Recording failed — try again or use Chrome');
       }
     } finally {
-      recorder.destroy();
+      recorder?.destroy();
+      if (recordAbortRef.current === controller) recordAbortRef.current = null;
       setRecording(null);
     }
   };

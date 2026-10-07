@@ -82,6 +82,7 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 .share { position: relative; }
 .share-btn { font: 600 13px var(--font-sans); color: var(--fg); background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; cursor: pointer; }
 .share-btn:hover { border-color: var(--blue-2); }
+.recording { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); }
 .share-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; display: grid; min-width: 170px; padding: 6px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-hover); }
 .share-menu a, .share-menu button { text-align: left; padding: 8px 10px; border-radius: 6px; color: var(--fg); background: none; border: 0; font: inherit; cursor: pointer; }
 .share-menu a:hover, .share-menu button:hover { background: var(--card-2); text-decoration: none; }

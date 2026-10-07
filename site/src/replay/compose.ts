@@ -74,6 +74,7 @@ export function drawOverlay(ctx: Ctx2d, text: OverlayText, width: number, height
 export class ReplayCompositor {
   private readonly skyCanvas: SkyCanvas;
   private readonly renderer: SkyRenderer;
+  private destroyed = false;
 
   constructor(
     private readonly model: ReplayModel,
@@ -87,6 +88,7 @@ export class ReplayCompositor {
   }
 
   draw(t: number, target: Ctx2d, width: number, height: number): ReplayFrameState {
+    if (this.destroyed) return this.model.frameAt(t);
     if (this.skyCanvas.width !== width || this.skyCanvas.height !== height) this.renderer.resize(width, height);
     const state = this.model.frameAt(t);
     this.renderer.draw(state.sky, projector(width, height, this.stars, undefined, state.extent), Math.min(width, height) / 1000);
@@ -103,6 +105,7 @@ export class ReplayCompositor {
   }
 
   destroy(): void {
+    this.destroyed = true;
     this.renderer.destroy();
   }
 }

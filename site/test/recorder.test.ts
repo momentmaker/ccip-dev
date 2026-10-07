@@ -97,6 +97,15 @@ describe('recordReplay', () => {
     expect(calls.finalized).toBe(0);
   });
 
+  it('cancels instead of delivering a file when aborted on the last frame', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+    const controller = new AbortController();
+    const run = recordReplay({ draw: () => {}, aspect: '16:9', lengthS: 1, onProgress: (p) => p === 1 && controller.abort(), signal: controller.signal });
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    expect(calls.cancelled).toBe(1);
+    expect(calls.finalized).toBe(0);
+  });
+
   it('cancels the output and rethrows when encoding fails', async () => {
     vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
     calls.failAt = 5;

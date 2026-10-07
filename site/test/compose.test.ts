@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { drawOverlay, overlayText } from '../src/replay/compose';
-import type { ReplayFrameState } from '../src/replay/timeline';
+import { ReplayCompositor, drawOverlay, overlayText } from '../src/replay/compose';
+import type { ReplayFrameState, ReplayModel } from '../src/replay/timeline';
+
+const renderer = vi.hoisted(() => ({ draw: vi.fn(), resize: vi.fn(), destroy: vi.fn() }));
+vi.mock('../src/sky/renderer', () => ({ createRenderer: () => renderer }));
 
 const state = (endCard: boolean): ReplayFrameState => ({
   t: 10,
@@ -59,5 +62,25 @@ describe('drawOverlay', () => {
       '$25.3B moved across 95 chains',
       'Live CCIP stats at ccip.dev',
     ]);
+  });
+});
+
+describe('ReplayCompositor', () => {
+  it('stops drawing once destroyed', () => {
+    const frame = state(false);
+    const model = { frameAt: () => frame } as unknown as ReplayModel;
+    const gradient = { addColorStop: vi.fn() };
+    const target = {
+      fillRect: vi.fn(), drawImage: vi.fn(), createRadialGradient: () => gradient,
+      save: vi.fn(), restore: vi.fn(), fillText: vi.fn(),
+      set font(_v: string) {}, set fillStyle(_v: unknown) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
+    } as unknown as CanvasRenderingContext2D;
+    const compositor = new ReplayCompositor(model, [], '2023-07-06', '2026-10-06', () => ({ width: 10, height: 10 }) as never);
+    compositor.draw(1, target, 10, 10);
+    expect(renderer.draw).toHaveBeenCalledTimes(1);
+    compositor.destroy();
+    expect(compositor.draw(1, target, 10, 10)).toBe(frame);
+    expect(renderer.draw).toHaveBeenCalledTimes(1);
+    expect(renderer.destroy).toHaveBeenCalledTimes(1);
   });
 });
