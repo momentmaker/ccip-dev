@@ -1,0 +1,170 @@
+import type { ReplayFile } from '@ccip-dev/core/public';
+import { formatCount } from '../../lib/format';
+import { shortChainName } from '../../lib/names';
+import type { Milestone } from '../../lib/records';
+import type { DayFlags, Warp } from './warp';
+
+export type EventKind = 'join' | 'milestone' | 'record' | 'lane';
+
+export interface DayEvent {
+  kind: EventKind;
+  dayIndex: number;
+  label: string;
+  selectors: string[];
+}
+
+export interface Card {
+  kind: 'join' | 'record' | 'lane';
+  time: number;
+  start: number;
+  end: number;
+  label: string;
+  selectors: string[];
+  count: number;
+}
+
+export interface Slam {
+  start: number;
+  label: string;
+}
+
+export const JOIN_BATCH_S = 1.0;
+export const CARD_S = 1.6;
+export const CARD_MIN_S = 1.0;
+export const CARD_MAX_LAG_S = 1.0;
+export const SLAM_S = 1.4;
+export const RECORD_SKIP_DAYS = 30;
+export const MAX_RECORDS = 3;
+
+type Chain = ReplayFile['chains'][number];
+const indexOf = (days: readonly string[]) => new Map(days.map((d, i) => [d, i]));
+const byDay = (a: { day: string }, b: { day: string }) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+
+export function joinEvents(chains: readonly Chain[], days: readonly string[]): DayEvent[] {
+  const at = indexOf(days);
+  return chains
+    .flatMap((c) => {
+      const i = at.get(c.first_day);
+      return i === undefined ? [] : [{ kind: 'join' as const, dayIndex: i, label: shortChainName(c), selectors: [c.selector] }];
+    })
+    .sort((a, b) => a.dayIndex - b.dayIndex || (a.selectors[0]! < b.selectors[0]! ? -1 : 1));
+}
+
+export function milestoneEvents(milestones: readonly Milestone[], days: readonly string[]): DayEvent[] {
+  const at = indexOf(days);
+  return milestones.flatMap((m) => {
+    const i = at.get(m.day);
+    return m.kind === 'join' || i === undefined ? [] : [{ kind: 'milestone' as const, dayIndex: i, label: m.label, selectors: [] }];
+  });
+}
+
+export function recordEvents(history: readonly { day: string; messages: number }[], days: readonly string[]): DayEvent[] {
+  const at = indexOf(days);
+  let best = 0;
+  const jumps: { day: string; messages: number; ratio: number }[] = [];
+  [...history].sort(byDay).forEach((d, i) => {
+    if (d.messages <= best) return;
+    if (i >= RECORD_SKIP_DAYS && best > 0) jumps.push({ day: d.day, messages: d.messages, ratio: d.messages / best });
+    best = d.messages;
+  });
+  return jumps
+    .sort((a, b) => b.ratio - a.ratio || byDay(a, b))
+    .slice(0, MAX_RECORDS)
+    .flatMap((j) => {
+      const i = at.get(j.day);
+      return i === undefined ? [] : [{ kind: 'record' as const, dayIndex: i, label: `Record day · ${formatCount(j.messages)} messages`, selectors: [] }];
+    })
+    .sort((a, b) => a.dayIndex - b.dayIndex);
+}
+
+export function laneOpenEvents(replay: Pick<ReplayFile, 'chains' | 'lanes' | 'days'>, focus: string, days: readonly string[]): DayEvent[] {
+  const at = indexOf(days);
+  const focusIndex = replay.chains.findIndex((c) => c.selector === focus);
+  if (focusIndex < 0) return [];
+  const seen = new Set<number>();
+  const out: DayEvent[] = [];
+  for (const d of [...replay.days].sort(byDay)) {
+    const i = at.get(d.day);
+    if (i === undefined) continue;
+    for (const [lane] of d.lanes) {
+      const ends = replay.lanes[lane];
+      if (!ends || (ends[0] !== focusIndex && ends[1] !== focusIndex)) continue;
+      const partner = ends[0] === focusIndex ? ends[1] : ends[0];
+      if (partner === focusIndex || seen.has(partner)) continue;
+      seen.add(partner);
+      const c = replay.chains[partner]!;
+      out.push({ kind: 'lane', dayIndex: i, label: shortChainName(c), selectors: [c.selector] });
+    }
+  }
+  return out;
+}
+
+export function dayFlags(events: readonly DayEvent[], dayCount: number): DayFlags[] {
+  const flags = Array.from({ length: dayCount }, () => ({ join: false, milestone: false, record: false }));
+  for (const e of events) {
+    const f = flags[e.dayIndex];
+    if (!f) continue;
+    if (e.kind === 'join' || e.kind === 'lane') f.join = true;
+    if (e.kind === 'milestone') f.milestone = true;
+    if (e.kind === 'record') f.record = true;
+  }
+  return flags;
+}
+
+function cardLabel(kind: Card['kind'], names: readonly string[], focusName: string | null): string {
+  if (kind === 'record') return names[0]!;
+  if (kind === 'lane') {
+    return names.length === 1 ? `${names[0]} ↔ ${focusName}` : `+${names.length} lanes to ${focusName}: ${names.slice(0, 3).join(' · ')}`;
+  }
+  if (names.length === 1) return `${names[0]} joins`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} join`;
+  return `+${names.length} chains: ${names.slice(0, 3).join(' · ')}`;
+}
+
+interface Group {
+  kind: Card['kind'];
+  time: number;
+  start: number;
+  end: number;
+  names: string[];
+  selectors: string[];
+}
+
+export function scheduleCards(events: readonly DayEvent[], warp: Warp, focusName: string | null): Card[] {
+  const timed = events
+    .filter((e): e is DayEvent & { kind: Card['kind'] } => e.kind !== 'milestone')
+    .map((e) => ({ e, time: warp.dayStart(e.dayIndex) }))
+    .sort((a, b) => a.time - b.time);
+  const groups: Group[] = [];
+  for (const { e, time } of timed) {
+    const prev = groups.at(-1);
+    const sameKind = prev !== undefined && prev.kind === e.kind && e.kind !== 'record';
+    const wouldStart = prev ? Math.max(time, prev.start + CARD_MIN_S) : time;
+    if (prev && sameKind && (time - prev.time < JOIN_BATCH_S || wouldStart - time > CARD_MAX_LAG_S)) {
+      prev.names.push(e.label);
+      prev.selectors.push(...e.selectors);
+      continue;
+    }
+    if (prev) prev.end = Math.max(prev.start + CARD_MIN_S, Math.min(prev.end, time));
+    const start = Math.max(time, prev?.end ?? time);
+    groups.push({ kind: e.kind, time, start, end: start + CARD_S, names: [e.label], selectors: [...e.selectors] });
+  }
+  return groups.map((g) => ({
+    kind: g.kind,
+    time: g.time,
+    start: g.start,
+    end: g.end,
+    label: cardLabel(g.kind, g.names, focusName),
+    selectors: g.selectors.slice(0, 3),
+    count: g.names.length,
+  }));
+}
+
+export function scheduleSlams(events: readonly DayEvent[], warp: Warp): Slam[] {
+  const out: Slam[] = [];
+  for (const e of events.filter((x) => x.kind === 'milestone').sort((a, b) => a.dayIndex - b.dayIndex)) {
+    const prev = out.at(-1);
+    out.push({ start: Math.max(warp.dayStart(e.dayIndex), prev ? prev.start + SLAM_S : -Infinity), label: e.label });
+  }
+  return out;
+}
