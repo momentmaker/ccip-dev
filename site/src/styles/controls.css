@@ -28,7 +28,9 @@
 .chain-pop li.on { background: #13244d; }
 .chain-pop .m, .scrub-tip .m { margin-left: auto; font: 500 11px var(--font-mono); color: var(--muted); }
 .player-stage { position: relative; }
-.player-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 26px 12px 10px; background: linear-gradient(transparent, rgba(8, 10, 14, 0.92)); }
+.player-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 26px 12px 10px; background: linear-gradient(transparent, rgba(8, 10, 14, 0.92)); transition: opacity 0.3s; }
+.player-stage.idle .player-bar { opacity: 0; }
+.player-stage .player-bar:has(:focus-visible) { opacity: 1; }
 .player-time { font: 600 11px var(--font-mono); color: var(--muted); white-space: nowrap; }
 .scrubber { position: relative; flex: 1; height: 28px; }
 .scrubber input[type='range'] { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; }

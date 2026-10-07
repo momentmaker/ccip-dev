@@ -35,3 +35,10 @@ export function formatClock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+export const BAR_IDLE_MS = 2500;
+
+export function barVisible(input: { playing: boolean; recording: boolean; lastActivityMs: number; nowMs: number }): boolean {
+  if (!input.playing && !input.recording) return true;
+  return input.nowMs - input.lastActivityMs <= BAR_IDLE_MS;
+}

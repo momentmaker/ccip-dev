@@ -5,7 +5,7 @@ import { DataError, fetchPublic, pollDelay } from '../lib/data';
 import { hasIcon, iconHref } from '../lib/chain-icons';
 import { chainName, chainNameMap } from '../lib/names';
 import { formatUtcDay } from '../lib/format';
-import { formatClock } from '../lib/controls';
+import { barVisible, BAR_IDLE_MS, formatClock } from '../lib/controls';
 import { replayHead } from '../lib/replay-head';
 import ChainPicker from '../components/controls/ChainPicker';
 import Scrubber from '../components/controls/Scrubber';
@@ -45,6 +45,8 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [aspect, setAspect] = useState<Aspect>(() => (typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches ? '1:1' : '16:9'));
   const [focus, setFocus] = useState<string | null>(initialFocus);
   const [hasPlayed, setHasPlayed] = useState(false);
+  const [activity, setActivity] = useState({ lastMs: 0, nowMs: 0 });
+  const lastPointerRef = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
   const [compositor, setCompositor] = useState<ReplayCompositor | null>(null);
@@ -231,7 +233,8 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       tRef.current = now;
       drawFrame();
       if (now >= show.length) {
-        setShown(now);
+        tRef.current = show.length - LOOP_S;
+        setShown(tRef.current);
         setPlaying(false);
         return;
       }
@@ -253,14 +256,30 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     return () => observer.disconnect();
   }, [drawFrame, compositor]);
 
+  const noteActivity = () => {
+    const ms = performance.now();
+    lastPointerRef.current = ms;
+    setActivity({ lastMs: ms, nowMs: ms });
+  };
+  const onStagePointer = () => {
+    if (performance.now() - lastPointerRef.current > 250) noteActivity();
+  };
+
+  useEffect(() => {
+    if (!playing && recording === null) return;
+    const timer = setTimeout(() => setActivity((a) => ({ ...a, nowMs: performance.now() })), BAR_IDLE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [playing, recording, activity.lastMs]);
+
   const play = () => {
     if (!show) return;
-    const from = tRef.current >= show.length ? 0 : tRef.current;
+    const from = tRef.current >= show.length - LOOP_S ? 0 : tRef.current;
     clockRef.current = { startedAt: performance.now(), offset: from };
     tRef.current = from;
     setShown(from);
     setPlaying(true);
     setHasPlayed(true);
+    noteActivity();
     track('replay_play', { length, aspect });
   };
 
@@ -332,7 +351,12 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
 
   return (
     <div className="player">
-      <div className="player-stage" style={{ aspectRatio: String(RATIO[aspect]), width: `min(100%, ${80 * RATIO[aspect]}vh)` }}>
+      <div
+        className={`player-stage${barVisible({ playing, recording: recording !== null, lastActivityMs: activity.lastMs, nowMs: activity.nowMs }) ? '' : ' idle'}`}
+        onPointerMove={onStagePointer}
+        onPointerDown={onStagePointer}
+        style={{ aspectRatio: String(RATIO[aspect]), width: `min(100%, ${80 * RATIO[aspect]}vh)` }}
+      >
         <canvas ref={canvasRef} aria-label={`Time-lapse of CCIP ${focusName ? `for ${focusName} ` : ''}from ${since} to ${lastDay}`} />
         {!hasPlayed && !playing && (
           <button type="button" className="bigplay" aria-label="Play the replay" onClick={play}>
@@ -346,7 +370,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
           </span>
         )}
         <div className="player-bar">
-          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : 'Play'} onClick={() => (playing ? setPlaying(false) : play())}>
+          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : shown >= show.length - LOOP_S ? 'Replay' : 'Play'} onClick={() => (playing ? setPlaying(false) : play())}>
             {playing ? <span className="pause-i" aria-hidden="true" /> : <span className="tri" aria-hidden="true" />}
           </button>
           <Scrubber

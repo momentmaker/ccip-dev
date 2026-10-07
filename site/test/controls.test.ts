@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterChains, formatClock, moveIndex, nearestMark } from '../src/lib/controls';
+import { BAR_IDLE_MS, barVisible, filterChains, formatClock, moveIndex, nearestMark } from '../src/lib/controls';
 
 const chains = [
   { selector: 'e', name: 'Ethereum', value: 3, icon: null },
@@ -40,5 +40,25 @@ describe('nearestMark', () => {
 describe('formatClock', () => {
   it.each([[0, '0:00'], [9.6, '0:09'], [30, '0:30'], [75, '1:15']])('%s s is %s', (s, text) => {
     expect(formatClock(s)).toBe(text);
+  });
+});
+
+describe('barVisible', () => {
+  const base = { playing: false, recording: false, lastActivityMs: 0, nowMs: 60_000 };
+
+  it('stays visible while not playing', () => {
+    expect(barVisible(base)).toBe(true);
+  });
+
+  it('stays visible while playing and recently active', () => {
+    expect(barVisible({ ...base, playing: true, lastActivityMs: 59_000 })).toBe(true);
+  });
+
+  it('hides while playing once idle for longer than the window', () => {
+    expect(barVisible({ ...base, playing: true, lastActivityMs: 60_000 - BAR_IDLE_MS - 1 })).toBe(false);
+  });
+
+  it('hides while recording once idle', () => {
+    expect(barVisible({ ...base, recording: true })).toBe(false);
   });
 });
