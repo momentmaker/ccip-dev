@@ -75,6 +75,24 @@ describe('ReplayModel', () => {
     expect(model().frameAt(20)).toEqual(model().frameAt(20));
   });
 
+  it('renders the same frames whatever order they are asked for in', () => {
+    const used = model();
+    used.frameAt(50);
+    used.frameAt(5);
+    expect(used.frameAt(20)).toEqual(model().frameAt(20));
+    expect(used.frameAt(40)).toEqual(model().frameAt(40));
+  });
+
+  it('grows the camera extent smoothly as a chain ignites', () => {
+    const m = model();
+    const [before, mid, after] = [30, 30.5, 31].map((t) => m.frameAt(t).extent);
+    const baseStar = stars.find((s) => s.selector === replay.chains.find((c) => c.first_day === '2023-07-08')!.selector)!;
+    expect(mid!).toBeGreaterThan(before!);
+    expect(after!).toBeGreaterThanOrEqual(mid!);
+    expect(after!).toBeCloseTo(Math.max(before!, Math.hypot(baseStar.x, baseStar.y)));
+    expect(m.frameAt(29.999).extent).toBeCloseTo(before!, 3);
+  });
+
   it('keeps every comet on a known lane and inside its flight', () => {
     const m = model();
     const first = daySpawns(replay.days[1]!.lanes, 1)[0]!;
@@ -85,6 +103,6 @@ describe('ReplayModel', () => {
       expect(c.progress).toBeLessThan(1);
       expect(frame.sky.stars[c.from]!.radius).toBeGreaterThan(0);
     }
-    expect(REPLAY_COMET_S).toBe(1.2);
+    expect(REPLAY_COMET_S).toBe(0.8);
   });
 });

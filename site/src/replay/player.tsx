@@ -1,5 +1,5 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { track, trackDataError } from '../lib/analytics';
 import { DataError, fetchPublic } from '../lib/data';
 import { computeMilestones } from '../lib/records';
@@ -11,6 +11,9 @@ import { REPLAY_LENGTHS, ReplayModel, type ReplayLength } from './timeline';
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
 export type Aspect = (typeof ASPECTS)[number];
 const RATIO: Record<Aspect, number> = { '16:9': 16 / 9, '1:1': 1, '9:16': 9 / 16 };
+const MAX_DPR = 2;
+const MAX_SIDE_PX = 1920;
+const UI_UPDATE_MS = 100;
 
 interface Loaded {
   replay: ReplayFile;
@@ -24,8 +27,10 @@ export default function ReplayPlayer() {
   const [length, setLength] = useState<ReplayLength>(60);
   const [aspect, setAspect] = useState<Aspect>('16:9');
   const [playing, setPlaying] = useState(false);
-  const [t, setT] = useState(0);
+  const [shown, setShown] = useState(0);
+  const [compositor, setCompositor] = useState<ReplayCompositor | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const tRef = useRef(0);
   const clockRef = useRef({ startedAt: 0, offset: 0 });
 
   useEffect(() => {
@@ -44,53 +49,92 @@ export default function ReplayPlayer() {
   );
   const since = data?.replay.since ?? '';
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
-  const compositor = useMemo(
-    () => (model ? new ReplayCompositor(model, stars, since, lastDay, () => document.createElement('canvas')) : null),
-    [model, stars, since, lastDay],
-  );
-  useEffect(() => () => compositor?.destroy(), [compositor]);
 
   useEffect(() => {
-    if (model && reducedMotion) setT(model.duration - 0.01);
-  }, [model, reducedMotion]);
+    if (!model) return;
+    let created: ReplayCompositor;
+    try {
+      created = new ReplayCompositor(model, stars, since, lastDay, () => document.createElement('canvas'));
+    } catch (err) {
+      console.warn('Replay compositor failed to start', err);
+      setError('Your browser could not start the animation.');
+      return;
+    }
+    tRef.current = reducedMotion ? model.duration - 0.01 : 0;
+    setShown(tRef.current);
+    setPlaying(false);
+    setCompositor(created);
+    return () => {
+      created.destroy();
+      setCompositor(null);
+    };
+  }, [model, stars, since, lastDay, reducedMotion]);
+
+  const drawFrame = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || !compositor) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const fit = Math.min(1, MAX_SIDE_PX / (Math.max(canvas.clientWidth, canvas.clientHeight) * dpr || 1));
+    const width = Math.max(1, Math.round(canvas.clientWidth * dpr * fit));
+    const height = Math.max(1, Math.round(canvas.clientHeight * dpr * fit));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    compositor.draw(tRef.current, ctx, width, height);
+  }, [compositor]);
+
+  useEffect(() => {
+    if (!model) return;
+    if (!playing) {
+      drawFrame();
+      return;
+    }
+    let raf = 0;
+    let lastUi = 0;
+    const tick = (frameTime: number) => {
+      const now = Math.min(clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000, model.duration);
+      tRef.current = now;
+      drawFrame();
+      if (now >= model.duration) {
+        setShown(now);
+        setPlaying(false);
+        return;
+      }
+      if (frameTime - lastUi >= UI_UPDATE_MS) {
+        lastUi = frameTime;
+        setShown(now);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [model, playing, drawFrame, aspect]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !compositor || !model) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    let raf = 0;
-    const render = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const width = Math.round(canvas.clientWidth * dpr);
-      const height = Math.round(canvas.clientHeight * dpr);
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-      let now = t;
-      if (playing) {
-        now = clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000;
-        if (now >= model.duration) {
-          now = model.duration;
-          setPlaying(false);
-        }
-        setT(now);
-      }
-      compositor.draw(now, ctx, width, height);
-      if (playing) raf = requestAnimationFrame(render);
-    };
-    raf = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(raf);
-  }, [compositor, model, playing, t, aspect]);
+    if (!canvas || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => drawFrame());
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [drawFrame, compositor]);
 
   const play = () => {
     if (!model) return;
-    const from = t >= model.duration ? 0 : t;
+    const from = tRef.current >= model.duration ? 0 : tRef.current;
     clockRef.current = { startedAt: performance.now(), offset: from };
-    setT(from);
+    tRef.current = from;
+    setShown(from);
     setPlaying(true);
     track('replay_play', { length, aspect });
+  };
+
+  const scrub = (value: number) => {
+    tRef.current = value;
+    clockRef.current = { startedAt: performance.now(), offset: value };
+    setShown(value);
+    if (!playing) drawFrame();
   };
 
   if (error) return <p className="card">{error}</p>;
@@ -103,23 +147,20 @@ export default function ReplayPlayer() {
       </div>
       <div className="player-controls">
         <button type="button" className="share-btn" onClick={() => (playing ? setPlaying(false) : play())}>
-          {playing ? 'Pause' : t >= model.duration ? 'Replay' : 'Play'}
+          {playing ? 'Pause' : shown >= model.duration ? 'Replay' : 'Play'}
         </button>
         <input
           type="range"
           min={0}
           max={model.duration}
           step={0.01}
-          value={Math.min(t, model.duration)}
+          value={Math.min(shown, model.duration)}
           aria-label="Position"
-          onChange={(e) => {
-            setPlaying(false);
-            setT(Number(e.target.value));
-          }}
+          onChange={(e) => scrub(Number(e.target.value))}
         />
         <label>
           Length{' '}
-          <select value={length} onChange={(e) => { setPlaying(false); setT(0); setLength(Number(e.target.value) as ReplayLength); }}>
+          <select value={length} onChange={(e) => setLength(Number(e.target.value) as ReplayLength)}>
             {REPLAY_LENGTHS.map((l) => <option key={l} value={l}>{l} s</option>)}
           </select>
         </label>

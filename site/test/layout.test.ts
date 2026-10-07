@@ -67,4 +67,9 @@ describe('projector', () => {
     const p = projector(1000, 1000, [{ selector: 'far', x: 2, y: 0 }]);
     expect(p(2, 0)[0]).toBeCloseTo(500 + 460);
   });
+
+  it('frames an explicit extent with 8% breathing room', () => {
+    const p = projector(1000, 1000, stars, 0.08, 0.5);
+    expect(p(0.5, 0)[0]).toBeCloseTo(500 + 460 / 1.08);
+  });
 });

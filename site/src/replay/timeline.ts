@@ -10,12 +10,14 @@ export const REPLAY_LENGTHS = [30, 60, 120] as const;
 export type ReplayLength = (typeof REPLAY_LENGTHS)[number];
 export const REPLAY_FPS = 30;
 export const END_CARD_S = 2;
-export const REPLAY_COMET_S = 1.2;
+export const REPLAY_COMET_S = 0.8;
 export const CAPTION_S = 2;
 export const IGNITE_S = 1;
-export const MAX_REPLAY_COMETS = 400;
+export const MAX_REPLAY_COMETS = 250;
 const STAR_WINDOW_DAYS = 30;
 const MAX_CAPTIONS = 2;
+
+const easeOutCubic = (x: number) => 1 - (1 - Math.min(1, Math.max(0, x))) ** 3;
 
 type LaneRow = readonly [number, number, number];
 
@@ -68,6 +70,7 @@ export interface ReplayFrameState {
   cumulativeUsd: number;
   activeChains: number;
   captions: string[];
+  extent: number;
   sky: SkyFrame;
 }
 
@@ -136,7 +139,7 @@ export class ReplayModel {
     const time = Math.max(0, t);
     const empty: SkyFrame = { stars: [], lanes: [], comets: [], rings: [] };
     if (this.days.length === 0) {
-      return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], sky: empty };
+      return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], extent: 1, sky: empty };
     }
     const dayIndex = Math.min(Math.floor(Math.min(time, this.length - 1e-9) / this.secondsPerDay), this.days.length - 1);
     const day = this.days[dayIndex]!;
@@ -152,10 +155,12 @@ export class ReplayModel {
     }
     const maxValue = Math.max(0, ...values.values());
     const rings: SkyFrame['rings'] = [];
+    let extent = this.stars.length > 0 ? Math.hypot(this.stars[0]!.x, this.stars[0]!.y) : 1;
     const stars = this.stars.map((s, i) => {
       const first = this.firstDayIndex[i]!;
       if (first > dayIndex) return { x: s.x, y: s.y, radius: 0, brightness: 0, flash: 0 };
       const since = time - this.dayStart(first);
+      extent = Math.max(extent, Math.hypot(s.x, s.y) * easeOutCubic(since / IGNITE_S));
       if (since < IGNITE_S) rings.push({ star: i, progress: since / IGNITE_S });
       return { x: s.x, y: s.y, radius: starRadius(values.get(i) ?? 0, maxValue), brightness: 0.6, flash: since < IGNITE_S ? 1 - since / IGNITE_S : 0 };
     });
@@ -199,6 +204,7 @@ export class ReplayModel {
       cumulativeUsd: this.cumulative[dayIndex]!.usd,
       activeChains: this.firstDayIndex.filter((f) => f <= dayIndex).length,
       captions,
+      extent,
       sky: { stars, lanes, comets: comets.slice(-MAX_REPLAY_COMETS), rings },
     };
   }

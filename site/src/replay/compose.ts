@@ -18,7 +18,7 @@ export function overlayText(state: ReplayFrameState, since: string, lastDay: str
   return {
     date: formatUtcDay(state.day),
     totals: `${formatCount(state.cumulativeMessages)} messages · ${formatUsd(state.cumulativeUsd)} moved`,
-    chains: `${state.activeChains} chains`,
+    chains: `${state.activeChains} ${state.activeChains === 1 ? 'chain' : 'chains'}`,
     captions: state.captions,
     watermark: `ccip.dev · ${since} → ${lastDay}`,
     endCard: state.endCard
@@ -89,7 +89,7 @@ export class ReplayCompositor {
   draw(t: number, target: Ctx2d, width: number, height: number): ReplayFrameState {
     if (this.skyCanvas.width !== width || this.skyCanvas.height !== height) this.renderer.resize(width, height);
     const state = this.model.frameAt(t);
-    this.renderer.draw(state.sky, projector(width, height, this.stars), Math.min(width, height) / 700);
+    this.renderer.draw(state.sky, projector(width, height, this.stars, undefined, state.extent), Math.min(width, height) / 1000);
     target.fillStyle = '#0c0f14';
     target.fillRect(0, 0, width, height);
     const glow = target.createRadialGradient(width / 2, 0, 0, width / 2, 0, Math.max(width, height) * 0.7);

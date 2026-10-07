@@ -43,8 +43,13 @@ export function appendStar(layout: StarPoint[], selector: string): StarPoint[] {
   return [...layout, place(selector, layout.length, scale)];
 }
 
-export function projector(width: number, height: number, stars: readonly StarPoint[], margin = 0.08): Projector {
-  const extent = Math.max(1, ...stars.map((s) => Math.max(Math.abs(s.x), Math.abs(s.y))));
+const EXTENT_BREATHING = 1.08;
+
+export function projector(width: number, height: number, stars: readonly StarPoint[], margin = 0.08, extentOverride?: number): Projector {
+  const extent =
+    extentOverride === undefined
+      ? Math.max(1, ...stars.map((s) => Math.max(Math.abs(s.x), Math.abs(s.y))))
+      : Math.max(extentOverride, 1e-6) * EXTENT_BREATHING;
   const half = (Math.min(width, height) / 2) * (1 - margin);
   const sx = width > height ? Math.min(width / height, STRETCH_MAX) : 1;
   const sy = height > width ? Math.min(height / width, STRETCH_MAX) : 1;

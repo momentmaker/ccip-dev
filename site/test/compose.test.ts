@@ -11,6 +11,7 @@ const state = (endCard: boolean): ReplayFrameState => ({
   cumulativeUsd: 25_300_000_000,
   activeChains: 95,
   captions: ['Base joins'],
+  extent: 1,
   sky: { stars: [], lanes: [], comets: [], rings: [] },
 });
 
@@ -24,6 +25,10 @@ describe('overlayText', () => {
       watermark: 'ccip.dev · 2023-07-06 → 2026-10-06',
       endCard: null,
     });
+  });
+
+  it('says "1 chain" for a single chain', () => {
+    expect(overlayText({ ...state(false), activeChains: 1 }, '2023-07-06', '2026-10-06').chains).toBe('1 chain');
   });
 
   it('adds the end card after the last day', () => {
