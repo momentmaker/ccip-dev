@@ -78,3 +78,22 @@ describe('shot phases', () => {
     expect(phaseAt(27, 30)).toBe('finale');
   });
 });
+
+describe('warp edge cases', () => {
+  it('clamps the milestone dwell so plain time keeps half the span', () => {
+    const milestone = { join: false, milestone: true, record: false };
+    const warp = storyWarp(Array(10).fill(0), Array(10).fill(milestone), 0, 2, 30);
+    expect(warp.end).toBeCloseTo(2, 9);
+    for (let i = 0; i < 10; i++) expect(warp.dayLength(i)).toBeCloseTo(0.2, 9);
+    const total = Array.from({ length: 10 }, (_, i) => warp.dayLength(i)).reduce((a, b) => a + b, 0);
+    expect(total).toBeCloseTo(2, 9);
+  });
+
+  it('handles a zero-length day', () => {
+    const warp = durationWarp([1, 0, 2], 0);
+    expect(warp.dayStart(3)).toBe(3);
+    expect(warp.end).toBe(3);
+    expect(warp.dayLength(1)).toBe(0);
+    expect(warp.dayAt(1).index).toBe(2);
+  });
+});
