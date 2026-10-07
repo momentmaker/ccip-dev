@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReplayCompositor, drawOverlay, overlayText } from '../src/replay/compose';
 import type { ReplayFrameState, ReplayModel } from '../src/replay/timeline';
 
-const renderer = vi.hoisted(() => ({ draw: vi.fn(), resize: vi.fn(), destroy: vi.fn() }));
-vi.mock('../src/sky/renderer', () => ({ createRenderer: () => renderer }));
+const { renderer, createRenderer } = vi.hoisted(() => {
+  const renderer = { draw: vi.fn(), resize: vi.fn(), destroy: vi.fn() };
+  return { renderer, createRenderer: vi.fn(() => renderer) };
+});
+vi.mock('../src/sky/renderer', () => ({ createRenderer }));
 
 const state = (endCard: boolean): ReplayFrameState => ({
   t: 10,
@@ -82,5 +85,19 @@ describe('ReplayCompositor', () => {
     expect(compositor.draw(1, target, 10, 10)).toBe(frame);
     expect(renderer.draw).toHaveBeenCalledTimes(1);
     expect(renderer.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on a fresh canvas without WebGL when the first renderer throws', () => {
+    createRenderer.mockReset();
+    createRenderer.mockImplementationOnce(() => {
+      throw new Error('webgl unavailable');
+    });
+    createRenderer.mockImplementationOnce(() => renderer);
+    const createCanvas = vi.fn(() => ({ width: 10, height: 10 }) as never);
+    const model = { frameAt: () => state(false) } as unknown as ReplayModel;
+    expect(() => new ReplayCompositor(model, [], '2023-07-06', '2026-10-06', createCanvas)).not.toThrow();
+    expect(createCanvas).toHaveBeenCalledTimes(2);
+    expect(createRenderer).toHaveBeenLastCalledWith(expect.anything(), { preferGl: false });
+    createRenderer.mockImplementation(() => renderer);
   });
 });

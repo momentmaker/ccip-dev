@@ -23,9 +23,10 @@ const total = history.days.reduce((s, d) => s + d.messages, 0);
     </div>
     <ShareButton client:load view="replay" headline="Watch CCIP grow from the first message to today" url="https://ccip.dev/replay/" cardUrl="/og/replay.png" />
   </div>
-  <ReplayPlayer client:only="react">
-    <figure slot="fallback" class="card poster" set:html={poster} />
-  </ReplayPlayer>
+  <div class="replay-shell">
+    <figure class="card poster" set:html={poster} />
+    <ReplayPlayer client:only="react" />
+  </div>
 </Base>
 
 <style>
@@ -34,6 +35,11 @@ const total = history.days.reduce((s, d) => s + d.messages, 0);
   :global(.player-controls) { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; }
   :global(.player-controls input[type='range']) { flex: 1 1 240px; accent-color: var(--blue-2); }
   :global(.player-controls select) { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font: inherit; }
+  .replay-shell { position: relative; }
+  :global(.replay-shell:not(.ready) .player) { position: absolute; inset: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+  :global(.replay-shell.ready .poster) { display: none; }
+  :global(.replay-note) { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+  :global(.replay-note .freshness) { margin: 0; }
   .poster { padding: 0; overflow: hidden; }
   .poster :global(svg) { display: block; width: 100%; height: auto; }
 </style>

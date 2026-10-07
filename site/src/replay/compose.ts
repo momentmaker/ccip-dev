@@ -83,8 +83,16 @@ export class ReplayCompositor {
     private readonly lastDay: string,
     createCanvas: () => SkyCanvas,
   ) {
-    this.skyCanvas = createCanvas();
-    this.renderer = createRenderer(this.skyCanvas);
+    let canvas = createCanvas();
+    let renderer: SkyRenderer;
+    try {
+      renderer = createRenderer(canvas);
+    } catch {
+      canvas = createCanvas();
+      renderer = createRenderer(canvas, { preferGl: false });
+    }
+    this.skyCanvas = canvas;
+    this.renderer = renderer;
   }
 
   draw(t: number, target: Ctx2d, width: number, height: number): ReplayFrameState {

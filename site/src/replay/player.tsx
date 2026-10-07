@@ -1,7 +1,7 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { track, trackDataError } from '../lib/analytics';
-import { DataError, fetchPublic } from '../lib/data';
+import { DataError, fetchPublic, pollDelay } from '../lib/data';
 import { computeMilestones } from '../lib/records';
 import { usePrefersReducedMotion } from '../components/hooks';
 import { buildLayout } from '../sky/layout';
@@ -25,6 +25,10 @@ export default function ReplayPlayer() {
   const reducedMotion = usePrefersReducedMotion();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const loadFailuresRef = useRef(0);
+  const trackedFilesRef = useRef(new Set<string>());
   const [length, setLength] = useState<ReplayLength>(60);
   const [aspect, setAspect] = useState<Aspect>('16:9');
   const [playing, setPlaying] = useState(false);
@@ -39,13 +43,31 @@ export default function ReplayPlayer() {
   const clockRef = useRef({ startedAt: 0, offset: 0 });
 
   useEffect(() => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     Promise.all([fetchPublic('replay.json'), fetchPublic('history.json')])
-      .then(([replay, history]) => setData({ replay, history: history.days }))
+      .then(([replay, history]) => {
+        if (cancelled) return;
+        loadFailuresRef.current = 0;
+        setLoadFailed(false);
+        setData({ replay, history: history.days });
+      })
       .catch((err: unknown) => {
-        setError('The history could not be loaded. Please try again in a minute.');
-        trackDataError(err instanceof DataError ? err.file : 'replay.json');
+        if (cancelled) return;
+        loadFailuresRef.current += 1;
+        setLoadFailed(true);
+        const file = err instanceof DataError ? err.file : 'replay.json';
+        if (!trackedFilesRef.current.has(file)) {
+          trackedFilesRef.current.add(file);
+          trackDataError(file);
+        }
+        retryTimer = setTimeout(() => setAttempt((n) => n + 1), pollDelay(loadFailuresRef.current));
       });
-  }, []);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [attempt]);
 
   const stars = useMemo(() => (data ? buildLayout(data.replay.chains) : []), [data]);
   const model = useMemo(
@@ -96,6 +118,7 @@ export default function ReplayPlayer() {
       canvas.height = height;
     }
     compositor.draw(tRef.current, ctx, width, height);
+    canvas.closest('.replay-shell')?.classList.add('ready');
   }, [compositor]);
 
   useEffect(() => {
@@ -192,7 +215,19 @@ export default function ReplayPlayer() {
   };
 
   if (error) return <p className="card">{error}</p>;
-  if (!data || !model) return <p className="card muted">Loading the history…</p>;
+  if (!data || !model) {
+    if (!loadFailed) return null;
+    return (
+      <div className="replay-note">
+        <p className="freshness paused" role="status">
+          History is loading slowly — retrying
+        </p>
+        <button type="button" className="share-btn" onClick={() => setAttempt((n) => n + 1)}>
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="player">
