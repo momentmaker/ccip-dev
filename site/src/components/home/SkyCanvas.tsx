@@ -1,18 +1,20 @@
 import type { LiveMessage } from '@ccip-dev/core/public';
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { formatUsd } from '../../lib/format';
+import { formatCount, formatUsd } from '../../lib/format';
+import { hasIcon, iconHref } from '../../lib/chain-icons';
 import { pruneStale, type Planned } from '../../lib/live-scheduler';
 import { chainName, type ChainNames } from '../../lib/names';
+import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
+import { skyOverlay, type OverlayCoin, type OverlayPoint } from '../../sky/overlay';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
 import { LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
-import { topSelectors } from '../../sky/weights';
 
 interface Props {
   stars: StarPoint[];
   chainValues: [string, number][];
-  lanes: { src: string; dst: string; usd: number }[];
+  lanes: { src: string; dst: string; usd: number; messages: number }[];
   names: ChainNames;
   queue: RefObject<Planned<LiveMessage>[]>;
   reducedMotion: boolean;
@@ -33,6 +35,11 @@ export default function SkyCanvas(props: Props) {
   const [canvasKey, setCanvasKey] = useState(0);
   const [forceFlat, setForceFlat] = useState(false);
   const [labels, setLabels] = useState<{ selector: string; text: string; x: number; y: number }[]>([]);
+  const [coins, setCoins] = useState<OverlayCoin[]>([]);
+  const [hover, setHover] = useState<string | null>(null);
+  const pointsRef = useRef<OverlayPoint[]>([]);
+  const widthRef = useRef(0);
+  const brokenRef = useRef(new Set<string>());
   sceneRef.current ??= new LiveScene(props.stars, new Map(props.chainValues), props.lanes);
 
   useEffect(() => {
@@ -65,16 +72,15 @@ export default function SkyCanvas(props: Props) {
       renderer.resize(w, h);
       project = projector(w, h, scene.starPoints);
       sizeScale = Math.min(w, h) / 700;
-      const css = projector(wrap.clientWidth, wrap.clientHeight, scene.starPoints);
-      const count = wrap.clientWidth < 640 ? 6 : 12;
-      setLabels(
-        topSelectors(new Map(latest.current.chainValues), count).flatMap((selector) => {
-          const star = scene.starPoints.find((s) => s.selector === selector);
-          if (!star) return [];
-          const [x, y] = css(star.x, star.y);
-          return [{ selector, text: chainName(latest.current.names, selector), x, y }];
-        }),
-      );
+      const overlay = skyOverlay(scene.starPoints, new Map(latest.current.chainValues), wrap.clientWidth, wrap.clientHeight, {
+        coins: coinCount(wrap.clientWidth),
+        labels: wrap.clientWidth < 640 ? 6 : 12,
+        hasIcon: (s) => hasIcon(s) && !brokenRef.current.has(s),
+      });
+      pointsRef.current = overlay.points;
+      widthRef.current = wrap.clientWidth;
+      setCoins(overlay.coins);
+      setLabels(overlay.labels.map((l) => ({ ...l, text: chainName(latest.current.names, l.selector) })));
     };
 
     const loop = (now: number) => {
@@ -147,9 +153,71 @@ export default function SkyCanvas(props: Props) {
     };
   }, [canvasKey, forceFlat]);
 
+  useEffect(() => {
+    if (hover === null) return;
+    const close = () => setHover(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) close();
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, { passive: true });
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [hover]);
+
+  const pick = (clientX: number, clientY: number) => {
+    const rect = wrapRef.current!.getBoundingClientRect();
+    return nearestStar(pointsRef.current, clientX - rect.left, clientY - rect.top);
+  };
+  const dropCoin = (selector: string) => {
+    brokenRef.current.add(selector);
+    setCoins((cs) => cs.filter((c) => c.selector !== selector));
+  };
+  const hovered = hover === null ? undefined : pointsRef.current.find((p) => p.selector === hover);
+  const values = new Map(props.chainValues);
+  const shownCoins =
+    hovered && hasIcon(hovered.selector) && !brokenRef.current.has(hovered.selector) && !coins.some((c) => c.selector === hovered.selector)
+      ? [...coins, { selector: hovered.selector, x: hovered.x, y: hovered.y, d: hovered.d }]
+      : coins;
+
   return (
-    <div className="sky-wrap" ref={wrapRef}>
+    <div
+      className="sky-wrap"
+      ref={wrapRef}
+      onPointerMove={(e) => {
+        if (e.pointerType === 'mouse') setHover(pick(e.clientX, e.clientY));
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') setHover(null);
+      }}
+      onClick={(e) => {
+        if ((e.nativeEvent as PointerEvent).pointerType === 'mouse') return;
+        const next = pick(e.clientX, e.clientY);
+        setHover((current) => (next === current ? null : next));
+      }}
+    >
       <canvas key={canvasKey} aria-hidden="true" />
+      <div className="sky-coins" aria-hidden="true">
+        {shownCoins.map((c) => (
+          <img
+            key={c.selector}
+            src={iconHref(c.selector) ?? undefined}
+            alt=""
+            width={Math.round(c.d)}
+            height={Math.round(c.d)}
+            decoding="async"
+            style={{ left: c.x, top: c.y }}
+            onError={() => dropCoin(c.selector)}
+          />
+        ))}
+      </div>
       <div className="sky-labels" aria-hidden="true">
         {labels.map((l) => (
           <span key={l.selector} style={{ left: l.x, top: l.y }}>
@@ -157,6 +225,17 @@ export default function SkyCanvas(props: Props) {
           </span>
         ))}
       </div>
+      {hovered && (
+        <div className={`sky-card card${hovered.x > widthRef.current - 300 ? ' flip' : ''}`} aria-hidden="true" style={{ left: hovered.x, top: hovered.y }}>
+          {hasIcon(hovered.selector) && <img src={iconHref(hovered.selector)!} alt="" width={40} height={40} />}
+          <div>
+            <strong>{chainName(props.names, hovered.selector)}</strong>
+            <span className="muted">
+              {formatUsd(values.get(hovered.selector) ?? 0)} moved · {formatCount(chainMessages(props.lanes, hovered.selector))} messages · 30 days
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

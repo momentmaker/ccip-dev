@@ -21,7 +21,7 @@ export interface HomeLiveProps {
   stars: StarPoint[];
   chainNames: [string, string][];
   chainValues: [string, number][];
-  lanes: { src: string; dst: string; usd: number }[];
+  lanes: { src: string; dst: string; usd: number; messages: number }[];
   initialFeed: LiveMessage[];
   liveUpdatedAt: string;
   today: TodayFile;

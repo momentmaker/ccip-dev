@@ -44,7 +44,7 @@ const next = reserve.pace?.next_expected_deposit ?? null;
     stars={stars}
     chainNames={[...names]}
     chainValues={[...weights.chains]}
-    lanes={weights.lanes.map(({ src, dst, usd }) => ({ src, dst, usd }))}
+    lanes={weights.lanes.map(({ src, dst, usd, messages }) => ({ src, dst, usd, messages }))}
     initialFeed={newestFirst(live.messages)}
     liveUpdatedAt={live.updated_at}
     today={today}
