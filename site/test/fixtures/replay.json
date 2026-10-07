@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T00:10:00.000Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "since": "2023-07-06",
+  "chains": [
+    { "selector": "4051577828743386545", "name": "polygon-mainnet", "display_name": "Polygon Mainnet", "first_day": "2023-07-06" },
+    { "selector": "5009297550715157269", "name": "ethereum-mainnet", "display_name": "Ethereum Mainnet", "first_day": "2023-07-06" },
+    { "selector": "15971525489660198786", "name": "ethereum-mainnet-base-1", "display_name": "Base Mainnet", "first_day": "2023-07-08" },
+    { "selector": "124615329519749607", "name": "solana-mainnet", "display_name": "Solana", "first_day": "2023-07-09" }
+  ],
+  "lanes": [[1, 0], [0, 1], [1, 2], [3, 1]],
+  "days": [
+    { "day": "2023-07-06", "lanes": [[0, 2, 0]] },
+    { "day": "2023-07-07", "lanes": [[0, 31, 1000], [1, 4, 500]] },
+    { "day": "2023-07-08", "lanes": [[0, 10, 2000], [2, 5, 1500000]] },
+    { "day": "2023-07-09", "lanes": [[2, 7, 700], [3, 1, 300]] }
+  ]
+}
