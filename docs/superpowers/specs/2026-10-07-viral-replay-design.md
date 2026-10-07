@@ -133,6 +133,7 @@ The old 2 s end card is replaced by the finale, so the video length equals the c
 
 - **Day weights:** each data day `d` gets `w_d = 1 + 0.6·log10(1 + messages_d) + 1.5·join_d + 2.5·milestone_d + 1.5·record_d`. The last three terms are 0 or 1.
 - **Story time:** each day gets `S · w_d / Σw` seconds, where `S` is the story duration.
+- **Focus mode:** the days before the focus chain's first day take at most 15% of `S`; their weights scale down together when they would take more. A chain that joined on day one is unaffected. (Amended 2026-10-07 after the final review: unscaled, 43 of 92 chain cuts spent over half the story before their chain existed.)
 - **Dwell:** milestone days also get a fixed 0.6 s dwell, scaled by `L/30`, taken from `S` before the split. During the dwell, data time advances at 10% speed, so it looks like slow motion.
 - **Properties:** `dayAt(t)` is monotonic and piecewise linear, so the same `t` always maps to the same day and time within the day.
 - **Tuning:** every constant is named (`WARP_*`), so tuning doesn't change structure.
@@ -178,7 +179,7 @@ In focus mode, the counters count only lanes touching the focus chain, cumulativ
 ### 7.6 Leaderboard race
 
 - **Rows:** the top 5 chains by trailing 30-day USD, the same values that size stars, using only chains with an icon. Each row has the coin, name, value and a bar.
-- **Ranks:** a row's displayed rank is the box-filter average of its rank over the last 0.4 s of video time, the same method as replay coins. Rows slide smoothly when ranks swap, and the result is deterministic.
+- **Ranks:** rows rest in integer slots. An overtake counts only when the challenger's value leads by at least 5%, so close neighbors don't flap. A swap animates over at most 0.4 s, with at least 0.4 s of rest between swaps, and the descending row dims while the two cross. The finale shows the final, settled order. Everything stays a pure function of `t`. (Amended 2026-10-07: averaged ranks left rows resting between slots in 57% of frames.)
 - **Focus mode:** the focus chain's row is highlighted, and it is pinned as a 6th row if it is outside the top 5.
 
 ## 8. Cinema renderer
@@ -227,7 +228,8 @@ Every random value comes from `mulberry32`, seeded by (day index, event id). Par
 - **Date** and the **2023 to 2026 timeline bar,** with year ticks.
 - **Cards:** a joins card with logo coins, a record card, and a lane-opens card. Each slides in and out over 0.25 s in the reserved card area.
 - **Milestone slam:** the number scales from 1.4 to 1.0 with a blur-in, holds, then fades.
-- **Leaderboard placement:** the right panel in 16:9, and a bottom strip in 1:1 and 9:16, showing the top 3 rows plus the focus row in a strip.
+- **Leaderboard placement:** the right panel in 16:9, and a bottom strip in 1:1 and 9:16 with a fixed column count per cut: 3 columns, or 4 in a focus cut (the focus chain, or 4th place when the focus is already in the top 3). Rows crossing in a column crossfade in place.
+- **Fit:** the hook title, subtitle and slam scale down to fit their boxes, and the slam's pop is capped so it never leaves the frame. Cards and slams end before the finale starts. Year ticks closer than 7% of the story to a later tick are dropped, on the canvas timeline and on the scrubber.
 - **Watermark:** "ccip.dev · @ccipdev" stays small and constant.
 
 ## 10. Score (soundtrack)
@@ -339,6 +341,7 @@ Tokens are unchanged, and the colors follow the website spec §11. Contrast stay
 | Data fetch fails | The existing poster plus retry. |
 | An icon fails to load | That chain has no coin, and its leaderboard row shows the name only. |
 | An unknown `/replay/<slug>/` | The site 404. An unknown card slug returns 404. |
+| First load | Every visitor's player opens on the settled finale, under the big Play button; Play starts from 0. |
 | Reduced motion | The page opens on the finale's last frame. Play still works, with the camera punch-in and shockwave distortion off. |
 
 ## 15. Testing and budgets
