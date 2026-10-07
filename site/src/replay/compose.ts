@@ -66,6 +66,7 @@ export class ReplayCompositor {
 
   setCoinImages(images: ReadonlyMap<string, CanvasImageSource>): void {
     this.coinImages = images;
+    this.loopCache = null;
   }
 
   draw(t: number, target: Ctx2d, width: number, height: number): ShowFrame {

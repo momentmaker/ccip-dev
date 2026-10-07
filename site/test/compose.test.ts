@@ -106,3 +106,46 @@ describe('ReplayCompositor coins', () => {
     expect(drawn.find((args) => args[0] === image)).toEqual([image, 388, 388, 24, 24]);
   });
 });
+
+describe('ReplayCompositor loop crossfade', () => {
+  const setup = () => {
+    const open = showFrame();
+    const closing = { ...showFrame(), loop: 0.5 };
+    const stub = { frameAt: (t: number) => (t > 0 ? closing : open), timing: { hook: 2, finale: 3 }, length: 30, warp: { start: 2, end: 27 } } as never;
+    let alpha = 1;
+    const overlays: { image: unknown; alpha: number }[] = [];
+    const target = {
+      ...storyMethods, fillRect: vi.fn(), createRadialGradient: () => ({ addColorStop: vi.fn() }),
+      save: vi.fn(), restore: vi.fn(), fillText: vi.fn(),
+      drawImage: (image: unknown) => overlays.push({ image, alpha }),
+      get globalAlpha() { return alpha; }, set globalAlpha(v: number) { alpha = v; },
+      set font(_v: string) {}, set fillStyle(_v: unknown) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
+      set strokeStyle(_v: string) {}, set lineWidth(_v: number) {},
+    } as unknown as CanvasRenderingContext2D;
+    const canvases: { width: number; height: number; getContext: () => unknown }[] = [];
+    const createCanvas = vi.fn(() => {
+      const canvas = { width: 10, height: 10, getContext: () => target };
+      canvases.push(canvas);
+      return canvas as never;
+    });
+    return { compositor: new ReplayCompositor(stub, [], assets, createCanvas), target, overlays, canvases, createCanvas };
+  };
+
+  it('lays the cached opening frame over the closing frame at the loop alpha', () => {
+    const { compositor, target, overlays, canvases } = setup();
+    compositor.draw(29.8, target, 10, 10);
+    const overlay = overlays.find((o) => o.image !== canvases[0] && o.alpha === 0.5);
+    expect(overlay?.image).toBe(canvases[1]);
+  });
+
+  it('rebuilds the cached opening frame after coin images load', () => {
+    const { compositor, target, createCanvas } = setup();
+    compositor.draw(29.8, target, 10, 10);
+    const before = createCanvas.mock.calls.length;
+    compositor.draw(29.9, target, 10, 10);
+    expect(createCanvas).toHaveBeenCalledTimes(before);
+    compositor.setCoinImages(new Map([['a', { tag: 'coin' } as unknown as CanvasImageSource]]));
+    compositor.draw(29.9, target, 10, 10);
+    expect(createCanvas).toHaveBeenCalledTimes(before + 1);
+  });
+});

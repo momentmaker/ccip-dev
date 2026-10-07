@@ -9,7 +9,7 @@ import { buildLayout } from '../sky/layout';
 import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
 import { canRecord, recordingFilename, recordReplay, totalFrames } from './recorder';
-import { Show } from './director/show';
+import { LOOP_S, Show } from './director/show';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
 
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
@@ -130,7 +130,7 @@ export default function ReplayPlayer() {
       setError('Your browser could not start the animation.');
       return;
     }
-    tRef.current = reducedMotion ? show.length - 0.01 : 0;
+    tRef.current = reducedMotion ? show.length - LOOP_S : 0;
     setShown(tRef.current);
     setPlaying(false);
     setCompositor(created);
