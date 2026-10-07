@@ -5,6 +5,7 @@ import { laneOpacity, starRadius } from './weights';
 export const COMET_MS = 2_400;
 export const MAX_COMETS = 400;
 export const GOLD_USD = 1_000_000;
+export const LIVE_LANE_DIM = 0.35;
 export const RING_MS = 1_500;
 export const CAPTION_MS = 4_000;
 export const FLASH_MS = 900;
@@ -61,7 +62,7 @@ export class LiveScene {
     this.lanes = lanes.flatMap((l) => {
       const from = this.index.get(l.src);
       const to = this.index.get(l.dst);
-      return from === undefined || to === undefined ? [] : [{ from, to, opacity: laneOpacity(l.usd, maxLane) }];
+      return from === undefined || to === undefined ? [] : [{ from, to, opacity: laneOpacity(l.usd, maxLane) * LIVE_LANE_DIM }];
     });
   }
 

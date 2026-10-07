@@ -64,6 +64,6 @@ describe('LiveScene', () => {
   });
 
   it('builds lanes with opacity from their USD', () => {
-    expect(newScene().frame(0).lanes).toEqual([{ from: 0, to: 1, opacity: expect.closeTo(0.56, 5) }]);
+    expect(newScene().frame(0).lanes).toEqual([{ from: 0, to: 1, opacity: expect.closeTo(0.56 * 0.35, 5) }]);
   });
 });

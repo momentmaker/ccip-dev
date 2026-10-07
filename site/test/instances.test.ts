@@ -33,7 +33,7 @@ describe('buildInstances', () => {
     const head = instance(buildInstances(frame, project, 1), 10);
     expect(head[0]).toBeCloseTo(100);
     expect(head[1]).toBeCloseTo(110);
-    expect(head[2]).toBeCloseTo(16);
+    expect(head[2]).toBeCloseTo(26);
     expect(head.slice(3, 6)).toEqual([...COLORS.gold].map((v) => expect.closeTo(v, 5)));
     expect(head[6]).toBe(1);
     expect(head[7]).toBe(SHAPE.glow);
@@ -43,7 +43,7 @@ describe('buildInstances', () => {
     const core = instance(buildInstances(frame, project, 1), 11);
     expect(core[0]).toBeCloseTo(100);
     expect(core[1]).toBeCloseTo(110);
-    expect(core[2]).toBeCloseTo(4);
+    expect(core[2]).toBeCloseTo(5.2);
     expect(core.slice(3, 6)).toEqual([0, 1, 2].map((ch) => expect.closeTo((COLORS.gold[ch]! + COLORS.star[ch]!) / 2, 5)));
     expect(core[6]).toBe(1);
     expect(core[7]).toBe(SHAPE.disc);
@@ -52,7 +52,7 @@ describe('buildInstances', () => {
   it('fades the trail behind the head', () => {
     const data = buildInstances(frame, project, 1);
     expect(instance(data, 9)[6]).toBeCloseTo(0.55 * 0.72);
-    expect(instance(data, 9)[2]).toBeCloseTo(16 * 0.88);
+    expect(instance(data, 9)[2]).toBeCloseTo(26 * 0.88);
   });
 
   it('grows and fades a ring', () => {

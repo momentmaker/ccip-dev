@@ -40,7 +40,7 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
     const a = pts[c.from];
     const b = pts[c.to];
     const color = COLORS[c.kind === 'gold' ? 'gold' : c.kind === 'token' ? 'blue' : 'pale'];
-    const head = (6 + 10 * c.size) * sizeScale;
+    const head = (10 + 16 * c.size) * sizeScale;
     const core = COLORS.star.map((v, ch) => (color[ch]! + v) / 2);
     for (let k = opts.trail; k >= 0; k--) {
       const t = c.progress - k * TRAIL_STEP;
@@ -50,7 +50,7 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
       }
       const p = quadPoint(a, laneControl(a, b), b, Math.min(1, t));
       put(p.x, p.y, head * 0.88 ** k, color, k === 0 ? 1 : 0.55 * 0.72 ** k, SHAPE.glow);
-      if (k === 0) put(p.x, p.y, (1.6 + 2.4 * c.size) * sizeScale, core, 1, SHAPE.disc);
+      if (k === 0) put(p.x, p.y, (2.2 + 3 * c.size) * sizeScale, core, 1, SHAPE.disc);
     }
   }
 
