@@ -1,0 +1,41 @@
+---
+import HistoryCharts from '../../components/HistoryCharts';
+import InfoLink from '../../components/InfoLink';
+import ShareButton from '../../components/ShareButton';
+import Base from '../../layouts/Base.astro';
+import { BUILD_DATE, buildData } from '../../lib/build-data';
+import { HISTORY_RANGES, type HistoryRange } from '../../lib/card-paths';
+import { rangeRows, rangeTotals } from '../../lib/charts';
+import { formatCount, formatUsd } from '../../lib/format';
+import '../../styles/history.css';
+
+export function getStaticPaths() {
+  return HISTORY_RANGES.map((range) => ({ params: { range } }));
+}
+
+const LABEL: Record<HistoryRange, string> = { '30d': '30 days', '90d': '90 days', '1y': '1 year', all: 'All time' };
+const range = Astro.params.range as HistoryRange;
+const history = await buildData('history.json');
+const lastDay = history.days.at(-1)?.day ?? BUILD_DATE;
+const rows = rangeRows(history.days, range, lastDay);
+const totals = rangeTotals(rows);
+const scope = range === 'all' ? `since ${history.since}` : `last ${LABEL[range]} to ${lastDay}`;
+---
+<Base title={`History · ${LABEL[range]}`} description={`Daily CCIP messages, value, fees, senders and delivery times, ${scope}.`} cardPath={`history/${range}`}>
+  <div class="page-head">
+    <div>
+      <p class="label">{scope}</p>
+      <h1>CCIP history</h1>
+    </div>
+    <ShareButton client:load view={`history/${range}`} headline={`${formatCount(totals.messages)} CCIP messages, ${scope}`} url={`https://ccip.dev/history/${range}/`} cardUrl={`/og/history/${range}.png`} />
+  </div>
+  <nav class="tabs" aria-label="Range">
+    {HISTORY_RANGES.map((r) => <a href={`/history/${r}/`} aria-current={r === range ? 'page' : undefined}>{LABEL[r]}</a>)}
+  </nav>
+  <section class="tiles">
+    <div class="tile"><span class="label">Messages<InfoLink metric="messages" label="messages" /></span><p class="value">{formatCount(totals.messages)}</p></div>
+    <div class="tile"><span class="label">Value transferred<InfoLink metric="value" label="value transferred" /></span><p class="value">{formatUsd(totals.usd_value)}</p></div>
+    <div class="tile"><span class="label">Fees<InfoLink metric="fees" label="fees" /></span><p class="value">{formatUsd(totals.fee_usd)}</p><span class="sub">since 2026-10-05</span></div>
+  </section>
+  <HistoryCharts client:visible rows={rows} />
+</Base>

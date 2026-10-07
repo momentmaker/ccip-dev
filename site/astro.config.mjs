@@ -6,5 +6,6 @@ export default defineConfig({
   output: 'static',
   trailingSlash: 'always',
   build: { format: 'directory' },
+  redirects: { '/history': '/history/30d/' },
   integrations: [react()],
 });
