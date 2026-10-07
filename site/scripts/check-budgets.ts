@@ -17,6 +17,7 @@ export function entryScripts(html: string): string[] {
     /renderer-url="([^"]+)"/g,
   ];
   for (const re of patterns) for (const m of html.matchAll(re)) if (m[1]!.startsWith('/_astro/') && !found.includes(m[1]!)) found.push(m[1]!);
+  for (const m of html.matchAll(/\/_astro\/[^"'\s)]+\.js/g)) if (!found.includes(m[0])) found.push(m[0]);
   return found;
 }
 
@@ -44,7 +45,12 @@ async function main(): Promise<void> {
   const read = (path: string) => readFile(join(dist, path), 'utf8');
   let failed = false;
   for (const budget of BUDGETS) {
-    const { files, gzipBytes } = await reachableBytes(entryScripts(await read(budget.page)), read);
+    const entries = entryScripts(await read(budget.page));
+    if (entries.length === 0) {
+      console.error(`No entry scripts found in ${budget.page}; the budget check cannot measure it`);
+      process.exit(1);
+    }
+    const { files, gzipBytes } = await reachableBytes(entries, read);
     const kb = (gzipBytes / 1024).toFixed(1);
     const line = `${budget.page}: ${kb} KB gzipped JavaScript in ${files.length} files (budget ${budget.maxGzipBytes / 1024} KB)`;
     if (gzipBytes > budget.maxGzipBytes) {

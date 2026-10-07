@@ -160,6 +160,8 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
   - The `site` workflow runs on every push to `main` that touches `site/`, `packages/core/`, `docs/methodology.md` or the lockfile.
   - It also runs at 00:25 and 06:25 UTC, after each finalize run, so day pages and records pick up the new day.
   - Run it by hand with `gh workflow run site`.
+- **Local builds:** setting `CCIP_DATA_BASE` to another base URL (for example a local mirror of the `v1/` files) builds against it.
+- **First deploy:** until the owner's first `wrangler deploy` attaches `ccip.dev` as a custom domain (or the token gains Zone · Workers Routes · Edit), the `site` workflow's deploy step fails and the previous deploy, if any, stays live.
 - **Build failures:**
   - The build fetches every public file and fails when one is missing or has the wrong shape.
   - The previous deploy stays live. Check the data Worker first (`curl -s https://data.ccip.dev/v1/status.json`), then re-run the workflow.

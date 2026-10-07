@@ -8,6 +8,15 @@ describe('check-budgets', () => {
     expect(entryScripts(html)).toEqual(['/_astro/page.A1.js', '/_astro/react.B2.js', '/_astro/HomeLive.C3.js', '/_astro/client.D4.js']);
   });
 
+  it('finds scripts and preloads whatever the attribute order', () => {
+    const html = `<script src="/_astro/a.A1.js" type="module"></script><link href="/_astro/b.B2.js" rel="modulepreload">`;
+    expect(entryScripts(html)).toEqual(['/_astro/a.A1.js', '/_astro/b.B2.js']);
+  });
+
+  it('returns nothing for a page without scripts', () => {
+    expect(entryScripts('<html><body><p>static</p></body></html>')).toEqual([]);
+  });
+
   it('follows static imports but not dynamic ones', () => {
     expect(staticImports('import{a as b}from"./x.js";import"./y.js";const m=import("./lazy.js");export{c}from"../z.js"')).toEqual(['./x.js', './y.js', '../z.js']);
   });
