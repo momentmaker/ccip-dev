@@ -18,13 +18,24 @@ export function chainSlug(chain: SlugChain): string {
 }
 
 export function slugMap(chains: readonly SlugChain[]): Map<string, string> {
-  const used = new Map<string, number>();
+  const sorted = [...chains].sort((a, b) => (a.selector < b.selector ? -1 : a.selector > b.selector ? 1 : 0));
   const out = new Map<string, string>();
-  for (const c of [...chains].sort((a, b) => (a.selector < b.selector ? -1 : a.selector > b.selector ? 1 : 0))) {
+  const taken = new Set<string>();
+  const duplicates: { selector: string; base: string }[] = [];
+  for (const c of sorted) {
     const base = chainSlug(c);
-    const n = (used.get(base) ?? 0) + 1;
-    used.set(base, n);
-    out.set(c.selector, n === 1 ? base : `${base}-${n}`);
+    if (taken.has(base)) {
+      duplicates.push({ selector: c.selector, base });
+    } else {
+      taken.add(base);
+      out.set(c.selector, base);
+    }
+  }
+  for (const { selector, base } of duplicates) {
+    let n = 2;
+    while (taken.has(`${base}-${n}`)) n++;
+    taken.add(`${base}-${n}`);
+    out.set(selector, `${base}-${n}`);
   }
   return out;
 }

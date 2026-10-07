@@ -8,11 +8,12 @@ interface Props {
   url: string;
   cardUrl: string | null;
   iconOnly?: boolean;
+  disabled?: boolean;
 }
 
 const NOTE_MS = 3000;
 
-export default function ShareButton({ view, headline, url, cardUrl, iconOnly = false }: Props) {
+export default function ShareButton({ view, headline, url, cardUrl, iconOnly = false, disabled = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -101,6 +102,7 @@ export default function ShareButton({ view, headline, url, cardUrl, iconOnly = f
         type="button"
         className={iconOnly ? 'share-btn btn-icon' : 'share-btn'}
         ref={triggerRef}
+        disabled={disabled}
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={iconOnly ? 'Share' : undefined}

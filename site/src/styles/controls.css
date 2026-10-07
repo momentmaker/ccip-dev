@@ -42,6 +42,7 @@
 .scrub-tick { position: absolute; top: 10px; transform: translateX(-50%); font: 600 9px var(--font-mono); color: var(--muted); }
 .scrub-tip { position: absolute; bottom: 16px; transform: translateX(-50%); display: inline-flex; gap: 4px; padding: 6px 10px; border-radius: 8px; background: rgba(22, 27, 35, 0.95); border: 1px solid var(--border); font: 600 11px var(--font-sans); white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
 .bigplay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 72px; height: 72px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(47, 98, 223, 0.85); box-shadow: 0 0 0 8px rgba(47, 98, 223, 0.18), 0 0 40px rgba(74, 127, 240, 0.6); cursor: pointer; }
+.icon-btn:disabled, .bigplay:disabled { opacity: 0.4; cursor: not-allowed; }
 .bigplay .tri { border-left-width: 20px; border-top-width: 12px; border-bottom-width: 12px; margin-left: 6px; }
 .studio { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
 .studio .spacer { flex: 1; }

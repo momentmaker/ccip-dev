@@ -33,4 +33,9 @@ describe('slugMap', () => {
     expect(map.get('1')).toBe('mind-network');
     for (const s of map.values()) expect(s).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
   });
+
+  it('never hands a suffixed slug to a chain whose natural slug is already that', () => {
+    const map = slugMap([c('1', 'Mind'), c('2', 'Mind'), c('3', 'Mind 2')]);
+    expect(Object.fromEntries(map)).toEqual({ '1': 'mind', '2': 'mind-3', '3': 'mind-2' });
+  });
 });

@@ -131,21 +131,25 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     selector ? `${chainName(names, selector)} on Chainlink CCIP · Replay · ccip.dev` : 'Replay · ccip.dev';
 
   const chooseChain = (selector: string | null) => {
+    if (selector === focus) return;
     setFocus(selector);
     const nextSlug = selector ? slugs[selector] : null;
     history.pushState({ focus: selector }, '', `/replay/${nextSlug ? `${nextSlug}/` : ''}`);
     document.title = titleFor(selector);
   };
+  const titleForRef = useRef(titleFor);
+  titleForRef.current = titleFor;
   useEffect(() => {
     const onPop = () => {
+      recordAbortRef.current?.abort();
       const match = /^\/replay\/([a-z0-9-]+)\/?$/.exec(location.pathname);
       const selector = match ? Object.keys(slugs).find((s) => slugs[s] === match[1]) ?? null : null;
       setFocus(selector);
-      document.title = titleFor(selector);
+      document.title = titleForRef.current(selector);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  });
+  }, [slugs]);
 
   const headSkippedRef = useRef(true);
   useEffect(() => {
@@ -155,11 +159,12 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       return;
     }
     const settled = show.frameAt(show.length - LOOP_S).story;
+    const focused = show.focusName !== null;
     const head = replayHead({
       focusName: show.focusName,
       firstDay: data.replay.chains.find((c) => c.selector === show.focus)?.first_day ?? null,
-      messages: settled.messages,
-      chains: settled.chains,
+      messages: focused ? settled.messages : data.history.reduce((sum, d) => sum + d.messages, 0),
+      chains: focused ? settled.chains : data.replay.chains.length,
     });
     const title = document.getElementById('replay-title');
     const lead = document.getElementById('replay-lead');
@@ -359,7 +364,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       >
         <canvas ref={canvasRef} aria-label={`Time-lapse of CCIP ${focusName ? `for ${focusName} ` : ''}from ${since} to ${lastDay}`} />
         {!hasPlayed && !playing && (
-          <button type="button" className="bigplay" aria-label="Play the replay" onClick={play}>
+          <button type="button" className="bigplay" aria-label="Play the replay" disabled={recording !== null} onClick={play}>
             <span className="tri" aria-hidden="true" />
           </button>
         )}
@@ -370,7 +375,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
           </span>
         )}
         <div className="player-bar">
-          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : shown >= show.length - LOOP_S ? 'Replay' : 'Play'} onClick={() => (playing ? setPlaying(false) : play())}>
+          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : shown >= show.length - LOOP_S ? 'Replay' : 'Play'} disabled={recording !== null} onClick={() => (playing ? setPlaying(false) : play())}>
             {playing ? <span className="pause-i" aria-hidden="true" /> : <span className="tri" aria-hidden="true" />}
           </button>
           <Scrubber
@@ -403,6 +408,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
           headline={focusName ? `Watch ${focusName} on Chainlink CCIP` : 'Watch CCIP grow from the first message to today'}
           url={pageUrl}
           cardUrl={`/og/replay${slug ? `/${slug}` : ''}.png`}
+          disabled={recording !== null}
         />
         {recordable && !recording && (
           <button type="button" className="btn btn-primary" onClick={() => void record()}>
