@@ -1,6 +1,6 @@
 import type { ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { laneOpacity, lastReplayDay, starRadius, topSelectors, trailingWeights, windowWeights } from '../src/sky/weights';
+import { laneOpacity, lastReplayDay, skyScale, starRadius, topSelectors, trailingWeights, windowWeights } from '../src/sky/weights';
 import replayJson from './fixtures/replay.json';
 
 const replay = replayJson as ReplayFile;
@@ -39,5 +39,12 @@ describe('weights', () => {
     expect(laneOpacity(0, 50)).toBeCloseTo(0.06);
     expect(laneOpacity(5, 0)).toBe(0.06);
     expect(topSelectors(new Map([['b', 5], ['a', 5], ['c', 9]]), 2)).toEqual(['c', 'a']);
+  });
+});
+
+describe('skyScale', () => {
+  it('scales stars by the shorter side over 700', () => {
+    expect(skyScale(1400, 700)).toBe(1);
+    expect(skyScale(390, 800)).toBeCloseTo(390 / 700, 10);
   });
 });

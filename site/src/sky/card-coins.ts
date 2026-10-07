@@ -1,6 +1,6 @@
 import { coinDiameter, coinSelectors } from './coins';
 import { projector, type StarPoint } from './layout';
-import { starRadius } from './weights';
+import { skyScale, starRadius } from './weights';
 
 export const CARD_COINS = 8;
 export const CARD_COIN_SCALE = 1.6;
@@ -24,7 +24,7 @@ export function cardCoins(o: {
 }): CardCoin[] {
   const project = projector(o.width, o.height, o.stars);
   const max = Math.max(0, ...o.chainValues.values());
-  const scale = Math.min(o.width, o.height) / 700;
+  const scale = skyScale(o.width, o.height);
   const sources = new Map<string, string | null>();
   const srcOf = (selector: string) => {
     if (!sources.has(selector)) sources.set(selector, o.src(selector));

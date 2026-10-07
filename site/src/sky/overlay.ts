@@ -1,6 +1,6 @@
 import { coinDiameter, coinSelectors, type Reachable } from './coins';
 import { projector, type StarPoint } from './layout';
-import { starRadius, topSelectors } from './weights';
+import { skyScale, starRadius, topSelectors } from './weights';
 
 export interface OverlayPoint extends Reachable {
   d: number;
@@ -47,7 +47,7 @@ export function skyOverlay(
 ): { points: OverlayPoint[]; coins: OverlayCoin[]; labels: OverlayLabel[] } {
   const project = projector(width, height, stars);
   const max = Math.max(0, ...values.values());
-  const scale = Math.min(width, height) / 700;
+  const scale = skyScale(width, height);
   const placed = stars.map((s) => {
     const [x, y] = project(s.x, s.y);
     const r = starRadius(values.get(s.selector) ?? 0, max) * scale;

@@ -1,7 +1,7 @@
 import { coinDiameter, coinSelectors } from './coins';
 import { laneControl } from './geometry';
 import { projector, type StarPoint } from './layout';
-import { laneOpacity, starRadius, topSelectors } from './weights';
+import { laneOpacity, skyScale, starRadius, topSelectors } from './weights';
 
 export interface SkySvgOptions {
   width: number;
@@ -27,7 +27,7 @@ export function skySvg(o: SkySvgOptions): string {
       return [s.selector, { x, y }] as const;
     }),
   );
-  const scale = Math.min(o.width, o.height) / 700;
+  const scale = skyScale(o.width, o.height);
   const maxValue = Math.max(0, ...o.chainValues.values());
   const maxLane = Math.max(0, ...o.lanes.map((l) => l.usd));
   const radius = (selector: string) => starRadius(o.chainValues.get(selector) ?? 0, maxValue) * scale;

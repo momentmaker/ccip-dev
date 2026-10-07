@@ -10,6 +10,7 @@ import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
 import { LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
+import { skyScale } from '../../sky/weights';
 
 interface Props {
   stars: StarPoint[];
@@ -82,7 +83,7 @@ export default function SkyCanvas(props: Props) {
       const h = Math.max(1, Math.round(wrap.clientHeight * dpr));
       renderer.resize(w, h);
       project = projector(w, h, scene.starPoints);
-      sizeScale = Math.min(w, h) / 700;
+      sizeScale = skyScale(w, h);
       const overlay = skyOverlay(scene.starPoints, new Map(latest.current.chainValues), wrap.clientWidth, wrap.clientHeight, {
         coins: coinCount(wrap.clientWidth),
         labels: wrap.clientWidth < 640 ? 6 : 12,

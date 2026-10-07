@@ -51,6 +51,10 @@ export function starRadius(value: number, max: number): number {
   return max > 0 ? 2 + 8 * Math.sqrt(Math.max(0, value) / max) : 2;
 }
 
+export function skyScale(width: number, height: number): number {
+  return Math.min(width, height) / 700;
+}
+
 export function laneOpacity(usd: number, maxUsd: number): number {
   return maxUsd > 0 ? 0.06 + 0.5 * (Math.log10(1 + Math.max(0, usd)) / Math.log10(1 + maxUsd)) : 0.06;
 }
