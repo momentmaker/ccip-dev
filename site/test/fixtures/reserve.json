@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T02:01:03.101Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "token": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+  "reserve": "0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6",
+  "latest": {
+    "ts": "2026-10-07T02:00:54.470Z",
+    "link": 6122201.43
+  },
+  "series": [
+    {
+      "ts": "2026-10-05T18:00:22.090Z",
+      "link": 6122201.43
+    },
+    {
+      "ts": "2026-10-05T19:00:21.259Z",
+      "link": 6122201.43
+    },
+    {
+      "ts": "2026-10-05T20:00:20.456Z",
+      "link": 6122201.43
+    }
+  ],
+  "link_price_usd": 13.7643,
+  "cost_basis": {
+    "link_in": 6122202.43,
+    "link_out": 1,
+    "cost_usd": 67978229.35,
+    "value_usd": 84268045.75,
+    "change_usd": 16289816.39,
+    "change_pct": 23.96,
+    "avg_deposit_price_usd": 11.1035,
+    "unpriced_transfers": 0
+  },
+  "pace": {
+    "deposits": 61,
+    "last_deposit": {
+      "ts": "2026-10-01T15:35:47.000Z",
+      "tx": "0x716918279bd52bbb4af6237af26423ac95f796731df725bd4a5a6c79c69ec70b",
+      "link": 74703.04,
+      "price_usd": 14.2564,
+      "usd": 1065000.12
+    },
+    "days_since_last_deposit": 5.43,
+    "avg_weekly_link_4w": 87845.85,
+    "avg_weekly_usd_4w": 1085357.16,
+    "annualized_link": 4567984.15,
+    "supply_share_pct": 0.6122,
+    "next_milestone": {
+      "link": 7000000,
+      "eta": "2026-12-16"
+    },
+    "avg_days_between_deposits": 7,
+    "next_expected_deposit": "2026-10-08T15:35:53.000Z",
+    "deposit_overdue": false,
+    "deposit_streak": 61
+  },
+  "weekly": [
+    {
+      "week": "2025-08-04",
+      "deposits": 1,
+      "link": 65538.9,
+      "usd": 1116782.82
+    },
+    {
+      "week": "2025-08-11",
+      "deposits": 1,
+      "link": 44109.76,
+      "usd": 1029080.7
+    },
+    {
+      "week": "2025-08-18",
+      "deposits": 1,
+      "link": 41105.84,
+      "usd": 1039977.82
+    }
+  ],
+  "performance": {
+    "best": {
+      "ts": "2026-06-25T15:34:59.000Z",
+      "tx": "0x8e17f289b76052e64a64b7aa055fc7d6a66e3b5f5d2ba6eb1dc8d0bb2a0a610b",
+      "price_usd": 7.1547
+    },
+    "worst": {
+      "ts": "2025-08-21T15:33:23.000Z",
+      "tx": "0x842c8e9c0be90f361e4eb7df3cc22a15b65c2415a598622f0ed235b334efab84",
+      "price_usd": 25.3
+    },
+    "above": 43,
+    "below": 18
+  },
+  "transfers": [
+    {
+      "ts": "2025-07-31T14:00:23.000Z",
+      "tx": "0x986aacc9f3ce0e77f50680b5be0a46a8859e4a9ecefaf4eeb4006250fce2b19c",
+      "direction": "in",
+      "counterparty": "0x176c2ee163d764dcea38bc1340639b398b4fe713",
+      "link": 1,
+      "price_usd": 17.65,
+      "usd": 17.65,
+      "value_now_usd": 13.76,
+      "change_pct": -22.02
+    },
+    {
+      "ts": "2025-08-02T19:02:47.000Z",
+      "tx": "0x18680cc14609796fe859db13686d676a373ccf12f692836055ff95dd6aa25a0a",
+      "direction": "out",
+      "counterparty": "0x176c2ee163d764dcea38bc1340639b398b4fe713",
+      "link": 1,
+      "price_usd": 15.48,
+      "usd": 15.48,
+      "value_now_usd": null,
+      "change_pct": null
+    },
+    {
+      "ts": "2025-08-07T07:34:47.000Z",
+      "tx": "0xe705e663b55d7abc0b40882ad96b15b4cdae9c5e9642c78d59e9e0bf8e88df42",
+      "direction": "in",
+      "counterparty": "0x5680681ed3767b96914ce741a308155c7fb9171d",
+      "link": 1,
+      "price_usd": 16.8,
+      "usd": 16.8,
+      "value_now_usd": 13.76,
+      "change_pct": -18.07
+    }
+  ],
+  "latest_transfer": {
+    "ts": "2026-10-01T15:35:47.000Z",
+    "tx": "0x716918279bd52bbb4af6237af26423ac95f796731df725bd4a5a6c79c69ec70b",
+    "direction": "in",
+    "counterparty": "0x5680681ed3767b96914ce741a308155c7fb9171d",
+    "link": 74703.04,
+    "price_usd": 14.2564,
+    "usd": 1065000.12,
+    "value_now_usd": 1028237.83,
+    "change_pct": -3.45
+  }
+}

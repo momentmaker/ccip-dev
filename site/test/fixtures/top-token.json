@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-07T00:12:56.476Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "dim": "token",
+  "since": "2023-07-06",
+  "windows": {
+    "7d": [
+      {
+        "key": "124615329519749607:59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+        "messages": 73,
+        "usd": 40492702.7,
+        "fee_usd": null,
+        "symbol": "PST"
+      },
+      {
+        "key": "5009297550715157269:0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b",
+        "messages": 42,
+        "usd": 40158797.32,
+        "fee_usd": null,
+        "symbol": "syrupUSDC"
+      },
+      {
+        "key": "5009297550715157269:0xa1290d69c65a6fe4df752f95823fae25cb99e5a7",
+        "messages": 13,
+        "usd": 34307625.61,
+        "fee_usd": null,
+        "symbol": "rsETH"
+      }
+    ],
+    "30d": [
+      {
+        "key": "124615329519749607:59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+        "messages": 358,
+        "usd": 135266222.85,
+        "fee_usd": null,
+        "symbol": "PST"
+      },
+      {
+        "key": "9335212494177455608:0xb77e872a68c62cfc0dfb02c067ecc3da23b4bbf3",
+        "messages": 325,
+        "usd": 108314205.86,
+        "fee_usd": null,
+        "symbol": "GHO"
+      },
+      {
+        "key": "9335212494177455608:0xc4374775489cb9c56003bf2c9b12495fc64f0771",
+        "messages": 56,
+        "usd": 108160221.04,
+        "fee_usd": null,
+        "symbol": "syrupUSDT"
+      }
+    ],
+    "all": [
+      {
+        "key": "5009297550715157269:0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d",
+        "messages": 2110,
+        "usd": 2710692446.48,
+        "fee_usd": null,
+        "symbol": "syrupUSDT"
+      },
+      {
+        "key": "5009297550715157269:0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b",
+        "messages": 4133,
+        "usd": 2532855980.32,
+        "fee_usd": null,
+        "symbol": "syrupUSDC"
+      },
+      {
+        "key": "9335212494177455608:0xc4374775489cb9c56003bf2c9b12495fc64f0771",
+        "messages": 1305,
+        "usd": 2462764482.88,
+        "fee_usd": null,
+        "symbol": "syrupUSDT"
+      }
+    ]
+  }
+}

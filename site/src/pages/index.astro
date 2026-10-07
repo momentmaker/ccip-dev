@@ -1,0 +1,16 @@
+---
+import { buildData } from '../lib/build-data';
+import { formatCount } from '../lib/format';
+
+const today = await buildData('today.json');
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ccip.dev</title>
+  </head>
+  <body>
+    <h1>ccip.dev</h1>
+    <p>{formatCount(today.totals.messages)} CCIP messages today (UTC)</p>
+  </body>
+</html>

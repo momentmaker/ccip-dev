@@ -6,3 +6,5 @@ node_modules/
 coverage/
 pr-body.md
 endpoints-pr.md
+site/dist/
+site/.astro/
