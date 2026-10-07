@@ -1,0 +1,151 @@
+import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
+import { describe, expect, it } from 'vitest';
+import { TIERS } from '../src/replay/cinema/quality';
+import {
+  buildScene,
+  CINEMA_SHAPE,
+  COIN_FLOATS,
+  dustField,
+  LINE_FLOATS,
+  MAX_SCENE_COINS,
+  MAX_SCENE_LANES,
+  MAX_SCENE_QUADS,
+  QUAD_FLOATS,
+  type SceneContext,
+} from '../src/replay/cinema/scene';
+import { Show, type ShowFrame } from '../src/replay/director/show';
+import { LANE_SEGMENTS } from '../src/sky/instances';
+import { buildLayout } from '../src/sky/layout';
+import replayJson from './fixtures/replay.json';
+
+const replay = replayJson as ReplayFile;
+const history = replay.days.map((d) => ({ day: d.day, messages: 10, token_messages: 10, usd_value: 1000, fee_usd: null, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null })) as DayTotals[];
+const stars = buildLayout(replay.chains);
+const show = new Show({ replay, history, stars, length: 30, focus: null, eligible: () => true });
+const atlas = new Map(replay.chains.map((c, i) => [c.selector, [i * 0.1, 0, i * 0.1 + 0.1, 1] as const]));
+const targets = [{ x: 0.1, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.9, y: 0.5 }];
+const ctx = (over: Partial<SceneContext> = {}): SceneContext => ({
+  width: 1280,
+  height: 720,
+  tier: TIERS.high,
+  dust: dustField(11, 1),
+  fullExtent: show.fullExtent,
+  atlas,
+  titleTargets: targets,
+  reducedMotion: false,
+  seed: 5,
+  finaleSeconds: 3,
+  ...over,
+});
+const quadCount = (s: { quads: Float32Array }) => s.quads.length / QUAD_FLOATS;
+const withSky = (frame: ShowFrame, sky: Partial<ShowFrame['base']['sky']>, base: Partial<ShowFrame['base']> = {}): ShowFrame => ({
+  ...frame,
+  base: { ...frame.base, ...base, sky: { ...frame.base.sky, ...sky } },
+});
+
+describe('buildScene', () => {
+  it('is deterministic for the same frame and context', () => {
+    expect(buildScene(show.frameAt(15), ctx())).toEqual(buildScene(show.frameAt(15), ctx()));
+  });
+
+  it('packs whole instances and stays bounded', () => {
+    const s = buildScene(show.frameAt(15), ctx());
+    expect(s.quads.length % QUAD_FLOATS).toBe(0);
+    expect(s.coins.length % COIN_FLOATS).toBe(0);
+    expect(s.lines.length % LINE_FLOATS).toBe(0);
+    expect(quadCount(s)).toBeLessThanOrEqual(MAX_SCENE_QUADS);
+  });
+
+  it('draws fewer dust points and no nebula on the Low tier', () => {
+    const high = buildScene(show.frameAt(15), ctx());
+    const low = buildScene(show.frameAt(15), ctx({ tier: TIERS.low }));
+    expect(low.quads.length).toBeLessThan(high.quads.length);
+    expect(low.nebula).toBeNull();
+    expect(high.nebula).not.toBeNull();
+    expect(low.bloom).toBe('off');
+  });
+
+  it('draws one coin per visible coin that has an atlas cell', () => {
+    const frame = show.frameAt(26);
+    const s = buildScene(frame, ctx());
+    const visible = frame.base.coins.filter((c) => atlas.has(c.selector) && (frame.base.sky.stars[c.star]?.radius ?? 0) > 0);
+    expect(s.coins.length / COIN_FLOATS).toBe(visible.length);
+  });
+
+  it('shakes only during a milestone slam, and never under reduced motion', () => {
+    const frame = { ...show.frameAt(15), slam: { start: 14.9, label: '$1B moved', progress: 0.1 } };
+    expect(buildScene(frame, ctx()).shock).not.toBeNull();
+    expect(buildScene(frame, ctx({ reducedMotion: true })).shock).toBeNull();
+    expect(buildScene(show.frameAt(15), ctx()).shock).toBeNull();
+  });
+
+  it('assembles one title particle per target in the finale', () => {
+    const withTitle = buildScene(show.frameAt(28.2), ctx());
+    const without = buildScene(show.frameAt(28.2), ctx({ titleTargets: [] }));
+    expect(quadCount(withTitle) - quadCount(without)).toBe(targets.length);
+  });
+
+  it('pulses the exposure only around the finale beat', () => {
+    expect(buildScene(show.frameAt(20), ctx()).exposure).toBe(1);
+    expect(buildScene(show.frameAt(27.6), ctx()).exposure).toBeGreaterThan(1);
+  });
+
+  it('draws no supernova before a join ignites', () => {
+    const frame = show.frameAt(15);
+    const star = frame.base.sky.stars.findIndex((s) => s.radius > 0);
+    const before = buildScene(withSky(frame, { rings: [{ star, progress: -0.2 }] }), ctx());
+    const none = buildScene(withSky(frame, { rings: [] }), ctx());
+    const during = buildScene(withSky(frame, { rings: [{ star, progress: 0.2 }] }), ctx());
+    expect(quadCount(before)).toBe(quadCount(none));
+    expect(quadCount(during)).toBeGreaterThan(quadCount(none));
+  });
+
+  it('colors only gold comets gold', () => {
+    const frame = show.frameAt(15);
+    const comet = { from: 0, to: 1, progress: 0.5, size: 0.5 };
+    const goldQuads = (kind: 'token' | 'data' | 'gold') => {
+      const s = buildScene(withSky(frame, { comets: [{ ...comet, kind }], rings: [] }, { arrivals: [] }), ctx({ tier: TIERS.low }));
+      let gold = 0;
+      for (let i = 0; i < s.quads.length; i += QUAD_FLOATS) {
+        if (s.quads[i + 5]! > s.quads[i + 7]! * 2) gold++;
+      }
+      return gold;
+    };
+    expect(goldQuads('gold')).toBeGreaterThan(0);
+    expect(goldQuads('data')).toBe(0);
+    expect(goldQuads('token')).toBe(0);
+  });
+
+  describe('flood', () => {
+    const base = show.frameAt(15);
+    const live = base.base.sky.stars.length;
+    const comets = Array.from({ length: 250 }, (_, i) => ({ from: i % live, to: (i + 1) % live, progress: (i % 10) / 10 + 0.05, size: 1, kind: 'gold' as const }));
+    const rings = Array.from({ length: 100 }, (_, i) => ({ star: i % live, progress: 0.1 + (i % 5) * 0.1 }));
+    const arrivals = Array.from({ length: 120 }, (_, i) => ({ from: i % live, to: (i + 1) % live, age: (i % 4) * 0.1, size: 1, kind: 'gold' as const }));
+    const lanes = Array.from({ length: 2000 }, (_, i) => ({ from: i % live, to: (i + 1) % live, opacity: 0.5 }));
+    const coins = Array.from({ length: 500 }, () => ({ star: 0, selector: replay.chains[0]!.selector, alpha: 1 }));
+    const floodStars = base.base.sky.stars.map((s) => ({ ...s, radius: Math.max(s.radius, 1) }));
+    const flood = withSky(base, { comets, rings, lanes, stars: floodStars }, { arrivals, coins });
+    const scene = buildScene(flood, ctx());
+
+    it('keeps every array within its cap', () => {
+      expect(quadCount(scene)).toBeLessThanOrEqual(MAX_SCENE_QUADS);
+      expect(scene.lines.length / LINE_FLOATS).toBeLessThanOrEqual(MAX_SCENE_LANES * LANE_SEGMENTS * 2);
+      expect(scene.coins.length / COIN_FLOATS).toBeLessThanOrEqual(MAX_SCENE_COINS);
+    });
+
+    it('still draws every star core', () => {
+      let discs = 0;
+      for (let i = 0; i < scene.quads.length; i += QUAD_FLOATS) if (scene.quads[i + 9] === CINEMA_SHAPE.disc) discs++;
+      expect(discs).toBeGreaterThanOrEqual(floodStars.length);
+    });
+  });
+});
+
+describe('dustField', () => {
+  it('seeds three layers with the spec counts', () => {
+    const d = dustField(3, 1);
+    expect(d.layers.map((l) => l.length / 5)).toEqual([300, 180, 90]);
+    expect(dustField(3, 1)).toEqual(d);
+  });
+});

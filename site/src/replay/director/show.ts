@@ -96,7 +96,7 @@ export class Show {
   readonly focusName: string | null;
   private readonly board: Leaderboard;
   private readonly counter: StoryCounter;
-  private readonly fullExtent: number;
+  readonly fullExtent: number;
   private readonly focusPoint: StarPoint | null;
   private readonly focusStar: number;
   private readonly title: { title: string; subtitle: string };
