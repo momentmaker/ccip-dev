@@ -17,7 +17,7 @@ const icon = (size: number) =>
 
 const publicDir = join(import.meta.dirname, '..', 'public');
 const png = async (tree: unknown, width: number, height: number) =>
-  (await render(tree as never, { width, height, fonts: FONTS, loadAdditionalAsset: () => undefined }).asPng()).image;
+  (await render(tree as never, { width, height, fonts: FONTS, loadAdditionalAsset: async () => [] }).asPng()).image;
 
 await writeFile(join(publicDir, 'og-default.png'), await png(cardTree(defaultCard(), { skyDataUri: null, sparkDataUri: null, sponsorLine: null }), 1200, 630));
 await writeFile(join(publicDir, 'apple-touch-icon.png'), await png(icon(180), 180, 180));

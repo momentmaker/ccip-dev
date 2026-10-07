@@ -13,7 +13,7 @@ export default {
     return handleOg(request, env, ctx, {
       fetch: (input, init) => fetch(input, init),
       renderPng: async (tree) =>
-        (await render(tree as never, { width: 1200, height: 630, fonts: FONTS, loadAdditionalAsset: () => undefined }).asPng()).image,
+        (await render(tree as never, { width: 1200, height: 630, fonts: FONTS, loadAdditionalAsset: async () => [] }).asPng()).image,
       cache: caches.default,
     });
   },

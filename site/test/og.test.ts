@@ -40,7 +40,7 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = []) {
     ASSETS: {
       fetch: async (req: Request | string) => {
         const path = new URL(typeof req === 'string' ? req : req.url).pathname;
-        if (path === '/layout.json') return Response.json([{ selector: 'a', x: 1, y: 0 }]);
+        if (path === '/card-sky.svg') return new Response('<svg xmlns="http://www.w3.org/2000/svg"/>');
         if (path === '/og-default.png') return new Response(FALLBACK);
         return new Response('missing', { status: 404 });
       },
@@ -98,6 +98,14 @@ describe('handleOg', () => {
     expect(res.headers.get('cache-control')).toBe('public, max-age=60');
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(FALLBACK);
     expect(renderPng).not.toHaveBeenCalled();
+  });
+
+  it('serves the fallback card when the cache itself throws', async () => {
+    const cache = { match: async () => { throw new Error('cache down'); }, put: async () => {} };
+    const { get } = setup({ cache });
+    const res = await get('/og/home.png');
+    expect(res.headers.get('cache-control')).toBe('public, max-age=60');
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(FALLBACK);
   });
 
   it('serves the fallback card when rendering throws', async () => {

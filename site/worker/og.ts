@@ -4,8 +4,6 @@ import { parseCardPath, type CardRoute } from '../src/lib/card-paths';
 import { fetchPublic } from '../src/lib/data';
 import { chainNameMap } from '../src/lib/names';
 import { sponsorView } from '../src/lib/sponsor';
-import type { StarPoint } from '../src/sky/layout';
-import { skySvg } from '../src/sky/svg';
 import { cardMaxAge } from './cache';
 import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, reserveCard, topCard, type CardSpec } from './cards/content';
 import { cardTree, sparkSvg } from './cards/frame';
@@ -32,10 +30,8 @@ interface Built {
 const toDataUri = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
 
 async function skyDataUri(env: OgEnv, origin: string): Promise<string | null> {
-  const res = await env.ASSETS.fetch(new Request(`${origin}/layout.json`));
-  if (!res.ok) return null;
-  const stars = (await res.json()) as StarPoint[];
-  return toDataUri(skySvg({ width: 640, height: 630, stars, chainValues: new Map(stars.map((s) => [s.selector, 1])), lanes: [] }));
+  const res = await env.ASSETS.fetch(new Request(`${origin}/card-sky.svg`));
+  return res.ok ? toDataUri(await res.text()) : null;
 }
 
 async function build(route: CardRoute, deps: OgDeps): Promise<Built | null> {
@@ -84,10 +80,10 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   if (!route) return new Response('Not found', { status: 404 });
 
   const cacheKey = new Request(`${url.origin}${url.pathname}`);
-  const cached = await deps.cache?.match(cacheKey);
-  if (cached) return cached;
 
   try {
+    const cached = await deps.cache?.match(cacheKey);
+    if (cached) return cached;
     const built = await build(route, deps);
     if (!built) return new Response('Not found', { status: 404 });
     const spark = built.spec.spark ? sparkSvg(built.spec.spark, 560, 110) : null;

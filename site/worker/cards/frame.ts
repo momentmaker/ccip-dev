@@ -4,6 +4,13 @@ import type { CardSpec } from './content';
 export const CARD_W = 1200;
 export const CARD_H = 630;
 
+export function bigFontSize(text: string): number {
+  if (text.length <= 7) return 120;
+  if (text.length <= 12) return 96;
+  if (text.length <= 18) return 72;
+  return 56;
+}
+
 export function sparkSvg(values: readonly number[], width: number, height: number): string | null {
   if (values.length < 2) return null;
   const max = Math.max(...values);
@@ -38,8 +45,9 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; spar
         'div',
         { style: { display: 'flex', flexDirection: 'column' } },
         h('div', { style: { fontSize: 22, fontWeight: 700, letterSpacing: 4, color: '#8892a0' } }, spec.eyebrow),
-        h('div', { style: { fontSize: spec.big.length > 14 ? 72 : 120, fontWeight: 700, lineHeight: 1.05, marginTop: 18, maxWidth: 860 } }, spec.big),
+        h('div', { style: { fontSize: bigFontSize(spec.big), fontWeight: 700, lineHeight: 1.05, marginTop: 18, maxWidth: 860 } }, spec.big),
         h('div', { style: { fontSize: 34, marginTop: 14 } }, spec.label),
+        spec.date ? h('div', { style: { fontSize: 26, marginTop: 10, color: '#8892a0' } }, spec.date) : null,
         ...spec.extra.map((line) => h('div', { style: { fontSize: 26, marginTop: 10, color: '#8892a0' } }, line)),
         opts.sparkDataUri ? h('img', { src: opts.sparkDataUri, width: 560, height: 110, style: { marginTop: 24 } }) : null,
       ),
@@ -55,8 +63,7 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; spar
         h(
           'div',
           { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end' } },
-          spec.date ? h('div', null, spec.date) : null,
-          opts.sponsorLine ? h('div', { style: { marginTop: 6 } }, opts.sponsorLine) : null,
+          opts.sponsorLine ? h('div', null, opts.sponsorLine) : null,
         ),
       ),
     ),

@@ -2,7 +2,7 @@ import type { HistoryFile, ReserveFile, TodayFile, TopFile } from '@ccip-dev/cor
 import { describe, expect, it } from 'vitest';
 import { cardMaxAge } from '../worker/cache';
 import { cardText, dayCard, flowCard, historyCard, homeCard, recordsCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
-import { sparkSvg } from '../worker/cards/frame';
+import { bigFontSize, sparkSvg } from '../worker/cards/frame';
 import { chainNameMap } from '../src/lib/names';
 
 const envelope = { schema_version: 1 as const, updated_at: '2026-10-07T00:00:00.000Z', attribution: 'Data: Chainlink CCIP API, DefiLlama' };
@@ -71,6 +71,14 @@ describe('card content', () => {
     expect(sparkPoints([1, 2], 100)).toEqual([1, 2]);
     expect(sparkSvg([0, 10], 100, 50)).toContain('d="M0.0,50.0L100.0,0.0"');
     expect(sparkSvg([5], 100, 50)).toBeNull();
+  });
+});
+
+describe('bigFontSize', () => {
+  it.each([
+    [7, 120], [8, 96], [12, 96], [13, 72], [18, 72], [19, 56],
+  ])('%i characters → %i px', (length, size) => {
+    expect(bigFontSize('x'.repeat(length))).toBe(size);
   });
 });
 
