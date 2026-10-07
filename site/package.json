@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && tsx scripts/check-build.ts",
+    "build": "astro build && tsx scripts/check-build.ts && tsx scripts/check-budgets.ts",
     "test": "vitest run && vitest run -c vitest.worker.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p worker",
     "cards:static": "tsx scripts/render-static-cards.ts",

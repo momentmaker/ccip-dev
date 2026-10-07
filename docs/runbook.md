@@ -149,3 +149,29 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
   a planned follow-up).
 - **Nothing is lost:** once the API recovers, or with the backfill crawler (`pnpm backfill:sources`, which skips
   poison messages), the gap can be filled. `status.json` shows the delay meanwhile.
+
+## Website (ccip.dev)
+
+- **What runs:**
+  - The Worker `ccip-dev-site` serves `site/dist` (built by Astro) as static assets on `ccip.dev`.
+  - It also renders share cards at `/og/*.png` from the public JSON. Only `/og/*` runs Worker code.
+  - `www.ccip.dev` redirects to `https://ccip.dev` through a dashboard redirect rule.
+- **Deploys:**
+  - The `site` workflow runs on every push to `main` that touches `site/`, `packages/core/`, `docs/methodology.md` or the lockfile.
+  - It also runs at 00:25 and 06:25 UTC, after each finalize run, so day pages and records pick up the new day.
+  - Run it by hand with `gh workflow run site`.
+- **Build failures:**
+  - The build fetches every public file and fails when one is missing or has the wrong shape.
+  - The previous deploy stays live. Check the data Worker first (`curl -s https://data.ccip.dev/v1/status.json`), then re-run the workflow.
+- **Budgets:**
+  - `pnpm --filter @ccip-dev/site build` fails when the home page's JavaScript goes over 150 KB gzipped, or the replay page's over 200 KB.
+  - Fix the size; do not raise the budget without deciding to.
+- **Share cards:**
+  - Cards are cached at the edge for 5 minutes (home) to 7 days (finalized days).
+  - A card that fails to render serves `og-default.png` for 60 seconds.
+  - Watch failures with `pnpm --filter @ccip-dev/site exec wrangler tail ccip-dev-site --search "card"`.
+- **Sponsor:**
+  - Set `site/sponsor.json` to `{ "name", "url" (https), "logo" (a file in site/public/sponsor/), "tagline" }` and push.
+  - `{}` shows the "sponsor ccip.dev" invitation.
+- **Analytics:** Umami at `analytics.jivx.com`. The website ID is `UMAMI_WEBSITE_ID` in `site/src/config.ts`. An empty ID loads no script.
+- **Brand images:** `pnpm --filter @ccip-dev/site cards:static` regenerates `og-default.png`, `apple-touch-icon.png` and `favicon-32.png`. Commit the results.

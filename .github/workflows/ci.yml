@@ -19,3 +19,4 @@ jobs:
       - run: pnpm labels:check
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm --filter @ccip-dev/site build
