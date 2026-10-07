@@ -23,12 +23,20 @@ const ICONS: Record<string, string> = {
   replay: '<path d="M6 4l14 8-14 8V4z"/>',
   more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
 };
+const HEXAGON = '12,2 20.66,7 20.66,17 12,22 3.34,17 3.34,7';
 const path = Astro.url.pathname;
 const isCurrent = (match: string) => (match === '/' ? path === '/' : path.startsWith(match));
 ---
 <header class="site-header">
   <div class="brand">
-    <a class="wordmark" href="/"><span aria-hidden="true">⬡</span> ccip.dev</a>
+    <a class="wordmark" href="/">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <g class="mark-spin">
+          <polygon class="mark-fill" points={HEXAGON} />
+          <circle class="mark-ring" cx="12" cy="12" r="4.5" />
+          <polygon class="mark-edge" points={HEXAGON} />
+        </g>
+      </svg>ccip.dev</a>
     <span class="tagline">{TAGLINE}</span>
   </div>
   <div class="header-right">
@@ -54,3 +62,42 @@ const isCurrent = (match: string) => (match === '/' ? path === '/' : path.starts
     </nav>
   </div>
 </header>
+
+<style>
+  .wordmark { white-space: nowrap; flex: none; }
+  .mark { width: 0.95em; height: 0.95em; margin-right: 0.3em; vertical-align: -0.14em; overflow: visible; }
+  .mark-spin, .mark-ring, .mark-fill { transform-box: fill-box; transform-origin: center; }
+  .mark-edge, .mark-ring { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+  .mark-fill { fill: currentColor; opacity: 0; }
+  .mark-ring { opacity: 0; }
+  .mark-spin { animation: mark-spin 12s infinite; }
+  .mark-ring { animation: mark-ring 12s infinite; }
+  .mark-fill { animation: mark-fill 12s infinite; }
+
+  /* ⬡ holds 0–3.2 s, ⏣ 4–7.2 s, ⬢ 8–11.2 s. Each 0.8 s change turns 60°, which leaves a hexagon unchanged, so the turns land seamlessly. */
+  @keyframes mark-spin {
+    0%, 26.67% { transform: rotate(0deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    33.33%, 60% { transform: rotate(60deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    66.67%, 93.33% { transform: rotate(120deg); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    100% { transform: rotate(180deg); }
+  }
+  @keyframes mark-ring {
+    0%, 26.67% { transform: scale(0); opacity: 0; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    33.33%, 60% { transform: scale(1); opacity: 1; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    66.67%, 100% { transform: scale(1.7); opacity: 0; }
+  }
+  @keyframes mark-fill {
+    0%, 60% { transform: scale(0.5); opacity: 0; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    66.67%, 93.33% { transform: scale(1); opacity: 1; animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+    100% { transform: scale(0.6); opacity: 0; }
+  }
+
+  @media (max-width: 420px) {
+    .site-header :global(.status-word) { display: none; }
+  }
+  @media (max-width: 400px) {
+    .site-header, .header-right { gap: 8px; }
+    .nav { gap: 1px; }
+    .hex-btn { width: 30px; height: 36px; }
+  }
+</style>
