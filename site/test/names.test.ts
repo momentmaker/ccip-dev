@@ -13,10 +13,21 @@ const names = chainNameMap([
 describe('names', () => {
   it('drops a trailing " Mainnet" and falls back to the registry name, then the selector', () => {
     expect(shortChainName({ selector: ETH, display_name: 'Ethereum Mainnet' })).toBe('Ethereum');
-    expect(shortChainName({ selector: '1', name: 'sui-mainnet', display_name: null })).toBe('sui-mainnet');
+    expect(shortChainName({ selector: '1', name: 'sui-mainnet', display_name: null })).toBe('Sui');
     expect(shortChainName({ selector: '42' })).toBe('42');
-    expect(chainName(names, '17529533435026248318')).toBe('sui-mainnet');
+    expect(chainName(names, '17529533435026248318')).toBe('Sui');
     expect(chainName(names, '999')).toBe('999');
+  });
+
+  it.each([
+    ['ethereum-mainnet-kroma-1', 'Kroma'],
+    ['sui-mainnet', 'Sui'],
+    ['polygon-mainnet-katana', 'Katana'],
+    ['mova-mainnet-2', 'Mova'],
+    ['binance_smart_chain-mainnet', 'Binance Smart Chain'],
+    ['bitcoin-mainnet-bsquared-1', 'Bsquared'],
+  ])('prettifies the registry name %s to %s', (name, label) => {
+    expect(shortChainName({ selector: '1', name, display_name: null })).toBe(label);
   });
 
   it('labels lanes, tokens and senders', () => {

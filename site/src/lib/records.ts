@@ -90,13 +90,15 @@ export function formatThresholdUsd(value: number): string {
   return `$${Number.isInteger(n) ? n : n.toFixed(1)}${suffix}`;
 }
 
+type MilestoneDay = Pick<DayStats, 'day' | 'messages' | 'usd_value'>;
+
 export function computeMilestones(
-  days: readonly DayStats[],
+  days: readonly MilestoneDay[],
   chains: readonly { selector: string; name: string | null; display_name: string | null; first_day: string }[],
 ): Milestone[] {
   const sorted = [...days].sort(compareDay);
   const out: Milestone[] = [];
-  const firstReach = (thresholds: number[], pick: (d: DayStats) => number, kind: MilestoneKind, label: (t: number) => string) => {
+  const firstReach = (thresholds: number[], pick: (d: MilestoneDay) => number, kind: MilestoneKind, label: (t: number) => string) => {
     let running = 0;
     let next = 0;
     for (const d of sorted) {
@@ -107,7 +109,7 @@ export function computeMilestones(
       }
     }
   };
-  const total = (pick: (d: DayStats) => number) => sorted.reduce((sum, d) => sum + pick(d), 0);
+  const total = (pick: (d: MilestoneDay) => number) => sorted.reduce((sum, d) => sum + pick(d), 0);
   firstReach(messageThresholds(total((d) => d.messages)), (d) => d.messages, 'messages', (t) => `${formatCount(t)} messages`);
   firstReach(valueThresholds(total((d) => d.usd_value)), (d) => d.usd_value, 'value', (t) => `${formatThresholdUsd(t)} moved`);
 

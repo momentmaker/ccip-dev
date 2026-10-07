@@ -2,9 +2,9 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { daysBetween } from '../../lib/days';
 import { formatUtcDay } from '../../lib/format';
 import { shortChainName } from '../../lib/names';
-import { computeMilestones, type DayStats } from '../../lib/records';
+import { computeMilestones } from '../../lib/records';
 import type { StarPoint } from '../../sky/layout';
-import { REPLAY_COINS, ReplayModel, type ReplayFrameState } from '../timeline';
+import { REPLAY_COINS, REPLAY_COMET_S, ReplayModel, type ReplayFrameState } from '../timeline';
 import {
   joinEvents,
   laneOpenEvents,
@@ -113,7 +113,7 @@ export class Show {
     this.focusName = focusChain ? shortChainName(focusChain) : null;
     this.counter = new StoryCounter(this.days, history, replay, this.focus);
     const milestones = this.focus
-      ? computeMilestones(this.counter.dailyTotals() as unknown as DayStats[], [])
+      ? computeMilestones(this.counter.dailyTotals(), [])
       : computeMilestones(history, replay.chains);
     const events = [
       ...(this.focus ? laneOpenEvents(replay, this.focus, this.days) : joinEvents(replay.chains, this.days)),
@@ -145,14 +145,17 @@ export class Show {
     const modelT = Math.min(Math.max(time, this.warp.start), this.warp.end - 1e-6);
     const raw = this.model.frameAt(modelT);
     const sky = { ...raw.sky, comets: [...raw.sky.comets], lanes: [...raw.sky.lanes], stars: [...raw.sky.stars] };
-    if (phase === 'hook' && this.hookLane) {
-      sky.comets.push({ ...this.hookLane, progress: clamp01(time / this.timing.hook), size: 0.4, kind: 'data' });
-    }
     if (this.focusStar >= 0) {
       const touches = (a: number, b: number) => a === this.focusStar || b === this.focusStar;
       sky.lanes = sky.lanes.map((l) => (touches(l.from, l.to) ? l : { ...l, opacity: l.opacity * 0.25 }));
-      sky.comets = sky.comets.filter((c, i) => touches(c.from, c.to) || i % 4 === 0);
+      sky.comets = sky.comets.filter((c) => {
+        const spawn = Math.round((modelT - c.progress * REPLAY_COMET_S) * 30);
+        return touches(c.from, c.to) || (c.from * 31 + c.to * 17 + spawn) % 4 === 0;
+      });
       sky.stars = sky.stars.map((s, i) => (i === this.focusStar ? s : { ...s, brightness: s.brightness * 0.6 }));
+    }
+    if (phase === 'hook' && this.hookLane) {
+      sky.comets.push({ ...this.hookLane, progress: clamp01(time / this.timing.hook), size: 0.4, kind: 'data' });
     }
     const base: ReplayFrameState = { ...raw, sky };
     const slamHit = this.slams.find((s) => time >= s.start && time < s.start + SLAM_S);

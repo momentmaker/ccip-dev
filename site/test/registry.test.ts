@@ -13,12 +13,12 @@ describe('registry', () => {
     const rows = chainRows(
       [
         { selector: '1', name: 'a-mainnet', display_name: 'A Mainnet', family: 'EVM', chain_id: '1', first_seen: '2024-01-01T00:00:00.000Z' },
-        { selector: '2', name: 'b-mainnet', display_name: null, family: 'SVM', chain_id: null, first_seen: null },
+        { selector: '2', name: 'B', display_name: null, family: 'SVM', chain_id: null, first_seen: null },
         { selector: '3', name: 'c-mainnet', display_name: 'C Mainnet', family: 'EVM', chain_id: '3', first_seen: '2026-10-01T00:00:00.000Z' },
       ],
       '2026-10-07',
     );
-    expect(rows.map((r) => [r.name, r.isNew])).toEqual([['C', true], ['A', false], ['b-mainnet', false]]);
+    expect(rows.map((r) => [r.name, r.isNew])).toEqual([['C', true], ['A', false], ['B', false]]);
   });
 
   it('lists tokens newest first with their chain name and a fallback symbol', () => {

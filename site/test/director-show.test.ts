@@ -87,4 +87,26 @@ describe('Show', () => {
     expect(s.warp.start).toBe(1.5);
     expect(s.warp.end).toBeCloseTo(13, 9);
   });
+
+  it('keeps the first-message comet in a focus cut', () => {
+    const f = show('5009297550715157269').frameAt(1);
+    expect(f.base.sky.comets.some((c) => Math.abs(c.progress - 0.5) < 1e-9 && c.size === 0.4)).toBe(true);
+  });
+
+  it('thins focus-cut comets stably from one frame to the next', () => {
+    const s = show('15971525489660198786');
+    const step = 1 / 30;
+    let checked = 0;
+    for (let t = s.warp.start; t < s.warp.end - 0.2; t += 0.05) {
+      const now = s.frameAt(t).base.sky.comets.filter((c) => c.from !== s.frameAt(t).focusStar && c.to !== s.frameAt(t).focusStar);
+      const later = s.frameAt(t + step).base.sky.comets;
+      for (const c of now) {
+        if (c.progress < 0.9) {
+          expect(later.some((l) => l.from === c.from && l.to === c.to)).toBe(true);
+          checked += 1;
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
 });

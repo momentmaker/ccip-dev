@@ -6,9 +6,25 @@ export interface NamedChain {
 
 export type ChainNames = Map<string, string>;
 
+function prettifyRegistryName(name: string): string {
+  const tokens = name.split('-');
+  const last = tokens.lastIndexOf('mainnet');
+  let words = last < 0 ? tokens : tokens.slice(last + 1).filter((t) => !/^\d+$/.test(t));
+  if (words.length === 0) words = tokens.slice(0, tokens.indexOf('mainnet'));
+  const pretty = words
+    .join(' ')
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase() + w.slice(1))
+    .join(' ');
+  return pretty || name;
+}
+
 export function shortChainName(chain: NamedChain): string {
   const display = chain.display_name?.replace(/ Mainnet$/, '');
-  return display || chain.name || chain.selector;
+  if (display) return display;
+  return chain.name ? prettifyRegistryName(chain.name) : chain.selector;
 }
 
 export function chainNameMap(chains: NamedChain[]): ChainNames {
