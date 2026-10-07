@@ -14,6 +14,7 @@ import {
   type SceneContext,
 } from '../src/replay/cinema/scene';
 import { Show, type ShowFrame } from '../src/replay/director/show';
+import { COLORS } from '../src/sky/frame';
 import { LANE_SEGMENTS } from '../src/sky/instances';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
@@ -116,11 +117,19 @@ describe('buildScene', () => {
     expect(goldQuads('token')).toBe(0);
   });
 
+  it('keeps the most opaque lanes when over the lane cap', () => {
+    const frame = show.frameAt(15);
+    const many = Array.from({ length: MAX_SCENE_LANES + 10 }, (_, i) => ({ from: 0, to: 1, opacity: i < 10 ? 0.01 : 0.5 }));
+    const s = buildScene(withSky(frame, { lanes: many, comets: [], rings: [] }, { arrivals: [] }), ctx());
+    expect(s.lines.length / LINE_FLOATS).toBe(MAX_SCENE_LANES * LANE_SEGMENTS * 2);
+    expect(Math.min(...Array.from({ length: s.lines.length / LINE_FLOATS }, (_, i) => s.lines[i * LINE_FLOATS + 2]!))).toBeCloseTo(0.45);
+  });
+
   describe('flood', () => {
     const base = show.frameAt(15);
     const live = base.base.sky.stars.length;
     const comets = Array.from({ length: 250 }, (_, i) => ({ from: i % live, to: (i + 1) % live, progress: (i % 10) / 10 + 0.05, size: 1, kind: 'gold' as const }));
-    const rings = Array.from({ length: 100 }, (_, i) => ({ star: i % live, progress: 0.1 + (i % 5) * 0.1 }));
+    const rings = Array.from({ length: 600 }, (_, i) => ({ star: i % live, progress: 0.1 + (i % 5) * 0.1 }));
     const arrivals = Array.from({ length: 120 }, (_, i) => ({ from: i % live, to: (i + 1) % live, age: (i % 4) * 0.1, size: 1, kind: 'gold' as const }));
     const lanes = Array.from({ length: 2000 }, (_, i) => ({ from: i % live, to: (i + 1) % live, opacity: 0.5 }));
     const coins = Array.from({ length: 500 }, () => ({ star: 0, selector: replay.chains[0]!.selector, alpha: 1 }));
@@ -134,10 +143,17 @@ describe('buildScene', () => {
       expect(scene.coins.length / COIN_FLOATS).toBeLessThanOrEqual(MAX_SCENE_COINS);
     });
 
-    it('still draws every star core', () => {
-      let discs = 0;
-      for (let i = 0; i < scene.quads.length; i += QUAD_FLOATS) if (scene.quads[i + 9] === CINEMA_SHAPE.disc) discs++;
-      expect(discs).toBeGreaterThanOrEqual(floodStars.length);
+    it('fills the quad cap exactly', () => {
+      expect(quadCount(scene)).toBe(MAX_SCENE_QUADS);
+    });
+
+    it('still draws exactly one core per live star at the cap', () => {
+      const coreRed = COLORS.star[0] * 1.1;
+      let cores = 0;
+      for (let i = 0; i < scene.quads.length; i += QUAD_FLOATS) {
+        if (scene.quads[i + 9] === CINEMA_SHAPE.disc && Math.abs(scene.quads[i + 5]! - coreRed) < 1e-4) cores++;
+      }
+      expect(cores).toBe(floodStars.length);
     });
   });
 });

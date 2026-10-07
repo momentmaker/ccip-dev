@@ -16,7 +16,7 @@ export const CINEMA_SHAPE = { glow: 0, ring: 1, disc: 2, streak: 3, spark: 4 } a
 export const DUST_COUNTS = [300, 180, 90] as const;
 export const DUST_PARALLAX = [0.2, 0.4, 0.7] as const;
 export const MAX_SCENE_QUADS = 8000;
-export const MAX_SCENE_LANES = 512;
+export const MAX_SCENE_LANES = 2048;
 export const MAX_SCENE_COINS = 64;
 const DUST_SPREAD = 3;
 const TITLE_PARTICLES_FROM_S = 0.3;
@@ -80,12 +80,13 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
   const coreCount = sky.stars.filter((s) => s.radius > 0).length;
   const effectLimit = Math.max(0, MAX_SCENE_QUADS - coreCount);
   const quads: number[] = [];
-  const push = (x: number, y: number, sx: number, sy: number, angle: number, c: Rgb, a: number, shape: number, gain: number) => {
-    quads.push(x, y, sx, sy, angle, c[0]! * gain, c[1]! * gain, c[2]! * gain, Math.min(1, a), shape);
+  const coreQuads: number[] = [];
+  const push = (out: number[], x: number, y: number, sx: number, sy: number, angle: number, c: Rgb, a: number, shape: number, gain: number) => {
+    out.push(x, y, sx, sy, angle, c[0]! * gain, c[1]! * gain, c[2]! * gain, Math.min(1, a), shape);
   };
   const put = (x: number, y: number, sx: number, sy: number, angle: number, c: Rgb, a: number, shape: number, gain = 1) => {
     if (a <= 0.002 || quads.length / QUAD_FLOATS >= effectLimit) return;
-    push(x, y, sx, sy, angle, c, a, shape, gain);
+    push(quads, x, y, sx, sy, angle, c, a, shape, gain);
   };
   const onScreen = (x: number, y: number, pad: number) => x > -pad && y > -pad && x < w + pad && y < h + pad;
 
@@ -107,8 +108,9 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     return { x, y };
   });
 
+  const lanes = [...sky.lanes].sort((a, b) => b.opacity - a.opacity).slice(0, MAX_SCENE_LANES);
   const lines: number[] = [];
-  for (const lane of sky.lanes.slice(0, MAX_SCENE_LANES)) {
+  for (const lane of lanes) {
     const a = points[lane.from];
     const b = points[lane.to];
     if (!a || !b) continue;
@@ -122,7 +124,7 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
   }
 
   const activity = new Array<number>(sky.stars.length).fill(0);
-  for (const lane of sky.lanes) {
+  for (const lane of lanes) {
     activity[lane.from] = (activity[lane.from] ?? 0) + lane.opacity;
     activity[lane.to] = (activity[lane.to] ?? 0) + lane.opacity;
   }
@@ -139,7 +141,7 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     if (s.radius <= 0) return;
     const p = points[i]!;
     const core = Math.max(1, s.radius * unit);
-    push(p.x, p.y, core, core, 0, COLORS.star, 0.55 + 0.45 * s.brightness + s.flash, CINEMA_SHAPE.disc, 1.1);
+    push(coreQuads, p.x, p.y, core, core, 0, COLORS.star, 0.55 + 0.45 * s.brightness + s.flash, CINEMA_SHAPE.disc, 1.1);
   });
 
   for (const c of sky.comets) {
@@ -235,7 +237,7 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     height: h,
     nebula: tier.nebula ? { offset: [frame.t * 0.02 + cam.cx * 0.05, cam.cy * 0.05], intensity: 0.08, seed: (ctx.seed % 997) / 997 } : null,
     lines: new Float32Array(lines),
-    quads: new Float32Array(quads),
+    quads: new Float32Array([...quads, ...coreQuads]),
     coins: new Float32Array(coins),
     shock: shock ? { x: 0.5, y: 0.5, progress: shock.progress, strength: shock.strength } : null,
     exposure,
