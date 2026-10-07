@@ -105,6 +105,39 @@ describe('Show', () => {
     expect(poster.finale).toBeGreaterThanOrEqual(0.7);
   });
 
+  describe('year ticks', () => {
+    const DAY_MS = 86_400_000;
+    const span = (from: string, to: string) => Array.from({ length: (Date.parse(to) - Date.parse(from)) / DAY_MS + 1 }, (_, i) => new Date(Date.parse(from) + i * DAY_MS).toISOString().slice(0, 10));
+    const days = span('2023-07-06', '2026-10-06');
+    const joinDay = '2026-09-22';
+    const multiYear: ReplayFile = {
+      ...replay,
+      since: days[0]!,
+      chains: [
+        { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: days[0]! },
+        { selector: 'c', name: 'gamma-mainnet', display_name: 'Gamma', first_day: days[0]! },
+        { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: joinDay },
+      ],
+      lanes: [[0, 1], [0, 2]],
+      days: days.map((day) => ({ day, lanes: day >= joinDay ? [[0, 40, 1000], [1, 3, 100]] : [[0, 40, 1000]] })),
+    } as ReplayFile;
+    const multiHistory = multiYear.days.map((d) => ({ ...history[0]!, day: d.day, messages: 43 }));
+    const showOf = (focus: string | null, length: number) => new Show({ replay: multiYear, history: multiHistory, stars: buildLayout(multiYear.chains), length, focus, eligible: () => true });
+    const gaps = (s: Show) => s.yearTicks().slice(1).map((t, i) => (t.time - s.yearTicks()[i]!.time) / (s.warp.end - s.warp.start));
+
+    it.each([15, 30, 60])('keeps the ticks of a late-joining focus cut at least 7 percent of the story apart, keeping the latest year (%i s)', (length) => {
+      const s = showOf('b', length);
+      expect(s.yearTicks().at(-1)!.label).toBe('2026');
+      for (const g of gaps(s)) expect(g).toBeGreaterThanOrEqual(0.07);
+    });
+
+    it.each([15, 30, 60])('keeps every year of the network cut, whose ticks are already more than 7 percent apart (%i s)', (length) => {
+      const s = showOf(null, length);
+      expect(s.yearTicks().map((t) => t.label)).toEqual(['2023', '2024', '2025', '2026']);
+      for (const g of gaps(s)) expect(g).toBeGreaterThan(0.07);
+    });
+  });
+
   it('starts the timeline with the first year', () => {
     expect(show().yearTicks()[0]).toEqual({ time: 2, label: '2023' });
   });

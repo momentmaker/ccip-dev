@@ -35,16 +35,20 @@ interface Drawn {
   alpha: number;
   x: number;
   y: number;
+  scale: number;
 }
 
 function fontCtx(drawn: Drawn[]) {
   let font = '';
   let alpha = 1;
+  let scale = 1;
   return new Proxy(
     {},
     {
       get: (_t, key) => {
-        if (key === 'fillText') return (text: string, x: number, y: number) => drawn.push({ text, font, alpha, x, y });
+        if (key === 'fillText') return (text: string, x: number, y: number) => drawn.push({ text, font, alpha, x, y, scale });
+        if (key === 'scale') return (sx: number) => void (scale *= sx);
+        if (key === 'restore') return () => void (scale = 1);
         if (key === 'measureText') return (s: string) => ({ width: s.length * 10 });
         if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
         return () => {};
@@ -215,6 +219,33 @@ describe('drawStory text fitting', () => {
     drawStory(fontCtx(popping), slamFrame(label, 0.05), l, assets);
     drawStory(fontCtx(resting), slamFrame(label, 0.5), l, assets);
     expect(fontOf(popping, label)).toBe(fontOf(resting, label));
+  });
+
+  it.each(sizes)('keeps a long slam label inside the slam box through the whole pop at %ix%i', (w, h) => {
+    const l = layoutFor(w, h);
+    const label = '1,000,000 messages · '.repeat(6);
+    for (const progress of [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 0.9]) {
+      const drawn: Drawn[] = [];
+      drawStory(fontCtx(drawn), slamFrame(label, progress), l, assets);
+      const d = drawn.find((x) => x.text === label)!;
+      expect(label.length * 10 * (px(d.font) / (110 * l.unit)) * d.scale).toBeLessThanOrEqual(l.slam.w + 1e-6);
+    }
+  });
+
+  it('caps the pop of a label that fits at rest but not at 1.4x', () => {
+    const l = layoutFor(1080, 1080);
+    const label = 'x'.repeat(Math.floor(l.slam.w / 10 / 1.2));
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), slamFrame(label, 0), l, assets);
+    const d = drawn.find((x) => x.text === label)!;
+    expect(d.scale).toBeGreaterThan(1);
+    expect(label.length * 10 * d.scale).toBeLessThanOrEqual(l.slam.w + 1e-6);
+  });
+
+  it('gives a short slam label the full 1.4x pop', () => {
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), slamFrame('$1B moved', 0), layoutFor(1080, 1080), assets);
+    expect(drawn.find((x) => x.text === '$1B moved')!.scale).toBeCloseTo(1.4, 9);
   });
 
   it('keeps the base size for short text', () => {

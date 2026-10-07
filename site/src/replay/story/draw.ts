@@ -23,6 +23,7 @@ const MONO = '"JetBrains Mono", monospace';
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (x: number) => 1 - (1 - clamp01(x)) ** 3;
 const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;
+const SLAM_POP = 1.4;
 
 export function fitText(ctx: Ctx, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) return text;
@@ -33,10 +34,11 @@ export function fitText(ctx: Ctx, text: string, maxWidth: number): string {
   return ctx.measureText('…').width <= maxWidth ? '…' : '';
 }
 
-function setFittedFont(ctx: Ctx, text: string, weight: number, basePx: number, family: string, maxWidth: number): void {
+function setFittedFont(ctx: Ctx, text: string, weight: number, basePx: number, family: string, maxWidth: number): number {
   ctx.font = `${weight} ${basePx}px ${family}`;
   const width = ctx.measureText(text).width;
   if (width > maxWidth) ctx.font = `${weight} ${(basePx * maxWidth) / width}px ${family}`;
+  return Math.min(width, maxWidth);
 }
 
 function roundRect(ctx: Ctx, b: Box, r: number): void {
@@ -199,10 +201,11 @@ function drawCard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsset
 function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   const slam = frame.slam!;
   const u = l.unit;
-  const scale = 1.4 - 0.4 * ease(slam.progress / 0.25);
   const alpha = ease(slam.progress / 0.15) * (1 - ease((slam.progress - 0.8) / 0.2));
   ctx.save();
-  setFittedFont(ctx, slam.label, 800, 110 * u, SANS, l.slam.w);
+  const restWidth = setFittedFont(ctx, slam.label, 800, 110 * u, SANS, l.slam.w);
+  const maxPop = restWidth > 0 ? Math.min(SLAM_POP, l.slam.w / restWidth) : SLAM_POP;
+  const scale = 1 + (maxPop - 1) * (1 - ease(slam.progress / 0.25));
   ctx.globalAlpha = alpha;
   const blur = (1 - ease(slam.progress / 0.25)) * 12 * u;
   ctx.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';

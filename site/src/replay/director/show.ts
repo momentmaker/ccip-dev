@@ -24,6 +24,7 @@ import { StoryCounter, type StoryValues } from './story';
 import { storyWarp, WARP_PRE_JOIN_SHARE, type Warp } from './warp';
 
 export const LOOP_S = 0.5;
+export const YEAR_TICK_GAP = 0.07;
 
 export interface ShowInput {
   replay: ReplayFile;
@@ -197,6 +198,13 @@ export class Show {
   }
 
   yearTicks(): { time: number; label: string }[] {
-    return this.days.flatMap((day, i) => (i === 0 || day.endsWith('-01-01') ? [{ time: this.warp.dayStart(i), label: day.slice(0, 4) }] : []));
+    const years = this.days.flatMap((day, i) => (i === 0 || day.endsWith('-01-01') ? [{ time: this.warp.dayStart(i), label: day.slice(0, 4) }] : []));
+    const gap = YEAR_TICK_GAP * (this.warp.end - this.warp.start);
+    const kept: { time: number; label: string }[] = [];
+    for (const tick of years.reverse()) {
+      const next = kept[0];
+      if (!next || next.time - tick.time >= gap) kept.unshift(tick);
+    }
+    return kept;
   }
 }
