@@ -33,6 +33,7 @@ export const CARD_S = 1.6;
 export const CARD_MIN_S = 1.0;
 export const CARD_MAX_LAG_S = 1.0;
 export const SLAM_S = 1.4;
+export const SLAM_MAX_LAG_S = 0.8;
 export const RECORD_SKIP_DAYS = 30;
 export const MAX_RECORDS = 3;
 
@@ -50,11 +51,19 @@ export function joinEvents(chains: readonly Chain[], days: readonly string[]): D
     .sort((a, b) => a.dayIndex - b.dayIndex || (a.selectors[0]! < b.selectors[0]! ? -1 : 1));
 }
 
+function isHeadline(m: Milestone): boolean {
+  if (m.threshold === null) return false;
+  if (m.kind === 'chains') return m.threshold % 25 === 0;
+  if (m.kind !== 'messages' && m.kind !== 'value') return false;
+  const power = Math.log10(m.threshold);
+  return Math.abs(power - Math.round(power)) < 1e-9;
+}
+
 export function milestoneEvents(milestones: readonly Milestone[], days: readonly string[]): DayEvent[] {
   const at = indexOf(days);
   return milestones.flatMap((m) => {
     const i = at.get(m.day);
-    return m.kind === 'join' || i === undefined ? [] : [{ kind: 'milestone' as const, dayIndex: i, label: m.label, selectors: [] }];
+    return !isHeadline(m) || i === undefined ? [] : [{ kind: 'milestone' as const, dayIndex: i, label: m.label, selectors: [] }];
   });
 }
 
@@ -131,14 +140,15 @@ interface Group {
 }
 
 export function scheduleCards(events: readonly DayEvent[], warp: Warp, focusName: string | null): Card[] {
-  const timed = events
-    .filter((e): e is DayEvent & { kind: Card['kind'] } => e.kind !== 'milestone')
-    .map((e) => ({ e, time: warp.dayStart(e.dayIndex) }))
-    .sort((a, b) => a.time - b.time);
+  const timed = (kinds: readonly EventKind[]) =>
+    events
+      .filter((e): e is DayEvent & { kind: Card['kind'] } => kinds.includes(e.kind))
+      .map((e) => ({ e, time: warp.dayStart(e.dayIndex) }))
+      .sort((a, b) => a.time - b.time);
   const groups: Group[] = [];
-  for (const { e, time } of timed) {
+  for (const { e, time } of timed(['join', 'lane'])) {
     const prev = groups.at(-1);
-    const sameKind = prev !== undefined && prev.kind === e.kind && e.kind !== 'record';
+    const sameKind = prev !== undefined && prev.kind === e.kind;
     const wouldStart = prev ? Math.max(time, prev.start + CARD_MIN_S) : time;
     if (prev && sameKind && (time - prev.time < JOIN_BATCH_S || wouldStart - time > CARD_MAX_LAG_S)) {
       prev.names.push(e.label);
@@ -149,22 +159,33 @@ export function scheduleCards(events: readonly DayEvent[], warp: Warp, focusName
     const start = Math.max(time, prev?.end ?? time);
     groups.push({ kind: e.kind, time, start, end: start + CARD_S, names: [e.label], selectors: [...e.selectors] });
   }
-  return groups.map((g) => ({
-    kind: g.kind,
-    time: g.time,
-    start: g.start,
-    end: g.end,
-    label: cardLabel(g.kind, g.names, focusName),
-    selectors: g.selectors.slice(0, 3),
-    count: g.names.length,
-  }));
+  for (const { e, time } of timed(['record'])) {
+    const candidates = [time, ...groups.map((g) => g.end).filter((end) => end > time && end <= time + CARD_MAX_LAG_S)].sort((a, b) => a - b);
+    const start = candidates.find((s) => groups.every((g) => s + CARD_MIN_S <= g.start + 1e-9 || s >= g.end - 1e-9));
+    if (start === undefined) continue;
+    const nextStart = Math.min(...groups.filter((g) => g.start >= start - 1e-9).map((g) => g.start));
+    groups.push({ kind: 'record', time, start, end: Math.min(start + CARD_S, nextStart), names: [e.label], selectors: [] });
+  }
+  return groups
+    .sort((a, b) => a.start - b.start)
+    .map((g) => ({
+      kind: g.kind,
+      time: g.time,
+      start: g.start,
+      end: g.end,
+      label: cardLabel(g.kind, g.names, focusName),
+      selectors: g.selectors.slice(0, 3),
+      count: g.names.length,
+    }));
 }
 
 export function scheduleSlams(events: readonly DayEvent[], warp: Warp): Slam[] {
   const out: Slam[] = [];
   for (const e of events.filter((x) => x.kind === 'milestone').sort((a, b) => a.dayIndex - b.dayIndex)) {
     const prev = out.at(-1);
-    out.push({ start: Math.max(warp.dayStart(e.dayIndex), prev ? prev.start + SLAM_S : -Infinity), label: e.label });
+    const day = warp.dayStart(e.dayIndex);
+    const start = Math.max(day, prev ? prev.start + SLAM_S : -Infinity);
+    if (start - day <= SLAM_MAX_LAG_S) out.push({ start, label: e.label });
   }
   return out;
 }

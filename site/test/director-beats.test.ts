@@ -11,9 +11,10 @@ import {
   recordEvents,
   scheduleCards,
   scheduleSlams,
+  SLAM_MAX_LAG_S,
   type DayEvent,
 } from '../src/replay/director/beats';
-import { linearWarp } from '../src/replay/director/warp';
+import { durationWarp, linearWarp } from '../src/replay/director/warp';
 
 const days = ['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04'];
 const chain = (selector: string, display_name: string, first_day: string) => ({ selector, name: `${selector}-mainnet`, display_name, first_day });
@@ -25,6 +26,15 @@ describe('day events', () => {
       { kind: 'join', dayIndex: 0, label: 'Ethereum', selectors: ['e'] },
       { kind: 'join', dayIndex: 2, label: 'Base', selectors: ['b'] },
     ]);
+  });
+
+  it('keeps only headline milestones', () => {
+    const m = (kind: 'messages' | 'value' | 'chains', threshold: number) => ({ kind, day: '2024-01-01', label: `${kind} ${threshold}`, threshold });
+    const events = milestoneEvents(
+      [m('messages', 1000), m('messages', 2000), m('messages', 10000), m('value', 2.5e9), m('value', 1e10), m('chains', 10), m('chains', 25), m('chains', 50)],
+      days,
+    );
+    expect(events.map((e) => e.label)).toEqual(['messages 1000', 'messages 10000', 'value 10000000000', 'chains 25', 'chains 50']);
   });
 
   it('keeps threshold milestones and drops joins from the milestone list', () => {
@@ -83,6 +93,12 @@ describe('day events', () => {
   });
 });
 
+describe('dayFlags lanes', () => {
+  it('flags a lane event as a join day', () => {
+    expect(dayFlags([{ kind: 'lane', dayIndex: 1, label: 'x', selectors: [] }], 2)[1]).toEqual({ join: true, milestone: false, record: false });
+  });
+});
+
 describe('scheduleCards', () => {
   const join = (dayIndex: number, label: string): DayEvent => ({ kind: 'join', dayIndex, label, selectors: [label] });
 
@@ -116,8 +132,51 @@ describe('scheduleCards', () => {
   it('keeps record cards separate and handles empty input', () => {
     const warp = linearWarp(10, 0, 10);
     const record: DayEvent = { kind: 'record', dayIndex: 1, label: 'Record day · 5 messages', selectors: [] };
-    expect(scheduleCards([record, { ...record }], warp, null)).toHaveLength(2);
+    expect(scheduleCards([record, { ...record, dayIndex: 5 }], warp, null)).toHaveLength(2);
+    expect(scheduleCards([record, { ...record }], warp, null)).toHaveLength(1);
     expect(scheduleCards([], warp, null)).toEqual([]);
+  });
+});
+
+describe('scheduleCards across kinds', () => {
+  const ev = (kind: DayEvent['kind'], dayIndex: number, label: string): DayEvent => ({ kind, dayIndex, label, selectors: [label] });
+  const noOverlap = (cards: ReturnType<typeof scheduleCards>) => {
+    for (let i = 1; i < cards.length; i++) expect(cards[i]!.start).toBeGreaterThanOrEqual(cards[i - 1]!.end - 1e-9);
+  };
+
+  it('never lets a record delay a join', () => {
+    const warp = linearWarp(30, 0, 30);
+    const cards = scheduleCards([ev('join', 5, 'A'), ev('record', 5, 'Record day · 5 messages'), ev('join', 5, 'B')], warp, null);
+    noOverlap(cards);
+    for (const c of cards) expect(c.start - c.time).toBeLessThanOrEqual(CARD_MAX_LAG_S + 1e-9);
+    expect(cards.filter((c) => c.kind === 'join')).toHaveLength(1);
+    expect(cards.find((c) => c.kind === 'join')!.start).toBe(5);
+  });
+
+  it('places a record in a gap between joins at its own time', () => {
+    const warp = linearWarp(30, 0, 30);
+    const cards = scheduleCards([ev('join', 0, 'A'), ev('record', 3, 'Record day · 5 messages'), ev('join', 10, 'B')], warp, null);
+    noOverlap(cards);
+    const record = cards.find((c) => c.kind === 'record')!;
+    expect(record.start).toBe(3);
+    expect(record.end - record.start).toBeGreaterThanOrEqual(CARD_MIN_S);
+  });
+
+  it('drops a record when no free window fits within the lag', () => {
+    const warp = linearWarp(30, 0, 30);
+    const cards = scheduleCards([ev('join', 0, 'A'), ev('join', 1, 'B'), ev('join', 2, 'C'), ev('join', 3, 'D'), ev('record', 1, 'Record day · 5 messages')], warp, null);
+    expect(cards.some((c) => c.kind === 'record')).toBe(false);
+    noOverlap(cards);
+  });
+
+  it('merges a same-kind join when the lag would exceed the limit', () => {
+    const warp = durationWarp([0.01, 0.01, 1.01, 5], 0);
+    const cards = scheduleCards([ev('join', 0, 'A'), ev('lane', 1, 'L'), ev('join', 2, 'B'), ev('join', 3, 'C')], warp, 'Focus');
+    expect(cards.map((c) => [c.kind, c.count])).toEqual([
+      ['join', 1],
+      ['lane', 1],
+      ['join', 2],
+    ]);
   });
 });
 
@@ -132,9 +191,23 @@ describe('scheduleSlams', () => {
       ],
       warp,
     );
-    expect(slams).toEqual([
-      { start: 2, label: '$1B moved' },
-      { start: 3.4, label: '50 chains' },
+    expect(slams).toEqual([{ start: 2, label: '$1B moved' }]);
+  });
+
+  it('spaces slams that have room by the slam length', () => {
+    const warp = linearWarp(10, 0, 10);
+    const slam = (dayIndex: number, label: string): DayEvent => ({ kind: 'milestone', dayIndex, label, selectors: [] });
+    expect(scheduleSlams([slam(2, 'a'), slam(4, 'b')], warp)).toEqual([
+      { start: 2, label: 'a' },
+      { start: 4, label: 'b' },
     ]);
+  });
+
+  it('drops slams that would start more than the lag after their day', () => {
+    const warp = linearWarp(10, 0, 10);
+    const crowd: DayEvent[] = ['a', 'b', 'c', 'd', 'e'].map((label) => ({ kind: 'milestone', dayIndex: 2, label, selectors: [] }));
+    const slams = scheduleSlams(crowd, warp);
+    expect(slams).toEqual([{ start: 2, label: 'a' }]);
+    for (const s of slams) expect(s.start - 2).toBeLessThanOrEqual(SLAM_MAX_LAG_S + 1e-9);
   });
 });
