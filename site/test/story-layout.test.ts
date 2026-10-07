@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { aspectOf, intersects, layoutFor, type Box } from '../src/replay/story/layout';
-import { odometer } from '../src/replay/story/odometer';
+import { odometer, rollOf } from '../src/replay/story/odometer';
 
 const sizes: [number, number][] = [[1920, 1080], [1080, 1080], [1080, 1920], [390, 390], [390, 693], [693, 390]];
 const inside = (b: Box, w: number, h: number) => b.x >= 0 && b.y >= 0 && b.x + b.w <= w + 1e-6 && b.y + b.h <= h + 1e-6;
@@ -39,5 +39,16 @@ describe('odometer', () => {
     const o = odometer(value);
     expect(o.text).toBe(text);
     expect(o.frac).toBeCloseTo(frac, 4);
+  });
+});
+
+describe('rollOf', () => {
+  it.each([
+    [0.3, 0, 0],
+    [0.75, 0, 0.5],
+    [1, 0, 1],
+    [0.9, 1, 0],
+  ])('frac %s settle %s rolls %s', (frac, settle, roll) => {
+    expect(rollOf(frac, settle)).toBeCloseTo(roll, 6);
   });
 });

@@ -17,7 +17,7 @@ function fakeCtx(texts: string[], calls: Record<string, number> = {}) {
     {},
     {
       get: (_t, key) => {
-        if (key === 'save' || key === 'restore') return () => void (calls[key] = (calls[key] ?? 0) + 1);
+        if (key === 'save' || key === 'restore' || key === 'clip') return () => void (calls[key] = (calls[key] ?? 0) + 1);
         if (key === 'fillText') return (s: string) => texts.push(s);
         if (key === 'measureText') return (s: string) => ({ width: s.length * 10 });
         if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
@@ -97,11 +97,26 @@ describe('drawStory', () => {
   });
 
   it('rolls a carrying digit column with the last digit', () => {
-    const frame = { ...show.frameAt(15), story: { ...show.frameAt(15).story, usd: 1.95e6 } };
+    const frame = { ...show.frameAt(15), story: { ...show.frameAt(15).story, usd: 1.99e6 } };
     const texts: string[] = [];
     drawStory(fakeCtx(texts), frame, layoutFor(1080, 1080), assets);
     expect(texts).toContain('1');
     expect(texts).toContain('2');
     expect(texts).toContain('0');
+  });
+
+  it('rolls only the last digit when it is not a nine', () => {
+    const base = show.frameAt(15);
+    const frame = { ...base, story: { ...base.story, usd: 24.07e9 } };
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), frame, layoutFor(1080, 1080), assets);
+    expect(texts.filter((t) => t === '4')).toHaveLength(1);
+    expect(texts).not.toContain('5');
+  });
+
+  it('draws no rolling column in the finale', () => {
+    const calls: Record<string, number> = {};
+    drawStory(fakeCtx([], calls), show.frameAt(29), layoutFor(1080, 1080), assets);
+    expect(calls.clip ?? 0).toBe(0);
   });
 });

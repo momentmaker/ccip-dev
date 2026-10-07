@@ -9,3 +9,11 @@ export function odometer(value: number): { text: string; frac: number } {
   const shown = whole * step;
   return { text: `$${suffix === '' ? String(shown) : shown.toFixed(1)}${suffix}`, frac: Math.max(0, n - whole) };
 }
+
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+const smoothstep = (x: number) => x * x * (3 - 2 * x);
+const ease = (x: number) => 1 - (1 - x) ** 3;
+
+export function rollOf(frac: number, settle: number): number {
+  return smoothstep(clamp01((frac - 0.5) / 0.5)) * (1 - ease(clamp01(settle)));
+}

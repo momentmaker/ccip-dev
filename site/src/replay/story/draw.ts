@@ -2,7 +2,7 @@ import { formatCount, formatUtcDay } from '../../lib/format';
 import { chainName, type ChainNames } from '../../lib/names';
 import type { ShowFrame } from '../director/show';
 import type { Box, StoryLayout } from './layout';
-import { odometer } from './odometer';
+import { odometer, rollOf } from './odometer';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -106,22 +106,23 @@ function drawCounter(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   for (let i = text.length - 1; i >= 0 && lastDigit >= 0; i--) {
     if (!/\d/.test(text[i]!)) continue;
     if (carrying) rolling.add(i);
-    carrying = carrying && (i === lastDigit || text[i] === '9');
+    carrying = carrying && text[i] === '9';
   }
+  const roll = rollOf(frac, frame.phase === 'finale' ? frame.finale / 0.15 : 0);
   const cell = ctx.measureText('0').width;
   for (let i = 0; i < text.length; i++) {
     const x = l.counter.x + ctx.measureText(text.slice(0, i)).width;
-    if (!rolling.has(i)) {
+    if (roll === 0 || !rolling.has(i)) {
       ctx.fillText(text[i]!, x, l.counter.y);
       continue;
     }
     const digit = Number(text[i]);
     ctx.save();
     ctx.beginPath();
-    ctx.rect(x, l.counter.y, cell, size * 1.1);
+    ctx.rect(x, l.counter.y, cell, size);
     ctx.clip();
-    ctx.fillText(String(digit), x, l.counter.y - frac * size);
-    ctx.fillText(String((digit + 1) % 10), x, l.counter.y + (1 - frac) * size);
+    ctx.fillText(String(digit), x, l.counter.y - roll * size);
+    ctx.fillText(String((digit + 1) % 10), x, l.counter.y + (1 - roll) * size);
     ctx.restore();
   }
   ctx.font = `400 ${26 * u}px ${SANS}`;
