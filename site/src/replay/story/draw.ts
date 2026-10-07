@@ -1,5 +1,6 @@
 import { formatCount, formatUtcDay } from '../../lib/format';
 import { chainName, type ChainNames } from '../../lib/names';
+import { stripCells, stripColumns, type BoardRow } from '../director/leaderboard';
 import type { ShowFrame } from '../director/show';
 import type { Box, StoryLayout } from './layout';
 import { odometer, rollOf } from './odometer';
@@ -214,6 +215,12 @@ function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.restore();
 }
 
+const descending = (r: BoardRow) => r.to > r.from && r.swap < 1;
+
+function crossingAlpha(r: BoardRow): number {
+  return descending(r) ? r.alpha * (1 - 0.5 * Math.sin(Math.PI * r.swap)) : r.alpha;
+}
+
 function drawBoard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAssets): void {
   const u = l.unit;
   const rows = frame.board;
@@ -223,9 +230,9 @@ function drawBoard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsse
   ctx.textBaseline = 'middle';
   if (l.aspect === 'wide') {
     const rowH = 60 * u;
-    for (const r of rows) {
+    for (const r of [...rows.filter(descending), ...rows.filter((x) => !descending(x))]) {
       const y = l.board.y + r.rank * rowH;
-      ctx.globalAlpha = r.alpha;
+      ctx.globalAlpha = crossingAlpha(r);
       if (r.focus) {
         roundRect(ctx, { x: l.board.x - 8 * u, y: y + 4 * u, w: l.board.w + 16 * u, h: rowH - 8 * u }, 10 * u);
         ctx.fillStyle = 'rgba(19, 36, 77, 0.9)';
@@ -244,11 +251,11 @@ function drawBoard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsse
       ctx.fillText(odometer(r.value).text, l.board.x + l.board.w, y + rowH / 2);
     }
   } else {
-    const shown = rows.filter((r) => r.rank < 3 || r.focus);
-    const colW = l.board.w / Math.max(3, shown.length);
-    for (const r of shown) {
-      const x = l.board.x + Math.min(r.rank, 3) * colW;
-      ctx.globalAlpha = r.alpha;
+    const focusCut = frame.focus !== null;
+    const colW = l.board.w / stripColumns(focusCut);
+    for (const { row: r, column, alpha } of stripCells(rows, focusCut)) {
+      const x = l.board.x + column * colW;
+      ctx.globalAlpha = alpha;
       coin(ctx, assets, r.selector, x + 28 * u, l.board.y + 40 * u, 44 * u);
       ctx.fillStyle = r.focus ? BLUE : FG;
       ctx.font = `600 ${22 * u}px ${SANS}`;

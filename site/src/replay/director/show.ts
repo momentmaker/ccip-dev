@@ -125,7 +125,7 @@ export class Show {
     this.model = new ReplayModel(replay, history, [], stars, length, { count: REPLAY_COINS, eligible: input.eligible }, this.warp);
     this.cards = scheduleCards(events, this.warp, this.focusName);
     this.slams = scheduleSlams(events, this.warp);
-    this.board = new Leaderboard(replay, this.days, input.eligible);
+    this.board = new Leaderboard(replay, this.days, input.eligible, this.warp);
     this.fullExtent = Math.max(1e-6, ...stars.map((s) => Math.hypot(s.x, s.y)));
     this.focusPoint = this.focus ? stars.find((s) => s.selector === this.focus) ?? null : null;
     this.focusStar = this.focus ? stars.findIndex((s) => s.selector === this.focus) : -1;
@@ -178,7 +178,7 @@ export class Show {
       card: cardHit ? { ...cardHit, progress: (time - cardHit.start) / (cardHit.end - cardHit.start) } : null,
       slam: slamHit ? { ...slamHit, progress: (time - slamHit.start) / SLAM_S } : null,
       story: this.counter.at(time, this.warp),
-      board: this.board.at(time, this.warp, this.focus),
+      board: this.board.at(time, this.focus),
       hook: phase === 'hook' ? { ...this.title, progress: clamp01(time / this.timing.hook) } : null,
       finale: phase === 'finale' ? clamp01((time - finaleStart) / this.timing.finale) : 0,
       loop: smoothstep((time - (this.length - LOOP_S)) / LOOP_S),

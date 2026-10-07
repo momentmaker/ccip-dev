@@ -1,5 +1,6 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
+import type { BoardRow } from '../src/replay/director/leaderboard';
 import { Show } from '../src/replay/director/show';
 import { drawStory } from '../src/replay/story/draw';
 import { layoutFor } from '../src/replay/story/layout';
@@ -31,21 +32,26 @@ function fakeCtx(texts: string[], calls: Record<string, number> = {}) {
 interface Drawn {
   text: string;
   font: string;
+  alpha: number;
+  x: number;
+  y: number;
 }
 
 function fontCtx(drawn: Drawn[]) {
   let font = '';
+  let alpha = 1;
   return new Proxy(
     {},
     {
       get: (_t, key) => {
-        if (key === 'fillText') return (text: string) => drawn.push({ text, font });
+        if (key === 'fillText') return (text: string, x: number, y: number) => drawn.push({ text, font, alpha, x, y });
         if (key === 'measureText') return (s: string) => ({ width: s.length * 10 });
         if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
         return () => {};
       },
       set: (_t, key, value) => {
         if (key === 'font') font = value as string;
+        if (key === 'globalAlpha') alpha = value as number;
         return true;
       },
     },
@@ -145,7 +151,7 @@ describe('drawStory', () => {
   });
 
   it('truncates a long chain name on the board', () => {
-    const frame = { ...show.frameAt(15), board: [{ selector: 'long', value: 5, rank: 0, alpha: 1, focus: false }] };
+    const frame = { ...show.frameAt(15), board: [{ selector: 'long', value: 5, rank: 0, from: 0, to: 0, swap: 1, alpha: 1, shown: 1, focus: false }] };
     const names = new Map([['long', 'N'.repeat(60)]]);
     const texts: string[] = [];
     drawStory(fakeCtx(texts), frame, layoutFor(1080, 1920), { ...assets, names });
@@ -243,5 +249,49 @@ describe('a short focus show', () => {
         for (let t = 0; t <= focusShow.length; t += 0.25) drawStory(fakeCtx([]), focusShow.frameAt(t), layoutFor(w, h), assets);
       }
     }).not.toThrow();
+  });
+});
+
+describe('drawStory board', () => {
+  const names = new Map([['up', 'Climber'], ['down', 'Faller'], ['third', 'Third'], ['fourth', 'Fourth']]);
+  const row = (selector: string, from: number, to: number, swap: number): BoardRow => ({
+    selector, value: 10, rank: from + (to - from) * swap, from, to, swap, alpha: 1, shown: 1, focus: false,
+  });
+  const swapping = (swap: number) => [row('down', 0, 1, swap), row('up', 1, 0, swap), row('third', 2, 2, 1)];
+  const draw = (board: BoardRow[], w: number, h: number) => {
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), { ...show.frameAt(15), card: null, slam: null, board }, layoutFor(w, h), { ...assets, names });
+    return drawn;
+  };
+
+  it('dims the descending row while two rows cross in the wide list, and draws it under the ascending one', () => {
+    const drawn = draw(swapping(0.5), 1920, 1080);
+    const faller = drawn.findIndex((d) => d.text === 'Faller');
+    const climber = drawn.findIndex((d) => d.text === 'Climber');
+    expect(drawn[faller]!.alpha).toBeCloseTo(0.5, 6);
+    expect(drawn[climber]!.alpha).toBe(1);
+    expect(faller).toBeLessThan(climber);
+  });
+
+  it('draws both rows at full strength once the swap is over', () => {
+    const drawn = draw([row('up', 0, 0, 1), row('down', 1, 1, 1)], 1920, 1080);
+    expect(drawn.filter((d) => d.text === 'Faller' || d.text === 'Climber').map((d) => d.alpha)).toEqual([1, 1]);
+  });
+
+  it('crossfades two swapping names in place in the strip instead of sliding one over the other', () => {
+    const l = layoutFor(1080, 1080);
+    const drawn = draw(swapping(0.25), 1080, 1080);
+    const colW = l.board.w / 3;
+    const columnOf = (d: Drawn) => Math.floor((d.x - l.board.x) / colW);
+    const cells = (text: string) => drawn.filter((d) => d.text === text).map((d) => [columnOf(d), d.alpha]);
+    expect(cells('Faller')).toEqual([[0, 0.75], [1, 0.25]]);
+    expect(cells('Climber')).toEqual([[1, 0.75], [0, 0.25]]);
+  });
+
+  it('keeps three strip columns in the network cut even while a fourth row is crossing in', () => {
+    const l = layoutFor(1080, 1920);
+    const drawn = draw([row('down', 0, 0, 1), row('up', 1, 1, 1), row('third', 2, 3, 0.5), row('fourth', 3, 2, 0.5)], 1080, 1920);
+    const xs = new Set(drawn.filter((d) => ['Faller', 'Climber', 'Third', 'Fourth'].includes(d.text)).map((d) => Math.round(d.x - l.board.x)));
+    expect([...xs].sort((a, b) => a - b)).toEqual([0, 1, 2].map((c) => Math.round(c * (l.board.w / 3) + 60 * l.unit)));
   });
 });
