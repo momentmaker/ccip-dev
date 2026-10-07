@@ -22,6 +22,8 @@ export interface FlowData {
   topLanes: { label: string; src: string; dst: string; usd: number; messages: number }[];
 }
 
+export const labelAngle = (mid: number) => (mid * 180) / Math.PI - 90 + (mid > Math.PI ? 180 : 0);
+
 const square = (n: number) => Array.from({ length: n }, () => new Array<number>(n).fill(0));
 
 export function flowData(replay: ReplayFile, window: Window, names: ChainNames, top = FLOW_TOP): FlowData {

@@ -1,5 +1,5 @@
 ---
-import { iconHref } from '../lib/chain-icons';
+import { iconHrefs } from '../lib/chain-icons';
 
 interface Props {
   selectors: readonly string[];
@@ -7,10 +7,7 @@ interface Props {
 }
 
 const { selectors, size = 16 } = Astro.props;
-const hrefs = selectors.flatMap((s) => {
-  const href = iconHref(s);
-  return href ? [href] : [];
-});
+const hrefs = iconHrefs(selectors);
 ---
 
 {

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { hasIcon, iconFiles, iconHref, missingIcons } from '../src/lib/chain-icons';
+import { hasIcon, iconFiles, iconHref, iconHrefs, missingIcons } from '../src/lib/chain-icons';
 import { iconDataUri } from '../src/lib/chain-icons-server';
 import manifest from '../src/data/chain-icons.json';
 
@@ -17,6 +17,11 @@ describe('chain icons', () => {
   it('returns nothing for a chain the manifest does not know', () => {
     expect(iconHref('1')).toBeNull();
     expect(hasIcon('1')).toBe(false);
+  });
+
+  it('lists the hrefs of known selectors in order and skips unknown ones', () => {
+    expect(iconHrefs(['1', ETHEREUM, '2', ETHEREUM])).toEqual(['/chains/ethereum-mainnet.svg', '/chains/ethereum-mainnet.svg']);
+    expect(iconHrefs(['1'])).toEqual([]);
   });
 
   it('names the chains that have no icon', () => {

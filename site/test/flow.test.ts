@@ -1,6 +1,6 @@
 import type { ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { flowData } from '../src/lib/flow';
+import { flowData, labelAngle } from '../src/lib/flow';
 import { chainNameMap } from '../src/lib/names';
 import replayJson from './fixtures/replay.json';
 
@@ -59,5 +59,18 @@ describe('flowData', () => {
 
   it('is empty without replay days', () => {
     expect(flowData({ ...replay, days: [] }, '7d', names)).toEqual({ groups: [], usd: [], messages: [], topLanes: [] });
+  });
+});
+
+describe('labelAngle', () => {
+  const groupRotation = (mid: number) => (mid * 180) / Math.PI - 90 + (mid > Math.PI ? 180 : 0);
+
+  it.each([0.5, 4.0])('cancels the label rotation for an icon at mid %s', (mid) => {
+    const total = groupRotation(mid) + -labelAngle(mid);
+    expect(((total % 360) + 360) % 360).toBeCloseTo(0);
+  });
+
+  it('turns the label half a turn on the left half', () => {
+    expect(labelAngle(Math.PI + 0.1) - labelAngle(Math.PI - 0.1)).toBeCloseTo(180 + (0.2 * 180) / Math.PI);
   });
 });

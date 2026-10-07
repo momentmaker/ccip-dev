@@ -12,6 +12,13 @@ export function iconHref(selector: string): string | null {
   return entry ? `/chains/${entry.file}` : null;
 }
 
+export function iconHrefs(selectors: readonly string[]): string[] {
+  return selectors.flatMap((s) => {
+    const href = iconHref(s);
+    return href ? [href] : [];
+  });
+}
+
 export function hasIcon(selector: string): boolean {
   return bySelector.has(selector);
 }

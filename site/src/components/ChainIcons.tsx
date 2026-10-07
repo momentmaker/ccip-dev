@@ -1,10 +1,7 @@
-import { iconHref } from '../lib/chain-icons';
+import { iconHrefs } from '../lib/chain-icons';
 
 export default function ChainIcons({ selectors, size = 16 }: { selectors: readonly string[]; size?: number }) {
-  const hrefs = selectors.flatMap((s) => {
-    const href = iconHref(s);
-    return href ? [href] : [];
-  });
+  const hrefs = iconHrefs(selectors);
   if (hrefs.length === 0) return null;
   return (
     <span className="chain-icons" aria-hidden="true">

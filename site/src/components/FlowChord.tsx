@@ -2,7 +2,7 @@ import { chordDirected, ribbonArrow, type Chord, type ChordGroup, type ChordSubg
 import { arc } from 'd3-shape';
 import { useMemo, useState } from 'react';
 import { iconHref } from '../lib/chain-icons';
-import { OTHER, type FlowData } from '../lib/flow';
+import { labelAngle, OTHER, type FlowData } from '../lib/flow';
 import { formatCount, formatUsd } from '../lib/format';
 
 const SIZE = 640;
@@ -79,7 +79,11 @@ export default function FlowChord({ data }: { data: FlowData }) {
                 <path d={arcPath(g) ?? ''} fill={groupColor(group.key, g.index)} />
                 {g.endAngle - g.startAngle > 0.05 && (
                   <g transform={`rotate(${(mid * 180) / Math.PI - 90}) translate(${OUTER + 8}) ${flip ? 'rotate(180)' : ''}`}>
-                    {href && <image href={href} x={flip ? -LABEL_ICON : 0} y={-LABEL_ICON / 2} width={LABEL_ICON} height={LABEL_ICON} clipPath="url(#flow-icon-clip)" />}
+                    {href && (
+                      <g transform={`translate(${flip ? -LABEL_ICON / 2 : LABEL_ICON / 2} 0) rotate(${-labelAngle(mid)})`}>
+                        <image href={href} x={-LABEL_ICON / 2} y={-LABEL_ICON / 2} width={LABEL_ICON} height={LABEL_ICON} clipPath="url(#flow-icon-clip)" />
+                      </g>
+                    )}
                     <text x={href ? (flip ? -(LABEL_ICON + 4) : LABEL_ICON + 4) : 0} textAnchor={flip ? 'end' : 'start'} dominantBaseline="middle" className="flow-label">
                       {group.label}
                     </text>
