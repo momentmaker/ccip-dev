@@ -6,7 +6,7 @@ import { pruneStale, type Planned } from '../../lib/live-scheduler';
 import { chainName, type ChainNames } from '../../lib/names';
 import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
-import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint } from '../../sky/overlay';
+import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
 import { LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
@@ -18,8 +18,18 @@ interface Props {
   names: ChainNames;
   queue: RefObject<Planned<LiveMessage>[]>;
   reducedMotion: boolean;
+  avoid?: string;
   onLaunch: (message: LiveMessage, caption: Caption | null) => void;
   onReady: (ready: boolean) => void;
+}
+
+function avoidRects(wrap: HTMLElement, selector: string | undefined): Rect[] {
+  if (!selector || !wrap.parentElement) return [];
+  const origin = wrap.getBoundingClientRect();
+  return [...wrap.parentElement.querySelectorAll(selector)].map((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left - origin.left, top: r.top - origin.top, right: r.right - origin.left, bottom: r.bottom - origin.top };
+  });
 }
 
 function captionText(m: LaunchInput, names: ChainNames): string {
@@ -34,7 +44,7 @@ export default function SkyCanvas(props: Props) {
   latest.current = props;
   const [canvasKey, setCanvasKey] = useState(0);
   const [forceFlat, setForceFlat] = useState(false);
-  const [labels, setLabels] = useState<{ selector: string; text: string; x: number; y: number }[]>([]);
+  const [labels, setLabels] = useState<{ selector: string; text: string; x: number; y: number; side: 'right' | 'left' }[]>([]);
   const [coins, setCoins] = useState<OverlayCoin[]>([]);
   const [hover, setHover] = useState<string | null>(null);
   const pointsRef = useRef<OverlayPoint[]>([]);
@@ -76,7 +86,8 @@ export default function SkyCanvas(props: Props) {
       const overlay = skyOverlay(scene.starPoints, new Map(latest.current.chainValues), wrap.clientWidth, wrap.clientHeight, {
         coins: coinCount(wrap.clientWidth),
         labels: wrap.clientWidth < 640 ? 6 : 12,
-        bottomReserve: 72,
+        avoid: avoidRects(wrap, latest.current.avoid),
+        labelWidth: (s) => chainName(latest.current.names, s).length * 7 + 4,
         hasIcon: (s) => hasIcon(s) && !brokenRef.current.has(s),
       });
       pointsRef.current = overlay.points;
@@ -223,7 +234,7 @@ export default function SkyCanvas(props: Props) {
       </div>
       <div className="sky-labels" aria-hidden="true">
         {labels.map((l) => (
-          <span key={l.selector} style={{ left: l.x, top: l.y }}>
+          <span key={l.selector} className={l.side === 'left' ? 'left' : undefined} style={{ left: l.x, top: l.y }}>
             {l.text}
           </span>
         ))}

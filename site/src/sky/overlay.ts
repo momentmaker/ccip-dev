@@ -17,14 +17,33 @@ export interface OverlayLabel {
   selector: string;
   x: number;
   y: number;
+  side: 'right' | 'left';
 }
+
+export interface Rect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+const LABEL_HALF_HEIGHT = 9;
+const DEFAULT_LABEL_WIDTH = 80;
+
+const intersects = (a: Rect, b: Rect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 
 export function skyOverlay(
   stars: readonly StarPoint[],
   values: Map<string, number>,
   width: number,
   height: number,
-  opts: { coins: number; labels: number; bottomReserve: number; hasIcon: (selector: string) => boolean },
+  opts: {
+    coins: number;
+    labels: number;
+    hasIcon: (selector: string) => boolean;
+    avoid?: readonly Rect[];
+    labelWidth?: (selector: string) => number;
+  },
 ): { points: OverlayPoint[]; coins: OverlayCoin[]; labels: OverlayLabel[] } {
   const project = projector(width, height, stars);
   const max = Math.max(0, ...values.values());
@@ -36,16 +55,31 @@ export function skyOverlay(
     return { selector: s.selector, x, y, r, d, reach: Math.max(12, d / 2 + 4) };
   });
   const bySelector = new Map(placed.map((p) => [p.selector, p]));
-  const clearOfStrip = new Set(placed.filter((p) => p.y + Math.max(p.d, 12) / 2 <= height - opts.bottomReserve).map((p) => p.selector));
-  const eligible = new Map([...values].filter(([selector]) => clearOfStrip.has(selector)));
-  const coins = coinSelectors(eligible, opts.coins, opts.hasIcon).flatMap((selector) => {
+  const avoid = opts.avoid ?? [];
+  const labelWidth = opts.labelWidth ?? (() => DEFAULT_LABEL_WIDTH);
+  const coinClear = (selector: string) => {
     const p = bySelector.get(selector);
-    return p ? [{ selector, x: p.x, y: p.y, d: p.d }] : [];
+    if (!p) return false;
+    const box = { left: p.x - p.d / 2, top: p.y - p.d / 2, right: p.x + p.d / 2, bottom: p.y + p.d / 2 };
+    return !avoid.some((rect) => intersects(box, rect));
+  };
+  const coins = coinSelectors(values, opts.coins, (s) => opts.hasIcon(s) && coinClear(s)).flatMap((selector) => {
+    const p = bySelector.get(selector)!;
+    return [{ selector, x: p.x, y: p.y, d: p.d }];
   });
   const withCoin = new Set(coins.map((c) => c.selector));
-  const labels = topSelectors(eligible, opts.labels).flatMap((selector) => {
+  const labels = topSelectors(values, opts.labels).flatMap((selector): OverlayLabel[] => {
     const p = bySelector.get(selector);
-    return p ? [{ selector, x: p.x + Math.max(10, (withCoin.has(selector) ? p.d / 2 : p.r) + 6), y: p.y }] : [];
+    if (!p) return [];
+    const offset = Math.max(10, (withCoin.has(selector) ? p.d / 2 : p.r) + 6);
+    const w = labelWidth(selector);
+    const top = p.y - LABEL_HALF_HEIGHT;
+    const bottom = p.y + LABEL_HALF_HEIGHT;
+    const rightBox = { left: p.x + offset, top, right: p.x + offset + w, bottom };
+    if (!avoid.some((rect) => intersects(rightBox, rect))) return [{ selector, x: p.x + offset, y: p.y, side: 'right' }];
+    const leftBox = { left: p.x - offset - w, top, right: p.x - offset, bottom };
+    if (!avoid.some((rect) => intersects(leftBox, rect))) return [{ selector, x: p.x - offset, y: p.y, side: 'left' }];
+    return [];
   });
   return { points: placed.map(({ selector, x, y, d, reach }) => ({ selector, x, y, d, reach })), coins, labels };
 }

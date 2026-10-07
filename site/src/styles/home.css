@@ -11,6 +11,7 @@
 .sky-card strong { display: block; }
 .sky-card > div { min-width: 0; }
 .sky-card .muted { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.sky-labels span.left { transform: translate(-100%, -50%); }
 .hero-overlay { position: absolute; left: 20px; top: 20px; max-width: 380px; }
 .headline { backdrop-filter: blur(6px); background: rgba(22, 27, 35, 0.78); }
 .headline-number { font-size: clamp(40px, 6vw, 64px); font-weight: 600; margin: 6px 0 0; line-height: 1; }
