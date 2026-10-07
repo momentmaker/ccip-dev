@@ -1,0 +1,53 @@
+---
+import FlowChord from '../../components/FlowChord';
+import ShareButton from '../../components/ShareButton';
+import Base from '../../layouts/Base.astro';
+import { buildData } from '../../lib/build-data';
+import { WINDOWS, type Window } from '../../lib/card-paths';
+import { flowData } from '../../lib/flow';
+import { formatCount, formatUsd } from '../../lib/format';
+import { chainNameMap } from '../../lib/names';
+
+export function getStaticPaths() {
+  return WINDOWS.map((window) => ({ params: { window } }));
+}
+
+const LABEL: Record<Window, string> = { '7d': '7 days', '30d': '30 days', all: 'All time' };
+const window = Astro.params.window as Window;
+const [replay, chains] = await Promise.all([buildData('replay.json'), buildData('chains.json')]);
+const data = flowData(replay, window, chainNameMap([...replay.chains, ...chains.chains]));
+const scope = window === 'all' ? `since ${replay.since}` : `last ${LABEL[window]}`;
+const leader = data.topLanes[0];
+---
+<Base title={`Flow · ${LABEL[window]}`} description={`Where CCIP value flows between chains, ${scope}.`} cardPath={`flow/${window}`}>
+  <div class="page-head">
+    <div>
+      <p class="label">{scope}</p>
+      <h1>Lane flow</h1>
+    </div>
+    <ShareButton client:load view={`flow/${window}`} headline={leader ? `Biggest CCIP lane, ${scope}: ${leader.label} (${formatUsd(leader.usd)})` : 'CCIP lane flow'} url={`https://ccip.dev/flow/${window}/`} cardUrl={`/og/flow/${window}.png`} />
+  </div>
+  <nav class="tabs" aria-label="Window">
+    {WINDOWS.map((w) => <a href={`/flow/${w}/`} aria-current={w === window ? 'page' : undefined}>{LABEL[w]}</a>)}
+  </nav>
+  <section class="card flow-card">
+    <FlowChord client:visible data={data} />
+    <p class="muted">The 20 chains with the most value in this window; the rest are grouped as Other. Hover or tap a chain to isolate its flows.</p>
+  </section>
+  <h2>Top lanes</h2>
+  <div class="table-wrap card">
+    <table class="data">
+      <thead><tr><th>Lane</th><th class="num">Messages</th><th class="num">Value</th></tr></thead>
+      <tbody>
+        {data.topLanes.map((l) => <tr><td>{l.label}</td><td class="num">{formatCount(l.messages)}</td><td class="num">{formatUsd(l.usd)}</td></tr>)}
+      </tbody>
+    </table>
+  </div>
+</Base>
+
+<style>
+  .flow-card :global(svg) { display: block; width: 100%; max-width: 720px; margin: 0 auto; }
+  .flow-card :global(.flow-label) { fill: var(--muted); font-size: 12px; }
+  .flow-card :global(.tabs button) { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: none; color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
+  .flow-card :global(.tabs button.active) { background: var(--blue); border-color: var(--blue); }
+</style>
