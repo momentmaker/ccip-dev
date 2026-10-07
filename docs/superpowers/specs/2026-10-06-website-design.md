@@ -310,6 +310,8 @@ With `prefers-reduced-motion: reduce`:
 
 > Chain icons (2026-10-07): replay frames carry logo coins, and recordings include them; see `2026-10-07-chain-icons-design.md` §7.2.
 
+> Viral replay (2026-10-07): the replay is now a directed 15/30/60 s cut with a story layer, Direction A controls and a page and card per chain; see `2026-10-07-viral-replay-design.md`.
+
 ### 8.1 Timeline (`replay/timeline.ts`)
 
 - **Range:** from `replay.since` to the last day in `replay.days`.
