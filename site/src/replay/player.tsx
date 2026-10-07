@@ -73,13 +73,16 @@ export default function ReplayPlayer() {
     };
   }, [attempt]);
 
+  const stars = useMemo(() => (data ? buildLayout(data.replay.chains) : []), [data]);
+
   useEffect(() => {
     if (!data) return;
     let alive = true;
+    const coinModel = new ReplayModel(data.replay, data.history, [], stars, REPLAY_LENGTHS[0], { count: REPLAY_COINS, eligible: hasIcon });
     const hrefs = new Map(
-      data.replay.chains.flatMap((c) => {
-        const href = iconHref(c.selector);
-        return href ? [[c.selector, href] as const] : [];
+      coinModel.coinSelectorsEver().flatMap((selector) => {
+        const href = iconHref(selector);
+        return href ? [[selector, href] as const] : [];
       }),
     );
     const load = loadCoinImages(hrefs);
@@ -90,9 +93,8 @@ export default function ReplayPlayer() {
     return () => {
       alive = false;
     };
-  }, [data]);
+  }, [data, stars]);
 
-  const stars = useMemo(() => (data ? buildLayout(data.replay.chains) : []), [data]);
   const model = useMemo(
     () => (data ? new ReplayModel(data.replay, data.history, computeMilestones(data.history, data.replay.chains), stars, length, { count: REPLAY_COINS, eligible: hasIcon }) : null),
     [data, stars, length],

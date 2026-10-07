@@ -162,6 +162,35 @@ describe('replay coins', () => {
   });
 });
 
+describe('replay coins on the last day', () => {
+  const surge: ReplayFile = {
+    ...replay,
+    since: '2024-01-01',
+    chains: [
+      { selector: 'A', name: 'a-mainnet', display_name: 'A', first_day: '2024-01-01' },
+      { selector: 'B', name: 'b-mainnet', display_name: 'B', first_day: '2024-01-01' },
+    ],
+    lanes: [[0, 0], [1, 1]],
+    days: [
+      { day: '2024-01-01', lanes: [[0, 1, 50]] },
+      { day: '2024-01-02', lanes: [[0, 1, 50]] },
+      { day: '2024-01-03', lanes: [[0, 1, 50]] },
+      { day: '2024-01-04', lanes: [[1, 1, 500]] },
+    ],
+  };
+  const surgeModel = () => new ReplayModel(surge, [], [], buildLayout(surge.chains), 1, { count: 1, eligible: () => true });
+
+  it('settles a chain that enters the set on the final day during the end card', () => {
+    const m = surgeModel();
+    expect(coinsAt(m, m.length + 0.5)).toEqual([['B', 1]]);
+  });
+
+  it('lists every chain that wears a coin on any day, in star order', () => {
+    expect(surgeModel().coinSelectorsEver()).toEqual(['A', 'B']);
+    expect(coinModel().coinSelectorsEver().sort()).toEqual([ETHEREUM, POLYGON].sort());
+  });
+});
+
 describe('replay coin window', () => {
   const longReplay: ReplayFile = {
     ...replay,

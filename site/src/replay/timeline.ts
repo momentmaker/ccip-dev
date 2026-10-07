@@ -174,14 +174,20 @@ export class ReplayModel {
     });
   }
 
+  coinSelectorsEver(): string[] {
+    const stars = new Set(this.coinSets.flat());
+    return [...stars].sort((a, b) => a - b).map((star) => this.stars[star]!.selector);
+  }
+
   private coinsAt(time: number): FrameCoin[] {
-    const end = Math.min(time, this.length - 1e-9);
+    const end = time;
     const start = end - COIN_FADE_S;
-    const firstDay = Math.max(0, Math.floor(Math.max(0, start) / this.secondsPerDay));
+    const firstDay = Math.min(this.days.length - 1, Math.floor(Math.max(0, start) / this.secondsPerDay));
     const lastDay = Math.min(this.days.length - 1, Math.floor(Math.max(0, end) / this.secondsPerDay));
     const share = new Map<number, number>();
     for (let d = firstDay; d <= lastDay; d++) {
-      const overlap = Math.min(end, this.dayStart(d + 1)) - Math.max(start, this.dayStart(d));
+      const dayEnd = d === this.days.length - 1 ? end : this.dayStart(d + 1);
+      const overlap = Math.min(end, dayEnd) - Math.max(start, this.dayStart(d));
       if (overlap <= 0) continue;
       for (const star of this.coinSets[d]!) share.set(star, (share.get(star) ?? 0) + overlap / COIN_FADE_S);
     }
