@@ -1,5 +1,6 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
+import { SLAM_S } from '../src/replay/director/beats';
 import { Show, yearsLabel } from '../src/replay/director/show';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
@@ -66,6 +67,34 @@ describe('Show', () => {
       expect(c.start).toBeLessThan(s.length);
     }
     for (const m of s.milestoneMarks()) expect(m.time).toBeGreaterThanOrEqual(s.warp.start - 1e-9);
+  });
+
+  it.each([30, 15])('ends every card and slam by the end of the story in the %i s cut', (length) => {
+    const s = show(null, length);
+    for (const c of s.cards) expect(c.end).toBeLessThanOrEqual(s.warp.end + 1e-9);
+    for (const m of s.slams) expect(m.start + SLAM_S).toBeLessThanOrEqual(s.warp.end + 1e-9);
+  });
+
+  it.each([30, 15])('ends every card and slam by the end of the story when a chain joins and a milestone lands on the last day (%i s)', (length) => {
+    const days = Array.from({ length: 200 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+    const late: ReplayFile = {
+      ...replay,
+      since: days[0]!,
+      chains: [
+        { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: days[0]! },
+        { selector: 'c', name: 'gamma-mainnet', display_name: 'Gamma', first_day: days[0]! },
+        { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: days.at(-1)! },
+      ],
+      lanes: [[0, 1], [0, 2]],
+      days: days.map((day, i) => ({ day, lanes: i === days.length - 1 ? [[0, 4, 100], [1, 500, 1000]] : [[0, 4, 100]] })),
+    } as ReplayFile;
+    const lateHistory = late.days.map((d, i) => ({ ...history[0]!, day: d.day, messages: i === days.length - 1 ? 504 : 4 }));
+    const s = new Show({ replay: late, history: lateHistory, stars: buildLayout(late.chains), length, focus: null, eligible: () => true });
+    const lastDayStart = s.warp.dayStart(days.length - 1);
+    expect(lastDayStart).toBeGreaterThan(s.warp.end - SLAM_S);
+    expect(s.cards.length + s.slams.length).toBeGreaterThan(0);
+    for (const c of s.cards) expect(c.end).toBeLessThanOrEqual(s.warp.end + 1e-9);
+    for (const m of s.slams) expect(m.start + SLAM_S).toBeLessThanOrEqual(s.warp.end + 1e-9);
   });
 
   it('starts the timeline with the first year', () => {

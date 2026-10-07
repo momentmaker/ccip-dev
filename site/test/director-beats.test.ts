@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CARD_MAX_LAG_S,
   CARD_MIN_S,
+  SLAM_S,
   dayFlags,
   joinEvents,
   laneOpenEvents,
@@ -60,6 +61,24 @@ describe('day events', () => {
     expect(events[2]!.label).toBe('Record day · 2,000 messages');
   });
 
+  it('keeps only the larger of two record days in a row, so the slot goes to another record', () => {
+    const series = Array.from({ length: 80 }, (_, i) => {
+      const d = new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10);
+      return { day: d, messages: i === 40 ? 500 : i === 41 ? 1200 : i === 50 ? 1300 : i === 60 ? 1400 : i === 70 ? 1500 : 10 };
+    });
+    const events = recordEvents(series, series.map((s) => s.day));
+    expect(events.map((e) => e.dayIndex)).toEqual([41, 50, 60]);
+    expect(events[0]!.label).toBe('Record day · 1,200 messages');
+  });
+
+  it('suppresses a smaller record on the day after a bigger one only when they are adjacent', () => {
+    const series = Array.from({ length: 60 }, (_, i) => {
+      const d = new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10);
+      return { day: d, messages: i === 40 ? 500 : i === 42 ? 600 : 10 };
+    });
+    expect(recordEvents(series, series.map((s) => s.day)).map((e) => e.dayIndex)).toEqual([40, 42]);
+  });
+
   it('opens one lane event per partner chain, on its first day', () => {
     const replay = {
       chains: [chain('e', 'Ethereum Mainnet', '2024-01-01'), chain('b', 'Base Mainnet', '2024-01-01'), chain('a', 'Arbitrum Mainnet', '2024-01-02')],
@@ -111,7 +130,7 @@ describe('scheduleCards', () => {
   });
 
   it('never overlaps cards, holds each at least the minimum, and lets a join lag at most the limit', () => {
-    const warp = linearWarp(3, 0, 1.5);
+    const warp = durationWarp([0.5, 0.5, 5], 0);
     const events = Array.from({ length: 20 }, (_, i) => join(i % 3, `C${i}`)).sort((a, b) => a.dayIndex - b.dayIndex);
     const cards = scheduleCards(events, warp, null);
     for (let i = 1; i < cards.length; i++) expect(cards[i]!.start).toBeGreaterThanOrEqual(cards[i - 1]!.end - 1e-9);
@@ -177,6 +196,52 @@ describe('scheduleCards across kinds', () => {
       ['lane', 1],
       ['join', 2],
     ]);
+  });
+});
+
+describe('the end of the story', () => {
+  const ev = (kind: DayEvent['kind'], dayIndex: number, label: string): DayEvent => ({ kind, dayIndex, label, selectors: [label] });
+
+  it('clamps a late card to the end of the story and keeps at least the minimum hold', () => {
+    const warp = linearWarp(10, 0, 10);
+    const cards = scheduleCards([ev('join', 9, 'Late')], warp, null);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.end).toBeLessThanOrEqual(warp.end + 1e-9);
+    expect(cards[0]!.end - cards[0]!.start).toBeGreaterThanOrEqual(CARD_MIN_S - 1e-9);
+  });
+
+  it('drops a card that cannot hold the minimum before the end, and lets the card before it keep its time', () => {
+    const warp = durationWarp([5, 4.2, 0.3, 0.5], 0);
+    const cards = scheduleCards([ev('join', 1, 'Early'), ev('join', 3, 'Too late')], warp, null);
+    expect(cards.map((c) => c.label)).toEqual(['Early joins']);
+    expect(cards[0]!.end).toBeCloseTo(5 + 1.6, 9);
+  });
+
+  it('keeps every card, of every kind, inside the story', () => {
+    const warp = durationWarp([2, 2, 2, 2, 0.6, 0.5, 0.4, 0.3], 0);
+    const cards = scheduleCards(
+      [ev('join', 0, 'A'), ev('record', 2, 'Record day · 5 messages'), ev('join', 4, 'B'), ev('record', 6, 'Record day · 9 messages'), ev('join', 7, 'C')],
+      warp,
+      null,
+    );
+    expect(cards.length).toBeGreaterThan(0);
+    for (const c of cards) {
+      expect(c.end).toBeLessThanOrEqual(warp.end + 1e-9);
+      expect(c.end - c.start).toBeGreaterThanOrEqual(CARD_MIN_S - 1e-9);
+    }
+  });
+
+  it('drops a record card that cannot hold the minimum before the end', () => {
+    const warp = durationWarp([5, 4.5, 0.5], 0);
+    expect(scheduleCards([ev('record', 2, 'Record day · 5 messages')], warp, null)).toEqual([]);
+  });
+
+  it('drops a slam that would still be on screen when the story ends', () => {
+    const warp = durationWarp([5, 4, 0.5, 0.5], 0);
+    const slam = (dayIndex: number, label: string): DayEvent => ({ kind: 'milestone', dayIndex, label, selectors: [] });
+    const slams = scheduleSlams([slam(1, 'fits'), slam(2, 'too late')], warp);
+    expect(slams.map((m) => m.label)).toEqual(['fits']);
+    for (const m of slams) expect(m.start + SLAM_S).toBeLessThanOrEqual(warp.end + 1e-9);
   });
 });
 

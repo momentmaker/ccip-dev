@@ -1,4 +1,5 @@
 import type { ReplayFile } from '@ccip-dev/core/public';
+import { addDays } from '../../lib/days';
 import { formatCount } from '../../lib/format';
 import { shortChainName } from '../../lib/names';
 import type { Milestone } from '../../lib/records';
@@ -67,16 +68,30 @@ export function milestoneEvents(milestones: readonly Milestone[], days: readonly
   });
 }
 
+interface Jump {
+  day: string;
+  messages: number;
+  ratio: number;
+}
+
+function withoutAdjacentDays(jumps: readonly Jump[]): Jump[] {
+  const kept: Jump[] = [];
+  for (const j of [...jumps].sort((a, b) => b.messages - a.messages || byDay(a, b))) {
+    if (!kept.some((k) => k.day === addDays(j.day, 1) || k.day === addDays(j.day, -1))) kept.push(j);
+  }
+  return kept;
+}
+
 export function recordEvents(history: readonly { day: string; messages: number }[], days: readonly string[]): DayEvent[] {
   const at = indexOf(days);
   let best = 0;
-  const jumps: { day: string; messages: number; ratio: number }[] = [];
+  const jumps: Jump[] = [];
   [...history].sort(byDay).forEach((d, i) => {
     if (d.messages <= best) return;
     if (i >= RECORD_SKIP_DAYS && best > 0) jumps.push({ day: d.day, messages: d.messages, ratio: d.messages / best });
     best = d.messages;
   });
-  return jumps
+  return withoutAdjacentDays(jumps)
     .sort((a, b) => b.ratio - a.ratio || byDay(a, b))
     .slice(0, MAX_RECORDS)
     .flatMap((j) => {
@@ -145,6 +160,7 @@ export function scheduleCards(events: readonly DayEvent[], warp: Warp, focusName
       .filter((e): e is DayEvent & { kind: Card['kind'] } => kinds.includes(e.kind))
       .map((e) => ({ e, time: warp.dayStart(e.dayIndex) }))
       .sort((a, b) => a.time - b.time);
+  const fitsBeforeEnd = (start: number) => start + CARD_MIN_S <= warp.end + 1e-9;
   const groups: Group[] = [];
   for (const { e, time } of timed(['join', 'lane'])) {
     const prev = groups.at(-1);
@@ -155,16 +171,18 @@ export function scheduleCards(events: readonly DayEvent[], warp: Warp, focusName
       prev.selectors.push(...e.selectors);
       continue;
     }
-    if (prev) prev.end = Math.max(prev.start + CARD_MIN_S, Math.min(prev.end, time));
-    const start = Math.max(time, prev?.end ?? time);
-    groups.push({ kind: e.kind, time, start, end: start + CARD_S, names: [e.label], selectors: [...e.selectors] });
+    const prevEnd = prev ? Math.max(prev.start + CARD_MIN_S, Math.min(prev.end, time)) : time;
+    const start = Math.max(time, prevEnd);
+    if (!fitsBeforeEnd(start)) continue;
+    if (prev) prev.end = prevEnd;
+    groups.push({ kind: e.kind, time, start, end: Math.min(start + CARD_S, warp.end), names: [e.label], selectors: [...e.selectors] });
   }
   for (const { e, time } of timed(['record'])) {
     const candidates = [time, ...groups.map((g) => g.end).filter((end) => end > time && end <= time + CARD_MAX_LAG_S)].sort((a, b) => a - b);
-    const start = candidates.find((s) => groups.every((g) => s + CARD_MIN_S <= g.start + 1e-9 || s >= g.end - 1e-9));
+    const start = candidates.find((s) => fitsBeforeEnd(s) && groups.every((g) => s + CARD_MIN_S <= g.start + 1e-9 || s >= g.end - 1e-9));
     if (start === undefined) continue;
     const nextStart = Math.min(...groups.filter((g) => g.start >= start - 1e-9).map((g) => g.start));
-    groups.push({ kind: 'record', time, start, end: Math.min(start + CARD_S, nextStart), names: [e.label], selectors: [] });
+    groups.push({ kind: 'record', time, start, end: Math.min(start + CARD_S, nextStart, warp.end), names: [e.label], selectors: [] });
   }
   return groups
     .sort((a, b) => a.start - b.start)
@@ -185,7 +203,7 @@ export function scheduleSlams(events: readonly DayEvent[], warp: Warp): Slam[] {
     const prev = out.at(-1);
     const day = warp.dayStart(e.dayIndex);
     const start = Math.max(day, prev ? prev.start + SLAM_S : -Infinity);
-    if (start - day <= SLAM_MAX_LAG_S) out.push({ start, label: e.label });
+    if (start - day <= SLAM_MAX_LAG_S && start + SLAM_S <= warp.end + 1e-9) out.push({ start, label: e.label });
   }
   return out;
 }
