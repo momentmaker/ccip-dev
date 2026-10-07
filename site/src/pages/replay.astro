@@ -1,0 +1,39 @@
+---
+import ShareButton from '../components/ShareButton';
+import Base from '../layouts/Base.astro';
+import { buildData } from '../lib/build-data';
+import { formatCount } from '../lib/format';
+import ReplayPlayer from '../replay/player';
+import { buildLayout } from '../sky/layout';
+import { skySvg } from '../sky/svg';
+import { windowWeights, lastReplayDay } from '../sky/weights';
+
+const [replay, history] = await Promise.all([buildData('replay.json'), buildData('history.json')]);
+const last = lastReplayDay(replay) ?? '';
+const weights = windowWeights(replay, null, last);
+const poster = skySvg({ width: 1280, height: 720, stars: buildLayout(replay.chains), chainValues: weights.chains, lanes: weights.lanes, background: true, title: 'Every CCIP lane since 2023-07-06' });
+const total = history.days.reduce((s, d) => s + d.messages, 0);
+---
+<Base title="Replay" description="Watch CCIP grow: every chain and lane from 2023-07-06 to today in 60 seconds, recordable as a video." cardPath="replay">
+  <div class="page-head">
+    <div>
+      <p class="label">{replay.since} → {last}</p>
+      <h1>Watch CCIP grow</h1>
+      <p class="muted">{formatCount(total)} messages across {replay.chains.length} chains, replayed in a minute.</p>
+    </div>
+    <ShareButton client:load view="replay" headline="Watch CCIP grow from the first message to today" url="https://ccip.dev/replay/" cardUrl="/og/replay.png" />
+  </div>
+  <ReplayPlayer client:only="react">
+    <figure slot="fallback" class="card poster" set:html={poster} />
+  </ReplayPlayer>
+</Base>
+
+<style>
+  :global(.player-stage) { margin: 0 auto; background: #0c0f14; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  :global(.player-stage canvas) { display: block; width: 100%; height: 100%; }
+  :global(.player-controls) { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; }
+  :global(.player-controls input[type='range']) { flex: 1 1 240px; accent-color: var(--blue-2); }
+  :global(.player-controls select) { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; font: inherit; }
+  .poster { padding: 0; overflow: hidden; }
+  .poster :global(svg) { display: block; width: 100%; height: auto; }
+</style>
