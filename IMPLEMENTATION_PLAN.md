@@ -45,3 +45,9 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Success Criteria**: A new CCIP chain gets a PR within a day. The label-candidates job runs without the RPC_MAP/EXPLORER_MAP settings. The Reserve uses the file's Ethereum log endpoints after the trusted ones.
 **Tests**: endpoint selection rules (keyless, no tracking, chain-id match, keep working entries), file output, label-candidates reading the file.
 **Status**: Complete (first run opened PR #2, replacing xrpc.cl with publicnode for Ethereum because xrpc.cl fails from GitHub runners)
+
+## Stage 8: Website (sub-project 2a)
+**Goal**: Ship ccip.dev: an Astro static site with the live Constellation, history, top lists, flow, day, record and Reserve pages, a recordable time-lapse, and live share cards rendered by a small Worker (spec `docs/superpowers/specs/2026-10-06-website-design.md`).
+**Success Criteria**: Spec §2 criteria 1–7: every launch page is live on ccip.dev (www redirects), comets within 60 s of live.json, a 1200×630 card for every page, a 60 s replay that records an MP4 X accepts, JS and Lighthouse budgets, build-time numbers when data is down, and no new paid services.
+**Tests**: core public schemas and replay.json; site libraries (format, data, poller, names, records, charts, layout, scene, instances, scheduler, sound, timeline, recorder, flow, day, reserve view); card content and request handling; a real render in workerd; check-build and budgets in every build.
+**Status**: In Progress (plan `docs/superpowers/plans/2026-10-06-website.md`)
