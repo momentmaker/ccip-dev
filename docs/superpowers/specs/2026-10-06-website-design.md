@@ -262,6 +262,8 @@ Days with no messages, which have no row, have no page. `/og/daily.png` renders 
 
 ### 7.2 Rendering
 
+> Chain icons (2026-10-07): the home sky also draws logo coins and a hover/tap chain card; see `2026-10-07-chain-icons-design.md` §7.1.
+
 - **`renderer-gl.ts`:**
   - Hand-written WebGL2 with instanced quads for stars and comets, additive blending, a glow sprite and a short trail per comet. No 3D library.
   - It handles `webglcontextlost` by re-initializing.
@@ -305,6 +307,8 @@ With `prefers-reduced-motion: reduce`:
 - count-ups, staggered entrances and the vault animation are skipped.
 
 ## 8. Time-lapse replay (`/replay/`)
+
+> Chain icons (2026-10-07): replay frames carry logo coins, and recordings include them; see `2026-10-07-chain-icons-design.md` §7.2.
 
 ### 8.1 Timeline (`replay/timeline.ts`)
 
@@ -364,6 +368,8 @@ Accepted patterns, each `.png`, optionally with `?v=…`:
 Anything else returns 404 with no render.
 
 ### 9.2 Rendering
+
+> Chain icons (2026-10-07): cards place logo coins from `/card-coins.json` over the sky; see `2026-10-07-chain-icons-design.md` §7.4.
 
 - **Pipeline:** satori turns an element tree into SVG, and resvg-wasm turns that into a 1200×630 PNG. Inter Regular and Bold are embedded in `worker/fonts.ts`. Inter's latin subset has no "→", so lane names on cards read "Ethereum to Base".
 - **Layout:**
@@ -449,6 +455,8 @@ On `/`, today's running `messages`, `usd_value` and `unique_senders` are compare
   - a table of the top 20 lanes below serves screen readers and gives exact figures.
 
 ## 11. Visual system
+
+> Chain icons (2026-10-07): chain logos are content and exempt from the accent-color rules; see `2026-10-07-chain-icons-design.md` §6.
 
 - **Tokens** (`styles/tokens.css`):
 
