@@ -9,6 +9,10 @@ describe('replayHead', () => {
     });
   });
 
+  it('says "1 chain" for a focus chain with a single partner', () => {
+    expect(replayHead({ focusName: 'Solo', firstDay: '2023-09-12', messages: 5, chains: 1 }).lead).toBe('5 messages with 1 chain since Sep 12, 2023');
+  });
+
   it('describes all chains without a focus', () => {
     expect(replayHead({ focusName: null, firstDay: null, messages: 1234, chains: 56 })).toEqual({
       title: 'Watch CCIP grow',

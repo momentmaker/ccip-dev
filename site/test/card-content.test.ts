@@ -86,6 +86,11 @@ describe('card content', () => {
     });
   });
 
+  it('says "1 chain" for a chain with a single partner', () => {
+    const spec = replayChainCard({ name: 'Solo', since: '2023-11-03', usd: 5, messages: 2, partners: 1, coin: null }, 'solo');
+    expect(spec.label).toBe('moved · 2 messages · 1 chain');
+  });
+
   it('drops sky coins the badge covers and keeps touching and clear ones', () => {
     const at = (x: number, y: number) => ({ x, y, d: 20, src: 'data:image/svg+xml;base64,AA' });
     const inside = at(330, 315);

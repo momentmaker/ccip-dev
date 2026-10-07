@@ -7,9 +7,11 @@ interface HeadInput {
   chains: number;
 }
 
+const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;
+
 export function replayHead({ focusName, firstDay, messages, chains }: HeadInput): { title: string; lead: string } {
   if (focusName && firstDay) {
-    return { title: `${focusName} on Chainlink CCIP`, lead: `${formatCount(messages)} messages with ${chains} chains since ${formatUtcDay(firstDay)}` };
+    return { title: `${focusName} on Chainlink CCIP`, lead: `${formatCount(messages)} messages with ${chainCount(chains)} since ${formatUtcDay(firstDay)}` };
   }
-  return { title: 'Watch CCIP grow', lead: `${formatCount(messages)} messages across ${chains} chains, replayed in 30 seconds.` };
+  return { title: 'Watch CCIP grow', lead: `${formatCount(messages)} messages across ${chainCount(chains)}, replayed in 30 seconds.` };
 }

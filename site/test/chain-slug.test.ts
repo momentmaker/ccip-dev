@@ -23,6 +23,11 @@ describe('chainSlug', () => {
   it('slugs the displayed name of a registry-only chain', () => {
     expect(chainSlug(c('7', null, 'ethereum-mainnet-kroma-1'))).toBe('kroma');
   });
+
+  it('slugs a chain whose display name is its raw registry name', () => {
+    expect(chainSlug(c('7', 'ethereum-mainnet-kroma-1', 'ethereum-mainnet-kroma-1'))).toBe('kroma');
+    expect(chainSlug(c('8', 'treasure-mainnet', 'treasure-mainnet'))).toBe('treasure');
+  });
 });
 
 describe('slugMap', () => {
@@ -32,6 +37,15 @@ describe('slugMap', () => {
     expect(map.get('9')).toBe('mind-2');
     expect(map.get('1')).toBe('mind-network');
     for (const s of map.values()) expect(s).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  });
+
+  it('slugs the production chains whose display name repeats the registry name', () => {
+    const map = slugMap([
+      c('3719320017875267166', 'ethereum-mainnet-kroma-1', 'ethereum-mainnet-kroma-1'),
+      c('5214452172935136222', 'treasure-mainnet', 'treasure-mainnet'),
+      c('17529533435026248318', 'sui-mainnet', 'sui-mainnet'),
+    ]);
+    expect(Object.fromEntries(map)).toEqual({ '3719320017875267166': 'kroma', '5214452172935136222': 'treasure', '17529533435026248318': 'sui' });
   });
 
   it('never hands a suffixed slug to a chain whose natural slug is already that', () => {

@@ -47,6 +47,13 @@ describe('drawStory', () => {
     expect(texts.some((t) => t.includes('messages'))).toBe(true);
   });
 
+  it('counts "1 chain" in the singular under the counter', () => {
+    const base = show.frameAt(15);
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), { ...base, story: { ...base.story, messages: 2, chains: 1 } }, layoutFor(1080, 1080), assets);
+    expect(texts).toContain('moved · 2 messages · 1 chain');
+  });
+
   it('draws a milestone slam', () => {
     const texts: string[] = [];
     const frame = { ...show.frameAt(15), slam: { start: 14.5, label: '$10B moved', progress: 0.4 } };

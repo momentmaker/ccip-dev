@@ -21,6 +21,7 @@ const SANS = 'Inter, sans-serif';
 const MONO = '"JetBrains Mono", monospace';
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const ease = (x: number) => 1 - (1 - clamp01(x)) ** 3;
+const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;
 
 export function fitText(ctx: Ctx, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) return text;
@@ -127,7 +128,7 @@ function drawCounter(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   }
   ctx.font = `400 ${26 * u}px ${SANS}`;
   ctx.fillStyle = MUTED;
-  ctx.fillText(`moved · ${formatCount(frame.story.messages)} messages · ${frame.story.chains} chains`, l.sub.x, l.sub.y);
+  ctx.fillText(`moved · ${formatCount(frame.story.messages)} messages · ${chainCount(frame.story.chains)}`, l.sub.x, l.sub.y);
   ctx.restore();
 }
 

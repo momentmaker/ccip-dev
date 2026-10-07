@@ -30,6 +30,8 @@ const WINDOW_LABEL: Record<Window, string> = { '7d': 'LAST 7 DAYS', '30d': 'LAST
 const DIM_LABEL: Record<TopDim, string> = { lane: 'TOP LANE', token: 'TOP TOKEN', sender: 'TOP SENDER' };
 const SPARK_POINTS = 120;
 
+const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;
+
 export const cardText = (s: string) => s.replaceAll(' → ', ' to ');
 
 export function sparkPoints(values: readonly number[], n = SPARK_POINTS): number[] {
@@ -50,7 +52,7 @@ export function replayChainCard(entry: ReplayCardEntry, slug: string): CardSpec 
   return {
     eyebrow: `${entry.name.toUpperCase()} ON CHAINLINK CCIP`,
     big: formatUsd(entry.usd),
-    label: `moved · ${formatCount(entry.messages)} messages · ${entry.partners} chains`,
+    label: `moved · ${formatCount(entry.messages)} messages · ${chainCount(entry.partners)}`,
     date: `since ${formatUtcDay(entry.since)}`,
     extra: [`ccip.dev/replay/${slug}`],
     spark: null,

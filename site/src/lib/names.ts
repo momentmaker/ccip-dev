@@ -21,10 +21,17 @@ function prettifyRegistryName(name: string): string {
   return pretty || name;
 }
 
+const REGISTRY_NAME = /^[a-z0-9_]+(?:-[a-z0-9_]+)+$/;
+
+function isRegistryName(display: string, name: string | null | undefined): boolean {
+  return display === name || (REGISTRY_NAME.test(display) && display.split('-').includes('mainnet'));
+}
+
 export function shortChainName(chain: NamedChain): string {
-  const display = chain.display_name?.replace(/ Mainnet$/, '');
-  if (display) return display;
-  return chain.name ? prettifyRegistryName(chain.name) : chain.selector;
+  const raw = chain.display_name ?? '';
+  if (raw && !isRegistryName(raw, chain.name)) return raw.replace(/ Mainnet$/, '');
+  const registry = chain.name || raw;
+  return registry ? prettifyRegistryName(registry) : chain.selector;
 }
 
 export function chainNameMap(chains: NamedChain[]): ChainNames {

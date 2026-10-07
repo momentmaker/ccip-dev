@@ -30,6 +30,24 @@ describe('names', () => {
     expect(shortChainName({ selector: '1', name, display_name: null })).toBe(label);
   });
 
+  it.each([
+    ['ethereum-mainnet-kroma-1', 'Kroma'],
+    ['treasure-mainnet', 'Treasure'],
+    ['sui-mainnet', 'Sui'],
+  ])('treats a display name equal to the registry name %s as missing and shows %s', (name, label) => {
+    expect(shortChainName({ selector: '1', name, display_name: name })).toBe(label);
+  });
+
+  it('treats a raw registry-style display name as missing even without a registry name', () => {
+    expect(shortChainName({ selector: '1', name: null, display_name: 'sui-mainnet' })).toBe('Sui');
+    expect(shortChainName({ selector: '1', name: 'kroma', display_name: 'ethereum-mainnet-kroma-1' })).toBe('Kroma');
+  });
+
+  it('keeps a real display name that is lowercase or hyphenated but not a registry name', () => {
+    expect(shortChainName({ selector: '1', name: 'ethereum-mainnet-zksync-1', display_name: 'zkSync Era' })).toBe('zkSync Era');
+    expect(shortChainName({ selector: '1', name: 'x-mainnet', display_name: 'Mind-Network' })).toBe('Mind-Network');
+  });
+
   it('labels lanes, tokens and senders', () => {
     expect(laneLabel(names, `${ETH}>${BASE}`)).toBe('Ethereum → Base');
     expect(laneLabel(names, 'broken')).toBe('broken');
