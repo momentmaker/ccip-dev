@@ -1,18 +1,20 @@
 import { chordDirected, ribbonArrow, type Chord, type ChordGroup, type ChordSubgroup } from 'd3-chord';
 import { arc } from 'd3-shape';
 import { useMemo, useState } from 'react';
-import type { FlowData } from '../lib/flow';
+import { OTHER, type FlowData } from '../lib/flow';
 import { formatCount, formatUsd } from '../lib/format';
 
 const SIZE = 640;
 const OUTER = SIZE / 2 - 90;
 const INNER = OUTER - 14;
 
-const groupColor = (key: string, i: number) => (key === 'other' ? '#4b5563' : `hsl(${218 + ((i * 7) % 24)} 78% ${46 + ((i * 11) % 26)}%)`);
+const groupColor = (key: string, i: number) => (key === OTHER ? '#4b5563' : `hsl(${218 + ((i * 7) % 24)} 78% ${46 + ((i * 11) % 26)}%)`);
 
 export default function FlowChord({ data }: { data: FlowData }) {
   const [metric, setMetric] = useState<'usd' | 'messages'>('usd');
-  const [focus, setFocus] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
+  const focus = hovered ?? selected;
   const chords = useMemo(() => chordDirected().padAngle(0.03).sortSubgroups((a, b) => b - a)(data[metric]), [data, metric]);
   const arcPath = arc<ChordGroup>().innerRadius(INNER).outerRadius(OUTER);
   const ribbon = ribbonArrow<Chord, ChordSubgroup>().radius(INNER - 1).padAngle(1 / INNER);
@@ -26,7 +28,7 @@ export default function FlowChord({ data }: { data: FlowData }) {
         <button type="button" className={metric === 'usd' ? 'active' : ''} aria-pressed={metric === 'usd'} onClick={() => setMetric('usd')}>Value</button>
         <button type="button" className={metric === 'messages' ? 'active' : ''} aria-pressed={metric === 'messages'} onClick={() => setMetric('messages')}>Messages</button>
       </div>
-      <svg viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`} role="img" aria-label="Flows between CCIP chains" onPointerLeave={() => setFocus(null)}>
+      <svg viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`} role="img" aria-label="Flows between CCIP chains" onClick={() => setSelected(null)} onPointerLeave={(e) => e.pointerType === 'mouse' && setHovered(null)}>
         <g>
           {chords.map((c, i) => (
             <path
@@ -45,7 +47,27 @@ export default function FlowChord({ data }: { data: FlowData }) {
             const flip = mid > Math.PI;
             const group = data.groups[g.index]!;
             return (
-              <g key={g.index} onPointerEnter={() => setFocus(g.index)} onClick={() => setFocus((f) => (f === g.index ? null : g.index))} style={{ cursor: 'pointer' }}>
+              <g
+                key={g.index}
+                tabIndex={0}
+                role="button"
+                aria-label={`${group.label}: ${format(metric === 'usd' ? group.usd : group.messages)}`}
+                aria-pressed={selected === g.index}
+                onPointerEnter={(e) => e.pointerType === 'mouse' && setHovered(g.index)}
+                onFocus={(e) => e.currentTarget.matches(':focus-visible') && setHovered(g.index)}
+                onBlur={() => setHovered(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const mouse = (e.nativeEvent as PointerEvent).pointerType === 'mouse';
+                  setSelected((s) => (s === g.index && !mouse ? null : g.index));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  setSelected((s) => (s === g.index ? null : g.index));
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 <path d={arcPath(g) ?? ''} fill={groupColor(group.key, g.index)} />
                 {g.endAngle - g.startAngle > 0.05 && (
                   <text

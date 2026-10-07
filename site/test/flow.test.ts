@@ -27,6 +27,19 @@ describe('flowData', () => {
     ]);
   });
 
+  it('counts a lane between two Other chains once in the Other group', () => {
+    const withInnerLane: ReplayFile = {
+      ...replay,
+      lanes: [...replay.lanes, [0, 2]],
+      days: [...replay.days, { day: '2023-07-10', lanes: [[4, 3, 250]] }],
+    };
+    const flow = flowData(withInnerLane, 'all', names, 1);
+    expect(flow.groups.map((g) => g.key)).toEqual(['5009297550715157269', 'other']);
+    expect(flow.groups[1]).toMatchObject({ usd: 1_504_750, messages: 63 });
+    expect(flow.usd[1]).toEqual([800, 250]);
+    expect(flow.messages[1]).toEqual([5, 3]);
+  });
+
   it('lists the top lanes by value with readable names', () => {
     expect(flowData(replay, '7d', names).topLanes).toEqual([
       { label: 'Ethereum → Base', usd: 1_500_700, messages: 12 },

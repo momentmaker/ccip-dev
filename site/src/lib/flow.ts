@@ -45,7 +45,7 @@ export function flowData(replay: ReplayFile, window: Window, names: ChainNames, 
     const j = group(lane.dst);
     usd[i]![j]! += lane.usd;
     messages[i]![j]! += lane.messages;
-    for (const g of [i, j]) {
+    for (const g of new Set([i, j])) {
       groupUsd[g]! += lane.usd;
       groupMessages[g]! += lane.messages;
     }
