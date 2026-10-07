@@ -199,7 +199,7 @@ export class ReplayModel {
   }
 
   frameAt(t: number): ReplayFrameState {
-    const time = Math.max(0, t);
+    const time = Math.max(this.warp.start, t);
     const empty: SkyFrame = { stars: [], lanes: [], comets: [], rings: [] };
     if (this.days.length === 0) {
       return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], extent: 1, coins: [], sky: empty };

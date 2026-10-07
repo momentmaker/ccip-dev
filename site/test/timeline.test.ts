@@ -237,10 +237,18 @@ describe('ReplayModel with a warp', () => {
 
   it('spreads a long day\u2019s comets across its whole length', () => {
     const m = warped();
-    const early = m.frameAt(4).sky.comets.length + m.frameAt(5).sky.comets.length;
-    const late = m.frameAt(11).sky.comets.length + m.frameAt(12).sky.comets.length;
-    expect(early + late).toBeGreaterThan(0);
-    expect(m.frameAt(11)).toEqual(m.frameAt(11));
+    const frames = [9, 11, 12.5].map((t) => m.frameAt(t));
+    expect(frames.reduce((n, f) => n + f.sky.comets.length, 0)).toBeGreaterThan(0);
+    for (const comet of frames.flatMap((f) => f.sky.comets)) {
+      expect(comet.progress).toBeGreaterThanOrEqual(0);
+      expect(comet.progress).toBeLessThan(1);
+    }
+  });
+
+  it('clamps time before the warp start so ignition effects stay in range', () => {
+    const frame = warped().frameAt(0);
+    expect(frame.sky.rings.every((ring) => ring.progress >= 0)).toBe(true);
+    expect(frame.sky.stars.every((star) => star.flash <= 1)).toBe(true);
   });
 
   it('starts the day clock at the warp start', () => {
