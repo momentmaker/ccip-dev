@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { checkIconFiles, checkPages, htmlIds, isRedirectPage, pageFacts } from '../scripts/check-build';
+import { checkIconFiles, checkPages, checkSiteIcons, htmlIds, isRedirectPage, pageFacts } from '../scripts/check-build';
 
 const page = (title: string, og: string, canonical: string) =>
   `<html><head><title>${title}</title><meta property="og:image" content="${og}"><link rel="canonical" href="${canonical}"></head><body><h2 id="coverage">C</h2></body></html>`;
 const OG = 'https://ccip.dev/og/home.png?v=2026-10-07';
 
 describe('check-build', () => {
+  it('reports a site icon missing from the build root, including the favicon.ico browsers request by default', () => {
+    expect(checkSiteIcons(new Set(['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png']))).toEqual(['/favicon.ico: site icon is missing from the build']);
+  });
+
+  it('passes when every site icon is in the build root', () => {
+    expect(checkSiteIcons(new Set(['favicon.ico', 'favicon.svg', 'favicon-32.png', 'apple-touch-icon.png']))).toEqual([]);
+  });
+
   it('reports manifest icons missing from dist/chains', () => {
     expect(checkIconFiles(['a.svg', 'b.svg'], new Set(['a.svg']))).toEqual(['/chains/b.svg: icon listed in the manifest is missing from the build']);
     expect(checkIconFiles(['a.svg'], new Set(['a.svg']))).toEqual([]);

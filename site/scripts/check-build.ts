@@ -52,6 +52,12 @@ export function checkIconFiles(files: readonly string[], present: ReadonlySet<st
   return files.filter((f) => !present.has(f)).map((f) => `/chains/${f}: icon listed in the manifest is missing from the build`);
 }
 
+const SITE_ICONS = ['favicon.ico', 'favicon.svg', 'favicon-32.png', 'apple-touch-icon.png'];
+
+export function checkSiteIcons(present: ReadonlySet<string>): string[] {
+  return SITE_ICONS.filter((f) => !present.has(f)).map((f) => `/${f}: site icon is missing from the build`);
+}
+
 async function main(): Promise<void> {
   const dist = join(import.meta.dirname, '..', 'dist');
   const entries = await readdir(dist, { withFileTypes: true, recursive: true });
@@ -68,7 +74,8 @@ async function main(): Promise<void> {
   }
   const chainsDir = join(dist, 'chains');
   const iconsPresent = new Set(existsSync(chainsDir) ? readdirSync(chainsDir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name) : []);
-  const problems = [...checkPages(pages, methodologyIds, Object.values(METRIC_ANCHORS)), ...checkIconFiles(iconFiles(), iconsPresent)];
+  const rootFiles = new Set(readdirSync(dist, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name));
+  const problems = [...checkPages(pages, methodologyIds, Object.values(METRIC_ANCHORS)), ...checkIconFiles(iconFiles(), iconsPresent), ...checkSiteIcons(rootFiles)];
   if (problems.length > 0) {
     console.error(problems.join('\n'));
     process.exit(1);
