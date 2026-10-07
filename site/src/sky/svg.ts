@@ -1,3 +1,4 @@
+import { coinDiameter, coinSelectors } from './coins';
 import { laneControl } from './geometry';
 import { projector, type StarPoint } from './layout';
 import { laneOpacity, starRadius, topSelectors } from './weights';
@@ -10,6 +11,7 @@ export interface SkySvgOptions {
   lanes: readonly { src: string; dst: string; usd: number }[];
   labels?: Map<string, string>;
   labelCount?: number;
+  coins?: { count: number; href: (selector: string) => string | null };
   background?: boolean;
   title?: string;
 }
@@ -50,13 +52,33 @@ export function skySvg(o: SkySvgOptions): string {
       `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="${r1(r * 4)}" fill="url(#halo)"/><circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="${r1(Math.max(r, 1))}" fill="#e8eaed"/>`,
     );
   }
+  const coinSizes = new Map<string, number>();
+  if (o.coins) {
+    const { href } = o.coins;
+    const chosen = coinSelectors(o.chainValues, o.coins.count, (s) => href(s) !== null);
+    if (chosen.length > 0) {
+      parts.push('<defs><clipPath id="coin-clip" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath></defs>');
+    }
+    for (const selector of chosen) {
+      const p = at.get(selector);
+      const link = href(selector);
+      if (!p || !link) continue;
+      const d = coinDiameter(radius(selector));
+      coinSizes.set(selector, d);
+      parts.push(
+        `<image href="${escapeXml(link)}" x="${r1(p.x - d / 2)}" y="${r1(p.y - d / 2)}" width="${r1(d)}" height="${r1(d)}" clip-path="url(#coin-clip)"/>` +
+          `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="${r1(d / 2)}" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1"/>`,
+      );
+    }
+  }
   if (o.labels && o.labelCount) {
     for (const selector of topSelectors(o.chainValues, o.labelCount)) {
       const p = at.get(selector);
       const text = o.labels.get(selector);
       if (!p || !text) continue;
+      const offset = (coinSizes.has(selector) ? coinSizes.get(selector)! / 2 : radius(selector)) + 6;
       parts.push(
-        `<text x="${r1(p.x + radius(selector) + 6)}" y="${r1(p.y + 4)}" fill="#8892a0" font-family="Inter, sans-serif" font-size="12">${escapeXml(text)}</text>`,
+        `<text x="${r1(p.x + offset)}" y="${r1(p.y + 4)}" fill="#8892a0" font-family="Inter, sans-serif" font-size="12">${escapeXml(text)}</text>`,
       );
     }
   }

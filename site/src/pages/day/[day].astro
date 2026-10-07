@@ -5,8 +5,10 @@ import Base from '../../layouts/Base.astro';
 import { buildData } from '../../lib/build-data';
 import { dayHighlights, dayView, type DayDelta } from '../../lib/day';
 import { formatCount, formatDuration, formatPct, formatUsd, formatUtcDay } from '../../lib/format';
+import { iconHref } from '../../lib/chain-icons';
 import { chainNameMap } from '../../lib/names';
 import { computeMilestones, computeRecords } from '../../lib/records';
+import { COINS_WIDE } from '../../sky/coins';
 import { buildLayout } from '../../sky/layout';
 import { skySvg } from '../../sky/svg';
 import { windowWeights } from '../../sky/weights';
@@ -29,6 +31,7 @@ const svg = skySvg({
   lanes: weights.lanes,
   labels: chainNameMap([...replay.chains, ...chains.chains]),
   labelCount: 8,
+  coins: { count: COINS_WIDE, href: iconHref },
   title: `CCIP lanes active on ${day}`,
 });
 const label = formatUtcDay(day);
