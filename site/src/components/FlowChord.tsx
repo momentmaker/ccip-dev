@@ -28,7 +28,7 @@ export default function FlowChord({ data }: { data: FlowData }) {
         <button type="button" className={metric === 'usd' ? 'active' : ''} aria-pressed={metric === 'usd'} onClick={() => setMetric('usd')}>Value</button>
         <button type="button" className={metric === 'messages' ? 'active' : ''} aria-pressed={metric === 'messages'} onClick={() => setMetric('messages')}>Messages</button>
       </div>
-      <svg viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`} role="img" aria-label="Flows between CCIP chains" onClick={() => setSelected(null)} onPointerLeave={(e) => e.pointerType === 'mouse' && setHovered(null)}>
+      <svg viewBox={`${-SIZE / 2} ${-SIZE / 2} ${SIZE} ${SIZE}`} role="group" aria-label="Flows between CCIP chains" onClick={() => setSelected(null)} onPointerLeave={(e) => e.pointerType === 'mouse' && setHovered(null)}>
         <g>
           {chords.map((c, i) => (
             <path

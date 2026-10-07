@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ingestLagSeconds, statusLevel, statusText } from '../src/lib/status-light';
+import { ingestLagSeconds, statusLevel, statusText, statusWord } from '../src/lib/status-light';
 
 describe('status light', () => {
   it('measures lag from the last successful ingest', () => {
@@ -26,5 +26,18 @@ describe('status light', () => {
     expect(statusText('amber', 300)).toBe('Delayed · 5m 0s behind');
     expect(statusText('red', 900)).toBe('Stalled · 15m 0s behind');
     expect(statusText('red', null)).toBe('Live data unavailable');
+  });
+
+  it.each([
+    ['green', 0, 'Live'],
+    ['amber', 0, 'Delayed'],
+    ['red', 0, 'Stalled'],
+    ['green', 1, 'Paused'],
+    ['amber', 2, 'Paused'],
+    [null, 0, 'Checking'],
+    [null, 1, 'Paused'],
+    ['red', 3, 'Stalled'],
+  ] as const)('word for level %s with %s failures is %s', (level, failures, word) => {
+    expect(statusWord(level, failures)).toBe(word);
   });
 });

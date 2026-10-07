@@ -179,7 +179,7 @@ export default function HomeLive(props: HomeLiveProps) {
       )}
       <section className="live-grid">
         <div className="card feed-panel">
-          <span className="label">Live feed · last 15 minutes</span>
+          <span className="label">Live feed · last 15 minutes · UTC</span>
           <Feed messages={feed} names={names} />
           <FreshnessNote updatedAt={liveUpdatedAt} paused={paused.live} />
         </div>

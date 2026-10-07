@@ -88,7 +88,7 @@ const headline = `The Chainlink Reserve holds ${formatLink(reserve.latest?.link)
       <h2>Transfers</h2>
       <div class="table-wrap card">
         <table class="data">
-          <thead><tr><th>Time (UTC)</th><th></th><th class="num">LINK</th><th class="num">Price then</th><th class="num">USD then</th><th class="num">Value now</th><th class="num">Change</th><th>Tx</th></tr></thead>
+          <thead><tr><th>Time (UTC)</th><th>Direction</th><th class="num">LINK</th><th class="num">Price then</th><th class="num">USD then</th><th class="num">Value now</th><th class="num">Change</th><th>Tx</th></tr></thead>
           <tbody>
             {transfers.map((t) => (
               <tr>

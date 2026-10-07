@@ -47,6 +47,7 @@ h2 { font-size: 20px; font-weight: 600; margin: 32px 0 12px; }
 .more-menu a:hover { background: var(--card-2); text-decoration: none; }
 
 .status-light { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.status-word { display: none; }
 .status-light:hover { text-decoration: none; color: var(--fg); }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); position: relative; flex: none; display: inline-block; }
 .status-green .dot { background: var(--up); }
@@ -73,7 +74,7 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
 .tabs a { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); color: var(--fg); font-size: 13px; }
 .tabs a:hover { text-decoration: none; border-color: var(--blue-2); }
-.tabs a[aria-current='page'] { background: var(--blue); border-color: var(--blue); }
+.tabs a[aria-current='page'] { background: #13244d; border-color: var(--blue-2); color: var(--fg); }
 .info { color: var(--muted); margin-left: 4px; font-size: 12px; }
 .info:hover { color: var(--blue-2); text-decoration: none; }
 .freshness { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
@@ -96,7 +97,7 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 .prose h1 { font-size: 36px; }
 .prose h2 { margin-top: 40px; }
 .prose li { margin: 6px 0; }
-.prose code { font-family: var(--font-mono); font-size: 0.9em; background: var(--card); padding: 1px 5px; border-radius: 4px; }
+.prose code { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 0.9em; background: var(--card); padding: 1px 5px; border-radius: 4px; }
 .prose table { border-collapse: collapse; display: block; overflow-x: auto; font-size: 13px; }
 .prose th, .prose td { border: 1px solid var(--border-soft); padding: 6px 8px; }
 
@@ -110,6 +111,7 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 
 @media (max-width: 640px) {
   .tagline, .status-text { display: none; }
+  .status-word { display: inline; }
   .page { padding: 12px 16px 64px; }
   .site-header { padding: 12px 16px; }
   .nav { gap: 2px; }

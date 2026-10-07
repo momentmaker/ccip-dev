@@ -22,3 +22,11 @@ export function statusText(level: StatusLevel, lagSeconds: number | null): strin
   if (level === 'green') return `Live · ${formatDuration(lagSeconds)} behind`;
   return `${level === 'amber' ? 'Delayed' : 'Stalled'} · ${formatDuration(lagSeconds)} behind`;
 }
+
+export const PAUSED_TEXT = 'Live data paused — retrying';
+
+export function statusWord(level: StatusLevel | null, failures: number): string {
+  if (failures > 0 && failures < RED_AFTER_FAILURES) return 'Paused';
+  if (level === null) return 'Checking';
+  return level === 'green' ? 'Live' : level === 'amber' ? 'Delayed' : 'Stalled';
+}

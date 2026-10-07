@@ -36,6 +36,7 @@ const fallbackSvg = skySvg({
 const next = reserve.pace?.next_expected_deposit ?? null;
 ---
 <Base title="ccip.dev" description="Every Chainlink CCIP message, live: today's totals, history, top lanes, tokens and senders, records and the Chainlink Reserve." cardPath="home">
+  <h1 class="visually-hidden">Live Chainlink CCIP stats</h1>
   <HomeLive
     client:load
     stars={stars}
