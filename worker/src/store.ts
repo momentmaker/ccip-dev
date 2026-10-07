@@ -1,6 +1,6 @@
 import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
-  type DailyBreakdown, type DailyTotals, type Dim, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
+  type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type LaneDayRow, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
@@ -567,4 +567,18 @@ export async function setFeeLinkUsd(db: D1Database, day: string, value: number |
 export async function feeLinkByDay(db: D1Database): Promise<Map<string, number | null>> {
   const { results } = await db.prepare('SELECT day, fee_link_usd FROM daily_totals').all<{ day: string; fee_link_usd: number | null }>();
   return new Map(results.map((r) => [r.day, r.fee_link_usd]));
+}
+
+export async function laneHistory(db: D1Database): Promise<LaneDayRow[]> {
+  const { results } = await db
+    .prepare("SELECT day, key, messages, usd_value FROM daily_breakdown WHERE dim = 'lane' ORDER BY day, key")
+    .all<LaneDayRow>();
+  return results;
+}
+
+export async function chainDisplayNames(db: D1Database): Promise<Map<string, ChainNames>> {
+  const { results } = await db
+    .prepare('SELECT selector, name, display_name FROM chains')
+    .all<{ selector: string; name: string | null; display_name: string | null }>();
+  return new Map(results.map((r) => [r.selector, { name: r.name, display_name: r.display_name }]));
 }

@@ -1,11 +1,11 @@
-import { addDays, dayOf, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
-export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, chains: 3600, tokens: 3600 } as const;
+export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, chains: 3600, tokens: 3600 } as const;
 
 const LIVE_WINDOW_MINUTES = 15;
 
@@ -240,6 +240,13 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
     'history.json',
     { since, days: history.map((d) => ({ ...d, usd_value: usd(d.usd_value), fee_usd: usd(d.fee_usd), fee_link_usd: usd(feeLink.get(d.day) ?? null) })) },
     TTL.history,
+    now,
+  );
+  await putJson(
+    c.env.PUBLIC,
+    'replay.json',
+    { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) },
+    TTL.replay,
     now,
   );
 

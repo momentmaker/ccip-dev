@@ -272,3 +272,39 @@ describe('public file contract', () => {
     }
   });
 });
+
+describe('replay.json', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const ETH = '5009297550715157269';
+  const totalsFor = (day: string) => ({
+    day, messages: 1, token_messages: 1, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0,
+  });
+
+  it('publishes chains by first day, indexed lanes and per-day lane rows', async () => {
+    await env.DB.prepare("INSERT INTO chains VALUES (?, 'ethereum-mainnet-base-1', 'Base Mainnet', 'EVM', '8453', 'x', 'x')").bind(BASE).run();
+    await store.replaceDaily(env.DB, totalsFor('2026-09-01'), [
+      { day: '2026-09-01', dim: 'lane', key: `${ETH}>${BASE}`, messages: 3, usd_value: 10.6, fee_usd: null },
+    ], NOW);
+    await store.replaceDaily(env.DB, totalsFor('2026-09-02'), [
+      { day: '2026-09-02', dim: 'lane', key: `${BASE}>${ETH}`, messages: 1, usd_value: 0, fee_usd: null },
+      { day: '2026-09-02', dim: 'lane', key: `${ETH}>${BASE}`, messages: 2, usd_value: 5, fee_usd: null },
+      { day: '2026-09-02', dim: 'token', key: `${ETH}:0xtok`, messages: 2, usd_value: 5, fee_usd: null },
+    ], NOW);
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    expect(await readPublic('replay.json')).toMatchObject({
+      schema_version: 1,
+      since: '2026-09-01',
+      chains: [
+        { selector: BASE, name: 'ethereum-mainnet-base-1', display_name: 'Base Mainnet', first_day: '2026-09-01' },
+        { selector: ETH, name: null, display_name: null, first_day: '2026-09-01' },
+      ],
+      lanes: [[1, 0], [0, 1]],
+      days: [
+        { day: '2026-09-01', lanes: [[0, 3, 11]] },
+        { day: '2026-09-02', lanes: [[0, 2, 5], [1, 1, 0]] },
+      ],
+    });
+    const object = await env.PUBLIC.get('v1/replay.json');
+    expect(object?.httpMetadata?.cacheControl).toBe('public, max-age=300');
+  });
+});
