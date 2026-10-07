@@ -98,7 +98,7 @@ Five failure modes the spec implies but feature tests would not exercise. Each o
 - Test: `site/test/chain-icons-match.test.ts`, `site/test/chain-icons-clean.test.ts`, `site/test/chain-icons-lettermark.test.ts`
 
 **Interfaces:**
-- Produces:
+- Produces (amended by fix round 1, 2026-10-07: any docs icon that embeds a raster is rasterized to a 128×128 `<chain name>.png`; all others are `.svg`):
   - `site/src/data/chain-icons.json` with the shape `{ source: string; icons: Record<string /* chain name */, { selector: string; file: string; kind: 'logo' | 'lettermark'; slug: string | null; rule: string }> }`.
   - `site/public/chains/<chain name>.svg`. Every file has `viewBox`, `width="32"` and `height="32"` on its root, and every id is prefixed `<chain name>-`.
 
@@ -600,6 +600,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { hasIcon, iconFiles, iconHref, missingIcons } from '../src/lib/chain-icons';
 import { iconDataUri } from '../src/lib/chain-icons-server';
+import manifest from '../src/data/chain-icons.json';
 
 const ETHEREUM = '5009297550715157269';
 const PUBLIC = join(import.meta.dirname, '..', 'public');
@@ -629,6 +630,11 @@ describe('chain icons', () => {
     expect(uri.startsWith('data:image/svg+xml;base64,')).toBe(true);
     expect(Buffer.from(uri.split(',')[1]!, 'base64').toString('utf8')).toContain('<svg');
     expect(iconDataUri('1', PUBLIC)).toBeNull();
+  });
+
+  it('inlines a rasterized icon as a PNG data URI', () => {
+    const raster = Object.values(manifest.icons as Record<string, { selector: string; file: string }>).find((e) => e.file.endsWith('.png'))!;
+    expect(iconDataUri(raster.selector, PUBLIC)!.startsWith('data:image/png;base64,iVBORw0KGgo')).toBe(true);
   });
 });
 ```
@@ -749,7 +755,9 @@ import { iconHref } from './chain-icons';
 
 export function iconDataUri(selector: string, publicDir = join(process.cwd(), 'public')): string | null {
   const href = iconHref(selector);
-  return href ? `data:image/svg+xml;base64,${readFileSync(join(publicDir, href), 'base64')}` : null;
+  if (!href) return null;
+  const mime = href.endsWith('.png') ? 'image/png' : 'image/svg+xml';
+  return `data:${mime};base64,${readFileSync(join(publicDir, href), 'base64')}`;
 }
 ```
 
@@ -2063,13 +2071,17 @@ export function sizedSvg(svg: string, size: number): string {
   return svg.replace(/<svg\b[^>]*>/, (tag) => tag.replace(/\s(width|height)="[^"]*"/g, '').replace(/^<svg/, `<svg width="${size}" height="${size}"`));
 }
 
-export async function loadCoinImage(href: string, size = COIN_RASTER_PX): Promise<HTMLCanvasElement> {
+async function sizedSvgUrl(href: string, size: number): Promise<string> {
   const res = await fetch(href);
   if (!res.ok) throw new Error(`${href}: HTTP ${res.status}`);
-  const url = URL.createObjectURL(new Blob([sizedSvg(await res.text(), size)], { type: 'image/svg+xml' }));
+  return URL.createObjectURL(new Blob([sizedSvg(await res.text(), size)], { type: 'image/svg+xml' }));
+}
+
+export async function loadCoinImage(href: string, size = COIN_RASTER_PX): Promise<HTMLCanvasElement> {
+  const blobUrl = href.endsWith('.svg') ? await sizedSvgUrl(href, size) : null;
   try {
     const img = new Image(size, size);
-    img.src = url;
+    img.src = blobUrl ?? href;
     await img.decode();
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -2082,7 +2094,7 @@ export async function loadCoinImage(href: string, size = COIN_RASTER_PX): Promis
     ctx.drawImage(img, 0, 0, size, size);
     return canvas;
   } finally {
-    URL.revokeObjectURL(url);
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
   }
 }
 

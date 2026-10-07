@@ -87,7 +87,9 @@ The script cleans icons with svgo 4.1.0, added as an exact-pinned `devDependency
 - `prefixIds` with the prefix `<chain name>-`, so ids such as `clip0_…` cannot collide when several icons are inlined in one SVG;
 - a small custom plugin that removes every `on*` attribute and every `href` that does not start with `#`.
 
-The root `<svg>` keeps its `viewBox` and loses `width` and `height`, so it scales to whatever box it is drawn in.
+The root `<svg>` keeps its `viewBox` and is set to `width="32" height="32"`. A docs icon that lacks a `viewBox` gets one derived from its width and height. Paths are rounded to 2 decimals.
+
+**Raster icons.** A few docs icons are a PNG wrapped in SVG: today `polygonzkevm`, `xlayer` and `zora`. The card renderer cannot draw a PNG nested in an SVG, which was measured on 2026-10-07. So the script rasterizes each of these once, through `@cf-wasm/og`, to a 128×128 PNG and vendors it as `<chain name>.png`. Every consumer handles both extensions: `iconDataUri` picks the MIME type, and the replay loads PNGs directly instead of resizing SVG text.
 
 ### 5.4 Lettermarks
 
