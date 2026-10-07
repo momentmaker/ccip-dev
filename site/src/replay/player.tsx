@@ -5,20 +5,20 @@ import { DataError, fetchPublic, pollDelay } from '../lib/data';
 import { hasIcon, iconHref } from '../lib/chain-icons';
 import { chainName, chainNameMap } from '../lib/names';
 import { formatUtcDay } from '../lib/format';
-import { barVisible, BAR_IDLE_MS, formatClock } from '../lib/controls';
+import { barVisible, BAR_IDLE_MS, formatClock, pickableChains } from '../lib/controls';
 import { replayHead } from '../lib/replay-head';
 import ChainPicker from '../components/controls/ChainPicker';
+import RecordPill from '../components/controls/RecordPill';
 import Scrubber from '../components/controls/Scrubber';
 import Segmented from '../components/controls/Segmented';
 import ShapePicker from '../components/controls/ShapePicker';
 import ShareButton from '../components/ShareButton';
-import { usePrefersReducedMotion } from '../components/hooks';
 import { trailingWeights } from '../sky/weights';
 import { buildLayout } from '../sky/layout';
 import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
 import { canRecord, recordingFilename, recordReplay } from './recorder';
-import { LOOP_S, Show } from './director/show';
+import { Show } from './director/show';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
 
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
@@ -34,7 +34,6 @@ interface Loaded {
 }
 
 export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: string | null; slugs: Record<string, string> }) {
-  const reducedMotion = usePrefersReducedMotion();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -55,6 +54,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [recordable, setRecordable] = useState<boolean | null>(null);
   const [recording, setRecording] = useState<{ progress: number; controller: AbortController } | null>(null);
   const [recordError, setRecordError] = useState<string | null>(null);
+  const [recordNote, setRecordNote] = useState('');
   const recordAbortRef = useRef<AbortController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tRef = useRef(0);
@@ -120,10 +120,10 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const pickerChains = useMemo(() => {
     if (!data) return [];
     const values = trailingWeights(data.replay, 30).chains;
-    return data.replay.chains
+    return pickableChains(data.replay.chains, slugs)
       .map((c) => ({ selector: c.selector, name: chainName(names, c.selector), value: values.get(c.selector) ?? 0, icon: iconHref(c.selector) }))
       .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
-  }, [data, names]);
+  }, [data, names, slugs]);
   const slug = focus ? slugs[focus] ?? null : null;
   const focusName = focus ? chainName(names, focus) : null;
   const pageUrl = `https://ccip.dev/replay/${slug ? `${slug}/` : ''}`;
@@ -158,7 +158,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       headSkippedRef.current = false;
       return;
     }
-    const settled = show.frameAt(show.length - LOOP_S).story;
+    const settled = show.frameAt(show.posterTime()).story;
     const focused = show.focusName !== null;
     const head = replayHead({
       focusName: show.focusName,
@@ -193,7 +193,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       setError('Your browser could not start the animation.');
       return;
     }
-    tRef.current = reducedMotion ? show.length - LOOP_S : 0;
+    tRef.current = show.posterTime();
     setShown(tRef.current);
     setPlaying(false);
     setCompositor(created);
@@ -201,7 +201,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       created.destroy();
       setCompositor(null);
     };
-  }, [show, assets, stars, reducedMotion]);
+  }, [show, assets, stars]);
 
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -238,7 +238,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       tRef.current = now;
       drawFrame();
       if (now >= show.length) {
-        tRef.current = show.length - LOOP_S;
+        tRef.current = show.posterTime();
         setShown(tRef.current);
         setPlaying(false);
         return;
@@ -278,7 +278,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
 
   const play = () => {
     if (!show) return;
-    const from = tRef.current >= show.length - LOOP_S ? 0 : tRef.current;
+    const from = tRef.current >= show.posterTime() ? 0 : tRef.current;
     clockRef.current = { startedAt: performance.now(), offset: from };
     tRef.current = from;
     setShown(from);
@@ -301,6 +301,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     if (!show || !assets || recording) return;
     setPlaying(false);
     setRecordError(null);
+    setRecordNote('Recording started');
     const controller = new AbortController();
     recordAbortRef.current = controller;
     setRecording({ progress: 0, controller });
@@ -327,12 +328,15 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       link.click();
       setTimeout(() => URL.revokeObjectURL(href), 5_000);
       track('replay_record', { length, aspect });
+      setRecordNote('Recording finished');
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error('replay recording failed', err);
+        setRecordNote('');
         setRecordError('Recording failed — try again or use Chrome');
       }
     } finally {
+      if (controller.signal.aborted) setRecordNote('Recording cancelled');
       recorder?.destroy();
       if (recordAbortRef.current === controller) recordAbortRef.current = null;
       setRecording(null);
@@ -375,7 +379,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
           </span>
         )}
         <div className="player-bar">
-          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : shown >= show.length - LOOP_S ? 'Replay' : 'Play'} disabled={recording !== null} onClick={() => (playing ? setPlaying(false) : play())}>
+          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : hasPlayed && shown >= show.posterTime() ? 'Replay' : 'Play'} disabled={recording !== null} onClick={() => (playing ? setPlaying(false) : play())}>
             {playing ? <span className="pause-i" aria-hidden="true" /> : <span className="tri" aria-hidden="true" />}
           </button>
           <Scrubber
@@ -416,16 +420,10 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
             Record video
           </button>
         )}
-        {recording && (
-          <span className="rec-pill" role="status">
-            <span className="rec-prog" style={{ width: `${Math.round(recording.progress * 100)}%` }} />
-            <span className="rec-dot" aria-hidden="true" />
-            Recording · {Math.round(recording.progress * 100)}%
-            <button type="button" className="rec-cancel" onClick={() => recording.controller.abort()}>
-              Cancel
-            </button>
-          </span>
-        )}
+        {recording && <RecordPill progress={recording.progress} onCancel={() => recording.controller.abort()} />}
+        <span className="visually-hidden" role="status">
+          {recordNote}
+        </span>
         {recordable === false && <span className="muted">Recording works in Chrome, Edge and Safari</span>}
         {recordError && <span className="down">{recordError}</span>}
       </div>

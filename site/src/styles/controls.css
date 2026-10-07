@@ -46,6 +46,7 @@
 .bigplay .tri { border-left-width: 20px; border-top-width: 12px; border-bottom-width: 12px; margin-left: 6px; }
 .studio { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
 .studio .spacer { flex: 1; }
+.studio .share-btn { background: transparent; }
 .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4d5e; box-shadow: 0 0 10px rgba(255, 77, 94, 0.8); }
 .rec-pill { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 6px 0 16px; border-radius: 999px; background: #1a1f2a; border: 1px solid rgba(255, 77, 94, 0.5); font: 600 14px var(--font-sans); }
 .rec-pill > * { position: relative; }
@@ -58,4 +59,7 @@
   .studio .chain-picker .caret { margin-left: auto; }
   .studio .btn-primary, .studio .share, .studio .share-btn, .studio .rec-pill { width: 100%; }
   .studio .spacer { display: none; }
+  .studio .btn-primary, .studio .rec-pill { order: 1; }
+  .studio .share { order: 2; }
+  .studio > .muted, .studio > .down { order: 3; }
 }

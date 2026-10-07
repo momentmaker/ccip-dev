@@ -97,6 +97,14 @@ describe('Show', () => {
     for (const m of s.slams) expect(m.start + SLAM_S).toBeLessThanOrEqual(s.warp.end + 1e-9);
   });
 
+  it.each([15, 30, 60])('poses the poster on the settled finale, with the end title in and before the loop crossfade (%i s)', (length) => {
+    const s = show(null, length);
+    const poster = s.frameAt(s.posterTime());
+    expect(poster.phase).toBe('finale');
+    expect(poster.loop).toBe(0);
+    expect(poster.finale).toBeGreaterThanOrEqual(0.7);
+  });
+
   it('starts the timeline with the first year', () => {
     expect(show().yearTicks()[0]).toEqual({ time: 2, label: '2023' });
   });

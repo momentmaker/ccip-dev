@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { catchCoin, COIN_CATCH_MS, coinCatchKeyframes } from '../src/sky/arrival';
+import { catchCoin, COIN_CATCH_MS, coinCatchKeyframes, latestArrivals } from '../src/sky/arrival';
 
 describe('coinCatchKeyframes', () => {
   it('pops the coin and settles it, always keeping it centered on its star', () => {
@@ -26,5 +26,23 @@ describe('catchCoin', () => {
 
   it('does nothing for a chain without a coin', () => {
     expect(() => catchCoin(undefined, 'data')).not.toThrow();
+  });
+});
+
+describe('latestArrivals', () => {
+  it('keeps one arrival per chain in a frame, with the kind of the last one', () => {
+    const arrivals = [
+      { star: 1, selector: 'a', kind: 'data' as const },
+      { star: 2, selector: 'b', kind: 'token' as const },
+      { star: 1, selector: 'a', kind: 'gold' as const },
+    ];
+    expect(latestArrivals(arrivals)).toEqual([
+      { star: 1, selector: 'a', kind: 'gold' },
+      { star: 2, selector: 'b', kind: 'token' },
+    ]);
+  });
+
+  it('returns nothing for a quiet frame', () => {
+    expect(latestArrivals([])).toEqual([]);
   });
 });

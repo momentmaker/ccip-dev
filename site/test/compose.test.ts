@@ -164,3 +164,22 @@ describe('ReplayCompositor loop crossfade', () => {
     expect(createCanvas).toHaveBeenCalledTimes(before + 1);
   });
 });
+
+describe('ReplayCompositor loop cache without a 2D context', () => {
+  it('warns once when it cannot build the loop crossfade', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const closing = { ...showFrame(), loop: 0.5 };
+    const stub = { frameAt: () => closing, timing: { hook: 2, finale: 3 }, length: 30, warp: { start: 2, end: 27 } } as never;
+    const target = {
+      ...storyMethods, fillRect: vi.fn(), drawImage: vi.fn(), createRadialGradient: () => ({ addColorStop: vi.fn() }),
+      save: vi.fn(), restore: vi.fn(), fillText: vi.fn(),
+      set globalAlpha(_v: number) {}, set font(_v: string) {}, set fillStyle(_v: unknown) {}, set textAlign(_v: string) {}, set textBaseline(_v: string) {},
+      set strokeStyle(_v: string) {}, set lineWidth(_v: number) {},
+    } as unknown as CanvasRenderingContext2D;
+    const compositor = new ReplayCompositor(stub, [], assets, () => ({ width: 10, height: 10, getContext: () => null }) as never);
+    compositor.draw(29.8, target, 10, 10);
+    compositor.draw(29.9, target, 10, 10);
+    expect(warn.mock.calls.filter(([m]) => String(m).includes('loop'))).toHaveLength(1);
+    warn.mockRestore();
+  });
+});

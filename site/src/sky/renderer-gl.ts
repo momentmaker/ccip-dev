@@ -172,5 +172,6 @@ export class GlRenderer implements SkyRenderer {
     if (this.lineVao) gl.deleteVertexArray(this.lineVao);
     if (this.quadProgram) gl.deleteProgram(this.quadProgram);
     if (this.lineProgram) gl.deleteProgram(this.lineProgram);
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
 }

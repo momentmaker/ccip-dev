@@ -44,6 +44,7 @@ export class ReplayCompositor {
   private readonly renderer: SkyRenderer;
   private coinImages: ReadonlyMap<string, CanvasImageSource> = new Map();
   private loopCache: { width: number; height: number; canvas: SkyCanvas } | null = null;
+  private loopCacheWarned = false;
   private destroyed = false;
 
   constructor(
@@ -90,7 +91,11 @@ export class ReplayCompositor {
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d') as Ctx2d | null;
-    if (!ctx) return;
+    if (!ctx) {
+      if (!this.loopCacheWarned) console.warn('Replay loop crossfade unavailable: no 2D context for the cached opening frame');
+      this.loopCacheWarned = true;
+      return;
+    }
     this.compose(this.show.frameAt(0), ctx, width, height);
     this.loopCache = { width, height, canvas };
   }

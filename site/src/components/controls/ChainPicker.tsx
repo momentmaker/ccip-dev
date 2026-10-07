@@ -1,8 +1,23 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { filterChains, moveIndex, type PickerChain } from '../../lib/controls';
+import { activeAfterSearch, filterChains, moveIndex, type PickerChain } from '../../lib/controls';
 import { formatUsd } from '../../lib/format';
 
 const ALL = '__all__';
+
+function ChainCoin({ chain, lazy = false }: { chain: PickerChain; lazy?: boolean }) {
+  if (chain.icon) return <img src={chain.icon} alt="" width={26} height={26} loading={lazy ? 'lazy' : undefined} />;
+  return (
+    <span className="all-coin" aria-hidden="true">
+      {chain.name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
+const allCoin = (
+  <span className="all-coin" aria-hidden="true">
+    ✦
+  </span>
+);
 
 export default function ChainPicker(props: { chains: readonly PickerChain[]; value: string | null; onChange: (selector: string | null) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -69,7 +84,7 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
           setActive(Math.max(0, items.indexOf(props.value ?? ALL)));
         }}
       >
-        {current?.icon ? <img src={current.icon} alt="" width={26} height={26} /> : <span className="all-coin" aria-hidden="true">✦</span>}
+        {current ? <ChainCoin chain={current} /> : allCoin}
         <span>{current ? current.name : 'All chains'}</span>
         <span className="caret" aria-hidden="true" />
       </button>
@@ -87,7 +102,7 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setActive(e.target.value.trim() === '' ? 0 : 1);
+              setActive(activeAfterSearch(e.target.value, filterChains(e.target.value, props.chains).length));
             }}
             onKeyDown={onKey}
           />
@@ -105,11 +120,7 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
                   onPointerEnter={() => setActive(i)}
                   onClick={() => choose(key)}
                 >
-                  {chain ? (
-                    chain.icon ? <img src={chain.icon} alt="" width={26} height={26} loading="lazy" /> : <span className="all-coin" aria-hidden="true" />
-                  ) : (
-                    <span className="all-coin" aria-hidden="true">✦</span>
-                  )}
+                  {chain ? <ChainCoin chain={chain} lazy /> : allCoin}
                   <span>{chain ? chain.name : 'All chains'}</span>
                   <span className="m">{chain ? formatUsd(chain.value) : 'network'}</span>
                 </li>

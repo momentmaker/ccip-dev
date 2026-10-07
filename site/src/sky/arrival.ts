@@ -23,6 +23,12 @@ export function coinCatchKeyframes(kind: CometKind): Keyframe[] {
   ];
 }
 
+export function latestArrivals<T extends { selector: string }>(arrivals: readonly T[]): T[] {
+  const last = new Map<string, T>();
+  for (const a of arrivals) last.set(a.selector, a);
+  return [...last.values()];
+}
+
 export function catchCoin(coin: Animatable | undefined, kind: CometKind): void {
   if (!coin) return;
   for (const running of coin.getAnimations()) running.cancel();

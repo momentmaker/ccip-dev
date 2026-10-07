@@ -12,6 +12,14 @@ export function filterChains(query: string, chains: readonly PickerChain[]): Pic
   return q === '' ? [...chains] : chains.filter((c) => squash(c.name).includes(q));
 }
 
+export function pickableChains<T extends { selector: string }>(chains: readonly T[], slugs: Readonly<Record<string, string>>): T[] {
+  return chains.filter((c) => Object.hasOwn(slugs, c.selector));
+}
+
+export function activeAfterSearch(query: string, resultCount: number): number {
+  return query.trim() === '' || resultCount === 0 ? 0 : 1;
+}
+
 export function moveIndex(current: number, delta: number, count: number): number {
   if (count <= 0) return -1;
   if (current < 0) return delta > 0 ? 0 : count - 1;

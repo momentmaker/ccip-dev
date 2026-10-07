@@ -28,8 +28,12 @@ class MemoryCache {
   }
 }
 
+let origins = 0;
+
 function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Record<string, unknown> = DATA, assets: Record<string, string> = {}) {
+  const origin = `https://ccip${++origins}.test`;
   const dataUrls: string[] = [];
+  const assetPaths: string[] = [];
   const fetchFn = (async (url: string) => {
     dataUrls.push(url);
     const name = url.replace('https://data.ccip.dev/v1/', '');
@@ -40,6 +44,7 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Rec
     ASSETS: {
       fetch: async (req: Request | string) => {
         const path = new URL(typeof req === 'string' ? req : req.url).pathname;
+        assetPaths.push(path);
         if (path === '/card-sky.svg') return new Response('<svg xmlns="http://www.w3.org/2000/svg"/>');
         if (path === '/og-default.png') return new Response(FALLBACK);
         if (path in assets) return new Response(assets[path]);
@@ -52,11 +57,11 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Rec
   const renderPng = vi.fn(async (_tree: unknown) => PNG);
   const deps: OgDeps = { fetch: fetchFn, renderPng, cache: new MemoryCache(), ...overrides };
   const get = async (path: string) => {
-    const res = await handleOg(new Request(`https://ccip.dev${path}`), env, ctx, deps);
+    const res = await handleOg(new Request(`${origin}${path}`), env, ctx, deps);
     await Promise.all(pending);
     return res;
   };
-  return { get, renderPng, dataUrls };
+  return { get, renderPng, dataUrls, assetPaths };
 }
 
 function imgSrcs(node: unknown): string[] {
@@ -174,5 +179,24 @@ describe('handleOg', () => {
       expect((await get(`/og/replay/${slug}.png`)).status).toBe(404);
     }
     expect((await get('/og/replay/base.png')).status).toBe(200);
+  });
+
+  it('reads /replay-cards.json once per isolate and origin, however many chain cards it renders', async () => {
+    const entry = { name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: null };
+    const { get, assetPaths } = setup({}, [], DATA, { '/replay-cards.json': JSON.stringify({ base: entry, arbitrum: { ...entry, name: 'Arbitrum' } }) });
+    expect((await get('/og/replay/base.png')).status).toBe(200);
+    expect((await get('/og/replay/arbitrum.png')).status).toBe(200);
+    expect((await get('/og/replay/nope.png')).status).toBe(404);
+    expect(assetPaths.filter((p) => p === '/replay-cards.json')).toHaveLength(1);
+  });
+
+  it('retries /replay-cards.json on the next request after a failed read', async () => {
+    const entry = { name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: null };
+    const assets: Record<string, string> = {};
+    const { get, assetPaths } = setup({}, [], DATA, assets);
+    expect((await get('/og/replay/base.png')).headers.get('cache-control')).toBe('public, max-age=60');
+    assets['/replay-cards.json'] = JSON.stringify({ base: entry });
+    expect((await get('/og/replay/base.png')).status).toBe(200);
+    expect(assetPaths.filter((p) => p === '/replay-cards.json')).toHaveLength(2);
   });
 });

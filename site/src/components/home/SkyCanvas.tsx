@@ -4,7 +4,7 @@ import { formatCount, formatUsd } from '../../lib/format';
 import { hasIcon, iconHref } from '../../lib/chain-icons';
 import { pruneStale, type Planned } from '../../lib/live-scheduler';
 import { chainName, type ChainNames } from '../../lib/names';
-import { catchCoin } from '../../sky/arrival';
+import { catchCoin, latestArrivals } from '../../sky/arrival';
 import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
 import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
@@ -117,7 +117,7 @@ export default function SkyCanvas(props: Props) {
         if (scene.starPoints.length !== starsBefore) resize();
       }
       renderer.draw(scene.frame(now), project, sizeScale);
-      for (const arrival of scene.takeArrivals()) catchCoin(coinEls.current.get(arrival.selector), arrival.kind);
+      for (const arrival of latestArrivals(scene.takeArrivals())) catchCoin(coinEls.current.get(arrival.selector), arrival.kind);
       raf = requestAnimationFrame(loop);
     };
     const dropStaleComets = () => {

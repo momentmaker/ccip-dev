@@ -72,10 +72,24 @@ function isReplayCardEntry(value: unknown): value is ReplayCardEntry {
   );
 }
 
-async function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, ReplayCardEntry>> {
+const replayCards = new Map<string, Promise<Record<string, unknown>>>();
+
+async function readReplayCards(env: OgEnv, origin: string): Promise<Record<string, unknown>> {
   const res = await env.ASSETS.fetch(new Request(`${origin}/replay-cards.json`));
   if (!res.ok) throw new Error(`replay-cards.json: HTTP ${res.status}`);
-  return (await res.json()) as Record<string, ReplayCardEntry>;
+  return (await res.json()) as Record<string, unknown>;
+}
+
+function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, unknown>> {
+  let pending = replayCards.get(origin);
+  if (!pending) {
+    pending = readReplayCards(env, origin);
+    replayCards.set(origin, pending);
+    pending.catch(() => {
+      if (replayCards.get(origin) === pending) replayCards.delete(origin);
+    });
+  }
+  return pending;
 }
 
 async function build(route: CardRoute, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {

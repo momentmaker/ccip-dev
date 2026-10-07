@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BAR_IDLE_MS, barVisible, filterChains, formatClock, moveIndex, nearestMark } from '../src/lib/controls';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import ChainPicker from '../src/components/controls/ChainPicker';
+import RecordPill from '../src/components/controls/RecordPill';
+import Scrubber from '../src/components/controls/Scrubber';
+import { activeAfterSearch, BAR_IDLE_MS, barVisible, filterChains, formatClock, moveIndex, nearestMark, pickableChains } from '../src/lib/controls';
 
 const chains = [
   { selector: 'e', name: 'Ethereum', value: 3, icon: null },
@@ -60,5 +65,59 @@ describe('barVisible', () => {
 
   it('hides while recording once idle', () => {
     expect(barVisible({ ...base, recording: true })).toBe(false);
+  });
+});
+
+describe('pickableChains', () => {
+  it('offers only chains that have a replay page', () => {
+    expect(pickableChains(chains, { e: 'ethereum', n: 'bnb-chain' }).map((c) => c.selector)).toEqual(['e', 'n']);
+  });
+
+  it('ignores names that only exist on Object.prototype', () => {
+    expect(pickableChains([{ selector: 'constructor', name: 'X', value: 1, icon: null }], {})).toEqual([]);
+  });
+});
+
+describe('activeAfterSearch', () => {
+  it('keeps All chains active for an empty query', () => {
+    expect(activeAfterSearch('  ', 3)).toBe(0);
+  });
+
+  it('moves to the first match when the query has results', () => {
+    expect(activeAfterSearch('eth', 1)).toBe(1);
+  });
+
+  it('stays on All chains when nothing matches, so the active option always exists', () => {
+    expect(activeAfterSearch('zzz', 0)).toBe(0);
+  });
+});
+
+describe('control markup', () => {
+  const noop = () => {};
+
+  it('steps the scrubber in tenths of a second', () => {
+    const html = renderToStaticMarkup(createElement(Scrubber, { length: 30, time: 0, onScrub: noop, marks: [], ticks: [], valueText: 'Jul 6, 2023' }));
+    expect(html).toContain('step="0.1"');
+  });
+
+  it('shows a focus chain without an icon as its initial on a coin, not the All chains mark', () => {
+    const html = renderToStaticMarkup(createElement(ChainPicker, { chains: [{ selector: 'k', name: 'Kroma', value: 1, icon: null }], value: 'k', onChange: noop }));
+    expect(html).toContain('<span class="all-coin" aria-hidden="true">K</span>');
+    expect(html).not.toContain('✦');
+  });
+
+  it('keeps the All chains mark when no chain is chosen', () => {
+    const html = renderToStaticMarkup(createElement(ChainPicker, { chains: [{ selector: 'k', name: 'Kroma', value: 1, icon: null }], value: null, onChange: noop }));
+    expect(html).toContain('✦');
+  });
+
+  it('reports recording progress as a progressbar, without a live region that reads every percent', () => {
+    const html = renderToStaticMarkup(createElement(RecordPill, { progress: 0.42, onCancel: noop }));
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('aria-valuenow="42"');
+    expect(html).toContain('aria-valuemin="0"');
+    expect(html).toContain('aria-valuemax="100"');
+    expect(html).toContain('Recording · 42%');
+    expect(html).not.toMatch(/role="status"|aria-live/);
   });
 });

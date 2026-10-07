@@ -106,7 +106,7 @@ function drawCounter(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.save();
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
-  ctx.font = `700 ${size}px ${MONO}`;
+  ctx.font = `600 ${size}px ${MONO}`;
   ctx.fillStyle = FG;
   const lastDigit = text.search(/\d(?=[^\d]*$)/);
   let carrying = true;

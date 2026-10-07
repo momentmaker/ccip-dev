@@ -188,6 +188,10 @@ export class Show {
     };
   }
 
+  posterTime(): number {
+    return this.length - LOOP_S;
+  }
+
   milestoneMarks(): { time: number; label: string; day: string }[] {
     return this.slams.map((s) => ({ time: s.start, label: s.label, day: this.days[this.warp.dayAt(s.start).index] ?? '' }));
   }

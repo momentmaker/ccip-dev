@@ -252,6 +252,16 @@ describe('a short focus show', () => {
   });
 });
 
+describe('drawStory fonts', () => {
+  it('draws the counter in the JetBrains Mono weight the page loads (600)', () => {
+    const drawn: Drawn[] = [];
+    const frame = show.frameAt(15);
+    drawStory(fontCtx(drawn), frame, layoutFor(1080, 1080), assets);
+    const monoFonts = new Set(drawn.filter((d) => d.font.includes('JetBrains Mono')).map((d) => d.font.split(' ')[0]));
+    expect([...monoFonts]).toEqual(['600']);
+  });
+});
+
 describe('drawStory board', () => {
   const names = new Map([['up', 'Climber'], ['down', 'Faller'], ['third', 'Third'], ['fourth', 'Fourth']]);
   const row = (selector: string, from: number, to: number, swap: number): BoardRow => ({

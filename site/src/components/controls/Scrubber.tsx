@@ -36,7 +36,7 @@ export default function Scrubber(props: {
         type="range"
         min={0}
         max={props.length}
-        step={0.01}
+        step={0.1}
         value={Math.min(props.time, props.length)}
         aria-label="Position"
         aria-valuetext={props.valueText}
