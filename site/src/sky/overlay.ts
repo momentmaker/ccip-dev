@@ -30,7 +30,35 @@ export interface Rect {
 const LABEL_HALF_HEIGHT = 9;
 const DEFAULT_LABEL_WIDTH = 80;
 
+const COIN_SLIDE_MAX = 0.25;
+
 const intersects = (a: Rect, b: Rect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+const squareAt = (x: number, y: number, d: number): Rect => ({ left: x - d / 2, top: y - d / 2, right: x + d / 2, bottom: y + d / 2 });
+
+function shortestExit(box: Rect, rect: Rect): { dx: number; dy: number } {
+  const exits = [
+    { dx: rect.left - box.right, dy: 0 },
+    { dx: rect.right - box.left, dy: 0 },
+    { dx: 0, dy: rect.top - box.bottom },
+    { dx: 0, dy: rect.bottom - box.top },
+  ];
+  return exits.reduce((best, e) => (Math.abs(e.dx + e.dy) < Math.abs(best.dx + best.dy) ? e : best));
+}
+
+// A coin that grazes the UI slides clear by up to a quarter of its width; one that would need more stays off.
+function placeCoin(p: { x: number; y: number; d: number }, avoid: readonly Rect[]): { x: number; y: number } | null {
+  let x = p.x;
+  let y = p.y;
+  for (const rect of avoid) {
+    const box = squareAt(x, y, p.d);
+    if (!intersects(box, rect)) continue;
+    const { dx, dy } = shortestExit(box, rect);
+    x += dx;
+    y += dy;
+  }
+  if (Math.hypot(x - p.x, y - p.y) > p.d * COIN_SLIDE_MAX) return null;
+  return avoid.some((rect) => intersects(squareAt(x, y, p.d), rect)) ? null : { x, y };
+}
 
 export function skyOverlay(
   stars: readonly StarPoint[],
@@ -57,28 +85,28 @@ export function skyOverlay(
   const bySelector = new Map(placed.map((p) => [p.selector, p]));
   const avoid = opts.avoid ?? [];
   const labelWidth = opts.labelWidth ?? (() => DEFAULT_LABEL_WIDTH);
-  const coinClear = (selector: string) => {
-    const p = bySelector.get(selector);
-    if (!p) return false;
-    const box = { left: p.x - p.d / 2, top: p.y - p.d / 2, right: p.x + p.d / 2, bottom: p.y + p.d / 2 };
-    return !avoid.some((rect) => intersects(box, rect));
-  };
-  const coins = coinSelectors(values, opts.coins, (s) => opts.hasIcon(s) && coinClear(s)).flatMap((selector) => {
-    const p = bySelector.get(selector)!;
-    return [{ selector, x: p.x, y: p.y, d: p.d }];
+  const coinSpots = new Map(placed.flatMap((p) => {
+    const spot = placeCoin(p, avoid);
+    return spot ? [[p.selector, spot] as const] : [];
+  }));
+  const coins = coinSelectors(values, opts.coins, (s) => opts.hasIcon(s) && coinSpots.has(s)).map((selector) => {
+    const spot = coinSpots.get(selector)!;
+    return { selector, x: spot.x, y: spot.y, d: bySelector.get(selector)!.d };
   });
-  const withCoin = new Set(coins.map((c) => c.selector));
+  const coinBySelector = new Map(coins.map((c) => [c.selector, c]));
   const labels = topSelectors(values, opts.labels).flatMap((selector): OverlayLabel[] => {
     const p = bySelector.get(selector);
     if (!p) return [];
-    const offset = Math.max(10, (withCoin.has(selector) ? p.d / 2 : p.r) + 6);
+    const coin = coinBySelector.get(selector);
+    const { x, y } = coin ?? p;
+    const offset = Math.max(10, (coin ? coin.d / 2 : p.r) + 6);
     const w = labelWidth(selector);
-    const top = p.y - LABEL_HALF_HEIGHT;
-    const bottom = p.y + LABEL_HALF_HEIGHT;
-    const rightBox = { left: p.x + offset, top, right: p.x + offset + w, bottom };
-    if (!avoid.some((rect) => intersects(rightBox, rect))) return [{ selector, x: p.x + offset, y: p.y, side: 'right' }];
-    const leftBox = { left: p.x - offset - w, top, right: p.x - offset, bottom };
-    if (!avoid.some((rect) => intersects(leftBox, rect))) return [{ selector, x: p.x - offset, y: p.y, side: 'left' }];
+    const top = y - LABEL_HALF_HEIGHT;
+    const bottom = y + LABEL_HALF_HEIGHT;
+    const rightBox = { left: x + offset, top, right: x + offset + w, bottom };
+    if (!avoid.some((rect) => intersects(rightBox, rect))) return [{ selector, x: x + offset, y, side: 'right' }];
+    const leftBox = { left: x - offset - w, top, right: x - offset, bottom };
+    if (!avoid.some((rect) => intersects(leftBox, rect))) return [{ selector, x: x - offset, y, side: 'left' }];
     return [];
   });
   return { points: placed.map(({ selector, x, y, d, reach }) => ({ selector, x, y, d, reach })), coins, labels };

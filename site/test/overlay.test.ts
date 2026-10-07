@@ -60,6 +60,21 @@ describe('avoid rects', () => {
     expect(points.map((p) => p.selector)).toContain('a');
   });
 
+  it('slides a coin that only grazes a rect out of it, and keeps its label beside the coin', () => {
+    const [ax, ay] = at('a');
+    const card = { left: ax - 100, top: ay - 100, right: ax + 100, bottom: ay - 11 };
+    const { coins, labels } = skyOverlay(stars, values, 700, 700, { coins: 1, labels: 1, hasIcon: all, labelWidth: () => 60, avoid: [card] });
+    expect(coins).toEqual([{ selector: 'a', x: ax, y: ay + 1, d: 24 }]);
+    expect(labels[0]!.y).toBe(ay + 1);
+  });
+
+  it('drops a coin when sliding it clear would take more than a quarter of its width', () => {
+    const [ax, ay] = at('a');
+    const card = { left: ax - 100, top: ay - 100, right: ax + 100, bottom: ay - 5 };
+    const { coins } = skyOverlay(stars, values, 700, 700, { coins: 1, labels: 0, hasIcon: all, avoid: [card] });
+    expect(coins.map((c) => c.selector)).toEqual(['b']);
+  });
+
   it('puts the label on the left when only the right-side box is covered', () => {
     const { coins, labels } = skyOverlay(stars, values, 700, 700, {
       coins: 1,

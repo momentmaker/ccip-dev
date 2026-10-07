@@ -142,7 +142,7 @@ The About page gains one line: "Chain icons: Chainlink documentation. Logos are 
 **Coins.** A `.sky-coins` layer (`aria-hidden="true"`) sits next to `.sky-labels`. It holds `<img src={iconHref} alt="" width height decoding="async">` elements positioned at their stars with `border-radius: 50%`. They are recomputed on resize and when chain values change. Name labels keep their counts (12, or 6 under 640 px) and move outward by the coin's radius so they don't overlap it.
 
 `SkyCanvas` measures the hero's UI boxes (the toolbar items and the headline card) and passes them to `skyOverlay` as rectangles to avoid:
-- A chain whose coin box hits one loses its coin to the next-ranked chain.
+- A coin box that only grazes one slides clear along the shortest way out, by at most a quarter of its diameter, and its label sits beside the moved coin. A chain whose coin would have to move further loses its coin to the next-ranked chain.
 - A label that would hit one moves to the star's left side, or is dropped if both sides are blocked.
 - Every star stays hoverable.
 
