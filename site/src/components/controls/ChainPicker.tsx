@@ -87,7 +87,7 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setActive(0);
+              setActive(e.target.value.trim() === '' ? 0 : 1);
             }}
             onKeyDown={onKey}
           />

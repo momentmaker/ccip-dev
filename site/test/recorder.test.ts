@@ -54,6 +54,11 @@ describe('recording helpers', () => {
     expect(recordingFilename('2026-10-06', '9:16')).toBe('ccip-replay-2026-10-06-9x16.mp4');
   });
 
+  it('names a focus recording after its chain', () => {
+    expect(recordingFilename('2026-10-06', '1:1', 'base')).toBe('ccip-replay-base-2026-10-06-1x1.mp4');
+    expect(recordingFilename('2026-10-06', '16:9', null)).toBe('ccip-replay-2026-10-06-16x9.mp4');
+  });
+
   it('records only where H.264 encoding is supported', async () => {
     expect(await canRecord('16:9')).toBe(false);
     vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);

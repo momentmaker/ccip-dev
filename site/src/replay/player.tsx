@@ -3,12 +3,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { track, trackDataError } from '../lib/analytics';
 import { DataError, fetchPublic, pollDelay } from '../lib/data';
 import { hasIcon, iconHref } from '../lib/chain-icons';
-import { chainNameMap } from '../lib/names';
+import { chainName, chainNameMap } from '../lib/names';
+import { formatUtcDay } from '../lib/format';
+import { formatClock } from '../lib/controls';
+import { replayHead } from '../lib/replay-head';
+import ChainPicker from '../components/controls/ChainPicker';
+import Scrubber from '../components/controls/Scrubber';
+import Segmented from '../components/controls/Segmented';
+import ShapePicker from '../components/controls/ShapePicker';
+import ShareButton from '../components/ShareButton';
 import { usePrefersReducedMotion } from '../components/hooks';
+import { trailingWeights } from '../sky/weights';
 import { buildLayout } from '../sky/layout';
 import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
-import { canRecord, recordingFilename, recordReplay, totalFrames } from './recorder';
+import { canRecord, recordingFilename, recordReplay } from './recorder';
 import { LOOP_S, Show } from './director/show';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
 
@@ -24,7 +33,7 @@ interface Loaded {
   history: DayTotals[];
 }
 
-export default function ReplayPlayer() {
+export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: string | null; slugs: Record<string, string> }) {
   const reducedMotion = usePrefersReducedMotion();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +42,9 @@ export default function ReplayPlayer() {
   const loadFailuresRef = useRef(0);
   const trackedFilesRef = useRef(new Set<string>());
   const [length, setLength] = useState<ReplayLength>(30);
-  const [aspect, setAspect] = useState<Aspect>('16:9');
+  const [aspect, setAspect] = useState<Aspect>(() => (typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches ? '1:1' : '16:9'));
+  const [focus, setFocus] = useState<string | null>(initialFocus);
+  const [hasPlayed, setHasPlayed] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
   const [compositor, setCompositor] = useState<ReplayCompositor | null>(null);
@@ -95,20 +106,65 @@ export default function ReplayPlayer() {
     };
   }, [data]);
 
+  const names = useMemo(() => (data ? chainNameMap(data.replay.chains) : new Map<string, string>()), [data]);
   const show = useMemo(
-    () => (data ? new Show({ replay: data.replay, history: data.history, stars, length, focus: null, eligible: hasIcon }) : null),
-    [data, stars, length],
+    () => (data ? new Show({ replay: data.replay, history: data.history, stars, length, focus, eligible: hasIcon }) : null),
+    [data, stars, length, focus],
   );
   const assets = useMemo(
-    () =>
-      data && show
-        ? {
-            names: chainNameMap(data.replay.chains),
-            ticks: show.yearTicks().map((y) => ({ at: (y.time - show.warp.start) / (show.warp.end - show.warp.start), label: y.label })),
-          }
-        : null,
-    [data, show],
+    () => (show ? { names, ticks: show.yearTicks().map((y) => ({ at: (y.time - show.warp.start) / (show.warp.end - show.warp.start), label: y.label })) } : null),
+    [show, names],
   );
+  const pickerChains = useMemo(() => {
+    if (!data) return [];
+    const values = trailingWeights(data.replay, 30).chains;
+    return data.replay.chains
+      .map((c) => ({ selector: c.selector, name: chainName(names, c.selector), value: values.get(c.selector) ?? 0, icon: iconHref(c.selector) }))
+      .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  }, [data, names]);
+  const slug = focus ? slugs[focus] ?? null : null;
+  const focusName = focus ? chainName(names, focus) : null;
+  const pageUrl = `https://ccip.dev/replay/${slug ? `${slug}/` : ''}`;
+  const titleFor = (selector: string | null) =>
+    selector ? `${chainName(names, selector)} on Chainlink CCIP · Replay · ccip.dev` : 'Replay · ccip.dev';
+
+  const chooseChain = (selector: string | null) => {
+    setFocus(selector);
+    const nextSlug = selector ? slugs[selector] : null;
+    history.pushState({ focus: selector }, '', `/replay/${nextSlug ? `${nextSlug}/` : ''}`);
+    document.title = titleFor(selector);
+  };
+  useEffect(() => {
+    const onPop = () => {
+      const match = /^\/replay\/([a-z0-9-]+)\/?$/.exec(location.pathname);
+      const selector = match ? Object.keys(slugs).find((s) => slugs[s] === match[1]) ?? null : null;
+      setFocus(selector);
+      document.title = titleFor(selector);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  });
+
+  const headSkippedRef = useRef(true);
+  useEffect(() => {
+    if (!data || !show) return;
+    if (headSkippedRef.current) {
+      headSkippedRef.current = false;
+      return;
+    }
+    const settled = show.frameAt(show.length - LOOP_S).story;
+    const head = replayHead({
+      focusName: show.focusName,
+      firstDay: data.replay.chains.find((c) => c.selector === show.focus)?.first_day ?? null,
+      messages: settled.messages,
+      chains: settled.chains,
+    });
+    const title = document.getElementById('replay-title');
+    const lead = document.getElementById('replay-lead');
+    if (title) title.textContent = head.title;
+    if (lead) lead.textContent = head.lead;
+  }, [data, show]);
+
   const since = data?.replay.since ?? '';
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
 
@@ -204,6 +260,7 @@ export default function ReplayPlayer() {
     tRef.current = from;
     setShown(from);
     setPlaying(true);
+    setHasPlayed(true);
     track('replay_play', { length, aspect });
   };
 
@@ -242,7 +299,7 @@ export default function ReplayPlayer() {
       const href = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = href;
-      link.download = recordingFilename(lastDay, aspect);
+      link.download = recordingFilename(lastDay, aspect, slug);
       link.click();
       setTimeout(() => URL.revokeObjectURL(href), 5_000);
       track('replay_record', { length, aspect });
@@ -276,42 +333,65 @@ export default function ReplayPlayer() {
   return (
     <div className="player">
       <div className="player-stage" style={{ aspectRatio: String(RATIO[aspect]), width: `min(100%, ${80 * RATIO[aspect]}vh)` }}>
-        <canvas ref={canvasRef} aria-label={`Time-lapse of CCIP from ${since} to ${lastDay}`} />
-      </div>
-      <div className="player-controls">
-        <button type="button" className="share-btn" onClick={() => (playing ? setPlaying(false) : play())}>
-          {playing ? 'Pause' : shown >= show.length ? 'Replay' : 'Play'}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={show.length}
-          step={0.01}
-          value={Math.min(shown, show.length)}
-          aria-label="Position"
-          onChange={(e) => scrub(Number(e.target.value))}
-        />
-        <label>
-          Length{' '}
-          <select value={length} disabled={recording !== null} onChange={(e) => setLength(Number(e.target.value) as ReplayLength)}>
-            {REPLAY_LENGTHS.map((l) => <option key={l} value={l}>{l} s</option>)}
-          </select>
-        </label>
-        <label>
-          Shape{' '}
-          <select value={aspect} disabled={recording !== null} onChange={(e) => setAspect(e.target.value as Aspect)}>
-            {ASPECTS.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </label>
-        {recordable && !recording && (
-          <button type="button" className="share-btn" onClick={() => void record()}>
-            Record MP4
+        <canvas ref={canvasRef} aria-label={`Time-lapse of CCIP ${focusName ? `for ${focusName} ` : ''}from ${since} to ${lastDay}`} />
+        {!hasPlayed && !playing && (
+          <button type="button" className="bigplay" aria-label="Play the replay" onClick={play}>
+            <span className="tri" aria-hidden="true" />
           </button>
         )}
         {recording && (
-          <span className="recording" role="status">
-            Recording {Math.round(recording.progress * 100)}% of {totalFrames(length)} frames{' '}
-            <button type="button" className="share-btn" onClick={() => recording.controller.abort()}>
+          <span className="rec-badge" aria-hidden="true">
+            <span className="rec-dot" />
+            REC 1080p · {aspect}
+          </span>
+        )}
+        <div className="player-bar">
+          <button type="button" className="icon-btn" aria-label={playing ? 'Pause' : 'Play'} onClick={() => (playing ? setPlaying(false) : play())}>
+            {playing ? <span className="pause-i" aria-hidden="true" /> : <span className="tri" aria-hidden="true" />}
+          </button>
+          <Scrubber
+            length={show.length}
+            time={shown}
+            onScrub={scrub}
+            marks={show.milestoneMarks().map((m) => ({ ...m, day: formatUtcDay(m.day) }))}
+            ticks={show.yearTicks()}
+            valueText={formatUtcDay(show.frameAt(shown).story.day)}
+            disabled={recording !== null}
+          />
+          <span className="player-time">
+            {formatClock(shown)} / {formatClock(show.length)}
+          </span>
+        </div>
+      </div>
+      <div className="studio">
+        <ChainPicker chains={pickerChains} value={focus} onChange={chooseChain} disabled={recording !== null} />
+        <Segmented
+          label="Length"
+          value={length}
+          onChange={(l) => setLength(l)}
+          disabled={recording !== null}
+          options={REPLAY_LENGTHS.map((l) => ({ value: l, label: `${l}s` }))}
+        />
+        <ShapePicker value={aspect} onChange={setAspect} disabled={recording !== null} />
+        <span className="spacer" />
+        <ShareButton
+          view={slug ? `replay/${slug}` : 'replay'}
+          headline={focusName ? `Watch ${focusName} on Chainlink CCIP` : 'Watch CCIP grow from the first message to today'}
+          url={pageUrl}
+          cardUrl={`/og/replay${slug ? `/${slug}` : ''}.png`}
+        />
+        {recordable && !recording && (
+          <button type="button" className="btn btn-primary" onClick={() => void record()}>
+            <span className="rec-dot" aria-hidden="true" />
+            Record video
+          </button>
+        )}
+        {recording && (
+          <span className="rec-pill" role="status">
+            <span className="rec-prog" style={{ width: `${Math.round(recording.progress * 100)}%` }} />
+            <span className="rec-dot" aria-hidden="true" />
+            Recording · {Math.round(recording.progress * 100)}%
+            <button type="button" className="rec-cancel" onClick={() => recording.controller.abort()}>
               Cancel
             </button>
           </span>

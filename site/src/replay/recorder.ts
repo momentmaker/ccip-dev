@@ -13,8 +13,8 @@ export function totalFrames(lengthS: number): number {
   return REPLAY_FPS * lengthS;
 }
 
-export function recordingFilename(lastDay: string, aspect: Aspect): string {
-  return `ccip-replay-${lastDay}-${aspect.replace(':', 'x')}.mp4`;
+export function recordingFilename(lastDay: string, aspect: Aspect, slug: string | null = null): string {
+  return `ccip-replay-${slug ? `${slug}-` : ''}${lastDay}-${aspect.replace(':', 'x')}.mp4`;
 }
 
 export async function canRecord(aspect: Aspect): Promise<boolean> {

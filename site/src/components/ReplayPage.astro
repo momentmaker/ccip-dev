@@ -1,0 +1,68 @@
+---
+import Base from '../layouts/Base.astro';
+import { buildData } from '../lib/build-data';
+import { daysBetween } from '../lib/days';
+import { formatUtcDay } from '../lib/format';
+import { chainNameMap, chainName } from '../lib/names';
+import { replayHead } from '../lib/replay-head';
+import { linearWarp } from '../replay/director/warp';
+import { StoryCounter } from '../replay/director/story';
+import ReplayPlayer from '../replay/player';
+import { buildLayout } from '../sky/layout';
+import { skySvg } from '../sky/svg';
+import { windowWeights, lastReplayDay } from '../sky/weights';
+
+interface Props {
+  focus: string | null;
+  slugs: Record<string, string>;
+}
+
+const { focus, slugs } = Astro.props;
+const [replay, history] = await Promise.all([buildData('replay.json'), buildData('history.json')]);
+const last = lastReplayDay(replay) ?? '';
+const focusChain = focus ? replay.chains.find((c) => c.selector === focus) ?? null : null;
+const names = chainNameMap(replay.chains);
+const name = focusChain ? chainName(names, focusChain.selector) : null;
+const weights = windowWeights(replay, null, last);
+const poster = skySvg({ width: 1280, height: 720, stars: buildLayout(replay.chains), chainValues: weights.chains, lanes: weights.lanes, background: true, title: 'Every CCIP lane since 2023-07-06' });
+
+let messages = history.days.reduce((s, d) => s + d.messages, 0);
+let chains = replay.chains.length;
+if (focusChain) {
+  const firstDay = replay.since ?? replay.days[0]?.day;
+  const lastDay = replay.days.at(-1)?.day;
+  const days = firstDay && lastDay ? daysBetween(firstDay, lastDay) : [];
+  const counter = new StoryCounter(days, history.days, replay, focusChain.selector);
+  messages = counter.dailyTotals().reduce((s, d) => s + d.messages, 0);
+  chains = counter.at(Infinity, linearWarp(days.length, 0, 1)).chains;
+}
+const head = replayHead({ focusName: name, firstDay: focusChain?.first_day ?? null, messages, chains });
+const description = name
+  ? `Watch ${name} on Chainlink CCIP: every lane and message since ${formatUtcDay(focusChain!.first_day)}, as a 30-second video.`
+  : 'Watch CCIP grow: every chain and lane from 2023-07-06 to today in 30 seconds, recordable as a video.';
+---
+<Base title={name ? `${name} on Chainlink CCIP · Replay` : 'Replay'} description={description} cardPath={focusChain ? `replay/${slugs[focusChain.selector]}` : 'replay'}>
+  <div class="page-head">
+    <div>
+      <p class="label">{replay.since} → {last}</p>
+      <h1 id="replay-title">{head.title}</h1>
+      <p id="replay-lead" class="muted">{head.lead}</p>
+    </div>
+  </div>
+  <div class="replay-shell">
+    <figure class="card poster" set:html={poster} />
+    <ReplayPlayer client:only="react" focus={focus} slugs={slugs} />
+  </div>
+</Base>
+
+<style>
+  :global(.player-stage) { margin: 0 auto; background: #0c0f14; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  :global(.player-stage canvas) { display: block; width: 100%; height: 100%; }
+  .replay-shell { position: relative; }
+  :global(.replay-shell:not(.ready) .player) { position: absolute; inset: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+  :global(.replay-shell.ready .poster) { display: none; }
+  :global(.replay-note) { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+  :global(.replay-note .freshness) { margin: 0; }
+  .poster { padding: 0; overflow: hidden; }
+  .poster :global(svg) { display: block; width: 100%; height: auto; }
+</style>
