@@ -20,15 +20,15 @@ Owner decisions (2026-10-07):
 
 1. **Home sky:** the 12 busiest chains wear coins, or 8 when the sky is narrower than 640 px. "Busiest" means the largest stars: the most USD moved over the sky's 30-day window, the same ranking the name labels already use. Hovering or tapping any star shows its coin, name, 30-day value moved and 30-day message count.
 2. **Replay:** at every moment, the 12 busiest chains so far wear coins. A recorded MP4 shows the same coins as the player. The same `t` always draws the same coins.
-3. **Static skies:** day-page skies and the build-time card sky show coins for their top chains, with 12 on day pages and 8 on cards.
-4. **Lists:** a 16 px icon sits beside the chain name in the live feed, the top lists, the chains page, the flow map labels and day pages.
+3. **Static skies and cards:** day-page skies (and the home static fallback) show coins for their top 12 chains, and share cards show the top 8.
+4. **Lists:** a 16 px icon sits beside the chain name in the live feed, the top lists, the chains page, and the flow page (top-lanes table and chord labels).
 5. **Offline build:** no build or page view fetches anything from docs.chain.link. Icons are committed to the repo.
 6. **Budgets hold:** home JavaScript stays ≤ 150 KB gzipped and replay ≤ 200 KB. Lighthouse mobile accessibility stays ≥ 95. There is no horizontal scroll at 390 px.
 7. **Failure is quiet:** a missing or broken icon leaves a plain star or no icon, never a broken sky or layout.
 
 ## 3. Scope
 
-**In:** the vendoring script, icon files and manifest; coins on the home sky, replay, day-page skies and card sky; the hover and tap card on the home sky; `ChainIcon` in lists; an About-page credit; tests.
+**In:** the vendoring script, icon files and manifest; coins on the home sky, replay, day-page skies and share cards; the hover and tap card on the home sky; `ChainIcons` in lists; an About-page credit; tests.
 
 **Out:**
 - coins on the flow map's chord arcs (they get the 16 px label icon only);
@@ -39,7 +39,8 @@ Owner decisions (2026-10-07):
 
 - **Source:** `https://docs.chain.link/assets/chains/<slug>.svg` serves chain icons. The source files are in `smartcontractkit/documentation` at `public/assets/chains/`, 108 SVGs. The responses carry `access-control-allow-origin: *`.
 - **Icon format:** every icon checked is a 32×32 `viewBox`. Each has a full-size `<rect rx="4">` in the brand color with a white glyph on top, and some use a `clipPath` with generated ids such as `clip0_1460_57425`. Sizes are 0.5–2.6 KB.
-- **Coverage:** name rules match 90 of the 95 chains in `chains.json`. AB, ADI, B², Mind and Sui have no icon.
+- **Coverage:** the §5.2 rules match 88 of the 95 chains in `chains.json`. Six more have icons under other file names (`abchain`, `adi-network`, `cronoszkevm`, `mindnetwork`, `polygonkatana`, `polygonzkevm`) and get overrides, so 94 get a docs icon. Only Sui has none.
+- **Card renderer (measured 2026-10-07):** resvg, as called by satori, draws nothing for an SVG image nested inside another SVG image, whether linked with `href` or `xlink:href`. A satori `<img>` with an SVG data URI and `borderRadius` renders correctly as a round coin.
 - **License:** the docs repo has no license GitHub can identify (`NOASSERTION`). Logos are trademarks of their chains. ccip.dev shows them only to identify those chains, as explorers and dashboards do, and credits the source.
 - **Star size:** `starRadius` is `2 + 8·√(v/max)`, scaled by `min(w, h)/700`.
 - **Labels:** the home sky already renders the names of its top 12 chains (6 under 640 px) in a DOM layer (`.sky-labels`) over the canvas. Star positions on the home sky change only on resize.
@@ -69,11 +70,13 @@ Rules are tried in order. The first slug that exists in the docs listing wins.
 
 1. **Override:** `site/scripts/chain-icon-overrides.json` maps a chain name to a slug, or to `null` to force a lettermark.
 2. **Exact:** the chain name itself.
-3. **Layer-2 pattern:** for `ethereum-mainnet-<x>-<n>`, the segment `<x>`.
-4. **Stem:** the chain name with `-mainnet` and everything after it removed.
+3. **Child chain:** for `<parent>-mainnet-<x>` or `<parent>-mainnet-<x>-<n>`, the segment `<x>`.
+4. **Stem:** for a name of the form `<x>-mainnet`, the segment `<x>`.
+
+A child chain never falls back to its parent's icon. For example, `ethereum-mainnet-polygon-zkevm-1` never gets `ethereum`.
 5. **Display name:** the display name lowercased, with a trailing ` mainnet` removed and spaces turned into `-`.
 
-The pure function `matchIcon(chain, slugs, overrides): { slug: string | null; rule: string }` is unit-tested. Before committing, the controller reviews the contact sheet. Each wrong match, for example a zkEVM chain picking up its parent's logo, gets an override, and the script is run again.
+The pure function `matchIcon(chain, slugs, overrides): { slug: string | null; rule: string }` is unit-tested. The overrides file starts with the six entries from §4: `ab-mainnet` to `abchain`, `adi-mainnet` to `adi-network`, `cronos-zkevm-mainnet` to `cronoszkevm`, `ethereum-mainnet-polygon-zkevm-1` to `polygonzkevm`, `mind-mainnet` to `mindnetwork`, and `polygon-mainnet-katana` to `polygonkatana`. Before committing, the controller reviews the contact sheet. Each wrong match, for example a zkEVM chain picking up its parent's logo, gets an override, and the script is run again.
 
 ### 5.3 Cleaning
 
@@ -88,26 +91,28 @@ The root `<svg>` keeps its `viewBox` and loses `width` and `height`, so it scale
 
 ### 5.4 Lettermarks
 
-For chains with no icon, the script writes a 32×32 lettermark: a rounded `<rect rx="4">` in `#2a3446` with the first letter or digit of the display name, uppercased, in white. The letter is built from a fixed path table for A–Z and 0–9, so no font is needed and every renderer draws it the same. These files have the same shape as docs icons, so every surface treats both kinds the same.
+For chains with no icon, the script writes a 32×32 lettermark: a rounded square (radius 4) in `#2a3446` with the first letter or digit of the display name, uppercased, in white Inter 700 at 18 px. The script renders it once through `@cf-wasm/og`'s `asSvg()`, which outputs the letter as paths. No font is needed later, and every renderer draws it the same. The result goes through the same cleaning as docs icons. These files have the same shape as docs icons, so every surface treats both kinds the same.
 
 ### 5.5 Manifest
 
-The manifest is `site/src/data/chain-icons.json`, committed with the icons:
+The manifest is `site/src/data/chain-icons.json`, committed with the icons. It has no timestamp, so re-runs stay byte-identical; git history records when it changed.
 
 ```json
 {
   "source": "https://github.com/smartcontractkit/documentation/tree/main/public/assets/chains",
-  "fetched_at": "2026-10-07T00:00:00Z",
   "icons": {
-    "ethereum-mainnet": { "file": "ethereum-mainnet.svg", "kind": "logo", "slug": "ethereum", "rule": "stem" },
-    "sui-mainnet": { "file": "sui-mainnet.svg", "kind": "lettermark", "slug": null, "rule": "none" }
+    "ethereum-mainnet": { "selector": "5009297550715157269", "file": "ethereum-mainnet.svg", "kind": "logo", "slug": "ethereum", "rule": "stem" },
+    "sui-mainnet": { "selector": "17529533435026248318", "file": "sui-mainnet.svg", "kind": "lettermark", "slug": null, "rule": "none" }
   }
 }
 ```
 
-The manifest is keyed by chain `name`, the registry name used in `replay.json` and `chains.json`. `site/src/lib/chain-icons.ts` exports:
-- `iconHref(name): string | null`, which returns `/chains/<file>` or `null`;
-- `iconSvg(name): string | null`, the raw SVG text used to build the card sky. This one is server-only and reads the files at build time.
+The manifest is keyed by chain `name`, the registry name used in `replay.json` and `chains.json`. Each entry also carries the chain's `selector`, because the site identifies chains by selector everywhere. `site/src/lib/chain-icons.ts` exports:
+- `iconHref(selector): string | null`, which returns `/chains/<file>` or `null`;
+- `hasIcon(selector): boolean`;
+- `missingIcons(chains): string[]`.
+
+`site/src/lib/chain-icons-server.ts` exports `iconDataUri(selector): string | null`. It is build-time only: it reads the file from `public/chains/` and returns it as a base64 data URI.
 
 A chain missing from the manifest has no icon everywhere: it stays a plain star and shows no list icon. check-build prints a warning listing those chains but does not fail.
 
@@ -146,12 +151,18 @@ The About page gains one line: "Chain icons: Chainlink documentation. Logos are 
 
 **Drawing.** Coins are drawn in the compositor's 2D overlay pass, after the sky `drawImage` and before the text overlay. MP4 frames therefore contain them. Each coin is pre-rasterized once to an offscreen canvas at 2× its maximum pixel size, clipped to a circle, and then drawn with `drawImage`. This stays sharp at any device pixel ratio and at 1080p recording.
 
-**Images.** The player preloads all icons with `fetch` (same origin, so nothing taints the canvas) and `createImageBitmap` from a `Blob`. This starts as soon as `replay.json` has loaded. The player shows its first frame without waiting; coins appear once their bitmap is ready. A recording waits for all icon bitmaps before frame 0, or for 5 s at most; after that, missing coins are skipped.
+**Images.** The player preloads all icons as soon as `replay.json` has loaded:
+- It fetches each SVG from the same origin and rewrites its root `width` and `height` to the raster size (128 px).
+- It loads that text through a Blob URL into an `Image` and awaits `decode()`.
+- It draws the result once into a circle-clipped canvas.
+
+The player does not use `createImageBitmap`, because Chrome cannot decode SVG blobs with it. Same-origin and Blob sources do not taint the canvas. The player shows its first frame without waiting; coins appear once their image is ready. A recording waits for all icon images before frame 0, or for 5 s at most; after that, missing coins are skipped.
 
 **Selection over time.** `ReplayModel.frameAt(t)` gains `coins: { selector: string; alpha: number }[]`.
-- At time `t`, a chain's coin alpha is `smoothstep` over the 0.5 s of replay time since it entered the top 12 by the replay's running star values.
-- A chain that leaves the top 12 fades out the same way.
-- Entry and exit times are computed from the day index, using values at the start of each day, so `frameAt` stays a pure function of `t`.
+- Each day has a top-12 set by that day's star values: the replay's trailing 30-day USD, which also sizes the stars. Only chains with an icon and a value above 0 count.
+- At time `t`, a chain's coin alpha is `smoothstep(m)`, where `m` is the share of the replay-time window `[t − 0.5 s, t]` during which the chain was in its day's set. Time before day 0 counts as not in the set.
+- This fades a chain in over 0.5 s when it enters, and out over 0.5 s when it leaves. A chain that flickers in and out at 12th place shows partial alpha instead of strobing.
+- `frameAt` stays a pure function of `t`.
 - The star radius used for coin size is the frame's own star radius at `t`.
 
 **Camera.** Coins follow the same projected points as stars, including the growing camera extent.
@@ -162,22 +173,37 @@ The About page gains one line: "Chain icons: Chainlink documentation. Logos are 
 
 ### 7.4 Share cards
 
-**Coin layer.** A new build-time asset, `/card-coins.svg` (`site/src/pages/card-coins.svg.ts`), uses the same 640×630 projection and 30-day weights as `/card-sky.svg`. It contains only the coins of the top 8 chains. Each coin is the cleaned icon inlined as `<image href="data:image/svg+xml;base64,…">`, because the card Worker cannot fetch `/chains/*.svg` during a render.
+**Coin data.** Coins cannot be nested inside the card sky SVG (§4), so a new build-time asset carries them as data. `/card-coins.json` (`site/src/pages/card-coins.json.ts`) has the shape `{ coins: { x: number; y: number; d: number; src: string }[] }`:
+- It uses the same 640×630 projection and 30-day weights as `/card-sky.svg`.
+- It lists the top 8 chains.
+- `d` is `coinDiameter(radius) × 1.6`, because cards are viewed small.
+- `src` is the icon's base64 data URI from `iconDataUri`.
 
-**Card frame.** `worker/cards/frame.ts` stacks it as a second `<img>` over the sky at full opacity. The sky stays at 0.6, so coins stay vivid. `worker/og.ts` fetches `/card-coins.svg` from `ASSETS` alongside `/card-sky.svg`. A missing file is simply skipped.
+The same endpoint logs a build warning that names every chain from `missingIcons`.
 
-**Fallback.** If resvg does not render nested SVG data URIs correctly, as measured by the first task's workerd render test, the coin layer embeds 64 px PNGs instead of SVGs. They are rasterized at build time with `@cf-wasm/resvg`, which is already a dependency through `@cf-wasm/og`. The first plan task must settle this before card work starts.
+**Card frame.** `worker/og.ts` fetches `/card-coins.json` from `ASSETS` alongside `/card-sky.svg`. A missing file, a non-OK response or invalid JSON gives no coins. `worker/cards/frame.ts` places each coin as a satori `<img>`:
+- position `absolute`;
+- `left` = `CARD_W − 640 + x − d/2`, `top` = `y − d/2`;
+- size `d`, `borderRadius` `d/2`;
+- `boxShadow` `0 0 0 1px rgba(255,255,255,0.18)`.
 
-### 7.5 Lists (`ChainIcon`)
+Coins sit after the sky image and before the text column, so text stays on top. The sky stays at 0.6 opacity and the coins are fully opaque.
 
-There are two thin components with the same output: `site/src/components/ChainIcon.astro` for static pages and `site/src/components/ChainIcon.tsx` for islands. Each takes `name`, the chain registry name, and `size`, 16 by default. When the chain has an icon, it renders `<img src alt="" width height loading="lazy" decoding="async" class="chain-icon">` with `border-radius: 50%` and `vertical-align: -3px`. Otherwise it renders nothing. The icon is decorative, because the chain name is always next to it.
+### 7.5 Lists (`ChainIcons`)
+
+There are two thin components with the same output: `site/src/components/ChainIcons.astro` for static pages and `site/src/components/ChainIcons.tsx` for islands.
+- **Props:** `selectors: string[]` and `size`, 16 by default.
+- **Output:** a `<span class="chain-icons">` with one `<img src alt="" width height loading="lazy" decoding="async">` per selector that has an icon. Each is round. Two icons overlap as a pair, the second shifted left by a quarter of its size.
+- **No icons:** it renders nothing.
+- **Accessibility:** the icons are decorative, because the chain names are always next to them.
 
 Placements:
-- **Live feed:** both chains of a lane, for example "[icon] Ethereum to [icon] Base".
-- **Top lists:** the chain column, lane rows, and the chain under token and sender rows.
-- **Chains page:** every row.
-- **Flow map:** arc labels, as SVG `<image>` elements at 14 px.
-- **Day pages:** the top lanes and chains tables.
+- **Live feed:** the lane's pair, before "Ethereum → Base".
+- **Top lists:** a lane row's pair, or a token or sender row's chain, before the name.
+- **Chains page:** every chain row, and the chain column of the tokens table.
+- **Flow page:** the top-lanes table's pair, and the chord's arc labels as SVG `<image>` elements at 14 px. The Other arc has none.
+
+Day pages have no chain tables; they get coins through their sky (§7.3).
 
 ## 8. Error handling
 
@@ -185,8 +211,8 @@ Placements:
 |---|---|
 | Icon file missing or fails to load in the browser | That coin or list icon is not shown. The star stays plain. No retry, no error UI. |
 | Chain not in the manifest (added after the last script run) | No icon anywhere. The build prints a warning naming it. |
-| `createImageBitmap` unsupported or failing on the replay | No coins on the replay or in recordings. The replay plays normally. |
-| `/card-coins.svg` missing from `ASSETS` | Cards render without coins, as before. |
+| An icon fails to fetch or decode on the replay | That chain has no coin on the replay or in recordings. The replay plays normally. |
+| `/card-coins.json` missing from `ASSETS` or invalid | Cards render without coins, as before. |
 | The script hits a download error, an oversized icon or a missing `viewBox` | It exits non-zero and writes nothing. Committed icons are unchanged. |
 
 ## 9. Testing and budgets
@@ -199,7 +225,7 @@ Placements:
 - The lettermark generator: valid 32×32 SVG output for a letter, a digit and an unknown character (it falls back to "?").
 - The svgo config: prefixes ids and rewrites their references, strips a `<script>`, an `onload` and an external `href`, and keeps `viewBox`.
 
-**Card Worker (workerd):** a real render with a `/card-coins.svg` containing two inlined icons produces a PNG, and pixels at the coin centers are not the background color. This is the test that settles §7.4's fallback.
+**Card Worker (workerd):** a real render with a `/card-coins.json` holding one solid-red test icon produces a PNG in which the pixel at the coin's center is red. A small PNG reader in the test decodes it with `DecompressionStream`. A missing or invalid `/card-coins.json` still renders the card.
 
 **Build checks:**
 - check-build fails if a manifest entry's file is missing from `dist/chains/`, and warns about chains with no manifest entry.
@@ -218,7 +244,7 @@ Placements:
 
 - **§7.2 Rendering:** the home sky gains the `.sky-coins` layer and the hover and tap card.
 - **§8 Replay:** frames carry coins, and recordings include them.
-- **§9.2 Share cards:** cards stack `/card-coins.svg` over the sky.
+- **§9.2 Share cards:** cards place coins from `/card-coins.json` over the sky.
 - **§11 Visual system:** logos are content and exempt from the accent-color rules.
 
 ## 11. Owner steps and follow-ups
