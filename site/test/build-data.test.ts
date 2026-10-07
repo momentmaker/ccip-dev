@@ -7,7 +7,9 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe('buildData', () => {
+const COLD_IMPORT_TIMEOUT_MS = 20_000;
+
+describe('buildData', { timeout: COLD_IMPORT_TIMEOUT_MS }, () => {
   it('fetches each file once from CCIP_DATA_BASE and shares the result', async () => {
     vi.stubEnv('CCIP_DATA_BASE', 'https://fixtures.test/v1');
     const urls: string[] = [];

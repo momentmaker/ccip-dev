@@ -13,7 +13,9 @@ describe('embedsRaster', () => {
   });
 });
 
-describe('rasterizeIcon', () => {
+const COLD_IMPORT_TIMEOUT_MS = 20_000;
+
+describe('rasterizeIcon', { timeout: COLD_IMPORT_TIMEOUT_MS }, () => {
   it('returns png bytes', async () => {
     const png = await rasterizeIcon(RED);
     expect([...png.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
