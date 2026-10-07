@@ -6,6 +6,7 @@ import { computeMilestones } from '../lib/records';
 import { usePrefersReducedMotion } from '../components/hooks';
 import { buildLayout } from '../sky/layout';
 import { ReplayCompositor } from './compose';
+import { canRecord, recordingFilename, recordReplay, totalFrames } from './recorder';
 import { REPLAY_LENGTHS, ReplayModel, type ReplayLength } from './timeline';
 
 export const ASPECTS = ['16:9', '1:1', '9:16'] as const;
@@ -29,6 +30,9 @@ export default function ReplayPlayer() {
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
   const [compositor, setCompositor] = useState<ReplayCompositor | null>(null);
+  const [recordable, setRecordable] = useState<boolean | null>(null);
+  const [recording, setRecording] = useState<{ progress: number; controller: AbortController } | null>(null);
+  const [recordError, setRecordError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tRef = useRef(0);
   const clockRef = useRef({ startedAt: 0, offset: 0 });
@@ -49,6 +53,14 @@ export default function ReplayPlayer() {
   );
   const since = data?.replay.since ?? '';
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
+
+  useEffect(() => {
+    let alive = true;
+    void canRecord(aspect).then((ok) => alive && setRecordable(ok));
+    return () => {
+      alive = false;
+    };
+  }, [aspect]);
 
   useEffect(() => {
     if (!model) return;
@@ -137,6 +149,40 @@ export default function ReplayPlayer() {
     if (!playing) drawFrame();
   };
 
+  const record = async () => {
+    if (!model) return;
+    setPlaying(false);
+    setRecordError(null);
+    const controller = new AbortController();
+    setRecording({ progress: 0, controller });
+    const recorder = new ReplayCompositor(model, stars, since, lastDay, () => new OffscreenCanvas(1, 1));
+    try {
+      await document.fonts.ready;
+      const blob = await recordReplay({
+        draw: (frameT, ctx, width, height) => recorder.draw(frameT, ctx, width, height),
+        aspect,
+        lengthS: length,
+        onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),
+        signal: controller.signal,
+      });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = recordingFilename(lastDay, aspect);
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(href), 5_000);
+      track('replay_record', { length, aspect });
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('replay recording failed', err);
+        setRecordError('Recording failed — try again or use Chrome');
+      }
+    } finally {
+      recorder.destroy();
+      setRecording(null);
+    }
+  };
+
   if (error) return <p className="card">{error}</p>;
   if (!data || !model) return <p className="card muted">Loading the history…</p>;
 
@@ -160,16 +206,31 @@ export default function ReplayPlayer() {
         />
         <label>
           Length{' '}
-          <select value={length} onChange={(e) => setLength(Number(e.target.value) as ReplayLength)}>
+          <select value={length} disabled={recording !== null} onChange={(e) => setLength(Number(e.target.value) as ReplayLength)}>
             {REPLAY_LENGTHS.map((l) => <option key={l} value={l}>{l} s</option>)}
           </select>
         </label>
         <label>
           Shape{' '}
-          <select value={aspect} onChange={(e) => setAspect(e.target.value as Aspect)}>
+          <select value={aspect} disabled={recording !== null} onChange={(e) => setAspect(e.target.value as Aspect)}>
             {ASPECTS.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         </label>
+        {recordable && !recording && (
+          <button type="button" className="share-btn" onClick={() => void record()}>
+            Record MP4
+          </button>
+        )}
+        {recording && (
+          <span className="recording" role="status">
+            Recording {Math.round(recording.progress * 100)}% of {totalFrames(length)} frames{' '}
+            <button type="button" className="share-btn" onClick={() => recording.controller.abort()}>
+              Cancel
+            </button>
+          </span>
+        )}
+        {recordable === false && <span className="muted">Recording works in Chrome, Edge and Safari</span>}
+        {recordError && <span className="down">{recordError}</span>}
       </div>
     </div>
   );
