@@ -1,4 +1,6 @@
-export function atlasLayout(count: number, cell: number, maxSize = 2048) {
+export function atlasLayout(count: number, requestedCell: number, maxSize = 2048) {
+  const side = Math.max(1, Math.ceil(Math.sqrt(count)));
+  const cell = Math.max(1, Math.min(requestedCell, Math.floor(maxSize / side)));
   const cols = Math.max(1, Math.min(count, Math.floor(maxSize / cell)));
   const rows = Math.max(1, Math.ceil(count / cols));
   const width = cols * cell;

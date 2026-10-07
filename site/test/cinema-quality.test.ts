@@ -64,6 +64,33 @@ describe('QualityController', () => {
     expect(feed(new QualityController({ start: 'medium' }), 5, 0, 4)).toBe('medium');
   });
 
+  it('does not decide on a 30 s pause sample', () => {
+    const c = new QualityController({});
+    c.sample(16, 0);
+    expect(c.sample(30000, 30)).toBe('high');
+  });
+
+  it('does not decide on a window with too few samples', () => {
+    const c = new QualityController({});
+    let tier = c.tier;
+    for (let t = 0; t <= 2.25; t += 0.2) tier = c.sample(40, t);
+    expect(tier).toBe('high');
+  });
+
+  it('restarts the window after a gap, then judges a fresh slow window', () => {
+    const c = new QualityController({});
+    c.sample(16, 0);
+    c.sample(16, 10);
+    expect(feed(c, 35, 10, 12.05)).toBe('low');
+  });
+
+  it('ignores samples above 250 ms', () => {
+    const c = new QualityController({});
+    let tier = c.tier;
+    for (let t = 0, i = 0; t < 2.05; t += 1 / 60, i++) tier = c.sample(i % 2 ? 400 : 12, t);
+    expect(tier).toBe('high');
+  });
+
   it('never changes when locked, as for recordings', () => {
     expect(feed(new QualityController({ locked: true }), 80, 0, 6)).toBe('high');
   });
@@ -78,5 +105,30 @@ describe('atlasLayout', () => {
     expect(l.height).toBe(384);
     expect(l.uv(0)).toEqual([0, 0, 0.125, 1 / 3]);
     expect(l.uv(9)).toEqual([0.125, 1 / 3, 0.25, 2 / 3]);
+  });
+});
+
+describe('atlasLayout limits', () => {
+  it('shrinks the cell so a large count fits the max size', () => {
+    const l = atlasLayout(300, 128, 2048);
+    expect(l.width).toBeLessThanOrEqual(2048);
+    expect(l.height).toBeLessThanOrEqual(2048);
+    expect(l.cell).toBeLessThan(128);
+    for (let i = 0; i < 300; i++) {
+      for (const v of l.uv(i)) {
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('clamps a cell larger than the max size', () => {
+    const l = atlasLayout(3, 4096, 2048);
+    expect(l.width).toBeLessThanOrEqual(2048);
+    expect(l.height).toBeLessThanOrEqual(2048);
+  });
+
+  it('keeps the requested cell when it already fits', () => {
+    expect(atlasLayout(20, 128, 1024).cell).toBe(128);
   });
 });

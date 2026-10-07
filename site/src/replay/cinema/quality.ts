@@ -15,6 +15,9 @@ export const TIERS: Record<Tier, TierConfig> = {
 
 const LOW_ABOVE_MS = 30;
 const MEDIUM_ABOVE_MS = 22;
+const MAX_FRAME_MS = 250;
+const MAX_GAP_S = 0.5;
+const MIN_SAMPLES = 20;
 
 export class QualityController {
   private current: Tier;
@@ -22,6 +25,7 @@ export class QualityController {
   private readonly windowS: number;
   private windowStart: number | null = null;
   private samples: number[] = [];
+  private lastNowS: number | null = null;
   private decided: boolean;
 
   constructor(opts: { start?: Tier; locked?: boolean; windowS?: number }) {
@@ -37,9 +41,15 @@ export class QualityController {
 
   sample(frameMs: number, nowS: number): Tier {
     if (this.decided) return this.current;
-    if (this.windowStart === null) this.windowStart = nowS;
+    if (frameMs > MAX_FRAME_MS) return this.current;
+    const gapped = this.lastNowS !== null && nowS - this.lastNowS > MAX_GAP_S;
+    this.lastNowS = nowS;
+    if (this.windowStart === null || gapped) {
+      this.windowStart = nowS;
+      this.samples = [];
+    }
     this.samples.push(frameMs);
-    if (nowS - this.windowStart >= this.windowS) {
+    if (nowS - this.windowStart >= this.windowS && this.samples.length >= MIN_SAMPLES) {
       this.decided = true;
       this.current = this.stepDown(this.median());
       this.samples = [];
