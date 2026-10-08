@@ -86,8 +86,13 @@ describe('assemble', () => {
 });
 
 describe('cometFade', () => {
-  it('flies at full strength from launch and hands over to the arrival sparks as it lands', () => {
-    expect(cometFade(0)).toBe(1);
+  it('eases a comet in over the first tenth of its flight, so departures never stack at the source', () => {
+    expect(cometFade(0)).toBe(0);
+    expect(cometFade(0.05)).toBeCloseTo(0.5, 9);
+    expect(cometFade(0.1)).toBe(1);
+  });
+
+  it('flies at full strength and hands over to the arrival sparks as it lands', () => {
     expect(cometFade(0.5)).toBe(1);
     expect(cometFade(0.97)).toBeLessThan(1);
     expect(cometFade(1)).toBe(0);

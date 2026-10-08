@@ -158,6 +158,9 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     push(coreQuads, p.x, p.y, core, core, 0, COLORS.star, 0.55 + 0.45 * s.brightness + s.flash, CINEMA_SHAPE.disc, 1.1);
   });
 
+  const laneKey = (from: number, to: number) => (from < to ? from * 4096 + to : to * 4096 + from);
+  const traffic = new Map<number, number>();
+  for (const c of sky.comets) traffic.set(laneKey(c.from, c.to), (traffic.get(laneKey(c.from, c.to)) ?? 0) + 1);
   for (const c of sky.comets) {
     const a = points[c.from];
     const b = points[c.to];
@@ -169,22 +172,25 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     const color = kindColor(c.kind);
     const size = (10 + 16 * c.size) * unit;
     const half = (size * (6 + 8 * c.size)) / 4;
-    const fade = cometFade(c.progress);
+    const fade = cometFade(c.progress) / Math.sqrt(traffic.get(laneKey(c.from, c.to))!);
     put(head.x - Math.cos(angle) * half, head.y - Math.sin(angle) * half, half, size * 0.35, angle, color, 0.9 * fade, CINEMA_SHAPE.streak, c.kind === 'gold' ? 2.2 : 1.6);
     put(head.x, head.y, size, size, 0, color, fade, CINEMA_SHAPE.glow, 1.6);
     put(head.x, head.y, (2.2 + 3 * c.size) * unit, (2.2 + 3 * c.size) * unit, 0, mixRgb(color, COLORS.star, 0.5), fade, CINEMA_SHAPE.disc, 1.2);
   }
 
+  const landing = new Map<number, number>();
+  for (const arrival of frame.base.arrivals) landing.set(arrival.to, (landing.get(arrival.to) ?? 0) + 1);
   for (const arrival of frame.base.arrivals) {
     const dest = points[arrival.to];
     if (!dest) continue;
+    const share = 1 / Math.sqrt(landing.get(arrival.to)!);
     const color = kindColor(arrival.kind);
     const count = Math.round((8 + 8 * arrival.size) * tier.particles);
     for (const p of burst(arrivalSeed(arrival.to, frame.t - arrival.age), count, arrival.age, SPARK_LIFE, dest.x, dest.y, (30 + 40 * arrival.size) * unit)) {
-      put(p.x, p.y, 3 * unit * p.size, 3 * unit * p.size, 0, color, p.alpha, CINEMA_SHAPE.spark, 2);
+      put(p.x, p.y, 3 * unit * p.size, 3 * unit * p.size, 0, color, p.alpha * share, CINEMA_SHAPE.spark, 2);
     }
     const ripple = (10 + 40 * (arrival.age / SPARK_LIFE)) * unit;
-    put(dest.x, dest.y, ripple, ripple, 0, color, 1 - arrival.age / SPARK_LIFE, CINEMA_SHAPE.ring, 1.2);
+    put(dest.x, dest.y, ripple, ripple, 0, color, (1 - arrival.age / SPARK_LIFE) * share, CINEMA_SHAPE.ring, 1.2);
   }
 
   for (const ring of sky.rings) {

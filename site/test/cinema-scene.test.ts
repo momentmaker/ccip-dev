@@ -156,6 +156,33 @@ describe('buildScene', () => {
     expect((at(15) - at(5)) / widthInNoise).toBeCloseTo(0.02, 6);
   });
 
+  it('shares the burst glow among arrivals landing on the same star instead of stacking it', () => {
+    const frame = show.frameAt(15);
+    const star = frame.base.sky.stars.findIndex((s) => s.radius > 0);
+    const arrival = { from: star, to: star, age: 0.1, size: 0.5, kind: 'data' as const };
+    const glow = (n: number) => {
+      const s = buildScene(withSky(frame, { comets: [], rings: [] }, { arrivals: Array.from({ length: n }, () => arrival) }), ctx({ tier: TIERS.low }));
+      let sum = 0;
+      for (let i = 0; i < s.quads.length; i += QUAD_FLOATS) if (s.quads[i + 9] === CINEMA_SHAPE.spark || s.quads[i + 9] === CINEMA_SHAPE.ring) sum += s.quads[i + 8]!;
+      return sum;
+    };
+    const base = glow(0);
+    expect((glow(4) - base) / (glow(1) - base)).toBeCloseTo(2, 4);
+  });
+
+  it('shares the glow among comets on the same lane, so a busy lane reads as a string of comets, not a white bar', () => {
+    const frame = show.frameAt(15);
+    const lane = frame.base.sky.lanes[0]!;
+    const comet = (progress: number, reverse = false) => ({ from: reverse ? lane.to : lane.from, to: reverse ? lane.from : lane.to, progress, size: 0.5, kind: 'data' as const });
+    const glow = (comets: ReturnType<typeof comet>[]) => {
+      const s = buildScene(withSky(frame, { comets, rings: [] }, { arrivals: [] }), ctx({ tier: TIERS.low }));
+      let sum = 0;
+      for (let i = 0; i < s.quads.length; i += QUAD_FLOATS) if (s.quads[i + 9] === CINEMA_SHAPE.streak) sum += s.quads[i + 8]!;
+      return sum;
+    };
+    expect(glow([comet(0.3), comet(0.5, true), comet(0.6), comet(0.7)]) / glow([comet(0.5)])).toBeCloseTo(2, 4);
+  });
+
   it('feathers the canvas edge only when asked', () => {
     expect(buildScene(show.frameAt(15), ctx()).edgeFeather).toBe(0);
     expect(buildScene(show.frameAt(15), ctx({ edgeFeather: 0.06 })).edgeFeather).toBe(0.06);
