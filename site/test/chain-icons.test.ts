@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { hasIcon, iconFiles, iconHref, iconHrefs, missingIcons } from '../src/lib/chain-icons';
@@ -36,12 +36,14 @@ describe('chain icons', () => {
   it('inlines an icon as a base64 SVG data URI at build time', () => {
     const uri = iconDataUri(ETHEREUM, PUBLIC)!;
     expect(uri.startsWith('data:image/svg+xml;base64,')).toBe(true);
-    expect(Buffer.from(uri.split(',')[1]!, 'base64').toString('utf8')).toContain('<svg');
+    expect(Buffer.from(uri.split(',')[1]!, 'base64').toString('utf8')).toBe(readFileSync(join(PUBLIC, 'chains', 'ethereum-mainnet.svg'), 'utf8'));
     expect(iconDataUri('1', PUBLIC)).toBeNull();
   });
 
   it('inlines a rasterized icon as a PNG data URI', () => {
     const raster = Object.values(manifest.icons as Record<string, { selector: string; file: string }>).find((e) => e.file.endsWith('.png'))!;
-    expect(iconDataUri(raster.selector, PUBLIC)!.startsWith('data:image/png;base64,iVBORw0KGgo')).toBe(true);
+    const uri = iconDataUri(raster.selector, PUBLIC)!;
+    expect(uri.startsWith('data:image/png;base64,iVBORw0KGgo')).toBe(true);
+    expect(Buffer.from(uri.split(',')[1]!, 'base64').equals(readFileSync(join(PUBLIC, 'chains', raster.file)))).toBe(true);
   });
 });

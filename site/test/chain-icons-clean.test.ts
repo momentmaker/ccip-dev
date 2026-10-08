@@ -8,9 +8,8 @@ const ICON = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns=
 describe('cleanIcon', () => {
   it('prefixes ids and rewrites the references to them', () => {
     const out = cleanIcon(ICON, 'ethereum-mainnet');
-    const id = /\sid="([^"]+)"/.exec(out)?.[1];
-    expect(id?.startsWith('ethereum-mainnet-')).toBe(true);
-    expect(out).toContain(`url(#${id})`);
+    expect(out.match(/\sid="([^"]+)"/g)).toEqual([' id="ethereum-mainnet-a"']);
+    expect(out.match(/url\(#[^)]+\)/g)).toEqual(['url(#ethereum-mainnet-a)']);
     expect(out).not.toContain('paint0_linear_1460');
   });
 
@@ -33,9 +32,7 @@ describe('cleanIcon', () => {
 <script>alert(1)</script><a href="https://evil.example/"><rect width="32" height="32" fill="red" onclick="steal()"/></a>
 <image xlink:href="https://evil.example/x.png" width="4" height="4"/></svg>`;
     const out = cleanIcon(hostile, 'x');
-    expect(out).not.toMatch(/script/i);
-    expect(out).not.toMatch(/\son[a-z]+=/i);
-    expect(out).not.toContain('evil.example');
+    expect(out).toBe('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><a><path fill="red" d="M0 0h32v32H0z"/></a><image width="4" height="4"/></svg>\n');
   });
 });
 
