@@ -127,4 +127,37 @@ describe('detail records', () => {
     // #when / #then
     await expect(readPartial(dir, '2026-10-04')).rejects.toThrow('line 2');
   });
+
+  it('treats a complete but unterminated last line as torn, so that message is fetched again', async () => {
+    // #given
+    const dir = await backfill({});
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, `${JSON.stringify(ok('0x1'))}\n${JSON.stringify(ok('0x2'))}`);
+
+    // #when
+    const before = (await readPartial(dir, '2026-10-04')).map((r) => r.id);
+    await appendRecords(dir, '2026-10-04', [ok('0x3')]);
+    const afterAppend = (await readPartial(dir, '2026-10-04')).map((r) => r.id);
+    await appendRecords(dir, '2026-10-04', [ok('0x2')]);
+    const afterRefetch = (await readPartial(dir, '2026-10-04')).map((r) => r.id);
+
+    // #then
+    expect({ before, afterAppend, afterRefetch }).toEqual({ before: ['0x1'], afterAppend: ['0x1', '0x3'], afterRefetch: ['0x1', '0x3', '0x2'] });
+  });
+
+  it('reads a partial file holding only a fragment as empty, and appends cleanly after it', async () => {
+    // #given
+    const dir = await backfill({});
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, '{"id":"0x1","kind":"o');
+
+    // #when
+    const before = await readPartial(dir, '2026-10-04');
+    await appendRecords(dir, '2026-10-04', [ok('0x2')]);
+
+    // #then
+    expect({ before, after: (await readPartial(dir, '2026-10-04')).map((r) => r.id) }).toEqual({ before: [], after: ['0x2'] });
+  });
 });

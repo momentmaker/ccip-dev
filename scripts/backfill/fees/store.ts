@@ -40,6 +40,7 @@ export async function readArchiveDay(dir: string, day: string): Promise<unknown[
   return parseLines(gunzipSync(await readFile(dayFile(archiveRoot(dir), day, '.jsonl.gz'))).toString('utf8'), false);
 }
 
+// Appends for a day must be serialized: a concurrent append would see an in-flight write as a torn tail.
 export async function appendRecords(dir: string, day: string, records: DetailRecord[]): Promise<void> {
   if (records.length === 0) return;
   const file = dayFile(detailsRoot(dir), day, '.partial.jsonl');
@@ -96,12 +97,12 @@ export async function saveUnparsed(dir: string, id: string, body: unknown): Prom
 
 function parseLines(text: string, tolerateCutLastLine: boolean): unknown[] {
   const tornTail = tolerateCutLastLine && !text.endsWith('\n');
-  const lines = text.split('\n').filter((l) => l.length > 0);
+  const complete = tornTail ? text.slice(0, text.lastIndexOf('\n') + 1) : text;
+  const lines = complete.split('\n').filter((l) => l.length > 0);
   return lines.flatMap((line, i) => {
     try {
       return [JSON.parse(line) as unknown];
     } catch (err) {
-      if (tornTail && i === lines.length - 1) return [];
       throw new Error(`line ${i + 1} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
     }
   });
