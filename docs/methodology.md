@@ -28,6 +28,11 @@
 - **Fees:** the message's fixed fee, in USD. Fees come from each message's detail. Live messages have them from
   2026-10-05, valued at the fee token's latest price; earlier days get them from the fee backfill, which values each
   fee at its send day's price. The site shows fees from the first day that has them.
+  - Some fee tokens have no market price of their own. When such a token is a chain's wrapped gas token (WBTC on
+    Bitlayer, WTAO on Bittensor EVM) or the same token as a priced one (LINK on BNB Chain and Polygon), its fee is
+    valued at the coin it wraps or matches, through DefiLlama's `coingecko:<id>` price, at the token's own decimals.
+    Each such token's decimals were read on chain.
+  - A few chains' fee tokens still have no free price source; their fees are left out of the fee totals.
 - **Fees paid in LINK:** the part of a day's fees whose fee token is LINK. That is LINK in CCIP's LINK token group
   (LINK on the chains where it moves through CCIP), plus LINK on the 13 chains where LINK is a fee token but is not
   in that group: OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia,
