@@ -103,6 +103,21 @@ describe('scanReserveTransfers', () => {
     expect(outflowAlerts(h)).toEqual([]);
   });
 
+  it.each([
+    ['exactly 24 hours old (alerts)', '2026-10-05T16:00:00.000Z', 1],
+    ['one second past 24 hours (is ignored)', '2026-10-05T15:59:59.000Z', 0],
+  ])('alerts on an outflow %s', async (_name, ts, alerts) => {
+    const f = rpcFake({
+      logs: ({ direction }) =>
+        direction === 'out'
+          ? [transferLog({ block: FIRST, index: 0, tx: '0xb4', direction: 'out', counterparty: OUT_TO, link: 1n, ts })]
+          : [],
+    });
+    const h = harness({ now: NOW, fetch: f });
+    await runReserveTransfers(h.c);
+    expect(outflowAlerts(h)).toHaveLength(alerts);
+  });
+
   it('alerts on the third failed run in a row and resets after a good run', async () => {
     const signatures: string[] = [];
     for (let i = 0; i < 4; i++) {

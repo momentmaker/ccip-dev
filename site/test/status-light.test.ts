@@ -8,6 +8,14 @@ describe('status light', () => {
     expect(ingestLagSeconds({ last_ingest_ok_at: null }, now)).toBeNull();
   });
 
+  it('turns a 599.5 s lag red, because it rounds to the 600 s line', () => {
+    const now = new Date('2026-10-07T12:00:00.000Z');
+    const lagAt = (ms: number) => ingestLagSeconds({ last_ingest_ok_at: new Date(now.getTime() - ms).toISOString() }, now)!;
+    expect(statusLevel(lagAt(599_499), 0)).toBe('amber');
+    expect(statusLevel(lagAt(599_500), 0)).toBe('red');
+    expect(statusText(statusLevel(lagAt(600_000), 0), lagAt(600_000))).toBe('Stalled · 10m 0s behind');
+  });
+
   it.each([
     [0, 0, 'green'],
     [119, 0, 'green'],

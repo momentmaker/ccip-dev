@@ -161,4 +161,67 @@ describe('reserveStats', () => {
     });
     expect(short.pace?.avg_weekly_link_4w).toBe(20_000);
   });
+
+  it('has no deposit price, ranking or cost when every deposit is unpriced', () => {
+    const stats = reserveStats({ transfers: [t('2026-10-01T10:00:00.000Z', '0x20', 'in', 5_000, null)], linkPriceUsd: 10, now: NOW });
+    expect(stats.cost_basis).toMatchObject({ cost_usd: 0, value_usd: 50_000, change_usd: 0, change_pct: null, avg_deposit_price_usd: null, unpriced_transfers: 1 });
+    expect(stats.pace).toMatchObject({ deposits: 1 });
+    expect(stats.performance).toEqual({ best: null, worst: null, above: 0, below: 0 });
+    expect(stats.transfers[0]).toMatchObject({ price_usd: null, usd: null, value_now_usd: 50_000, change_pct: null });
+  });
+
+  it.each([
+    [1_000_000, 2_000_000],
+    [999_999, 1_000_000],
+    [1_000_001, 2_000_000],
+  ])('sits on %s LINK and targets the next whole million, %s', (held, target) => {
+    const stats = reserveStats({ transfers: [t('2026-09-22T10:00:00.000Z', '0x30', 'in', held, 10)], linkPriceUsd: 10, now: NOW });
+    expect(stats.pace.next_milestone).toEqual({ link: target, eta: expect.stringMatching(/^2026-1\d-\d\d$/) });
+  });
+
+  it('projects the milestone day from the weekly pace when the balance is exactly a milestone', () => {
+    const stats = reserveStats({ transfers: [t('2026-09-22T10:00:00.000Z', '0x31', 'in', 1_000_000, 10)], linkPriceUsd: 10, now: NOW });
+    expect(stats.pace.next_milestone).toEqual({ link: 2_000_000, eta: '2026-10-20' });
+  });
+
+  it('gives no percent change when the cost basis is zero', () => {
+    const stats = reserveStats({ transfers: [t('2026-10-01T10:00:00.000Z', '0x40', 'in', 10, null)], linkPriceUsd: 10, now: NOW });
+    expect(stats.cost_basis.cost_usd).toBe(0);
+    expect(stats.cost_basis.change_pct).toBeNull();
+  });
+
+  it('gives no percent change when outflows leave the cost basis negative', () => {
+    const stats = reserveStats({
+      transfers: [t('2026-10-01T10:00:00.000Z', '0x41', 'in', 1_000, 10), t('2026-10-02T10:00:00.000Z', '0x42', 'out', 2_000, 10)],
+      linkPriceUsd: 10,
+      now: NOW,
+    });
+    expect(stats.cost_basis).toMatchObject({ cost_usd: -10_000, change_pct: null });
+  });
+
+  it('values everything at zero, and calls every priced deposit a gain, when LINK is priced at 0', () => {
+    const stats = reserveStats({ transfers: [t('2026-09-01T10:00:00.000Z', '0x50', 'in', 100_000, 10), t('2026-09-16T15:00:00.000Z', '0x51', 'in', 50_000, 20)], linkPriceUsd: 0, now: NOW });
+    expect(stats.cost_basis).toMatchObject({ cost_usd: 2_000_000, value_usd: 0, change_usd: -2_000_000, change_pct: -100 });
+    expect(stats.transfers.map((x) => [x.value_now_usd, x.change_pct])).toEqual([[0, -100], [0, -100]]);
+    expect(stats.performance).toMatchObject({ above: 0, below: 2 });
+  });
+
+  describe('the 24 hour deposit grace', () => {
+    const deposits = [t('2026-09-01T10:00:00.000Z', '0x60', 'in', 10_000, 10), t('2026-09-08T10:00:00.000Z', '0x61', 'in', 10_000, 10)];
+    const expected = Date.parse('2026-09-15T10:00:00.000Z');
+    const overdueAt = (ms: number) => reserveStats({ transfers: deposits, linkPriceUsd: 10, now: new Date(ms) }).pace.deposit_overdue;
+
+    it('expects the next deposit a median gap after the last', () => {
+      expect(reserveStats({ transfers: deposits, linkPriceUsd: 10, now: NOW }).pace.next_expected_deposit).toBe('2026-09-15T10:00:00.000Z');
+    });
+
+    it('is not overdue up to exactly 24 h after the expected time', () => {
+      expect(overdueAt(expected)).toBe(false);
+      expect(overdueAt(expected + 24 * 3_600_000)).toBe(false);
+    });
+
+    it('is overdue one millisecond past 24 h', () => {
+      expect(overdueAt(expected + 24 * 3_600_000 + 1)).toBe(true);
+    });
+  });
 });

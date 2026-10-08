@@ -29,6 +29,33 @@ describe('countdown', () => {
   });
 });
 
+describe('the 24 h deposit grace', () => {
+  it('counts down to the last millisecond before the expected time, then watches from the moment it is due', () => {
+    expect(countdown(DUE, false, due - 1).kind).toBe('counting');
+    expect(countdown(DUE, false, due)).toEqual({ kind: 'expected', text: DEPOSIT_PAST_DUE });
+  });
+
+  it('still only watches at exactly 24 h past due', () => {
+    expect(countdown(DUE, false, due + 24 * HOUR)).toEqual({ kind: 'expected', text: DEPOSIT_PAST_DUE });
+  });
+
+  it('turns overdue, saying 24 h, one millisecond later', () => {
+    expect(countdown(DUE, false, due + 24 * HOUR + 1)).toEqual({ kind: 'overdue', text: 'Overdue by 24 h' });
+  });
+
+  it('shows an overdue flag raised before the due time as at least 1 h', () => {
+    expect(countdown(DUE, true, due - 5 * HOUR)).toEqual({ kind: 'overdue', text: 'Overdue by 1 h' });
+  });
+});
+
+describe('vaultFill at a milestone', () => {
+  it('starts the next million at empty when the reserve sits exactly on a million', () => {
+    expect(vaultFill(1_000_000)).toEqual({ target: 2_000_000, fraction: 0.5 });
+    expect(vaultFill(0)).toEqual({ target: 1_000_000, fraction: 0 });
+    expect(vaultFill(999_999)).toEqual({ target: 1_000_000, fraction: 0.999999 });
+  });
+});
+
 describe('depositCoins', () => {
   it('keeps only weeks with deposits, newest last, capped', () => {
     const weekly = Array.from({ length: 30 }, (_, i) => ({ week: `w${String(i).padStart(2, '0')}`, deposits: i === 3 ? 0 : 1, link: 10 * i, usd: 100 * i }));
@@ -42,6 +69,10 @@ describe('depositCoins', () => {
 describe('valueAtPriceText', () => {
   it('states the value at the LINK price', () => {
     expect(valueAtPriceText(1_234_567, 18.456)).toBe('≈ $1.2M at $18.46 per LINK');
+  });
+
+  it('states a LINK price of zero rather than hiding it', () => {
+    expect(valueAtPriceText(0, 0)).toBe('≈ $0 at $0.00 per LINK');
   });
 
   it('says nothing without a price or a value', () => {
