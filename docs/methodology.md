@@ -25,13 +25,14 @@
     totals $18.8 trillion; with it, $74.7 million.
 - **Unpriced:** a token none of the steps can price adds $0. The message is still counted, and it is reported in
   `unpriced_messages`. Since 2023-07-06, 68,893 of 1,565,729 messages (4.4%) are unpriced.
-- **Fees:** the message's fixed fee, in USD at the fee token's latest price. Fees are collected from 2026-10-05
-  onward only.
+- **Fees:** the message's fixed fee, in USD. Fees come from each message's detail. Live messages have them from
+  2026-10-05, valued at the fee token's latest price; earlier days get them from the fee backfill, which values each
+  fee at its send day's price. The site shows fees from the first day that has them.
 - **Fees paid in LINK:** the part of a day's fees whose fee token is in CCIP's LINK token group (LINK on the
   chains where it moves through CCIP). LINK fees on 12 chains where LINK is a fee token but is not in that group
   (OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia, Etherlink and
-  Nexon Henesys) are not counted yet, so `fee_link_share_pct` can understate LINK's share. Available from
-  2026-10-05 onward.
+  Nexon Henesys) are not counted yet, so `fee_link_share_pct` can understate LINK's share. Available for every day
+  that has fees.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage

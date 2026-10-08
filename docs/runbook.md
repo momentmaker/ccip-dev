@@ -213,3 +213,34 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
   - `{}` shows the "sponsor ccip.dev" invitation.
 - **Analytics:** Umami at `analytics.jivx.com`. The website ID is `UMAMI_WEBSITE_ID` in `site/src/config.ts`. An empty ID loads no script.
 - **Brand images:** `pnpm --filter @ccip-dev/site cards:static` regenerates `og-default.png`, `apple-touch-icon.png` and `favicon-32.png`. Commit the results.
+
+## Fee backfill
+
+Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one CCIP detail per message. Spec: `docs/superpowers/specs/2026-10-08-fee-backfill-design.md`. Data lives in `.backfill/fees/`. The original backfill data in `.backfill/` (archive, prices, registry, sql) must be on disk; the fee scripts only read it. Run everything from the repo root.
+
+1. **Probe** (about 15 minutes): `pnpm backfill:fees:fetch --probe`. Read `.backfill/fees/probe.json`.
+   - Every `versions` entry should have fees: `feeNull` and `unknownShapes` near 0, `schemaFailures` 0. If not, stop and check `.backfill/fees/unparsed/`.
+   - `statuses` counts responses per HTTP status. A large share of 5xx or other 4xx means the API is unhealthy; wait and probe again.
+2. **Fetch** (2.5–6 days, resumable): `caffeinate -i pnpm backfill:fees:fetch`.
+   - **Rate:** starts at 3 req/s and adds 1 after each healthy 10-minute window, up to 8. It halves and holds 10 minutes on a 429 (a burst of 429s counts once) or on an error rate over 1% (at least 3 errors in at least 100 requests). A 429 also pauses for `Retry-After`, up to 30 s (5 s when absent).
+   - **Retries:** a failing message is retried after 5, 10, 20, 40 and 80 s, then recorded as a skip with the reason `failed N times over M min: …`. A 404 or 410 is a skip at once.
+   - **Log:** one line per finished day, with counts, skips, the rate, the version histogram, unknown fee shapes, total progress and an ETA.
+   - **Stops:** the crawl stops with an error, and a rerun of the same command resumes. Finished days are sealed, and a torn last line of a day's partial file is dropped and refetched.
+     - `the CCIP API refused the crawl with HTTP <401|403|451>; check access, then rerun to resume`: the API is blocking you. Check access first.
+     - `the CCIP API has answered nothing for 15 minutes; stopping, and a rerun resumes`: after 15 minutes without an answer it re-fetches its latest good message, and only stops if that fails too.
+     - `<day>: n of m messages kept failing (…); the CCIP API may be degraded. Rerun later to retry them`: a day whose retried-out skips exceed max(5, 5% of its messages) is not sealed. A rerun refetches those messages.
+3. **Build** (any time, as often as you like): `pnpm backfill:fees:build`.
+   - **Output:** SQL for the sealed days not built yet, or whose sealed file changed since, in `.backfill/fees/sql/B<NNNN>/` with a `BUILD` file. It reuses the original price cache and refuses one built for another range. It refuses a sealed day that lacks a record for any archived message (`fee build: <day> has n archived messages with no detail record; its sealed file is incomplete`): fetch again.
+   - **Checks:** logged and saved in `.backfill/fees/checks/B<NNNN>.json`.
+     - `check: <day> has fees per message more than 5x its neighbours' median`: an outlier day, compared with the days within a week across all batches.
+     - `check: <day> has fee tokens without a price on more than 10% of its fee messages`: a gap in price history.
+     - `largest fee: …`: the 10 largest fees.
+   - Don't upload a batch with an outlier or low-priced day you can't explain.
+4. **Upload** (owner): `pnpm backfill:fees:upload`. It needs the same `.env` as "Backfill upload".
+   - It applies new batches in order and resumes after a failure from `.backfill/fees/upload-state.json`, keyed on each batch's `BUILD` id, so a rebuilt batch is applied again. A batch folder without `BUILD` is an unfinished build and is skipped.
+   - It waits out 23:55–00:30 and 05:50–06:20 UTC (`waiting for the Worker finalize window to pass`), because D1 is unavailable while a file imports.
+   - The next finalize (00:10 or 06:00 UTC) republishes `history.json` and `top/*`, and the site picks up the new coverage on its next build (00:25 or 06:25 UTC). The site takes fee coverage from `history.json`, so the "Fees are collected from …" notes move back as batches load and disappear once coverage starts at 2023-07-06.
+
+Suggested rhythm: probe, then the full fetch under `caffeinate -i`. After about 5 hours the last 30 days are done, so run build then upload. Repeat as more days finish.
+
+The original `pnpm backfill:upload` refuses to apply SQL once a fee upload has started ("The fee backfill has been uploaded, and this SQL would reset daily fee totals and breakdowns to NULL"). Only pass `--allow-fee-wipe` if you then rerun the fee upload from scratch: delete `.backfill/fees/upload-state.json` first, then `pnpm backfill:fees:upload`.
