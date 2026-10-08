@@ -74,4 +74,4 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Goal**: Fees for every historical day (2023-07-06 to 2026-10-04) from one CCIP detail request per message, at 3 req/s newest first, valued at send-day prices and loaded into `messages.fee_*`, `daily_totals.fee_usd`/`fee_link_usd` and `daily_breakdown.fee_usd`. Spec: `docs/superpowers/specs/2026-10-08-fee-backfill-design.md`.
 **Success Criteria**: The fee history covers 2023-07-06 onward with no seam at 2026-10-04/05; the fees note disappears from the site; the original backfill re-upload can no longer wipe fees.
 **Tests**: fetch order, resume, rate limiting and 429 back-off, skips; fee valuation and aggregates equal `rollupDay`; upload resume and finalize-window refusal; the conflict guard; site coverage derived from data.
-**Status**: Not Started (spec awaiting owner review)
+**Status**: In progress: spec approved 2026-10-08 (adaptive rate from 3 req/s, cap 8). Plan: `docs/superpowers/plans/2026-10-08-fee-backfill.md`.

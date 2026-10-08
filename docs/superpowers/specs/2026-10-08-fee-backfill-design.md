@@ -10,7 +10,7 @@ The fees chart, the fee tiles, `top/*` fee columns and the LINK share then cover
 
 **Owner decisions (2026-10-08):**
 - Backfill all fees.
-- Crawl the CCIP API at **3 requests per second, newest day first**.
+- Crawl the CCIP API newest day first, **starting at 3 requests per second and stepping up while the API stays healthy** (owner, 2026-10-08).
 
 ## 1. Why this is needed
 
@@ -38,11 +38,13 @@ There are three commands, in the style of the existing backfill (`scripts/backfi
 ### 3.1 `pnpm backfill:fees:fetch` (runs on the owner's machine, for about 6 days)
 
 - **Input:** message ids from `.backfill/archive/messages/YYYY/MM/DD.jsonl.gz`, processed day by day from 2026-10-04 back to 2023-07-06.
-- **Rate:**
-  - A token bucket at 3 req/s, with up to 4 requests in flight. This replaces the single-flight throttle, which is not safe for concurrent callers.
-  - On a 429, honour `Retry-After` (capped at 30 s), then halve the rate for 10 minutes before ramping back to 3 req/s.
-  - On repeated 5xx, use exponential backoff.
-  - Send the `curl/8.7.1` user agent, as the API requires.
+- **Rate** (adaptive: additive increase, multiplicative decrease):
+  - Start at 3 req/s, with request starts spaced evenly and up to 6 requests in flight.
+  - **Step up:** after each 10-minute window with no 429, an error rate of 1% or less, and a median latency within 2× the first window's median, add 1 req/s, up to a cap of 8 req/s.
+  - **Back off:** on a 429, pause for `Retry-After` (capped at 30 s; 5 s when absent), halve the rate (never below 1 req/s), and hold for 10 minutes before stepping up again. An error rate above 1% over at least 20 requests in a window also halves the rate.
+  - **Stall guard:** if no request has succeeded for 15 minutes, stop with a clear message. A rerun resumes.
+  - Send the `curl/8.7.1` user agent, as the API requires, with a 30 s request timeout.
+  - Each rate change is logged. At full speed the crawl takes about 2.5–3 days; if the API never allows more than 3 req/s, about 6.
 - **Output per message:** a normalized record in `.backfill/fees/details/YYYY/MM/DD.jsonl.gz`, with `messageId`, `version`, `fee {token, amount} | null`, `feeShapeUnknown` and `tokens[]`.
 - **Skips:** a 404 or a schema failure goes to `skipped.jsonl` with its status and reason. Raw bodies of unknown fee shapes go to `unparsed/`, so they can be investigated.
 - **Resume:**
@@ -81,14 +83,14 @@ This step reads the finished day files and writes SQL to `.backfill/fees/sql/NNN
 
 ## 4. Changes outside the scripts
 
-- **Guard against wiping fees.** Re-running the original `backfill:upload` would reset `daily_totals.fee_usd` and `daily_breakdown.fee_usd` to NULL, because the original build writes them as NULL. Make `TOTALS_CONFLICT` and `BREAKDOWN_CONFLICT` keep an existing non-null `fee_usd` when the incoming value is NULL, and say so in the runbook.
+- **Guard against wiping fees.** Re-running the original `backfill:upload` would reset `daily_totals.fee_usd` to NULL and delete and re-insert each day's `daily_breakdown` rows without fees. A conflict clause can't protect the breakdown, because the original SQL deletes those rows first. So once `.backfill/fees/upload-state.json` records any applied file, the original upload refuses to apply SQL unless it is run with `--allow-fee-wipe`. The runbook says that re-running it means re-running the fee upload afterwards.
 - **Fees coverage start comes from the data.** The site's fixed `FEES_SINCE` ("Fees are collected from 2026-10-05 onward") becomes the first day in `history.json` with a non-null `fee_usd`. The note and the "since" labels then follow the backfill as it loads, and disappear once coverage starts at 2023-07-06.
 - **Fees chart while loading.** When fee coverage starts inside the chosen period, the fees chart plots from the coverage start rather than from the period start, with a note saying where coverage begins. Once the backfill has loaded a period, that period's chart looks like the others.
 - **Runbook:** a "Fee backfill" section covering the commands, the resume behaviour, the finalize windows, "do not re-run the original backfill upload without the guard", and how to check progress.
 
 ## 5. Data volume and limits
 
-- **Requests:** 1,563,242 detail requests at 3 req/s, about 6.0 days of continuous running. At about 1.5 KB each, that's about 2.3 GB downloaded.
+- **Requests:** 1,563,242 detail requests: about 2.5–3 days at the 8 req/s cap, about 6.0 days at 3 req/s. At about 1.5 KB each, that's about 2.3 GB downloaded.
 - **Local storage:** about 300 MB of normalized records, about 60 MB gzipped.
 - **D1 writes:** about 1.56M message updates, about 1,182 `daily_totals` updates and about 0.8M breakdown updates, about 2.5M row writes in total. That is well inside the 50M per month limit.
 - **SQL:** about 80 files of 20,000 statements, applied over the days of the crawl.
@@ -97,19 +99,19 @@ This step reads the finished day files and writes SQL to `.backfill/fees/sql/NNN
 
 | Risk | Mitigation |
 |---|---|
-| The API throttles or blocks 3 req/s. It publishes no limit, and the Worker uses the same API from Cloudflare's IPs. | Automatic halving on 429, then resume. A sustained run of 429s pauses the crawl and prints the cause. The Worker's IPs are separate from the owner's machine. |
+| The API throttles or blocks the crawl. It publishes no limit, and the Worker uses the same API from Cloudflare's IPs. | The adaptive rate in §3.1: start at 3, step up only while healthy, halve and hold on a 429. The stall guard stops after 15 minutes without a success. The Worker's IPs are separate from the owner's machine. |
 | Old API versions return a different `fees` shape. | `--probe` first, plus a version histogram during the run. Unknown shapes are saved raw and counted, never stored silently as NULL. |
 | A mispriced fee token (decimals, a price glitch) inflates a day. | The shared price rules (the outlier filter and the ±2-day gap rule), plus the per-batch checks in §3.2, before anything is uploaded. |
 | The laptop sleeps or restarts during a 6-day run. | `caffeinate -i` in the run command, and resume from `state.json`. |
-| Re-running the original backfill wipes the fees. | The conflict guard in §4. |
+| Re-running the original backfill wipes the fees. | The upload guard in §4. |
 
 ## 7. Testing
 
 - **Fetch:**
   - newest-first day order;
   - resume from `state.json` at a cursor inside a day;
-  - the token bucket's spacing under concurrency;
-  - a 429 halving and recovering the rate;
+  - the pacer's spacing under concurrency;
+  - the rate stepping up after a healthy window, halving and holding on a 429, and never passing the cap;
   - 404 and schema skips;
   - an unknown fee shape saved raw.
 
@@ -124,14 +126,14 @@ This step reads the finished day files and writes SQL to `.backfill/fees/sql/NNN
 - **Upload:**
   - resume;
   - refusal inside the finalize windows.
-- **Conflict guard:** re-applying the original SQL keeps the backfilled fees. This runs as a worker test against D1.
+- **Upload guard:** the original upload refuses to apply SQL after a fee upload, unless `--allow-fee-wipe` is given.
 - **Site:** coverage derived from history, and the fees chart's coverage start and note.
 
 ## 8. Rollout
 
 1. Implement and review: scripts, guard, site and runbook. Push. The site and the guard deploy.
 2. The owner runs `--probe` for about 15 minutes. Review the version histogram and fee coverage.
-3. The owner starts the full fetch, for about 6 days.
+3. The owner starts the full fetch, for about 2.5–6 days depending on the rate the API allows.
 4. After about 5 hours (the last 30 days), the owner runs build and upload. The 30-day chart is then correct at the next finalize publish.
 5. The owner repeats the build and upload as more days finish (90 days after about 14 hours, 1 year after about 2.4 days), then once at the end.
 6. Final check:
