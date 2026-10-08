@@ -20,6 +20,7 @@ function message(id: string): unknown {
 }
 
 const ok = (id: string, token: string, amount: string): DetailRecord => ({ id, kind: 'ok', fetchedAt: '2026-10-08T00:00:00.000Z', version: '1.6.0', fee: { token, amount }, feeShapeUnknown: false, tokens: [] });
+const unknownShape = (id: string): DetailRecord => ({ id, kind: 'ok', fetchedAt: '2026-10-08T00:00:00.000Z', version: '1.0.0', fee: null, feeShapeUnknown: true, tokens: [] });
 
 const noPrices: PricesClient = {
   latest: async () => new Map(),
@@ -196,10 +197,90 @@ describe('buildFees inputs', () => {
   });
 });
 
+describe('unknown fee shapes', () => {
+  const withUnknown = [ok('0xlink', LINK, '100000000000000000'), unknownShape('0xweth'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
+
+  it('leaves a message with an unknown fee shape out of the message updates, so it stays unfilled', async () => {
+    // #given
+    const dir = await backfill({ records: withUnknown });
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(await sqlOf(dir)).not.toMatch(/message_id = '0xweth'/);
+  });
+
+  it('still counts a message with an unknown fee shape in the day rollup, with no fee', async () => {
+    // #given
+    const dir = await backfill({ records: withUnknown });
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = 1, fee_link_usd = 1 WHERE day = '${DAY}';`);
+  });
+
+  it('reports the days with unknown fee shapes', async () => {
+    // #given
+    const dir = await backfill({ records: withUnknown });
+    // #when
+    const result = await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(result.unknownShapeDays).toEqual([DAY]);
+  });
+
+  it('logs a check line for a day with unknown fee shapes', async () => {
+    // #given
+    const dir = await backfill({ records: withUnknown });
+    const lines: string[] = [];
+    // #when
+    await buildFees({ dir, prices: noPrices, log: (l) => lines.push(l) });
+    // #then
+    expect(lines).toContain(`check: ${DAY} has 1 messages with an unknown fee shape; hold this batch and inspect .backfill/fees/unparsed/`);
+  });
+
+  it('saves the count of unknown fee shapes in the day checks', async () => {
+    // #given
+    const dir = await backfill({ records: withUnknown });
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    // #then
+    const saved = JSON.parse(await readFile(path.join(dir, 'fees', 'checks', 'B0001.json'), 'utf8')) as { checks: { unknownShapes: number }[] };
+    expect(saved.checks.map((c) => c.unknownShapes)).toEqual([1]);
+  });
+});
+
+describe('buildFees state', () => {
+  it('names build-state.json when it is corrupt', async () => {
+    // #given
+    const dir = await backfill({ records });
+    const statePath = path.join(dir, 'fees', 'build-state.json');
+    await writeFile(statePath, '{"built": {');
+    // #when, #then
+    await expect(buildFees({ dir, prices: noPrices })).rejects.toThrow(`${statePath}: `);
+  });
+
+  it('numbers a new batch after every earlier one when build-state.json is gone', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await buildFees({ dir, prices: noPrices });
+    await rm(path.join(dir, 'fees', 'build-state.json'));
+    // #when
+    const rebuilt = await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(rebuilt.batch).toBe('B0002');
+  });
+});
+
 describe('flagFeeOutliers', () => {
   it('flags a day whose fee per message is more than 5x its neighbours median', () => {
     // #given
     const checks = ['01', '02', '03', '04', '05', '06', '07'].map((d, i) => ({ day: `2026-01-${d}`, messages: 100, withFee: 100, priced: 100, feeUsd: i === 3 ? 600 : 100, perMessage: i === 3 ? 6 : 1 }));
+    // #when, #then
+    expect(flagFeeOutliers(checks)).toEqual(['2026-01-04']);
+  });
+
+  it('flags a day whose fee per message is less than a fifth of its neighbours median', () => {
+    // #given
+    const checks = ['01', '02', '03', '04', '05', '06', '07'].map((d, i) => ({ day: `2026-01-${d}`, messages: 100, withFee: 100, priced: 100, feeUsd: i === 3 ? 10 : 100, perMessage: i === 3 ? 0.1 : 1 }));
     // #when, #then
     expect(flagFeeOutliers(checks)).toEqual(['2026-01-04']);
   });
