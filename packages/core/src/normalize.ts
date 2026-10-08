@@ -3,10 +3,11 @@ import { FixedFees, type DetailMessage, type ListMessage, type NetworkInfo, type
 import { dayOf, toIsoUtc } from './time';
 import type { ChainRef, NormalizedMessage } from './types';
 
-const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g;
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 
+/** Strips control, bidi and invisible characters, then caps the length in code points so no surrogate pair is split. */
 export function sanitize(text: string, maxLength = 64): string {
-  return text.replace(CONTROL_CHARS, '').slice(0, maxLength);
+  return [...text.replace(CONTROL_CHARS, '')].slice(0, maxLength).join('');
 }
 
 /** EVM addresses are case-insensitive, so they are stored lowercase; base58 (Solana) is case-sensitive. */

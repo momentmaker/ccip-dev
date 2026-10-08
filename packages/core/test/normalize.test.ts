@@ -99,6 +99,18 @@ describe('sanitize and registry tokens', () => {
     expect(sanitize(`LI\u0000NK\u202e${'x'.repeat(100)}`)).toBe(`LINK${'x'.repeat(60)}`);
   });
 
+  it('strips the Arabic letter mark, invisible operators, the BOM and the soft hyphen', () => {
+    expect(sanitize('L\u061cI\u2060N\u2061\u2062K\u2063\u2064\ufeffS\u00ad')).toBe('LINKS');
+  });
+
+  it('caps the length in code points, so an emoji at the boundary stays whole', () => {
+    expect(sanitize(`${'x'.repeat(63)}\u{1f680}y`)).toBe(`${'x'.repeat(63)}\u{1f680}`);
+  });
+
+  it('never ends on half of a surrogate pair', () => {
+    expect(sanitize('\u{1f680}'.repeat(40), 5)).toBe('\u{1f680}'.repeat(5));
+  });
+
   it('normalizes registry tokens', () => {
     expect(
       normalizeRegistryToken({
