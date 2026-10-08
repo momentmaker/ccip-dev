@@ -14,6 +14,10 @@ export function liveCinemaOptions(reducedMotion: boolean, startQuality: { tier: 
   return { quality: 'auto', reducedMotion, chrome: false, featherEdge: true, startQuality };
 }
 
+export function shouldSample(t: number, hook: number): boolean {
+  return t >= hook;
+}
+
 export function liveClassicOptions(kind: CompositorKind): { chrome: boolean; preferGl: boolean } {
   return { chrome: false, preferGl: kind !== 'classic' };
 }

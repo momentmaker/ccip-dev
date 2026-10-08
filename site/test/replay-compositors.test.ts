@@ -12,6 +12,7 @@ import {
   RecordingContextLostError,
   recordingDraw,
   recordingShow,
+  shouldSample,
 } from '../src/replay/compositors';
 import { PUNCH_IN_S } from '../src/replay/director/camera';
 import { Show, type ShowInput } from '../src/replay/director/show';
@@ -109,6 +110,15 @@ describe('LossPolicy', () => {
     expect(policy.assess(replaced, 10_000)).toBe('draw');
     const lost = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer(true) as never });
     expect(policy.assess(lost, 11_000)).toBe('recreate');
+  });
+});
+
+describe('shouldSample', () => {
+  it('measures frame times only once the story is on screen, not during the near-empty hook', () => {
+    expect(shouldSample(0, 2)).toBe(false);
+    expect(shouldSample(1.99, 2)).toBe(false);
+    expect(shouldSample(2, 2)).toBe(true);
+    expect(shouldSample(12, 1.5)).toBe(true);
   });
 });
 

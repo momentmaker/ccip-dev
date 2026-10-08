@@ -29,6 +29,7 @@ import {
   recordErrorMessage,
   recordingDraw,
   recordingShow,
+  shouldSample,
   type Compositor,
   type CompositorKind,
 } from './compositors';
@@ -297,7 +298,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     let lastFrame: number | null = null;
     const tick = (frameTime: number) => {
       const current = compositorRef.current;
-      if (lastFrame !== null && current instanceof CinemaCompositor) {
+      if (lastFrame !== null && current instanceof CinemaCompositor && shouldSample(tRef.current, show.timing.hook)) {
         current.noteFrame(frameTime - lastFrame, frameTime / 1000);
         qualityRef.current = { tier: current.tier, decided: current.qualityDecided };
       }
