@@ -1,4 +1,5 @@
 import type { SkyFrame } from './frame';
+import { GrowingFloats, newDynamicBufferState, uploadDynamic } from './gl-buffers';
 import { buildInstances, buildLaneVertices, FLOATS_PER_INSTANCE } from './instances';
 import type { Projector } from './layout';
 import type { SkyCanvas, SkyRenderer } from './renderer';
@@ -83,6 +84,10 @@ export class GlRenderer implements SkyRenderer {
   private quadVao: WebGLVertexArrayObject | null = null;
   private lineVao: WebGLVertexArrayObject | null = null;
   private buffers: WebGLBuffer[] = [];
+  private readonly instanceScratch = new GrowingFloats();
+  private readonly laneScratch = new GrowingFloats();
+  private readonly instanceStorage = newDynamicBufferState();
+  private readonly laneStorage = newDynamicBufferState();
 
   static create(canvas: SkyCanvas): GlRenderer | null {
     const gl = canvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true }) as WebGL2RenderingContext | null;
@@ -98,6 +103,7 @@ export class GlRenderer implements SkyRenderer {
   ) {}
 
   init(): void {
+    this.release();
     const gl = this.gl;
     this.quadProgram = link(gl, QUAD_VERT, QUAD_FRAG);
     this.lineProgram = link(gl, LINE_VERT, LINE_FRAG);
@@ -105,6 +111,8 @@ export class GlRenderer implements SkyRenderer {
     const instances = gl.createBuffer()!;
     const lines = gl.createBuffer()!;
     this.buffers = [corners, instances, lines];
+    this.instanceStorage.capacity = 0;
+    this.laneStorage.capacity = 0;
 
     this.quadVao = gl.createVertexArray();
     gl.bindVertexArray(this.quadVao);
@@ -147,31 +155,39 @@ export class GlRenderer implements SkyRenderer {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    const lines = buildLaneVertices(frame, project);
+    const lines = buildLaneVertices(frame, project, undefined, this.laneScratch);
     gl.useProgram(this.lineProgram);
     gl.uniform2f(gl.getUniformLocation(this.lineProgram, 'u_resolution'), width, height);
     gl.bindVertexArray(this.lineVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[2]!);
-    gl.bufferData(gl.ARRAY_BUFFER, lines, gl.DYNAMIC_DRAW);
+    uploadDynamic(gl, this.buffers[2]!, this.laneStorage, lines);
     gl.drawArrays(gl.LINES, 0, lines.length / 3);
 
-    const instances = buildInstances(frame, project, sizeScale);
+    const instances = buildInstances(frame, project, sizeScale, undefined, this.instanceScratch);
     gl.useProgram(this.quadProgram);
     gl.uniform2f(gl.getUniformLocation(this.quadProgram, 'u_resolution'), width, height);
     gl.bindVertexArray(this.quadVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[1]!);
-    gl.bufferData(gl.ARRAY_BUFFER, instances, gl.DYNAMIC_DRAW);
+    uploadDynamic(gl, this.buffers[1]!, this.instanceStorage, instances);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, instances.length / FLOATS_PER_INSTANCE);
     gl.bindVertexArray(null);
   }
 
-  destroy(): void {
+  private release(): void {
     const gl = this.gl;
     for (const b of this.buffers) gl.deleteBuffer(b);
     if (this.quadVao) gl.deleteVertexArray(this.quadVao);
     if (this.lineVao) gl.deleteVertexArray(this.lineVao);
     if (this.quadProgram) gl.deleteProgram(this.quadProgram);
     if (this.lineProgram) gl.deleteProgram(this.lineProgram);
+    this.buffers = [];
+    this.quadVao = null;
+    this.lineVao = null;
+    this.quadProgram = null;
+    this.lineProgram = null;
+  }
+
+  destroy(): void {
+    const gl = this.gl;
+    this.release();
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
 }

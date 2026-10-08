@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { GrowingFloats } from '../src/sky/gl-buffers';
 import type { SkyFrame } from '../src/sky/frame';
 import { COLORS } from '../src/sky/frame';
 import { buildInstances, buildLaneVertices, FLOATS_PER_INSTANCE, SHAPE } from '../src/sky/instances';
@@ -94,5 +95,21 @@ describe('buildLaneVertices', () => {
     expect(data).toHaveLength(16 * 2 * 3);
     expect([...data.subarray(0, 3)].map((v) => Number(v.toFixed(3)))).toEqual([50, 100, 0.3]);
     expect([...data.subarray(data.length - 3)].map((v) => Number(v.toFixed(3)))).toEqual([150, 100, 0.3]);
+  });
+});
+
+describe('reusable targets', () => {
+  const bigger: SkyFrame = { ...frame, stars: [...frame.stars, ...frame.stars], comets: [...frame.comets, ...frame.comets] };
+
+  it('fills a reused target with the same instances as a fresh array, whatever came before', () => {
+    const target = new GrowingFloats();
+    buildInstances(bigger, project, 1, undefined, target);
+    expect(buildInstances(frame, project, 1, undefined, target)).toEqual(buildInstances(frame, project, 1));
+  });
+
+  it('fills a reused target with the same lane vertices as a fresh array, whatever came before', () => {
+    const target = new GrowingFloats();
+    buildLaneVertices({ ...frame, lanes: [...frame.lanes, ...frame.lanes] }, project, undefined, target);
+    expect(buildLaneVertices(frame, project, undefined, target)).toEqual(buildLaneVertices(frame, project));
   });
 });

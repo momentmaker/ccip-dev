@@ -1,4 +1,5 @@
 import { COLORS, kindColor, type SkyFrame } from './frame';
+import { GrowingFloats } from './gl-buffers';
 import { laneControl, quadPoint, type Point } from './geometry';
 import type { Projector } from './layout';
 
@@ -15,13 +16,20 @@ function projectStars(frame: SkyFrame, project: Projector): Point[] {
   });
 }
 
-export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: number, opts = { trail: 6 }): Float32Array {
+export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: number, opts = { trail: 6 }, target?: GrowingFloats): Float32Array {
   const pts = projectStars(frame, project);
   const count = frame.stars.length * 2 + frame.comets.length * (2 + opts.trail) + frame.rings.length;
-  const out = new Float32Array(count * FLOATS_PER_INSTANCE);
+  const out = target ? target.take(count * FLOATS_PER_INSTANCE) : new Float32Array(count * FLOATS_PER_INSTANCE);
   let i = 0;
   const put = (x: number, y: number, radius: number, rgb: readonly number[], alpha: number, shape: number) => {
-    out.set([x, y, radius, rgb[0]!, rgb[1]!, rgb[2]!, alpha, shape], i);
+    out[i] = x;
+    out[i + 1] = y;
+    out[i + 2] = radius;
+    out[i + 3] = rgb[0]!;
+    out[i + 4] = rgb[1]!;
+    out[i + 5] = rgb[2]!;
+    out[i + 6] = alpha;
+    out[i + 7] = shape;
     i += FLOATS_PER_INSTANCE;
   };
 
@@ -62,9 +70,10 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
   return out;
 }
 
-export function buildLaneVertices(frame: SkyFrame, project: Projector, segments = LANE_SEGMENTS): Float32Array {
+export function buildLaneVertices(frame: SkyFrame, project: Projector, segments = LANE_SEGMENTS, target?: GrowingFloats): Float32Array {
   const pts = projectStars(frame, project);
-  const out = new Float32Array(frame.lanes.length * segments * 2 * 3);
+  const length = frame.lanes.length * segments * 2 * 3;
+  const out = target ? target.take(length) : new Float32Array(length);
   let i = 0;
   for (const lane of frame.lanes) {
     const a = pts[lane.from]!;
@@ -73,7 +82,12 @@ export function buildLaneVertices(frame: SkyFrame, project: Projector, segments 
     let prev = a;
     for (let s = 1; s <= segments; s++) {
       const p = quadPoint(a, c, b, s / segments);
-      out.set([prev.x, prev.y, lane.opacity, p.x, p.y, lane.opacity], i);
+      out[i] = prev.x;
+      out[i + 1] = prev.y;
+      out[i + 2] = lane.opacity;
+      out[i + 3] = p.x;
+      out[i + 4] = p.y;
+      out[i + 5] = lane.opacity;
       i += 6;
       prev = p;
     }

@@ -63,3 +63,80 @@ describe('GlRenderer.destroy', () => {
     expect(() => GlRenderer.create(canvas)!.destroy()).not.toThrow();
   });
 });
+
+function recordingGl() {
+  const calls: { name: string; args: unknown[] }[] = [];
+  const gl = new Proxy({} as Record<string | symbol, unknown>, {
+    get: (_t, key) => {
+      if (key === 'getExtension') return () => null;
+      if (key === 'getShaderParameter' || key === 'getProgramParameter') return () => true;
+      if (key === 'isContextLost') return () => false;
+      if (key === 'DYNAMIC_DRAW') return 7;
+      if (key === 'STATIC_DRAW') return 8;
+      if (typeof key === 'string' && /^[A-Z_0-9]+$/.test(key)) return 1;
+      if (typeof key !== 'string') return undefined;
+      return (...args: unknown[]) => {
+        calls.push({ name: key, args });
+        return /^create/.test(key) ? { created: key, n: calls.length } : undefined;
+      };
+    },
+  });
+  const named = (name: string) => calls.filter((c) => c.name === name);
+  return { gl, calls, named };
+}
+
+describe('GlRenderer.init', () => {
+  it('releases the previous programs, buffers and vertex arrays when run again after a context restore', () => {
+    const { gl, named } = recordingGl();
+    const { canvas } = fakeCanvas({ webgl2: gl });
+    const renderer = GlRenderer.create(canvas)!;
+    const firstBuffers = named('createBuffer').length;
+    const firstVaos = named('createVertexArray').length;
+    renderer.init();
+    expect(named('deleteBuffer')).toHaveLength(firstBuffers);
+    expect(named('deleteVertexArray')).toHaveLength(firstVaos);
+    expect(named('deleteProgram')).toHaveLength(2);
+  });
+
+  it('does not lose the context while re-initialising', () => {
+    const extension = { loseContext: vi.fn() };
+    const { gl } = recordingGl();
+    const withExtension = new Proxy(gl, { get: (t, key) => (key === 'getExtension' ? () => extension : Reflect.get(t, key)) });
+    const renderer = GlRenderer.create(fakeCanvas({ webgl2: withExtension }).canvas)!;
+    renderer.init();
+    expect(extension.loseContext).not.toHaveBeenCalled();
+  });
+});
+
+describe('GlRenderer.draw', () => {
+  const frame = {
+    stars: [
+      { x: -1, y: 0, radius: 4, brightness: 1, flash: 0 },
+      { x: 1, y: 0, radius: 2, brightness: 0.5, flash: 0 },
+    ],
+    lanes: [{ from: 0, to: 1, opacity: 0.3 }],
+    comets: [],
+    rings: [],
+  };
+  const project = (x: number, y: number): [number, number] => [100 + x * 50, 100 + y * 50];
+
+  it('allocates GPU storage once and then streams each frame with bufferSubData', () => {
+    const { gl, named } = recordingGl();
+    const renderer = GlRenderer.create(fakeCanvas({ webgl2: gl }).canvas)!;
+    renderer.draw(frame, project, 1);
+    renderer.draw(frame, project, 1);
+    renderer.draw(frame, project, 1);
+    expect(named('bufferData').filter((c) => c.args[2] === 7)).toHaveLength(2);
+    expect(named('bufferSubData')).toHaveLength(6);
+  });
+
+  it('allocates again after the buffers are recreated', () => {
+    const { gl, named } = recordingGl();
+    const renderer = GlRenderer.create(fakeCanvas({ webgl2: gl }).canvas)!;
+    renderer.draw(frame, project, 1);
+    const before = named('bufferData').length;
+    renderer.init();
+    renderer.draw(frame, project, 1);
+    expect(named('bufferData').length - before).toBe(3);
+  });
+});
