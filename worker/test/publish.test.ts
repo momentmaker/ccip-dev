@@ -42,20 +42,32 @@ describe('putJson', () => {
 describe('retryPut', () => {
   it('succeeds when the put fails once and then works', async () => {
     const put = vi.fn().mockRejectedValueOnce(new Error('10043')).mockResolvedValue('ok');
-    await expect(retryPut(put, async () => {})).resolves.toBe('ok');
+    await expect(retryPut('v1/a.json', put, async () => {})).resolves.toBe('ok');
     expect(put).toHaveBeenCalledTimes(2);
   });
 
   it('throws the last error after three failed attempts', async () => {
     const put = vi.fn().mockRejectedValueOnce(new Error('first')).mockRejectedValueOnce(new Error('second')).mockRejectedValue(new Error('third'));
-    await expect(retryPut(put, async () => {})).rejects.toThrow('third');
+    await expect(retryPut('v1/a.json', put, async () => {})).rejects.toThrow('third');
     expect(put).toHaveBeenCalledTimes(3);
   });
 
   it('waits 1000 ms and then 2000 ms between attempts', async () => {
     const sleep = vi.fn(async () => {});
-    await retryPut(vi.fn().mockRejectedValue(new Error('down')), sleep).catch(() => {});
+    await retryPut('v1/a.json', vi.fn().mockRejectedValue(new Error('down')), sleep).catch(() => {});
     expect(sleep.mock.calls).toEqual([[1000], [2000]]);
+  });
+
+  it('warns with the object key, the attempt and the error before each retry', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const put = vi.fn().mockRejectedValueOnce(new Error('10043')).mockRejectedValueOnce(new Error('10058')).mockResolvedValue('ok');
+    await retryPut('messages/2026/10/09.jsonl.gz', put, async () => {});
+    const warnings = warn.mock.calls.map((args) => String(args[0]));
+    warn.mockRestore();
+    expect(warnings).toEqual([
+      'R2 put of messages/2026/10/09.jsonl.gz failed (attempt 1 of 3), retrying in 1000 ms: 10043',
+      'R2 put of messages/2026/10/09.jsonl.gz failed (attempt 2 of 3), retrying in 2000 ms: 10058',
+    ]);
   });
 });
 

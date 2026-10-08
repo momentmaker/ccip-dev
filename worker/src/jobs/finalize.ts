@@ -128,7 +128,8 @@ async function collectDay(c: RunContext, day: string): Promise<DayBucket> {
 async function writeArchive(c: RunContext, day: string, raw: unknown[]): Promise<void> {
   const lines = dedupeRawById(raw);
   const body = await gzipText(toJsonl(lines));
-  await retryPut(() => c.env.ARCHIVE.put(archiveKey(day), body, { httpMetadata: { contentType: 'application/gzip' } }));
+  const key = archiveKey(day);
+  await retryPut(key, () => c.env.ARCHIVE.put(key, body, { httpMetadata: { contentType: 'application/gzip' } }));
   const stored = await store.countForDay(c.env.DB, day);
   if (stored !== lines.length) {
     await c.alert(`archive-count:${day}`, `Archive for ${day} has ${lines.length} messages but D1 has ${stored}`);

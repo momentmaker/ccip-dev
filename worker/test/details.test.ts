@@ -263,6 +263,21 @@ describe('runDetails', () => {
     expect(alerts).toEqual([]);
   });
 
+  it('leaves a finalized SUCCESS message out of the queue when its re-fill fetch fails', async () => {
+    const detailed = due('done', {
+      status: 'SUCCESS', unpriced: 1, detail_fetched_at: '2026-10-05T11:17:00.000Z', next_check_at: null,
+    });
+    await store.upsertListRows(env.DB, [detailed], []);
+    await runDetails(harness({ now: NOW, ccip: fakeCcip({ details: {} }) }).c, { day: '2026-10-05' });
+    expect(await row('done')).toMatchObject({ status: 'SUCCESS', next_check_at: null });
+  });
+
+  it('still pushes a due SUCCESS message back 10 minutes when its first detail fetch fails', async () => {
+    await store.upsertListRows(env.DB, [due('fresh', { status: 'SUCCESS' })], []);
+    await runDetails(harness({ now: NOW, ccip: fakeCcip({ details: {} }) }).c, { limit: 10 });
+    expect(await row('fresh')).toMatchObject({ status: 'SUCCESS', next_check_at: '2026-10-05T11:30:00.000Z' });
+  });
+
   it('processes at most `limit` due messages, oldest first', async () => {
     const rows = Array.from({ length: 12 }, (_, i) => due(`m${String(i).padStart(2, '0')}`, { next_check_at: `2026-10-05T11:${String(i).padStart(2, '0')}:00.000Z` }));
     await store.upsertListRows(env.DB, rows, []);

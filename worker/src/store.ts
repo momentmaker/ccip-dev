@@ -269,13 +269,17 @@ export async function liveNeedingDetail(db: D1Database, day: string): Promise<st
 
 const FINAL_AGE_MS = 48 * 3_600_000;
 
+/**
+ * Retries a message's detail later after a failed fetch. A message no longer polled (next_check_at NULL, as for a final
+ * SUCCESS that finalize re-fills) stays out of the queue.
+ */
 export async function pushBack(db: D1Database, messageId: string, untilIso: string, nowIso: string): Promise<void> {
   const cutoffIso = new Date(new Date(nowIso).getTime() - FINAL_AGE_MS).toISOString();
   await db
     .prepare(
       `UPDATE messages SET
          status = CASE WHEN send_ts <= ?1 AND status NOT IN ('SUCCESS', 'FAILED') THEN 'UNRESOLVED' ELSE status END,
-         next_check_at = CASE WHEN send_ts <= ?1 THEN NULL ELSE ?2 END
+         next_check_at = CASE WHEN send_ts <= ?1 OR next_check_at IS NULL THEN NULL ELSE ?2 END
        WHERE message_id = ?3`,
     )
     .bind(cutoffIso, untilIso, messageId)
