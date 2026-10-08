@@ -8,10 +8,12 @@ export function countUpValue(from: number, to: number, elapsedMs: number, durati
   return from + (to - from) * easeOutCubic(elapsedMs / durationMs);
 }
 
+export function countUpStart(shown: number | null, target: number): number {
+  return shown ?? target;
+}
+
 export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
+  const [reduced, setReduced] = useState(false);
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => setReduced(query.matches);
@@ -36,7 +38,7 @@ export function useCountUp(target: number, animate: boolean): number {
   const [value, setValue] = useState(target);
   const shownRef = useRef<number | null>(null);
   useEffect(() => {
-    const from = shownRef.current ?? (animate ? 0 : target);
+    const from = countUpStart(shownRef.current, target);
     if (!animate || from === target) {
       shownRef.current = target;
       setValue(target);

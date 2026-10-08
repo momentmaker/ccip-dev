@@ -1,29 +1,10 @@
-import type { StatusFile } from '@ccip-dev/core/public';
-import { useEffect, useState } from 'react';
-import { trackDataError } from '../lib/analytics';
-import { startPoller } from '../lib/poller';
 import { ingestLagSeconds, PAUSED_TEXT, RED_AFTER_FAILURES, type StatusLevel, statusLevel, statusText, statusWord } from '../lib/status-light';
 import { useNow } from './hooks';
+import { useStatus } from './use-status';
 
 export default function StatusLight() {
-  const [status, setStatus] = useState<StatusFile | null>(null);
-  const [failures, setFailures] = useState(0);
+  const { status, failures } = useStatus();
   const now = useNow(5000);
-  useEffect(
-    () =>
-      startPoller({
-        name: 'status.json',
-        onData: (s) => {
-          setStatus(s);
-          setFailures(0);
-        },
-        onError: (_error, n) => {
-          setFailures(n);
-          trackDataError('status.json');
-        },
-      }),
-    [],
-  );
   const lag = status && now ? ingestLagSeconds(status, now) : null;
   const paused = failures > 0 && failures < RED_AFTER_FAILURES;
   const level: StatusLevel | null = status ? statusLevel(lag, failures) : failures >= RED_AFTER_FAILURES ? 'red' : failures > 0 ? 'amber' : null;

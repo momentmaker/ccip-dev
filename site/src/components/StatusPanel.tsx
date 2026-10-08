@@ -1,31 +1,12 @@
-import type { StatusFile } from '@ccip-dev/core/public';
-import { useEffect, useState } from 'react';
-import { trackDataError } from '../lib/analytics';
 import { DASH, formatUtcDay, formatUtcTime } from '../lib/format';
-import { startPoller } from '../lib/poller';
 import { ingestLagSeconds, statusLevel, statusText } from '../lib/status-light';
 import FreshnessNote from './FreshnessNote';
 import { useNow } from './hooks';
+import { useStatus } from './use-status';
 
 export default function StatusPanel() {
-  const [status, setStatus] = useState<StatusFile | null>(null);
-  const [failures, setFailures] = useState(0);
+  const { status, failures } = useStatus();
   const now = useNow(1000);
-  useEffect(
-    () =>
-      startPoller({
-        name: 'status.json',
-        onData: (s) => {
-          setStatus(s);
-          setFailures(0);
-        },
-        onError: (_error, n) => {
-          setFailures(n);
-          trackDataError('status.json');
-        },
-      }),
-    [],
-  );
   const lag = status && now ? ingestLagSeconds(status, now) : null;
   const level = status ? statusLevel(lag, failures) : failures >= 3 ? 'red' : null;
   const ingest = status?.last_ingest_ok_at;
