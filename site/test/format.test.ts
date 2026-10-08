@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DASH, formatAgo, formatCompactCount, formatCount, formatCountdown, formatDuration, formatLink, formatPct, formatPrice, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime,
+  DASH, formatAgo, formatCompactCount, formatCount, formatCountdown, formatDuration, formatLink, formatPct, formatPrice, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
 } from '../src/lib/format';
 
 describe('formatUsd', () => {
@@ -96,5 +96,17 @@ describe('formatPrice', () => {
     expect(formatPrice(18.456)).toBe('$18.46');
     expect(formatPrice(null)).toBe(DASH);
     expect(formatPrice(undefined)).toBe(DASH);
+  });
+});
+
+describe('linkShareText', () => {
+  it.each([
+    [0, '0% paid in LINK'],
+    [0.04, '<0.1% paid in LINK'],
+    [0.39, '0.4% paid in LINK'],
+    [9.94, '9.9% paid in LINK'],
+    [12.6, '13% paid in LINK'],
+  ])('shows a %s percent share as "%s"', (pct, expected) => {
+    expect(linkShareText(pct)).toBe(expected);
   });
 });

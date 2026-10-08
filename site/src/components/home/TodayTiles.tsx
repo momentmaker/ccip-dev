@@ -1,9 +1,9 @@
 import type { TodayFile } from '@ccip-dev/core/public';
-import { formatCount, formatDuration, formatUsd } from '../../lib/format';
+import { formatCount, formatDuration, formatUsd, linkShareText } from '../../lib/format';
 import InfoLink from '../InfoLink';
 
 export default function TodayTiles({ totals }: { totals: TodayFile['totals'] }) {
-  const linkShare = totals.fee_link_share_pct === null ? null : `${Math.round(totals.fee_link_share_pct)}% paid in LINK`;
+  const linkShare = totals.fee_link_share_pct === null ? null : linkShareText(totals.fee_link_share_pct);
   return (
     <div className="tiles">
       <div className="tile">

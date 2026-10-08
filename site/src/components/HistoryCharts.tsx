@@ -1,7 +1,7 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { useId, useMemo, useState } from 'react';
 import { ADDITIVE, CHART_H, CHART_W, chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, stepIndex, type HistoryMetric } from '../lib/charts';
-import { formatCount, formatDuration, formatUsd, formatUtcDay } from '../lib/format';
+import { formatCount, formatDuration, formatUsd, formatUtcDay, linkShareText } from '../lib/format';
 import { FEES_SINCE } from '../lib/records';
 import type { MetricKey } from '../lib/metric-anchors';
 import InfoLink from './InfoLink';
@@ -39,7 +39,7 @@ function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec
           <span className="chart-value mono">{spec.format(shown?.value ?? null)}</span>{' '}
           <span className="muted small">
             {shown ? formatUtcDay(shown.day) : ''}
-            {share !== null ? ` · ${Math.round(share)}% paid in LINK` : ''}
+            {share !== null ? ` · ${linkShareText(share)}` : ''}
           </span>
         </span>
       </figcaption>

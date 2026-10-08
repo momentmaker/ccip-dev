@@ -88,3 +88,9 @@ export function formatAgo(iso: string, now: Date): string {
 export function formatPrice(value: number | null | undefined): string {
   return value == null ? DASH : `$${value.toFixed(2)}`;
 }
+
+export function linkShareText(pct: number): string {
+  if (pct === 0) return '0% paid in LINK';
+  if (pct < 0.1) return '<0.1% paid in LINK';
+  return `${pct < 10 ? pct.toFixed(1) : Math.round(pct)}% paid in LINK`;
+}
