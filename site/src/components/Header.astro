@@ -1,6 +1,7 @@
 ---
 import { TAGLINE } from '../config';
 import StatusLight from './StatusLight';
+import { isCurrentPath } from '../lib/nav';
 
 const NAV = [
   { href: '/', match: '/', label: 'Live', icon: 'live' },
@@ -25,7 +26,7 @@ const ICONS: Record<string, string> = {
 };
 const HEXAGON = '12,2 20.66,7 20.66,17 12,22 3.34,17 3.34,7';
 const path = Astro.url.pathname;
-const isCurrent = (match: string) => (match === '/' ? path === '/' : path.startsWith(match));
+const isCurrent = (match: string) => isCurrentPath(path, match);
 ---
 <header class="site-header">
   <div class="brand">
@@ -56,12 +57,29 @@ const isCurrent = (match: string) => (match === '/' ? path === '/' : path.starts
           </span>
         </summary>
         <ul class="more-menu">
-          {MORE.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+          {MORE.map((item) => <li><a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a></li>)}
         </ul>
       </details>
     </nav>
   </div>
 </header>
+
+<script>
+  const menu = document.querySelector<HTMLDetailsElement>('.site-header details.more');
+  if (menu) {
+    const close = () => {
+      menu.open = false;
+    };
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !menu.open) return;
+      close();
+      menu.querySelector('summary')?.focus();
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (menu.open && !menu.contains(e.target as Node)) close();
+    });
+  }
+</script>
 
 <style>
   .wordmark { white-space: nowrap; flex: none; }
