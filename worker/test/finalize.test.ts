@@ -24,6 +24,29 @@ const MESSAGES = [
 ];
 const api = () => fakeCcip({ messages: MESSAGES });
 
+/** Everything a finalize run leaves behind: D1 rows, pointers, archives, published history and alerts. */
+async function finalizeOutput(alerts: { signature: string; text: string }[]) {
+  const rows = async (sql: string) => (await env.DB.prepare(sql).all()).results;
+  const archiveIds = async (key: string) =>
+    (await gunzipText(await (await env.ARCHIVE.get(key))!.arrayBuffer())).trim().split('\n').map((l) => JSON.parse(l).messageId as string);
+  const archived = (await env.ARCHIVE.list({ prefix: 'messages/' })).objects.map((o) => o.key);
+  return {
+    totals: await rows(
+      'SELECT day, messages, token_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, fee_link_usd FROM daily_totals ORDER BY day',
+    ),
+    breakdown: await rows('SELECT day, dim, key, messages, usd_value, fee_usd FROM daily_breakdown ORDER BY day, dim, key'),
+    messages: await rows(
+      'SELECT message_id, status, receipt_ts, usd_value, detail_fetched_at, next_check_at FROM messages ORDER BY message_id',
+    ),
+    tokens: await rows('SELECT message_id, idx, token, amount, usd_value FROM message_tokens ORDER BY message_id, idx'),
+    meta: await rows("SELECT key, value FROM meta WHERE key IN ('last_finalize_day', 'last_archived_day') ORDER BY key"),
+    archives: Object.fromEntries(await Promise.all(archived.map(async (key) => [key, await archiveIds(key)]))),
+    history: (await readPublic('history.json')).days,
+    topLanes: (await readPublic('top/lane.json')).windows,
+    alerts,
+  };
+}
+
 async function seedMeta(lastFinalize: string, lastArchived: string) {
   await store.setMeta(env.DB, 'live_start_day', '2026-10-08');
   await store.setMeta(env.DB, 'last_finalize_day', lastFinalize);
@@ -200,6 +223,77 @@ describe('runFinalize', () => {
     const { c, alerts } = harness({ now: NOW, ccip: api() });
     await runFinalize(c, 'late');
     expect(alerts.map((a) => a.signature)).toEqual(['archive-count:2026-10-09']);
+  });
+
+  /** Recorded from the finalize that collected every day in one walk, before days were collected and finalized one at a time. */
+  const TWO_DAY_OUTPUT = {
+    totals: [
+      { day: '2026-10-08', messages: 3, token_messages: 1, usd_value: 2, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null },
+      { day: '2026-10-09', messages: 2, token_messages: 1, usd_value: 24000.580226526876, fee_usd: 0.2667427841755925, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: 0 },
+    ],
+    breakdown: [
+      { day: '2026-10-08', dim: 'dst_chain', key: '11344663589394136015', messages: 3, usd_value: 2, fee_usd: null },
+      { day: '2026-10-08', dim: 'lane', key: '15971525489660198786>11344663589394136015', messages: 3, usd_value: 2, fee_usd: null },
+      { day: '2026-10-08', dim: 'sender', key: '15971525489660198786:0x1111111111111111111111111111111111111111', messages: 3, usd_value: 2, fee_usd: null },
+      { day: '2026-10-08', dim: 'src_chain', key: '15971525489660198786', messages: 3, usd_value: 2, fee_usd: null },
+      { day: '2026-10-08', dim: 'token', key: '15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583', messages: 1, usd_value: 2, fee_usd: null },
+      { day: '2026-10-09', dim: 'dst_chain', key: '11344663589394136015', messages: 2, usd_value: 24000.580226526876, fee_usd: 0.2667427841755925 },
+      { day: '2026-10-09', dim: 'lane', key: '15971525489660198786>11344663589394136015', messages: 2, usd_value: 24000.580226526876, fee_usd: 0.2667427841755925 },
+      { day: '2026-10-09', dim: 'sender', key: '15971525489660198786:0x1111111111111111111111111111111111111111', messages: 2, usd_value: 24000.580226526876, fee_usd: 0.2667427841755925 },
+      { day: '2026-10-09', dim: 'src_chain', key: '15971525489660198786', messages: 2, usd_value: 24000.580226526876, fee_usd: 0.2667427841755925 },
+      { day: '2026-10-09', dim: 'token', key: '15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583', messages: 1, usd_value: 24000.580226526876, fee_usd: null },
+    ],
+    messages: [
+      { message_id: 'd8', status: 'SENT', receipt_ts: null, usd_value: 0, detail_fetched_at: null, next_check_at: '2026-10-10T06:10:00.000Z' },
+      { message_id: 'd9a', status: 'SENT', receipt_ts: null, usd_value: 0, detail_fetched_at: null, next_check_at: '2026-10-10T06:10:00.000Z' },
+      { message_id: 'd9b', status: 'SUCCESS', receipt_ts: '2026-10-09T20:01:00.000Z', usd_value: 24000.580226526876, detail_fetched_at: '2026-10-10T00:10:00.000Z', next_check_at: null },
+      { message_id: 'ghost', status: 'SENT', receipt_ts: null, usd_value: 0, detail_fetched_at: null, next_check_at: '2026-10-10T06:10:00.000Z' },
+      { message_id: 'p8', status: 'SENT', receipt_ts: null, usd_value: 2, detail_fetched_at: null, next_check_at: '2026-10-10T06:10:00.000Z' },
+    ],
+    tokens: [
+      { message_id: 'd9b', idx: 0, token: '0x9818b6c09f5ecc843060927e8587c427c7c93583', amount: '24000580226526875891506', usd_value: 24000.580226526876 },
+      { message_id: 'p8', idx: 0, token: '0x9818b6c09f5ecc843060927e8587c427c7c93583', amount: '2000000000000000000', usd_value: 2 },
+    ],
+    meta: [
+      { key: 'last_archived_day', value: '2026-10-09' },
+      { key: 'last_finalize_day', value: '2026-10-09' },
+    ],
+    archives: {
+      'messages/2026/10/08.jsonl.gz': ['d8', 'p8'],
+      'messages/2026/10/09.jsonl.gz': ['d9b', 'd9a'],
+    },
+    history: [
+      { day: '2026-10-08', messages: 3, token_messages: 1, usd_value: 2, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null },
+      { day: '2026-10-09', messages: 2, token_messages: 1, usd_value: 24000.58, fee_usd: 0.27, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: 0 },
+    ],
+    topLanes: {
+      '7d': [{ key: '15971525489660198786>11344663589394136015', messages: 5, usd: 24002.58, fee_usd: 0.27 }],
+      '30d': [{ key: '15971525489660198786>11344663589394136015', messages: 5, usd: 24002.58, fee_usd: 0.27 }],
+      all: [{ key: '15971525489660198786>11344663589394136015', messages: 5, usd: 24002.58, fee_usd: 0.27 }],
+    },
+    alerts: [
+      { signature: 'archive-count:2026-10-08', text: 'Archive for 2026-10-08 has 2 messages but D1 has 3' },
+    ],
+  };
+
+  it('finalizes a two-day catch-up, early then late, to the same rows, archives, history and alerts as before', async () => {
+    await seedMeta('2026-10-07', '2026-10-07');
+    const tokenAddress = '0x9818b6c09f5ecc843060927e8587c427c7c93583';
+    const priced = listMessage({ id: 'p8', sendTs: '2026-10-08T09:00:00.000Z', token: { address: tokenAddress, amount: '2000000000000000000' } });
+    const detail = { ...detailToken, messageId: 'd9b', sendTimestamp: '2026-10-09T20:00:00.000Z', status: 'SUCCESS', receiptTimestamp: '2026-10-09T20:01:00.000Z' };
+    const latest = { [`base:${tokenAddress}`]: { price: 1, decimals: 18 }, 'base:0x4200000000000000000000000000000000000006': { price: 2500, decimals: 18 } };
+    await store.upsertPrices(env.DB, new Map(Object.entries(latest)), '2026-10-09T23:00:00.000Z');
+    await store.upsertListRows(
+      env.DB,
+      [liveRow({ id: 'd9a', sendTs: '2026-10-09T08:00:00.000Z' }), liveRow({ id: 'ghost', sendTs: '2026-10-08T12:00:00.000Z' })],
+      [],
+    );
+    const ccip = () => fakeCcip({ messages: [...MESSAGES.slice(0, 4), priced, MESSAGES[4]!], details: { d9b: detail } });
+    const early = harness({ now: NOW, ccip: ccip(), prices: fakePrices({ latest }) });
+    await runFinalize(early.c, 'early');
+    const late = harness({ now: '2026-10-10T06:00:00.000Z', ccip: ccip(), prices: fakePrices({ latest }) });
+    await runFinalize(late.c, 'late');
+    expect(await finalizeOutput([...early.alerts, ...late.alerts])).toEqual(TWO_DAY_OUTPUT);
   });
 
   it('does nothing when every day is already finalized', async () => {
