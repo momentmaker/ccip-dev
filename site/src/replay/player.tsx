@@ -34,7 +34,10 @@ import {
   type Compositor,
   type CompositorKind,
 } from './compositors';
-import { canRecord, recordingFilename, recordReplay } from './recorder';
+import { audioCodecAvailable, canRecord, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
+import { scoreFor } from './score/schedule';
+import { renderScore } from './score/synth';
+import { audioStartOffset, ScoreCache, scoreKey, syncAction } from './score/sync';
 import { Show, type ShowInput } from './director/show';
 import { loadCanvasFonts } from './story/draw';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
@@ -45,6 +48,7 @@ const RATIO: Record<Aspect, number> = { '16:9': 16 / 9, '1:1': 1, '9:16': 9 / 16
 const MAX_DPR = 2;
 const MAX_SIDE_PX = 1920;
 const UI_UPDATE_MS = 100;
+const SILENT_RECORDING_NOTE = "Recorded without sound — your browser can't encode audio";
 
 function paint(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, compositor: Compositor, t: number): void {
   const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
@@ -92,10 +96,26 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [recording, setRecording] = useState<{ progress: number; controller: AbortController } | null>(null);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [recordNote, setRecordNote] = useState('');
+  const [soundNote, setSoundNote] = useState<string | null>(null);
   const recordAbortRef = useRef<AbortController | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tRef = useRef(0);
   const clockRef = useRef({ startedAt: 0, offset: 0 });
+  const audioSupported = typeof AudioContext !== 'undefined' && typeof OfflineAudioContext !== 'undefined';
+  const [soundOn, setSoundOn] = useState(false);
+  const [soundFailed, setSoundFailed] = useState(false);
+  const soundAvailable = audioSupported && !soundFailed;
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioStateRef = useRef({ playing: false, soundOn: false, t: 0 });
+  const audioTokenRef = useRef(0);
+  const failSound = (err: unknown) => {
+    console.warn('replay soundtrack could not be rendered; sound is off', err);
+    audioStateRef.current = { ...audioStateRef.current, soundOn: false };
+    setSoundOn(false);
+    setSoundFailed(true);
+  };
+  const [scoreCache] = useState(() => new ScoreCache(failSound));
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +232,35 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
 
   const since = data?.replay.since ?? '';
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
+
+  const scoreBuffer = useCallback(
+    (source: Show) => scoreCache.get(scoreKey(source, lastDay), () => renderScore(scoreFor(source), source.length)),
+    [scoreCache, lastDay],
+  );
+
+  const stopAudio = useCallback(() => {
+    audioTokenRef.current += 1;
+    sourceRef.current?.stop();
+    sourceRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (playing) return;
+    audioStateRef.current = { ...audioStateRef.current, playing: false };
+    stopAudio();
+  }, [playing, stopAudio]);
+
+  useEffect(() => {
+    if (show && soundOn) void scoreBuffer(show);
+  }, [show, soundOn, scoreBuffer]);
+
+  useEffect(
+    () => () => {
+      stopAudio();
+      void audioCtxRef.current?.close();
+    },
+    [stopAudio],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -346,6 +395,43 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     return () => clearTimeout(timer);
   }, [playing, recording, activity.lastMs]);
 
+  const startAudio = (current: Show) => {
+    let ctx: AudioContext;
+    try {
+      ctx = audioCtxRef.current ??= new AudioContext();
+    } catch (err) {
+      failSound(err);
+      return;
+    }
+    const key = scoreKey(current, lastDay);
+    const token = audioTokenRef.current;
+    Promise.all([scoreBuffer(current), ctx.resume()])
+      .then(([buffer]) => {
+        if (!buffer || token !== audioTokenRef.current || !scoreCache.holds(key)) return;
+        const playhead = clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000;
+        const node = ctx.createBufferSource();
+        node.buffer = buffer;
+        node.connect(ctx.destination);
+        node.start(0, audioStartOffset(playhead, ctx, buffer.duration));
+        sourceRef.current = node;
+      })
+      .catch((err: unknown) => console.warn('replay soundtrack could not start', err));
+  };
+
+  const applyAudio = (next: { playing: boolean; soundOn: boolean; t: number; scrubbed: boolean }) => {
+    const action = syncAction(audioStateRef.current, next);
+    audioStateRef.current = { playing: next.playing, soundOn: next.soundOn, t: next.t };
+    if (action.kind === 'none') return;
+    stopAudio();
+    if (action.kind === 'start' && show) startAudio(show);
+  };
+
+  const toggleSound = () => {
+    const on = !soundOn;
+    setSoundOn(on);
+    applyAudio({ playing, soundOn: on, t: tRef.current, scrubbed: false });
+  };
+
   const play = () => {
     if (!show) return;
     const from = tRef.current >= show.posterTime() ? 0 : tRef.current;
@@ -353,6 +439,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     tRef.current = from;
     setShown(from);
     setPlaying(true);
+    applyAudio({ playing: true, soundOn, t: from, scrubbed: false });
     setHasPlayed(true);
     noteActivity();
     track('replay_play', { length, aspect });
@@ -363,6 +450,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     clockRef.current = { startedAt: performance.now(), offset: value };
     setShown(value);
     if (!playing) drawFrame();
+    applyAudio({ playing, soundOn, t: value, scrubbed: true });
   };
 
   useEffect(() => () => recordAbortRef.current?.abort(), []);
@@ -371,6 +459,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     if (!show || !showInput || !assets || recording) return;
     setPlaying(false);
     setRecordError(null);
+    setSoundNote(null);
     setRecordNote('Recording started');
     const controller = new AbortController();
     recordAbortRef.current = controller;
@@ -383,22 +472,29 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       const coins = await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins);
       if (controller.signal.aborted) return;
       await loadCanvasFonts(document.fonts);
-      const blob = await recordWithFallback((recorderKind) => {
-        const recorder = buildCompositor(recorderKind, () => CinemaCompositor.isSupported(detached), {
-          cinema: () => new CinemaCompositor(cut, stars, assets, detached, RECORDING_CINEMA_OPTIONS),
-          classic: () => new ReplayCompositor(cut, stars, assets, detached, { preferGl: recorderKind === 'cinema' && kind !== 'classic' }),
-        });
-        recorders.push(recorder);
-        recorder.setCoinImages(coins);
-        if (recorder instanceof CinemaCompositor) recorder.refreshTitle();
-        return recordReplay({
-          draw: recordingDraw(recorder),
-          aspect,
-          lengthS: length,
-          onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),
-          signal: controller.signal,
-        });
-      });
+      const audio = soundAvailable && (await audioCodecAvailable()) ? await scoreBuffer(cut) : null;
+      if (controller.signal.aborted) return;
+      const { blob, audible } = await recordWithAudioFallback(
+        (soundtrack) =>
+          recordWithFallback((recorderKind) => {
+            const recorder = buildCompositor(recorderKind, () => CinemaCompositor.isSupported(detached), {
+              cinema: () => new CinemaCompositor(cut, stars, assets, detached, RECORDING_CINEMA_OPTIONS),
+              classic: () => new ReplayCompositor(cut, stars, assets, detached, { preferGl: recorderKind === 'cinema' && kind !== 'classic' }),
+            });
+            recorders.push(recorder);
+            recorder.setCoinImages(coins);
+            if (recorder instanceof CinemaCompositor) recorder.refreshTitle();
+            return recordReplay({
+              draw: recordingDraw(recorder),
+              aspect,
+              lengthS: length,
+              onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),
+              signal: controller.signal,
+              audio: soundtrack,
+            });
+          }),
+        audio,
+      );
       if (controller.signal.aborted) return;
       const href = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -408,6 +504,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       setTimeout(() => URL.revokeObjectURL(href), 5_000);
       track('replay_record', { length, aspect });
       setRecordNote('Recording finished');
+      if (!audible) setSoundNote(SILENT_RECORDING_NOTE);
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error('replay recording failed', err);
@@ -473,6 +570,22 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
           <span className="player-time">
             {formatClock(shown)} / {formatClock(show.length)}
           </span>
+          {soundAvailable && (
+            <button
+              type="button"
+              className="icon-btn sound-toggle"
+              aria-pressed={soundOn}
+              aria-label="Sound"
+              title={soundOn ? 'Sound on' : 'Sound off'}
+              disabled={recording !== null}
+              onClick={toggleSound}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor" />
+                {soundOn ? <path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6 6 0 0 1 0 9" stroke="currentColor" strokeWidth="1.4" fill="none" /> : <path d="M11 6l4 4M15 6l-4 4" stroke="currentColor" strokeWidth="1.4" />}
+              </svg>
+            </button>
+          )}
         </div>
       </div>
       <div className="studio">
@@ -504,6 +617,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
           {recordNote}
         </span>
         {recordable === false && <span className="muted">Recording works in Chrome, Edge and Safari</span>}
+        {soundNote && <span className="muted">{soundNote}</span>}
         {recordError && <span className="down">{recordError}</span>}
       </div>
     </div>
