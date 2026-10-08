@@ -1,9 +1,10 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
-import { LINK_PRICE_KEY } from '@ccip-dev/core';
+import { buildLabelIndex, LINK_PRICE_KEY, toChecksumAddress } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
-import { fakePrices, NETWORKS } from '@ccip-dev/core/testing';
+import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
+import { runIngest } from '../src/jobs/ingest';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
@@ -121,6 +122,28 @@ describe('publishLiveFiles', () => {
       last_finalize_day: '2026-10-07',
       coverage_from: null,
     });
+  });
+});
+
+describe('a mixed-case (EIP-55) sender', () => {
+  const CHECKSUMMED = toChecksumAddress(SENDER);
+  const labels = buildLabelIndex([{ name: 'Maple Finance', kind: 'protocol', verified: true, addresses: [{ chain: 'ethereum-mainnet-base-1', address: CHECKSUMMED }] }]);
+
+  it('is mixed case to begin with, so the test exercises normalization', () => {
+    expect(CHECKSUMMED).not.toBe(SENDER);
+    expect(CHECKSUMMED).not.toBe(CHECKSUMMED.toLowerCase());
+  });
+
+  it('resolves its label in live.json and the top senders after ingest lowercases it', async () => {
+    await env.DB.prepare("INSERT INTO chains VALUES (?, 'ethereum-mainnet-base-1', 'Base Mainnet', 'EVM', '8453', 'x', 'x')").bind(BASE).run();
+    const ccip = fakeCcip({ messages: [listMessage({ id: 'whale', sendTs: '2026-10-08T11:55:00.000Z', sender: CHECKSUMMED })] });
+    const { c } = harness({ now: '2026-10-08T12:00:00.000Z', ccip, labels });
+    await runIngest(c, { pageSize: 10 });
+    const stored = await env.DB.prepare('SELECT sender FROM messages WHERE message_id = ?').bind('whale').first<{ sender: string }>();
+    expect(stored!.sender).toBe(SENDER);
+    const live = await readPublic('live.json');
+    expect(live.messages).toMatchObject([{ id: 'whale', sender_label: 'Maple Finance' }]);
+    expect((await readPublic('today.json')).top.sender).toMatchObject([{ key: `${BASE}:${SENDER}`, label: 'Maple Finance' }]);
   });
 });
 
