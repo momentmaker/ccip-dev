@@ -38,10 +38,19 @@ export interface RecordOptions {
   lengthS: number;
   onProgress: (fraction: number) => void;
   signal: AbortSignal;
+  audio?: AudioBuffer | null;
+}
+
+export const AUDIO_BITRATE = 128_000;
+
+export async function audioCodecAvailable(): Promise<boolean> {
+  if (typeof AudioEncoder === 'undefined') return false;
+  const { getFirstEncodableAudioCodec } = await import('mediabunny');
+  return (await getFirstEncodableAudioCodec(['aac'], { numberOfChannels: 2, sampleRate: 48_000 })) === 'aac';
 }
 
 export async function recordReplay(opts: RecordOptions): Promise<Blob> {
-  const { BufferTarget, CanvasSource, Mp4OutputFormat, Output } = await import('mediabunny');
+  const { AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output } = await import('mediabunny');
   const { width, height } = ASPECT_SIZE[opts.aspect];
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d');
@@ -49,9 +58,12 @@ export async function recordReplay(opts: RecordOptions): Promise<Blob> {
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
   const source = new CanvasSource(canvas, { codec: 'avc', bitrate: RECORD_BITRATE });
   output.addVideoTrack(source, { frameRate: REPLAY_FPS });
+  const audioSource = opts.audio ? new AudioBufferSource({ codec: 'aac', bitrate: AUDIO_BITRATE }) : null;
+  if (audioSource) output.addAudioTrack(audioSource);
   const frames = totalFrames(opts.lengthS);
   try {
     await output.start();
+    if (audioSource && opts.audio) await audioSource.add(opts.audio);
     for (let f = 0; f < frames; f++) {
       if (opts.signal.aborted) throw new DOMException('Recording cancelled', 'AbortError');
       const t = f / REPLAY_FPS;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const calls = vi.hoisted(() => ({ added: [] as [number, number][], finalized: 0, cancelled: 0, failAt: -1 }));
+const calls = vi.hoisted(() => ({ added: [] as [number, number][], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [] as unknown[], audioTracks: 0, codec: 'aac' as string | null }));
 
 vi.mock('mediabunny', () => {
   class BufferTarget {
@@ -16,12 +16,21 @@ vi.mock('mediabunny', () => {
       calls.added.push([timestamp, duration]);
     }
   }
+  class AudioBufferSource {
+    constructor(readonly config: unknown) {}
+    async add(buffer: unknown) {
+      calls.audioAdds.push(buffer);
+    }
+  }
   class Output {
     target: BufferTarget;
     constructor(options: { target: BufferTarget }) {
       this.target = options.target;
     }
     addVideoTrack() {}
+    addAudioTrack() {
+      calls.audioTracks += 1;
+    }
     async start() {}
     async finalize() {
       calls.finalized += 1;
@@ -31,10 +40,11 @@ vi.mock('mediabunny', () => {
       calls.cancelled += 1;
     }
   }
-  return { BufferTarget, Mp4OutputFormat, CanvasSource, Output };
+  const getFirstEncodableAudioCodec = async () => calls.codec;
+  return { BufferTarget, Mp4OutputFormat, CanvasSource, AudioBufferSource, Output, getFirstEncodableAudioCodec };
 });
 
-import { canRecord, recordingFilename, recordReplay, totalFrames } from '../src/replay/recorder';
+import { audioCodecAvailable, canRecord, recordingFilename, recordReplay, totalFrames } from '../src/replay/recorder';
 
 class FakeOffscreenCanvas {
   constructor(readonly width: number, readonly height: number) {}
@@ -45,7 +55,7 @@ class FakeOffscreenCanvas {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  Object.assign(calls, { added: [], finalized: 0, cancelled: 0, failAt: -1 });
+  Object.assign(calls, { added: [], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [], audioTracks: 0, codec: 'aac' });
 });
 
 describe('recording helpers', () => {
@@ -118,5 +128,30 @@ describe('recordReplay', () => {
       recordReplay({ draw: () => {}, aspect: '16:9', lengthS: 1, onProgress: () => {}, signal: new AbortController().signal }),
     ).rejects.toThrow('encoder exploded');
     expect(calls.cancelled).toBe(1);
+  });
+});
+
+describe('audio', () => {
+  it('adds an AAC track and the score buffer when audio is given', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+    const audio = { duration: 1 } as unknown as AudioBuffer;
+    await recordReplay({ draw: () => {}, aspect: '1:1', lengthS: 1, onProgress: () => {}, signal: new AbortController().signal, audio });
+    expect(calls.audioTracks).toBe(1);
+    expect(calls.audioAdds).toEqual([audio]);
+  });
+
+  it('records silently without audio', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+    await recordReplay({ draw: () => {}, aspect: '1:1', lengthS: 1, onProgress: () => {}, signal: new AbortController().signal });
+    expect(calls.audioTracks).toBe(0);
+  });
+
+  it('reports AAC only when the encoder exists and supports it', async () => {
+    expect(await audioCodecAvailable()).toBe(false);
+    vi.stubGlobal('AudioEncoder', class {});
+    calls.codec = 'aac';
+    expect(await audioCodecAvailable()).toBe(true);
+    calls.codec = null;
+    expect(await audioCodecAvailable()).toBe(false);
   });
 });
