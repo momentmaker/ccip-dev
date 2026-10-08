@@ -45,6 +45,7 @@ export function novaFlash(age: number): number {
 }
 
 export function novaRing(age: number): { radius: number; alpha: number } {
+  if (age < 0) return { radius: 0, alpha: 0 };
   const p = clamp01(age / NOVA_RING_S);
   return { radius: easeOut(p), alpha: 1 - p };
 }
@@ -72,7 +73,7 @@ export function shockAt(age: number): { progress: number; strength: number } | n
 }
 
 export function textTargets(image: { width: number; height: number; data: ArrayLike<number> }, requestedStep: number): { x: number; y: number }[] {
-  const step = Math.max(1, requestedStep);
+  const step = Number.isNaN(requestedStep) ? 1 : Math.max(1, requestedStep);
   const out: { x: number; y: number }[] = [];
   for (let y = 0; y < image.height; y += step) {
     for (let x = 0; x < image.width; x += step) {
@@ -84,7 +85,7 @@ export function textTargets(image: { width: number; height: number; data: ArrayL
 
 export function assemble(seed: number, sources: readonly { x: number; y: number }[], targets: readonly { x: number; y: number }[], progress: number): Particle[] {
   if (sources.length === 0) return [];
-  const p = Number.isNaN(progress) ? 0 : progress;
+  const p = Number.isNaN(progress) ? 0 : clamp01(progress);
   const rng = mulberry32(seed);
   return targets.map((target, i) => {
     const source = sources[i % sources.length]!;

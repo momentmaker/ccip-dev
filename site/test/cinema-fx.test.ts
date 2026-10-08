@@ -25,6 +25,10 @@ describe('supernova and pop', () => {
     expect(novaRing(0.8)).toEqual({ radius: 1, alpha: 0 });
   });
 
+  it('draws no ring before it exists', () => {
+    expect(novaRing(-0.5)).toEqual({ radius: 0, alpha: 0 });
+  });
+
   it('pops a coin from 0 past 1.25 and settles at 1 by 0.5 s', () => {
     expect(elasticPop(0)).toBe(0);
     const samples = Array.from({ length: 50 }, (_, i) => elasticPop(i / 100));
@@ -68,6 +72,11 @@ describe('textTargets', () => {
     expect(textTargets({ width: 2, height: 1, data }, 0)).toEqual(textTargets({ width: 2, height: 1, data }, 1));
     expect(textTargets({ width: 2, height: 1, data }, -3)).toEqual(textTargets({ width: 2, height: 1, data }, 1));
   });
+
+  it('treats a NaN step as one', () => {
+    const data = new Uint8ClampedArray(2 * 1 * 4).fill(255);
+    expect(textTargets({ width: 2, height: 1, data }, Number.NaN)).toEqual(textTargets({ width: 2, height: 1, data }, 1));
+  });
 });
 
 describe('assemble', () => {
@@ -82,6 +91,11 @@ describe('assemble', () => {
 
   it('treats a NaN progress as not started', () => {
     expect(assemble(3, sources, targets, Number.NaN)).toEqual(assemble(3, sources, targets, 0));
+  });
+
+  it('clamps progress to the range 0 to 1', () => {
+    expect(assemble(3, sources, targets, 2)).toEqual(assemble(3, sources, targets, 1));
+    expect(assemble(3, sources, targets, -1)).toEqual(assemble(3, sources, targets, 0));
   });
 });
 
