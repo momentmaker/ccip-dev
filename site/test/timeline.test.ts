@@ -279,3 +279,57 @@ describe('arrivals', () => {
     expect(model().frameAt(0).arrivals).toEqual([]);
   });
 });
+
+describe('comet density on busy days', () => {
+  const days = Array.from({ length: 1000 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+  const busy = {
+    ...replay,
+    since: days[0]!,
+    chains: [
+      { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: days[0]! },
+      { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: days[0]! },
+      { selector: 'c', name: 'gamma-mainnet', display_name: 'Gamma', first_day: days[0]! },
+    ],
+    lanes: [[0, 1], [1, 2], [2, 0]],
+    days: days.map((day) => ({ day, lanes: [[0, 3000, 1e6], [1, 1500, 1e5], [2, 500, 1e4]] })),
+  } as ReplayFile;
+  const busyModel = () => new ReplayModel(busy, [], [], buildLayout(busy.chains), 30);
+  const frameStep = 1 / 30;
+
+  it('keeps comets spread along their whole flight instead of only the newest launches', () => {
+    const progress = busyModel().frameAt(20).sky.comets.map((c) => c.progress).sort((a, b) => a - b);
+    expect(progress.length).toBeGreaterThan(150);
+    expect(progress[Math.floor(progress.length * 0.9)]).toBeGreaterThan(0.7);
+  });
+
+  it('keeps a drawn comet on the next frame unless it landed', () => {
+    const m = busyModel();
+    for (const t of [10, 20]) {
+      const next = m.frameAt(t + frameStep).sky.comets;
+      const flying = m.frameAt(t).sky.comets.filter((c) => c.progress + frameStep / REPLAY_COMET_S < 1);
+      expect(flying.length).toBeGreaterThan(0);
+      for (const c of flying) {
+        expect(next.some((n) => n.from === c.from && n.to === c.to && Math.abs(n.progress - (c.progress + frameStep / REPLAY_COMET_S)) < 1e-9)).toBe(true);
+      }
+    }
+  });
+
+  it('lands only comets it drew', () => {
+    const m = busyModel();
+    for (const t of [10, 20]) {
+      const arrivals = m.frameAt(t).arrivals;
+      expect(arrivals.length).toBeGreaterThan(0);
+      for (const a of arrivals) {
+        const before = m.frameAt(t - a.age - 1 / 60).sky.comets;
+        expect(before.some((c) => c.from === a.from && c.to === a.to && Math.abs(c.progress - (1 - 1 / 60 / REPLAY_COMET_S)) < 1e-6)).toBe(true);
+      }
+    }
+  });
+
+  it('thins the same way whatever was asked before', () => {
+    const m = busyModel();
+    m.frameAt(5);
+    m.frameAt(25);
+    expect(m.frameAt(20)).toEqual(busyModel().frameAt(20));
+  });
+});

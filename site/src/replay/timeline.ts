@@ -15,6 +15,7 @@ export const REPLAY_COMET_S = 0.8;
 export const CAPTION_S = 2;
 export const IGNITE_S = 1;
 export const MAX_REPLAY_COMETS = 250;
+const COMET_FILL = 0.9;
 export const ARRIVAL_S = 0.4;
 export const MAX_ARRIVALS = 120;
 export const REPLAY_COINS = 12;
@@ -65,6 +66,11 @@ export function daySpawns(lanes: readonly LaneRow[], dayIndex: number): Spawn[] 
     out.push({ lane: chosen[0], offset: rng(), usd: chosen[1] > 0 ? chosen[2] / chosen[1] : 0 });
   }
   return out.sort((a, b) => a.offset - b.offset);
+}
+
+export function keptSpawns(spawns: readonly Spawn[], dayIndex: number, dayLength: number): Spawn[] {
+  const keep = Math.min(1, (COMET_FILL * MAX_REPLAY_COMETS * dayLength) / (spawns.length * REPLAY_COMET_S));
+  return spawns.filter((_, k) => mulberry32(dayIndex * 7919 + k)() < keep);
 }
 
 export interface FrameCoin {
@@ -160,7 +166,7 @@ export class ReplayModel {
   private spawns(i: number, lanes: readonly LaneRow[]): Spawn[] {
     let cached = this.spawnCache.get(i);
     if (!cached) {
-      cached = daySpawns(lanes, i);
+      cached = keptSpawns(daySpawns(lanes, i), i, this.warp.dayLength(i));
       this.spawnCache.set(i, cached);
     }
     return cached;

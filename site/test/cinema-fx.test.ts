@@ -76,12 +76,8 @@ describe('assemble', () => {
 });
 
 describe('cometFade', () => {
-  it('launches a comet dim, so fresh comets bunched at one star never stack to full strength', () => {
-    expect(cometFade(0)).toBeCloseTo(0.25, 9);
-    expect(cometFade(0.05)).toBeLessThan(cometFade(0.1));
-  });
-
-  it('flies at full strength and hands over to the arrival sparks as it lands', () => {
+  it('flies at full strength from launch and hands over to the arrival sparks as it lands', () => {
+    expect(cometFade(0)).toBe(1);
     expect(cometFade(0.5)).toBe(1);
     expect(cometFade(0.97)).toBeLessThan(1);
     expect(cometFade(1)).toBe(0);
