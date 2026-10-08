@@ -88,6 +88,7 @@ export function recordFromBody(id: string, body: unknown, fetchedAt: string): { 
 /** Time of the last answer that proved the API alive; shared by a whole run so a day boundary cannot reset the stall clock. */
 interface Heartbeat {
   at: number;
+  lastOkId: string | null;
 }
 
 /**
@@ -111,6 +112,25 @@ async function fetchAll(
   const wakeIdle = () => idle.splice(0).forEach((wake) => wake());
   const flush = () => (flushing = flushing.then(() => onRecords(buffer.splice(0))));
   const iso = () => new Date(deps.now()).toISOString();
+  let canary: Promise<void> | null = null;
+  const stallError = () => new Error(`the CCIP API has answered nothing for ${Math.round(opts.stallMs / 60_000)} minutes; stopping, and a rerun resumes`);
+
+  // One stubborn message must not look like an outage: ask for an id that already worked, and stop only if that fails too.
+  const checkHealth = (): Promise<void> => {
+    const known = heartbeat.lastOkId;
+    if (known === null) throw stallError();
+    canary ??= (async () => {
+      try {
+        await opts.pacer.acquire();
+        const outcome = await fetchDetail(deps, opts.baseUrl, known);
+        if (outcome.kind !== 'ok' && outcome.kind !== 'gone') throw stallError();
+        heartbeat.at = deps.now();
+      } finally {
+        canary = null;
+      }
+    })();
+    return canary;
+  };
   const notBefore = (id: string) => attempts.get(id)?.notBefore ?? 0;
 
   const takeDue = (): { id: string } | { waitMs: number } | { idle: true } => {
@@ -135,6 +155,7 @@ async function fetchAll(
     if (outcome.kind === 'ok') {
       opts.rate.record({ kind: 'ok', latencyMs: outcome.latencyMs });
       heartbeat.at = deps.now();
+      heartbeat.lastOkId = id;
       const { record, keepRaw } = recordFromBody(id, outcome.body, iso());
       if (keepRaw) await saveUnparsed(opts.dir, id, outcome.body);
       settle(record);
@@ -165,9 +186,7 @@ async function fetchAll(
   const worker = async () => {
     try {
       while (unresolved > 0 && !stopped) {
-        if (deps.now() - heartbeat.at > opts.stallMs) {
-          throw new Error(`the CCIP API has answered nothing for ${Math.round(opts.stallMs / 60_000)} minutes; stopping, and a rerun resumes`);
-        }
+        if (deps.now() - heartbeat.at > opts.stallMs) await checkHealth();
         const next = takeDue();
         if ('id' in next) {
           try {
@@ -200,7 +219,7 @@ function settings(opts: FetchOptions) {
     maxAttempts: opts.maxAttempts ?? 6,
     stallMs: opts.stallMs ?? 15 * 60_000,
     rate,
-    heartbeat: { at: opts.deps.now() },
+    heartbeat: { at: opts.deps.now(), lastOkId: null },
     pacer: new Pacer(rate, { now: opts.deps.now, sleep: opts.deps.sleep }),
   };
 }

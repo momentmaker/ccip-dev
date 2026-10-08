@@ -194,6 +194,27 @@ describe('runFetch outages and refusals', () => {
     expect({ kind: skip?.kind, longEnough: elapsed() >= 15 * 60_000 }).toEqual({ kind: 'skip', longEnough: true });
   });
 
+  it('skips one stubborn message with the default stall window while the API is healthy', async () => {
+    // #given
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
+    const { deps } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
+
+    // #when
+    const state = await runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    const skip = (await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb');
+    expect({ done: state.done, skip }).toMatchObject({ done: ['2026-10-04'], skip: { kind: 'skip', reason: expect.stringMatching(/^failed 6 times over/) } });
+  });
+
+  it('stops when the API goes down after some answers and the canary fails too', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
+    const down = Array.from({ length: 50 }, () => ({ status: 502 }));
+    const { deps } = fakeApi({ '0xa': [{ status: 200, body: detail('0xa') }, ...down], '0xb': { status: 502 } });
+    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test' })).rejects.toThrow(/answered nothing for 15 minutes/);
+    expect(await listSealedDays(dir)).toEqual([]);
+  });
+
   it('stops with the refusal when the API answers 403', async () => {
     const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
     const { deps } = fakeApi({ '0xa': { status: 403 }, '0xb': { status: 403 } });
