@@ -203,4 +203,33 @@ describe('Pacer', () => {
     // #then - should have waited out the 10s pause, not started at 100ms
     expect(starts[0]).toBe(10_150);
   });
+
+});
+
+describe('AdaptiveRate hold', () => {
+  it('does not step up until 600s after backoff', () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now, () => {}, 6);
+    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
+
+    // #when - feed 599s of healthy data (just under hold period)
+    healthy(rate, c, 599);
+
+    // #then - rate should stay at 3 (not stepped up)
+    expect(rate.rps).toBe(3);
+  });
+
+  it('steps up after 600s following backoff', () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now, () => {}, 6);
+    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
+
+    // #when - feed exactly 600s + 1 (past hold period, one window)
+    healthy(rate, c, 600 + 1);
+
+    // #then - rate should step up to 4
+    expect(rate.rps).toBe(4);
+  });
 });
