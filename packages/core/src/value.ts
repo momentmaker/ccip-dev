@@ -1,4 +1,5 @@
 import { llamaKey } from './chain-map';
+import { feePriceAlias } from './fee-aliases';
 import type { ChainRef, Fee, NormalizedMessage, PriceFallback, PriceLookup, TokenAmount } from './types';
 
 /**
@@ -52,11 +53,22 @@ export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup, fallback
   return { usdValue, unpriced, tokenUsd, outliers };
 }
 
+/** The token's own price wins; a fee token without one is valued as the coin its alias names, at the alias decimals. */
 export function valueFee(fee: Fee | null, chain: ChainRef, lookup: PriceLookup): number | null {
   if (!fee) return null;
   const key = llamaKey(chain, fee.token);
-  const info = key ? lookup(key) : undefined;
-  return info ? toUnits(fee.amount, info.decimals) * info.price : null;
+  const own = key ? lookup(key) : undefined;
+  if (own) return toUnits(fee.amount, own.decimals) * own.price;
+  const alias = feePriceAlias(chain, fee.token);
+  const coin = alias ? lookup(alias.key) : undefined;
+  return alias && coin ? toUnits(fee.amount, alias.decimals) * coin.price : null;
+}
+
+/** The keys `valueFee` may read: the fee token's own llama key and its alias coin's key. */
+export function feePriceKeys(fee: Fee, chain: ChainRef): string[] {
+  const key = llamaKey(chain, fee.token);
+  const alias = feePriceAlias(chain, fee.token);
+  return [...(key ? [key] : []), ...(alias ? [alias.key] : [])];
 }
 
 export function priceKeys(m: NormalizedMessage): string[] {
@@ -65,9 +77,6 @@ export function priceKeys(m: NormalizedMessage): string[] {
     const key = llamaKey(t.chain, t.token);
     if (key) keys.add(key);
   }
-  if (m.fee) {
-    const key = llamaKey(m.src, m.fee.token);
-    if (key) keys.add(key);
-  }
+  if (m.fee) for (const key of feePriceKeys(m.fee, m.src)) keys.add(key);
   return [...keys];
 }

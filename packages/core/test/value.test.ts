@@ -116,6 +116,57 @@ describe('valueFee', () => {
   });
 });
 
+describe('valueFee through a fee price alias', () => {
+  const bitlayer: ChainRef = { selector: '7937294810946806131', name: 'bitcoin-mainnet-bitlayer-1', chainId: '200901', family: 'EVM' };
+  const hedera: ChainRef = { selector: '3229138320728879060', name: 'hedera-mainnet', chainId: '295', family: 'EVM' };
+  const WBTC = '0xff204e2681a6fa0e2c3fade68a1b28fb90e4fc5f';
+  const WHBAR = '0xb1f616b8134f602c3bb465fb5b5e6565ccad37ed';
+  const coins: Record<string, PriceInfo> = {
+    'coingecko:bitcoin': { price: 80_000, decimals: COIN_PRICE_DECIMALS },
+    'coingecko:hedera-hashgraph': { price: 0.09, decimals: COIN_PRICE_DECIMALS },
+  };
+  const coinLookup: PriceLookup = (key) => coins[key];
+
+  it('prices a fee token without a price of its own as the coin it wraps', () => {
+    // #when
+    const usd = valueFee({ token: WBTC, amount: '1000000000000000' }, bitlayer, coinLookup);
+    // #then
+    expect(usd).toBeCloseTo(80, 10);
+  });
+
+  it('scales the amount by the alias decimals, not 18', () => {
+    // #when
+    const usd = valueFee({ token: WHBAR, amount: '250000000' }, hedera, coinLookup);
+    // #then
+    expect(usd).toBeCloseTo(0.225, 12);
+  });
+
+  it("prefers the token's own price when both are priced", () => {
+    // #given
+    const both: PriceLookup = (key) => (key === `bitlayer:${WBTC}` ? { price: 1, decimals: 18 } : coins[key]);
+    // #when
+    const usd = valueFee({ token: WBTC, amount: '1000000000000000000' }, bitlayer, both);
+    // #then
+    expect(usd).toBe(1);
+  });
+
+  it('returns null when neither the token nor its coin is priced', () => {
+    // #when
+    const usd = valueFee({ token: WBTC, amount: '1000000000000000000' }, bitlayer, () => undefined);
+    // #then
+    expect(usd).toBeNull();
+  });
+
+  it("includes the alias coin's key in the message's price keys", () => {
+    // #given
+    const m = { src: bitlayer, tokens: [], fee: { token: WBTC, amount: '1' } } as unknown as NormalizedMessage;
+    // #when
+    const keys = priceKeys(m);
+    // #then
+    expect(keys).toEqual([`bitlayer:${WBTC}`, 'coingecko:bitcoin']);
+  });
+});
+
 describe('priceKeys', () => {
   it('collects unique keys for tokens and the fee, skipping chains DefiLlama does not price', () => {
     const m = {
