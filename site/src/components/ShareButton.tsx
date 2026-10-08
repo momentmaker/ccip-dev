@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { track } from '../lib/analytics';
-import { shareText, xIntentUrl } from '../lib/share';
+import { menuShift, shareText, xIntentUrl } from '../lib/share';
 
 interface Props {
   view: string;
@@ -12,6 +12,7 @@ interface Props {
 }
 
 const NOTE_MS = 3000;
+const VIEWPORT_MARGIN = 8;
 
 export default function ShareButton({ view, headline, url, cardUrl, iconOnly = false, disabled = false }: Props) {
   const [open, setOpen] = useState(false);
@@ -19,6 +20,8 @@ export default function ShareButton({ view, headline, url, cardUrl, iconOnly = f
   const [note, setNote] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const panelId = useId();
   const text = shareText(headline);
@@ -33,6 +36,16 @@ export default function ShareButton({ view, headline, url, cardUrl, iconOnly = f
     setNote(message);
     later(() => setNote(null), NOTE_MS);
   }
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!open || !menu) {
+      setShift(0);
+      return;
+    }
+    const rect = menu.getBoundingClientRect();
+    setShift(menuShift(rect.left, rect.right, document.documentElement.clientWidth, VIEWPORT_MARGIN));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -119,7 +132,7 @@ export default function ShareButton({ view, headline, url, cardUrl, iconOnly = f
         )}
       </button>
       {open && (
-        <div className="share-menu" id={panelId}>
+        <div className="share-menu" id={panelId} ref={menuRef} style={shift ? { transform: `translateX(${shift}px)` } : undefined}>
           <a href={xIntentUrl(text, url)} target="_blank" rel="noopener" onClick={() => track('share', { view, channel: 'x' })}>
             Post on X
           </a>

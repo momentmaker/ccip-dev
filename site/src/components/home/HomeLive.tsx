@@ -157,7 +157,7 @@ export default function HomeLive(props: HomeLiveProps) {
           names={names}
           queue={queueRef}
           reducedMotion={reducedMotion}
-          avoid=".hero-toolbar > *, .hero-overlay"
+          avoid=".hero-toolbar, .hero-overlay"
           onLaunch={onLaunch}
           onReady={setSkyReady}
         />

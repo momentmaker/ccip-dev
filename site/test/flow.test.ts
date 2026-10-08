@@ -1,6 +1,6 @@
 import type { ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { flowData, labelAngle } from '../src/lib/flow';
+import { chordScale, flowData, labelAngle, truncateLabel } from '../src/lib/flow';
 import { chainNameMap } from '../src/lib/names';
 import replayJson from './fixtures/replay.json';
 
@@ -72,5 +72,35 @@ describe('labelAngle', () => {
 
   it('turns the label half a turn on the left half', () => {
     expect(labelAngle(Math.PI + 0.1) - labelAngle(Math.PI - 0.1)).toBeCloseTo(180 + (0.2 * 180) / Math.PI);
+  });
+});
+
+describe('chordScale', () => {
+  it('keeps the design sizes when the chord is drawn near its native width', () => {
+    expect(chordScale(640)).toEqual({ font: 12, icon: 14, margin: 90, maxChars: Infinity });
+    expect(chordScale(720).font).toBe(12);
+    expect(chordScale(null).font).toBe(12);
+  });
+
+  it('keeps labels at least 10 px on screen when the chord is shrunk', () => {
+    for (const width of [358, 300, 420, 500]) {
+      const { font } = chordScale(width);
+      expect((font * width) / 640).toBeGreaterThanOrEqual(10 - 1e-9);
+    }
+  });
+
+  it('grows the label margin and shortens names when it has to scale up', () => {
+    const phone = chordScale(358);
+    expect(phone.margin).toBeGreaterThan(90);
+    expect(phone.icon).toBeGreaterThan(14);
+    expect(phone.maxChars).toBe(11);
+  });
+});
+
+describe('truncateLabel', () => {
+  it('shortens with an ellipsis only when over the limit', () => {
+    expect(truncateLabel('Arbitrum One', 11)).toBe('Arbitrum O…');
+    expect(truncateLabel('Base', 11)).toBe('Base');
+    expect(truncateLabel('Arbitrum One', Infinity)).toBe('Arbitrum One');
   });
 });

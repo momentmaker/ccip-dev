@@ -28,10 +28,15 @@
 .feed { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; }
 .feed li { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
 .feed li.gold { color: var(--gold); }
+.tile-value { font-size: 24px; font-weight: 600; margin: 6px 0 2px; }
 .home-below { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
 @media (max-width: 1024px) { .live-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
   .hero { margin: 0 -16px; height: 72vh; min-height: 460px; }
   .hero-overlay { left: 12px; right: 12px; top: 12px; }
+  .headline.card { padding: 10px 14px; }
+  .headline-number { font-size: 40px; margin-top: 2px; }
+  .headline-sub { margin-top: 2px; }
+  .headline .small { margin-top: 2px; }
   .hero-toolbar { left: 12px; right: 12px; bottom: 12px; }
 }

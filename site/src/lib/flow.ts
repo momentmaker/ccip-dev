@@ -63,3 +63,30 @@ export function flowData(replay: ReplayFile, window: Window, names: ChainNames, 
       .map((l) => ({ label: laneLabel(names, `${l.src}>${l.dst}`), src: l.src, dst: l.dst, usd: l.usd, messages: l.messages })),
   };
 }
+
+const CHORD_VIEW = 640;
+const LABEL_BASE = { font: 12, icon: 14, margin: 90 };
+const LABEL_MIN_PX = 10;
+const SHRUNK_LABEL_CHARS = 11;
+
+export interface ChordScale {
+  font: number;
+  icon: number;
+  margin: number;
+  maxChars: number;
+}
+
+export function chordScale(widthPx: number | null): ChordScale {
+  const onScreen = widthPx && widthPx > 0 ? (LABEL_BASE.font * widthPx) / CHORD_VIEW : LABEL_BASE.font;
+  const k = Math.max(1, LABEL_MIN_PX / onScreen);
+  return {
+    font: LABEL_BASE.font * k,
+    icon: LABEL_BASE.icon * k,
+    margin: LABEL_BASE.margin * k,
+    maxChars: k > 1 ? SHRUNK_LABEL_CHARS : Infinity,
+  };
+}
+
+export function truncateLabel(label: string, maxChars: number): string {
+  return label.length <= maxChars ? label : `${label.slice(0, maxChars - 1)}…`;
+}
