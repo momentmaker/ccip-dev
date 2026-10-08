@@ -230,6 +230,30 @@ describe('runDetails', () => {
     });
   });
 
+  describe('a fee token priced through its fee price alias', () => {
+    const BITLAYER = { ...NETWORKS.base, name: 'bitcoin-mainnet-bitlayer-1', displayName: 'Bitlayer', chainSelector: '7937294810946806131', chainId: '200901' };
+    const WBTC = '0xff204e2681a6fa0e2c3fade68a1b28fb90e4fc5f';
+    const BTC_KEY = coingeckoKey('bitcoin');
+    const bitlayerDetail = {
+      ...detailToken,
+      sourceNetworkInfo: { ...detailToken.sourceNetworkInfo, name: BITLAYER.name, displayName: BITLAYER.displayName, chainSelector: BITLAYER.chainSelector, chainId: BITLAYER.chainId },
+      tokenAmounts: [],
+      fees: { fixedFeesDetails: { ...detailToken.fees.fixedFeesDetails, tokenAddress: '0xff204E2681A6fA0e2C3FaDe68a1B28fb90E4Fc5F', totalAmount: '1500000000000000' } },
+    };
+
+    it('stores the fee valued at the wrapped coin, at the token decimals', async () => {
+      // #given
+      await store.upsertListRows(env.DB, [liveRow({ id: detailToken.messageId, sendTs: '2026-10-05T11:14:53.000Z', src: BITLAYER }, { next_check_at: '2026-10-05T11:16:53.000Z' })], []);
+      const prices = fakePrices({ latest: { [BTC_KEY]: { price: 80_000, decimals: COIN_PRICE_DECIMALS } } });
+      const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: bitlayerDetail } }), prices });
+      // #when
+      await runDetails(c, { limit: 10 });
+      // #then
+      expect(prices.latestCalls).toEqual([[`bitlayer:${WBTC}`, BTC_KEY]]);
+      expect(await row(detailToken.messageId)).toMatchObject({ fee_token: WBTC, fee_amount: '1500000000000000', fee_usd: expect.closeTo((1.5e15 / 1e18) * 80_000, 9) });
+    });
+  });
+
   it('stores a token valued above MAX_TRANSFER_USD unpriced and raises one price-outlier alert for the run', async () => {
     const second = { ...detailToken, messageId: 'second' };
     await store.upsertListRows(env.DB, [due(detailToken.messageId), due('second')], []);
