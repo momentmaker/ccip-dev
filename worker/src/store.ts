@@ -1,5 +1,5 @@
 import {
-  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
+  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, UNLISTED_LINK_FEE_TOKENS, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type LaneDayRow, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
@@ -611,6 +611,7 @@ export async function linkFeeTokens(db: D1Database): Promise<Set<string>> {
     .all<{ chain: string; address: string }>();
   return new Set([
     `${LINK_TOKEN_CHAIN_SELECTOR}:${normalizeAddress(LINK_TOKEN)}`,
+    ...Object.entries(UNLISTED_LINK_FEE_TOKENS).map(([chain, address]) => `${chain}:${normalizeAddress(address)}`),
     ...results.map((r) => `${r.chain}:${normalizeAddress(r.address)}`),
   ]);
 }

@@ -201,3 +201,19 @@ describe('coingeckoIds', () => {
     ]);
   });
 });
+
+describe('linkFeeTokens', () => {
+  it.each([
+    ['Arbitrum', '4949039107694359620', '0xf97f4df75117a78c1a5a0dbb814af92458539fb4'],
+    ['Avalanche', '6433500567565415381', '0x5947bb275c521040051d82396192181b413227a3'],
+    ['Nexon Henesys', '12657445206920369324', '0x76a443768a5e3b8d1aed0105fc250877841deb40'],
+  ])('counts LINK on %s, which the token registry leaves out', async (_, chain, address) => {
+    // #given an empty token registry
+
+    // #when
+    const tokens = await store.linkFeeTokens(env.DB);
+
+    // #then
+    expect(tokens.has(`${chain}:${address}`)).toBe(true);
+  });
+});
