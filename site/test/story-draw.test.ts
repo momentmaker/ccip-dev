@@ -104,6 +104,15 @@ describe('drawStory', () => {
     expect(texts).toContain('ccip.dev');
   });
 
+  it('fades the end title in late in the finale, after the particles', () => {
+    const early: string[] = [];
+    drawStory(fakeCtx(early), show.frameAt(27 + 3 * 0.55), layoutFor(1920, 1080), assets);
+    expect(early).not.toContain('ccip.dev');
+    const late: string[] = [];
+    drawStory(fakeCtx(late), show.frameAt(27 + 3 * 0.9), layoutFor(1920, 1080), assets);
+    expect(late).toContain('ccip.dev');
+  });
+
   it('keeps the timeline labels and watermark by default', () => {
     const texts: string[] = [];
     drawStory(fakeCtx(texts), show.frameAt(15), layoutFor(1920, 1080), assets);

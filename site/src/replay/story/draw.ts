@@ -21,6 +21,9 @@ const BORDER = 'rgba(47, 98, 223, 0.45)';
 const SANS = 'Inter, sans-serif';
 const MONO = '"JetBrains Mono", monospace';
 const CANVAS_FONTS = ['400 16px Inter', '600 16px Inter', '800 16px Inter', '600 16px "JetBrains Mono"'] as const;
+export const END_TITLE = 'ccip.dev';
+export const END_TITLE_PX = 130;
+export const endTitleFont = (px: number) => `800 ${px}px ${SANS}`;
 
 export function loadCanvasFonts(fonts: Pick<FontFaceSet, 'load'>): Promise<void> {
   return Promise.all(CANVAS_FONTS.map((font) => fonts.load(font))).then(
@@ -291,15 +294,15 @@ function drawWatermark(ctx: Ctx, l: StoryLayout): void {
 }
 
 function drawEndTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
-  const alpha = ease((frame.finale - 0.3) / 0.4);
+  const alpha = ease((frame.finale - 0.6) / 0.2);
   if (alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `800 ${130 * l.unit}px ${SANS}`;
+  ctx.font = endTitleFont(END_TITLE_PX * l.unit);
   ctx.fillStyle = BLUE;
-  ctx.fillText('ccip.dev', l.width / 2, l.height / 2);
+  ctx.fillText(END_TITLE, l.width / 2, l.height / 2);
   ctx.restore();
 }
 

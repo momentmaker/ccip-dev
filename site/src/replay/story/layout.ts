@@ -34,9 +34,11 @@ export function intersects(a: Box, b: Box): boolean {
 
 const centered = (width: number, w: number, y: number, h: number): Box => ({ x: (width - w) / 2, y, w, h });
 
+export const storyUnit = (width: number, height: number) => Math.min(width, height) / 1080;
+
 export function layoutFor(width: number, height: number): StoryLayout {
   const aspect = aspectOf(width, height);
-  const u = Math.min(width, height) / 1080;
+  const u = storyUnit(width, height);
   const pad = 48 * u;
   const date: Box = { x: pad, y: pad, w: 560 * u, h: 56 * u };
   const counter: Box = { x: pad, y: pad + 64 * u, w: 640 * u, h: 110 * u };

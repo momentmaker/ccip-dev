@@ -33,6 +33,7 @@ export interface ShowInput {
   length: number;
   focus: string | null;
   eligible: (selector: string) => boolean;
+  reducedMotion?: boolean;
 }
 
 export interface ShowCard extends Card {
@@ -101,6 +102,7 @@ export class Show {
   private readonly focusStar: number;
   private readonly title: { title: string; subtitle: string };
   private readonly hookLane: { from: number; to: number } | null;
+  private readonly reducedMotion: boolean;
 
   constructor(input: ShowInput) {
     const { replay, history, stars, length } = input;
@@ -139,6 +141,7 @@ export class Show {
     const from = lane ? starOf.get(replay.chains[lane[0]]?.selector ?? '') : undefined;
     const to = lane ? starOf.get(replay.chains[lane[1]]?.selector ?? '') : undefined;
     this.hookLane = from !== undefined && to !== undefined ? { from, to } : null;
+    this.reducedMotion = input.reducedMotion ?? false;
   }
 
   frameAt(t: number): ShowFrame {
@@ -168,6 +171,7 @@ export class Show {
     const slamHit = this.slams.find((s) => time >= s.start && time < s.start + SLAM_S);
     const cardHit = this.cards.find((c) => time >= c.start && time < c.end);
     const finaleStart = this.length - this.timing.finale;
+    const slamStarts = this.reducedMotion ? [] : this.slams.map((s) => s.start);
     return {
       t: time,
       phase,
@@ -178,7 +182,7 @@ export class Show {
         fullExtent: this.fullExtent,
         storyStart: this.warp.start,
         storyEnd: this.warp.end,
-        slamStarts: this.slams.map((s) => s.start),
+        slamStarts,
         focus: this.focusPoint,
       }),
       card: cardHit ? { ...cardHit, progress: (time - cardHit.start) / (cardHit.end - cardHit.start) } : null,
@@ -188,7 +192,7 @@ export class Show {
       hook: phase === 'hook' ? { ...this.title, progress: clamp01(time / this.timing.hook) } : null,
       finale: phase === 'finale' ? clamp01((time - finaleStart) / this.timing.finale) : 0,
       loop: smoothstep((time - (this.length - LOOP_S)) / LOOP_S),
-      punch: Math.max(0, ...this.slams.map((s) => punch(time - s.start))),
+      punch: Math.max(0, ...slamStarts.map((s) => punch(time - s))),
       focus: this.focus,
       focusStar: this.focusStar,
     };

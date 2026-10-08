@@ -1,6 +1,7 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { SLAM_S } from '../src/replay/director/beats';
+import { PUNCH, PUNCH_IN_S } from '../src/replay/director/camera';
 import { REPLAY_COMET_S } from '../src/replay/timeline';
 import { Show, yearsLabel } from '../src/replay/director/show';
 import { buildLayout } from '../src/sky/layout';
@@ -227,6 +228,23 @@ describe('Show', () => {
       }
     }
     expect(checked).toBeGreaterThan(0);
+  });
+
+  it('skips the milestone punch-in under reduced motion', () => {
+    const s = new Show({ replay, history, stars, length: 30, focus: null, eligible: () => true, reducedMotion: true });
+    for (const t of [3, 10, 20, 26]) expect(s.frameAt(t).punch).toBe(0);
+  });
+
+  it('holds the camera still through a slam under reduced motion, while the full show punches in', () => {
+    const slamHistory = history.map((d) => (d.day === '2023-07-08' ? { ...d, messages: 1500 } : d));
+    const full = new Show({ replay, history: slamHistory, stars, length: 30, focus: null, eligible: () => true });
+    const still = new Show({ replay, history: slamHistory, stars, length: 30, focus: null, eligible: () => true, reducedMotion: true });
+    expect(full.slams.length).toBeGreaterThan(0);
+    const peak = full.slams[0]!.start + PUNCH_IN_S;
+    expect(full.frameAt(peak).punch).toBe(1);
+    expect(still.frameAt(peak).punch).toBe(0);
+    expect(still.frameAt(peak).camera.extent).toBeCloseTo(full.frameAt(peak).camera.extent / (1 - PUNCH), 9);
+    expect(still.slams).toEqual(full.slams);
   });
 
   it('thins arrivals in a focus cut by the same spawn hash as comets', () => {
