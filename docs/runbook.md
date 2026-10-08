@@ -113,7 +113,7 @@ Alerts arrive in the Telegram chat.
 | `prices-fetch` | DefiLlama failed during detail valuation. Those tokens stay unpriced until finalize. |
 | `daily-usd-anomaly:<day>` | The day's USD moved over 10× against the trailing median. Check the day's top tokens for a bad price. |
 | `detail-schema:<path>` | A detail response failed validation. The raw copy is in `unparsed/<id>.json` in the archive bucket. |
-| `detail-fill:<day>` | Finalize rolled the day up without some message details because their fills failed; those messages keep their list values. Read the first failure in the alert and the Worker logs. The fills are retried hourly until 48 hours after send. |
+| `detail-fill:<day>` | Some of the day's detail fills kept failing. For 72 hours after the day starts, finalize holds the day (`job-failed:finalize` names it) while the hourly retries can still fill those messages, then rolls it up with their list values (no fee, first token only) and sends this alert. Read the first failure in the alert and the Worker logs. If those fills succeed later, the day's totals stay stale until you re-finalize it by rewinding `last_finalize_day` (see "Re-finalize a day"). Messages whose `next_check_at` is NULL (final ones) get no hourly retry; only finalize runs retry them. |
 | `fee-version:<v>` | A message uses a CCIP version whose fee format is unknown. Add support for it. |
 | `archive-count:<day>` | The day's archive and D1 disagree on the message count. Re-finalize the day (below). |
 | `coingecko-ids` | CoinGecko ids could not be refreshed. Retried hourly. |
@@ -144,7 +144,7 @@ Use `last_archived_day` in place of `last_finalize_day` for the second key.
 - **Detail budget:**
   - Detail fills share one 5-minute budget, which starts when the run starts and also covers the list walks. In a deep catch-up, the later days of a run may get little or none of it. They roll up with list values for the messages still missing details, and the log says "detail fill stopped at its deadline".
   - The 06:00 run re-fills a day's missing details when it archives that day. For a day already archived, rewind `last_archived_day` too.
-- **A day that fails** (`job-failed:finalize` names it) holds both pointers, while the later days in the same run still finalize and publish. The next run retries it.
+- **A day that fails** (`job-failed:finalize` names it) holds its own run's pointer: `last_finalize_day` for the 00:10 run, `last_archived_day` for the 06:00 run. The later days in the same run still finalize and publish, and the next run of that kind retries it.
 
 ### Accept a real price jump
 
