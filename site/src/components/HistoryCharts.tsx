@@ -2,7 +2,7 @@ import type { DayTotals } from '@ccip-dev/core/public';
 import { useId, useMemo, useState } from 'react';
 import { ADDITIVE, CHART_H, CHART_W, chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, stepIndex, type HistoryMetric } from '../lib/charts';
 import { formatCount, formatDuration, formatUsd, formatUtcDay, linkShareText } from '../lib/format';
-import { FEES_SINCE } from '../lib/records';
+import { feeChartRows } from '../lib/records';
 import type { MetricKey } from '../lib/metric-anchors';
 import InfoLink from './InfoLink';
 
@@ -21,12 +21,13 @@ const METRICS: MetricSpec[] = [
   { key: 'median_delivery_s', title: 'Median delivery time', format: formatDuration, metric: 'delivery' },
 ];
 
-function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec; cumulative: boolean }) {
-  const points = useMemo(() => chartSeries(rows, spec.key, cumulative), [rows, spec.key, cumulative]);
+function Chart({ rows, spec, cumulative, since }: { rows: DayTotals[]; spec: MetricSpec; cumulative: boolean; since: string | null }) {
+  const { rows: shownRows, from } = useMemo(() => (spec.key === 'fee_usd' ? feeChartRows(rows, since) : { rows, from: null }), [rows, spec.key, since]);
+  const points = useMemo(() => chartSeries(shownRows, spec.key, cumulative), [shownRows, spec.key, cumulative]);
   const geo = useMemo(() => chartGeometry(points, CHART_W, CHART_H), [points]);
   const [hover, setHover] = useState<number | null>(null);
   const shown = hover !== null ? points[hover] ?? null : geo.last;
-  const share = spec.key === 'fee_usd' && shown ? linkShare(rows, shown.day, cumulative) : null;
+  const share = spec.key === 'fee_usd' && shown ? linkShare(shownRows, shown.day, cumulative) : null;
   return (
     <figure className="card chart">
       <figcaption>
@@ -68,12 +69,12 @@ function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec
           <line className="chart-cursor" x1={pointX(hover, points.length, CHART_W)} x2={pointX(hover, points.length, CHART_W)} y1={0} y2={CHART_H} />
         )}
       </svg>
-      {spec.key === 'fee_usd' && <p className="muted small">Fees are collected from {FEES_SINCE} onward.</p>}
+      {from && <p className="muted small">Fees are collected from {from} onward.</p>}
     </figure>
   );
 }
 
-export default function HistoryCharts({ rows }: { rows: DayTotals[] }) {
+export default function HistoryCharts({ rows, feesSince }: { rows: DayTotals[]; feesSince: string | null }) {
   const [cumulative, setCumulative] = useState(false);
   const cumulativeId = useId();
   return (
@@ -83,7 +84,7 @@ export default function HistoryCharts({ rows }: { rows: DayTotals[] }) {
       </label>
       <div className="charts">
         {METRICS.map((spec) => (
-          <Chart key={spec.key} rows={rows} spec={spec} cumulative={cumulative && ADDITIVE.has(spec.key)} />
+          <Chart key={spec.key} rows={rows} spec={spec} cumulative={cumulative && ADDITIVE.has(spec.key)} since={feesSince} />
         ))}
       </div>
     </div>

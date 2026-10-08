@@ -9,7 +9,7 @@ const scrubber = () =>
 
 describe('form fields carry a name and an id', () => {
   it('history cumulative toggle', () => {
-    const out = renderToString(createElement(HistoryCharts, { rows: [] }));
+    const out = renderToString(createElement(HistoryCharts, { rows: [], feesSince: null }));
     expect(out).toMatch(/<input[^>]*name="cumulative"/);
     expect(out).toMatch(/<input[^>]*id="[^"]+"/);
   });

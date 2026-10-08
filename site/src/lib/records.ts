@@ -29,7 +29,6 @@ export interface RecordBreak {
 }
 
 export const FASTEST_MIN_MESSAGES = 100;
-export const FEES_SINCE = '2026-10-05';
 const KIND_ORDER: MilestoneKind[] = ['messages', 'value', 'chains', 'join'];
 const CHAIN_STEP = 25;
 
@@ -46,7 +45,7 @@ const RULES: RecordRule[] = [
   { key: 'busiest', title: 'Busiest day', note: null, pick: (d) => d.messages, better: (a, b) => a > b, display: (v) => `${formatCount(v)} messages` },
   { key: 'biggest', title: 'Biggest day', note: null, pick: (d) => d.usd_value, better: (a, b) => a > b, display: (v) => `${formatUsd(v)} moved` },
   { key: 'senders', title: 'Most senders', note: null, pick: (d) => d.unique_senders, better: (a, b) => a > b, display: (v) => `${formatCount(v)} senders` },
-  { key: 'fees', title: 'Highest fees', note: `since ${FEES_SINCE}`, pick: (d) => d.fee_usd, better: (a, b) => a > b, display: (v) => `${formatUsd(v)} in fees` },
+  { key: 'fees', title: 'Highest fees', note: null, pick: (d) => d.fee_usd, better: (a, b) => a > b, display: (v) => `${formatUsd(v)} in fees` },
   {
     key: 'fastest',
     title: 'Fastest delivery',
@@ -59,6 +58,24 @@ const RULES: RecordRule[] = [
 
 const compareDay = (a: { day: string }, b: { day: string }) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
 
+/** The first day with fee data. Fees reach further back as the fee backfill loads, so this comes from the data. */
+export function feesSince(days: readonly { day: string; fee_usd: number | null }[]): string | null {
+  let first: string | null = null;
+  for (const d of days) if (d.fee_usd !== null && (first === null || d.day < first)) first = d.day;
+  return first;
+}
+
+export function feesNote(days: readonly { day: string }[], since: string | null): string | null {
+  if (since === null || days.length === 0) return null;
+  const firstShown = days.reduce((min, d) => (d.day < min ? d.day : min), days[0]!.day);
+  return since > firstShown ? `since ${since}` : null;
+}
+
+export function feeChartRows<T extends { day: string }>(rows: T[], since: string | null): { rows: T[]; from: string | null } {
+  if (since === null || rows.length === 0 || since <= rows[0]!.day) return { rows, from: null };
+  return { rows: rows.filter((r) => r.day >= since), from: since };
+}
+
 export function computeRecords(days: readonly DayStats[]): DayRecord[] {
   const sorted = [...days].sort(compareDay);
   return RULES.flatMap((rule) => {
@@ -68,7 +85,7 @@ export function computeRecords(days: readonly DayStats[]): DayRecord[] {
       if (value === null) continue;
       if (best === null || rule.better(value, best.value)) best = { day: d.day, value };
     }
-    return best ? [{ key: rule.key, title: rule.title, day: best.day, value: best.value, display: rule.display(best.value), note: rule.note }] : [];
+    return best ? [{ key: rule.key, title: rule.title, day: best.day, value: best.value, display: rule.display(best.value), note: rule.key === 'fees' ? feesNote(sorted, feesSince(sorted)) : rule.note }] : [];
   });
 }
 

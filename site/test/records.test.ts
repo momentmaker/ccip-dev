@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  computeMilestones, computeRecords, formatThresholdUsd, liveRecordBreaks, messageThresholds, valueThresholds, type DayStats,
+  computeMilestones, computeRecords, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, valueThresholds, type DayStats,
 } from '../src/lib/records';
 
 const day = (d: string, messages: number, usd: number, senders: number, fee: number | null, median: number | null): DayStats => ({
@@ -84,5 +84,42 @@ describe('liveRecordBreaks', () => {
   it('stays quiet when today only ties a record or no records exist', () => {
     expect(liveRecordBreaks({ day: '2026-10-07', messages: 2487, usd_value: 0, unique_senders: 812 }, records)).toEqual([]);
     expect(liveRecordBreaks({ day: '2026-10-07', messages: 10, usd_value: 0, unique_senders: 1 }, [])).toEqual([]);
+  });
+});
+
+describe('fee coverage', () => {
+  const days = [
+    { day: '2026-10-03', fee_usd: null },
+    { day: '2026-10-04', fee_usd: null },
+    { day: '2026-10-05', fee_usd: 1245.29 },
+    { day: '2026-10-06', fee_usd: 1072.33 },
+  ];
+
+  it('starts at the first day with fee data', () => {
+    // #given days where fees begin on the 5th
+    // #then the start is that day
+    expect(feesSince(days)).toBe('2026-10-05');
+  });
+
+  it('has no start without fee data', () => {
+    expect(feesSince([{ day: '2026-10-03', fee_usd: null }])).toBeNull();
+  });
+
+  it('notes a start that falls inside the shown days', () => {
+    expect(feesNote(days, '2026-10-05')).toBe('since 2026-10-05');
+  });
+
+  it('has no note once fees cover every shown day', () => {
+    expect(feesNote(days.slice(2), '2026-10-05')).toBeNull();
+  });
+
+  it('notes the start on the highest-fees record only while coverage is partial', () => {
+    // #given one history with a fee gap and one without
+    const full = (fee: number | null, d: string) => ({ day: d, messages: 1, usd_value: 1, unique_senders: 1, fee_usd: fee, median_delivery_s: null });
+    // #when the records are computed
+    const partial = computeRecords([full(null, '2026-10-04'), full(5, '2026-10-05')]).find((r) => r.key === 'fees');
+    const complete = computeRecords([full(4, '2026-10-04'), full(5, '2026-10-05')]).find((r) => r.key === 'fees');
+    // #then only the partial one carries a note
+    expect([partial?.note, complete?.note]).toEqual(['since 2026-10-05', null]);
   });
 });

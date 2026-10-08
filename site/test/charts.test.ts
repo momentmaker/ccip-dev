@@ -1,6 +1,7 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, rangeRows, rangeTotals, stepIndex } from '../src/lib/charts';
+import { feeChartRows } from '../src/lib/records';
 
 const row = (day: string, messages: number, usd: number, fee: number | null): DayTotals => ({
   day, messages, token_messages: messages, usd_value: usd, fee_usd: fee, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null,
@@ -108,5 +109,23 @@ describe('history charts', () => {
     it('reports no data', () => {
       expect(chartSummary('Fees', [{ day: '2026-10-04', value: null }], fmt, false)).toBe('Fees: no data');
     });
+  });
+});
+
+describe('feeChartRows', () => {
+  const rows = ['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06'].map((d) => ({ day: d }));
+
+  it('starts the fee chart where fee data starts inside the window', () => {
+    // #when fees start on the 5th
+    // #then earlier rows are dropped
+    expect(feeChartRows(rows, '2026-10-05')).toEqual({ rows: rows.slice(2), from: '2026-10-05' });
+  });
+
+  it('keeps the whole window when fees cover it', () => {
+    expect(feeChartRows(rows, '2026-10-01')).toEqual({ rows, from: null });
+  });
+
+  it('keeps the whole window when there is no fee data at all', () => {
+    expect(feeChartRows(rows, null)).toEqual({ rows, from: null });
   });
 });
