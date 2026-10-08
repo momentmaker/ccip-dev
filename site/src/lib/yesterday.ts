@@ -15,9 +15,10 @@ export interface DaySnapshot {
   day: string;
   messages: number;
   usd_value: number;
+  fee_usd: number | null;
 }
 
 export function rolloverSnapshot(lastPolled: TodayFile | null, incomingDay: string): DaySnapshot | null {
   if (!lastPolled || lastPolled.day === incomingDay) return null;
-  return { day: lastPolled.day, messages: lastPolled.totals.messages, usd_value: lastPolled.totals.usd_value };
+  return { day: lastPolled.day, messages: lastPolled.totals.messages, usd_value: lastPolled.totals.usd_value, fee_usd: lastPolled.totals.fee_usd };
 }

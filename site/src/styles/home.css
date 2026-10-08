@@ -16,6 +16,7 @@
 .headline { backdrop-filter: blur(6px); background: rgba(22, 27, 35, 0.78); }
 .headline-number { font-size: clamp(40px, 6vw, 64px); font-weight: 600; margin: 6px 0 0; line-height: 1; }
 .headline-sub { margin: 6px 0 0; }
+.headline-fees { color: inherit; }
 .small { font-size: 12px; margin: 6px 0 0; }
 .captions { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); display: grid; gap: 6px; pointer-events: none; text-align: center; }
 .caption { margin: 0; font: 600 18px var(--font-mono); color: var(--gold); text-shadow: 0 0 18px rgba(245, 196, 81, 0.45); animation: card-in 0.4s var(--ease) both; }

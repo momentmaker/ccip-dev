@@ -32,10 +32,10 @@ describe('previousDay', () => {
 });
 
 describe('rolloverSnapshot', () => {
-  const polled = { day: '2026-10-07', totals: { messages: 321, usd_value: 4500 } } as unknown as TodayFile;
+  const polled = { day: '2026-10-07', totals: { messages: 321, usd_value: 4500, fee_usd: 12.5 } } as unknown as TodayFile;
 
   it('keeps the totals of the day a live poll saw before the day changed', () => {
-    expect(rolloverSnapshot(polled, '2026-10-08')).toEqual({ day: '2026-10-07', messages: 321, usd_value: 4500 });
+    expect(rolloverSnapshot(polled, '2026-10-08')).toEqual({ day: '2026-10-07', messages: 321, usd_value: 4500, fee_usd: 12.5 });
   });
 
   it('has nothing without a previous live poll, so build-time partials are never shown as yesterday', () => {
