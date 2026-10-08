@@ -18,6 +18,7 @@ const MUTED = '#8892a0';
 const BLUE = '#4a7ff0';
 const CARD = 'rgba(22, 27, 35, 0.88)';
 const BORDER = 'rgba(47, 98, 223, 0.45)';
+const SCRIM = 'rgba(12, 15, 20, 0.55)';
 const SANS = 'Inter, sans-serif';
 const MONO = '"JetBrains Mono", monospace';
 const CANVAS_FONTS = ['400 16px Inter', '600 16px Inter', '800 16px Inter', '600 16px "JetBrains Mono"'] as const;
@@ -209,6 +210,19 @@ function drawCard(ctx: Ctx, frame: ShowFrame, l: StoryLayout, assets: StoryAsset
   ctx.restore();
 }
 
+function scrim(ctx: Ctx, width: number, height: number): void {
+  const rx = width * 0.62;
+  if (rx <= 0) return;
+  const squash = height / rx;
+  const fade = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  fade.addColorStop(0, SCRIM);
+  fade.addColorStop(1, 'rgba(12, 15, 20, 0)');
+  ctx.fillStyle = fade;
+  ctx.scale(1, squash);
+  ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
+  ctx.scale(1, 1 / squash);
+}
+
 function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   const slam = frame.slam!;
   const u = l.unit;
@@ -218,10 +232,13 @@ function drawSlam(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   const maxPop = restWidth > 0 ? Math.min(SLAM_POP, l.slam.w / restWidth) : SLAM_POP;
   const scale = 1 + (maxPop - 1) * (1 - ease(slam.progress / 0.25));
   ctx.globalAlpha = alpha;
-  const blur = (1 - ease(slam.progress / 0.25)) * 12 * u;
-  ctx.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
   ctx.translate(l.width / 2, l.slam.y + l.slam.h / 2);
   ctx.scale(scale, scale);
+  scrim(ctx, restWidth, 110 * u);
+  const blur = (1 - ease(slam.progress / 0.25)) * 12 * u;
+  ctx.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
+  ctx.shadowColor = 'rgba(12, 15, 20, 0.85)';
+  ctx.shadowBlur = 28 * u;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = FG;

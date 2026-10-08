@@ -98,6 +98,35 @@ describe('drawStory', () => {
     expect(texts).toContain('$10B moved');
   });
 
+  it('lays a dark scrim and shadow under the slam label so it reads over a bright hub', () => {
+    const events: string[] = [];
+    const ctx = new Proxy(
+      {},
+      {
+        get: (_t, key) => {
+          if (key === 'createRadialGradient') return () => (events.push('radial'), { addColorStop: (_at: number, c: string) => events.push(`stop:${c}`) });
+          if (key === 'fillRect') return () => events.push('fillRect');
+          if (key === 'fillText') return (text: string) => events.push(`text:${text}`);
+          if (key === 'measureText') return (text: string) => ({ width: text.length * 10 });
+          if (key === 'createLinearGradient') return () => ({ addColorStop() {} });
+          return () => {};
+        },
+        set: (_t, key, value) => {
+          if (key === 'shadowBlur' || key === 'shadowColor') events.push(`${String(key)}:${value}`);
+          return true;
+        },
+      },
+    ) as unknown as CanvasRenderingContext2D;
+    const frame = { ...show.frameAt(15), slam: { start: 14.5, label: '25 chains', progress: 0.4 } };
+    drawStory(ctx, frame, layoutFor(1080, 1080), assets);
+    const label = events.indexOf('text:25 chains');
+    const radial = events.lastIndexOf('radial', label);
+    expect(radial).toBeGreaterThanOrEqual(0);
+    expect(events.slice(radial, label)).toContain('fillRect');
+    expect(events.slice(radial, label)).toContain('stop:rgba(12, 15, 20, 0.55)');
+    expect(events.slice(0, label).some((e) => e.startsWith('shadowBlur:') && Number(e.split(':')[1]) > 0)).toBe(true);
+  });
+
   it('draws the end title in the finale', () => {
     const texts: string[] = [];
     drawStory(fakeCtx(texts), show.frameAt(29), layoutFor(1920, 1080), assets);
