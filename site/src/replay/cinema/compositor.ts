@@ -9,7 +9,7 @@ import { atlasLayout } from './atlas';
 import { textTargets } from './fx';
 import { QualityController, TIERS, type Tier } from './quality';
 import { CinemaRenderer } from './renderer';
-import { buildScene, dustField, type DustField } from './scene';
+import { createSceneBuilder, dustField, type DustField } from './scene';
 
 type Ctx2d = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type ShowSource = Pick<Show, 'frameAt' | 'timing' | 'length' | 'warp'>;
@@ -62,6 +62,7 @@ export class CinemaCompositor {
   private loopCache: { width: number; height: number; canvas: SkyCanvas } | null = null;
   private loopCacheWarned = false;
   private destroyed = false;
+  private readonly buildScene = createSceneBuilder();
 
   static isSupported(createCanvas: () => SkyCanvas): boolean {
     try {
@@ -163,7 +164,7 @@ export class CinemaCompositor {
   }
 
   private compose(frame: ShowFrame, target: Ctx2d, width: number, height: number): void {
-    const scene = buildScene(frame, {
+    const scene = this.buildScene(frame, {
       width,
       height,
       tier: TIERS[this.quality.tier],

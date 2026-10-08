@@ -61,6 +61,23 @@ export interface CinemaScene {
   edgeFeather: number;
 }
 
+class FloatWriter {
+  data = new Float32Array(256);
+  length = 0;
+
+  reserve(extra: number): void {
+    const needed = this.length + extra;
+    if (needed <= this.data.length) return;
+    const grown = new Float32Array(Math.max(needed, this.data.length * 2));
+    grown.set(this.data.subarray(0, this.length));
+    this.data = grown;
+  }
+
+  view(): Float32Array {
+    return this.data.subarray(0, this.length);
+  }
+}
+
 type Rgb = readonly number[];
 const mixRgb = (a: Rgb, b: Rgb, k: number): Rgb => a.map((v, i) => v + (b[i]! - v) * k);
 
@@ -85,7 +102,38 @@ export function dustField(seed: number, spread: number): DustField {
   };
 }
 
+export type SceneBuilder = (frame: ShowFrame, ctx: SceneContext) => CinemaScene;
+
 export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
+  return createSceneBuilder()(frame, ctx);
+}
+
+export function createSceneBuilder(): SceneBuilder {
+  const lineOut = new FloatWriter();
+  const quadOut = new FloatWriter();
+  const coreOut = new FloatWriter();
+  const coinOut = new FloatWriter();
+  const finalQuads = new FloatWriter();
+  return (frame, ctx) => {
+    lineOut.length = 0;
+    quadOut.length = 0;
+    coreOut.length = 0;
+    coinOut.length = 0;
+    finalQuads.length = 0;
+    return buildSceneInto(frame, ctx, { lineOut, quadOut, coreOut, coinOut, finalQuads });
+  };
+}
+
+interface SceneWriters {
+  lineOut: FloatWriter;
+  quadOut: FloatWriter;
+  coreOut: FloatWriter;
+  coinOut: FloatWriter;
+  finalQuads: FloatWriter;
+}
+
+function buildSceneInto(frame: ShowFrame, ctx: SceneContext, writers: SceneWriters): CinemaScene {
+  const { lineOut, quadOut, coreOut, coinOut, finalQuads } = writers;
   const { width: w, height: h, tier } = ctx;
   const unit = Math.min(w, h) / 1000;
   const cam = frame.camera;
@@ -93,14 +141,25 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
   const sky = frame.base.sky;
   const coreCount = sky.stars.filter((s) => s.radius > 0).length;
   const effectLimit = Math.max(0, MAX_SCENE_QUADS - coreCount);
-  const quads: number[] = [];
-  const coreQuads: number[] = [];
-  const push = (out: number[], x: number, y: number, sx: number, sy: number, angle: number, c: Rgb, a: number, shape: number, gain: number) => {
-    out.push(x, y, sx, sy, angle, c[0]! * gain, c[1]! * gain, c[2]! * gain, Math.min(1, a), shape);
+  const push = (out: FloatWriter, x: number, y: number, sx: number, sy: number, angle: number, c: Rgb, a: number, shape: number, gain: number) => {
+    out.reserve(QUAD_FLOATS);
+    const d = out.data;
+    const i = out.length;
+    d[i] = x;
+    d[i + 1] = y;
+    d[i + 2] = sx;
+    d[i + 3] = sy;
+    d[i + 4] = angle;
+    d[i + 5] = c[0]! * gain;
+    d[i + 6] = c[1]! * gain;
+    d[i + 7] = c[2]! * gain;
+    d[i + 8] = Math.min(1, a);
+    d[i + 9] = shape;
+    out.length = i + QUAD_FLOATS;
   };
   const put = (x: number, y: number, sx: number, sy: number, angle: number, c: Rgb, a: number, shape: number, gain = 1) => {
-    if (a <= 0.002 || quads.length / QUAD_FLOATS >= effectLimit) return;
-    push(quads, x, y, sx, sy, angle, c, a, shape, gain);
+    if (a <= 0.002 || quadOut.length / QUAD_FLOATS >= effectLimit) return;
+    push(quadOut, x, y, sx, sy, angle, c, a, shape, gain);
   };
   const onScreen = (x: number, y: number, pad: number) => x > -pad && y > -pad && x < w + pad && y < h + pad;
 
@@ -123,7 +182,6 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
   });
 
   const lanes = [...sky.lanes].sort((a, b) => b.opacity - a.opacity).slice(0, MAX_SCENE_LANES);
-  const lines: number[] = [];
   for (const lane of lanes) {
     const a = points[lane.from];
     const b = points[lane.to];
@@ -132,7 +190,16 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     let prev = a;
     for (let s = 1; s <= LANE_SEGMENTS; s++) {
       const p = quadPoint(a, c, b, s / LANE_SEGMENTS);
-      lines.push(prev.x, prev.y, lane.opacity * 0.9, p.x, p.y, lane.opacity * 0.9);
+      lineOut.reserve(2 * LINE_FLOATS);
+      const d = lineOut.data;
+      const i = lineOut.length;
+      d[i] = prev.x;
+      d[i + 1] = prev.y;
+      d[i + 2] = lane.opacity * 0.9;
+      d[i + 3] = p.x;
+      d[i + 4] = p.y;
+      d[i + 5] = lane.opacity * 0.9;
+      lineOut.length = i + 2 * LINE_FLOATS;
       prev = p;
     }
   }
@@ -155,7 +222,7 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     if (s.radius <= 0) return;
     const p = points[i]!;
     const core = Math.max(1, s.radius * unit);
-    push(coreQuads, p.x, p.y, core, core, 0, COLORS.star, 0.55 + 0.45 * s.brightness + s.flash, CINEMA_SHAPE.disc, 1.1);
+    push(coreOut, p.x, p.y, core, core, 0, COLORS.star, 0.55 + 0.45 * s.brightness + s.flash, CINEMA_SHAPE.disc, 1.1);
   });
 
   const laneKey = (from: number, to: number) => (from < to ? from * 4096 + to : to * 4096 + from);
@@ -214,16 +281,26 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     }
   }
 
-  const coins: number[] = [];
   for (const c of frame.base.coins) {
-    if (coins.length / COIN_FLOATS >= MAX_SCENE_COINS) break;
+    if (coinOut.length / COIN_FLOATS >= MAX_SCENE_COINS) break;
     const uv = ctx.atlas.get(c.selector);
     const star = sky.stars[c.star];
     const p = points[c.star];
     if (!uv || !star || !p || star.radius <= 0) continue;
     const ring = sky.rings.find((r) => r.star === c.star);
     const pop = ring ? elasticPop(ring.progress * IGNITE_S) : 1;
-    coins.push(p.x, p.y, coinDiameter(star.radius) * (Math.min(w, h) / REPLAY_COIN_UNIT) * pop, c.alpha, uv[0], uv[1], uv[2], uv[3]);
+    coinOut.reserve(COIN_FLOATS);
+    const d = coinOut.data;
+    const i = coinOut.length;
+    d[i] = p.x;
+    d[i + 1] = p.y;
+    d[i + 2] = coinDiameter(star.radius) * (Math.min(w, h) / REPLAY_COIN_UNIT) * pop;
+    d[i + 3] = c.alpha;
+    d[i + 4] = uv[0];
+    d[i + 5] = uv[1];
+    d[i + 6] = uv[2];
+    d[i + 7] = uv[3];
+    coinOut.length = i + COIN_FLOATS;
   }
 
   let exposure = 1;
@@ -232,10 +309,10 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     exposure = 1 + 0.35 * Math.max(0, 1 - Math.abs(seconds - PULSE_AT_S) / PULSE_WIDTH_S);
     const origin = points.find((_, i) => (sky.stars[i]?.radius ?? 0) > 0) ?? { x: w / 2, y: h / 2 };
     const reach = Math.hypot(w, h) / 2;
-    for (let i = 0; i < coins.length; i += COIN_FLOATS) {
-      const x = coins[i]!;
-      const y = coins[i + 1]!;
-      const d = coins[i + 2]!;
+    for (let i = 0; i < coinOut.length; i += COIN_FLOATS) {
+      const x = coinOut.data[i]!;
+      const y = coinOut.data[i + 1]!;
+      const d = coinOut.data[i + 2]!;
       const p = (seconds - 0.6 * (Math.hypot(x - origin.x, y - origin.y) / reach)) / 0.5;
       if (p > 0 && p < 1) put(x, y, (d / 2) * (1 + 0.8 * p), (d / 2) * (1 + 0.8 * p), 0, COLORS.blue, 1 - p, CINEMA_SHAPE.ring, 1.6);
     }
@@ -257,13 +334,21 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     width: w,
     height: h,
     nebula: tier.nebula ? { offset: [frame.t * NEBULA_DRIFT_PER_S * NEBULA_NOISE_SCALE * (w / h) + cam.cx * 0.05, cam.cy * 0.05], intensity: 0.08, seed: (ctx.seed % 997) / 997 } : null,
-    lines: new Float32Array(lines),
-    quads: new Float32Array([...quads, ...coreQuads]),
-    coins: new Float32Array(coins),
+    lines: lineOut.view(),
+    quads: joinQuads(quadOut, coreOut, finalQuads),
+    coins: coinOut.view(),
     shock: shock ? { x: 0.5, y: 0.5, progress: shock.progress, strength: shock.strength } : null,
     exposure,
     bloom: tier.bloom,
     frame: Math.round(frame.t * 30),
     edgeFeather: ctx.edgeFeather ?? 0,
   };
+}
+
+function joinQuads(effects: FloatWriter, core: FloatWriter, out: FloatWriter): Float32Array {
+  out.reserve(effects.length + core.length);
+  out.data.set(effects.data.subarray(0, effects.length), 0);
+  out.data.set(core.data.subarray(0, core.length), effects.length);
+  out.length = effects.length + core.length;
+  return out.view();
 }

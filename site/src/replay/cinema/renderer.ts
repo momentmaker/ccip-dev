@@ -1,4 +1,5 @@
 import type { SkyCanvas } from '../../sky/renderer';
+import { newDynamicBufferState, uploadDynamic } from '../../sky/gl-buffers';
 import { link } from '../../sky/renderer-gl';
 import { createTarget, deleteTarget, targetFormat, type Target, type TargetFormat } from './gl';
 import { COIN_FLOATS, LINE_FLOATS, QUAD_FLOATS, type CinemaScene } from './scene';
@@ -40,6 +41,9 @@ export class CinemaRenderer {
   private lineVao: WebGLVertexArrayObject | null = null;
   private emptyVao: WebGLVertexArrayObject | null = null;
   private buffers: WebGLBuffer[] = [];
+  private readonly lineStorage = newDynamicBufferState();
+  private readonly quadStorage = newDynamicBufferState();
+  private readonly coinStorage = newDynamicBufferState();
   private scene: Target | null = null;
   private bloom: Target[] = [];
   private bloomMode: CinemaScene['bloom'] | null = null;
@@ -103,6 +107,9 @@ export class CinemaRenderer {
     const quads = makeBuffer();
     const coins = makeBuffer();
     const lines = makeBuffer();
+    this.lineStorage.capacity = 0;
+    this.quadStorage.capacity = 0;
+    this.coinStorage.capacity = 0;
     const cornerData = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
     this.quadVao = gl.createVertexArray();
@@ -255,15 +262,13 @@ export class CinemaRenderer {
     gl.useProgram(p.line);
     gl.uniform2f(this.uniform(p.line, 'u_resolution'), width, height);
     gl.bindVertexArray(this.lineVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[3]!);
-    gl.bufferData(gl.ARRAY_BUFFER, scene.lines, gl.DYNAMIC_DRAW);
+    uploadDynamic(gl, this.buffers[3]!, this.lineStorage, scene.lines);
     gl.drawArrays(gl.LINES, 0, scene.lines.length / LINE_FLOATS);
 
     gl.useProgram(p.quad);
     gl.uniform2f(this.uniform(p.quad, 'u_resolution'), width, height);
     gl.bindVertexArray(this.quadVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[1]!);
-    gl.bufferData(gl.ARRAY_BUFFER, scene.quads, gl.DYNAMIC_DRAW);
+    uploadDynamic(gl, this.buffers[1]!, this.quadStorage, scene.quads);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, scene.quads.length / QUAD_FLOATS);
 
     if (this.atlas && scene.coins.length > 0) {
@@ -273,8 +278,7 @@ export class CinemaRenderer {
       this.bindTexture(0, this.atlas);
       gl.uniform1i(this.uniform(p.coin, 'u_atlas'), 0);
       gl.bindVertexArray(this.coinVao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers[2]!);
-      gl.bufferData(gl.ARRAY_BUFFER, scene.coins, gl.DYNAMIC_DRAW);
+      uploadDynamic(gl, this.buffers[2]!, this.coinStorage, scene.coins);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, scene.coins.length / COIN_FLOATS);
     }
 
