@@ -8,6 +8,15 @@ const FADE_IN_S = 0.4;
 const FADE_OUT_S = 0.5;
 const SILENT = 0.0001;
 const SWELL_TAIL = { release: 1.2, send: 0.35 } as const;
+const BOOM_SUB_PEAK = 0.4;
+const BOOM_BODY_PEAK = 0.45;
+const BOOM_NOISE_OPEN_HZ = 2800;
+const OVERTONE_LEVEL = 10 ** (-12 / 20);
+const PULSE_PARTIALS = [
+  [1, 1],
+  [2, OVERTONE_LEVEL],
+  [3, OVERTONE_LEVEL],
+] as const;
 
 export function midiHz(note: number): number {
   return 440 * 2 ** ((note - 69) / 12);
@@ -102,11 +111,20 @@ function boom(v: Voices, at: number): void {
   osc.type = 'sine';
   osc.frequency.setValueAtTime(70, at);
   osc.frequency.exponentialRampToValueAtTime(32, at + 1);
-  const g = envelope(v.ctx, at, 0.6, 0.01, 1.6);
+  const g = envelope(v.ctx, at, BOOM_SUB_PEAK, 0.01, 1.6);
   osc.connect(g);
   g.connect(v.dry);
   osc.start(at);
   osc.stop(at + 1.7);
+  const body = v.ctx.createOscillator();
+  body.type = 'triangle';
+  body.frequency.setValueAtTime(180, at);
+  body.frequency.exponentialRampToValueAtTime(90, at + 0.25);
+  const bodyGain = envelope(v.ctx, at, BOOM_BODY_PEAK, 0.005, 0.4);
+  body.connect(bodyGain);
+  bodyGain.connect(v.dry);
+  body.start(at);
+  body.stop(at + 0.45);
   const frames = Math.round(0.6 * v.ctx.sampleRate);
   const buffer = v.ctx.createBuffer(1, frames, v.ctx.sampleRate);
   const rng = mulberry32(Math.round(at * 1000));
@@ -116,8 +134,9 @@ function boom(v: Voices, at: number): void {
   noise.buffer = buffer;
   const lp = v.ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = 900;
-  const ng = envelope(v.ctx, at, 0.3, 0.005, 0.5);
+  lp.frequency.setValueAtTime(BOOM_NOISE_OPEN_HZ, at);
+  lp.frequency.exponentialRampToValueAtTime(800, at + 0.4);
+  const ng = envelope(v.ctx, at, 0.3, 0.002, 0.5);
   noise.connect(lp);
   lp.connect(ng);
   ng.connect(v.dry);
@@ -126,15 +145,17 @@ function boom(v: Voices, at: number): void {
 }
 
 function pulse(v: Voices, at: number, gain: number): void {
-  const osc = v.ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(110, at);
-  osc.frequency.exponentialRampToValueAtTime(45, at + 0.12);
-  const g = envelope(v.ctx, at, 0.5 * gain, 0.005, 0.35);
-  osc.connect(g);
-  g.connect(v.dry);
-  osc.start(at);
-  osc.stop(at + 0.4);
+  for (const [harmonic, level] of PULSE_PARTIALS) {
+    const osc = v.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(110 * harmonic, at);
+    osc.frequency.exponentialRampToValueAtTime(45 * harmonic, at + 0.12);
+    const g = envelope(v.ctx, at, 0.5 * gain * level, 0.005, 0.35);
+    osc.connect(g);
+    g.connect(v.dry);
+    osc.start(at);
+    osc.stop(at + 0.4);
+  }
 }
 
 export async function renderScore(
@@ -147,7 +168,7 @@ export async function renderScore(
   compressor.threshold.value = -16;
   compressor.knee.value = 12;
   compressor.ratio.value = 3.5;
-  compressor.attack.value = 0.01;
+  compressor.attack.value = 0.003;
   compressor.release.value = 0.25;
   const master = ctx.createGain();
   master.gain.setValueAtTime(0, 0);
