@@ -44,6 +44,19 @@ const MAX_DPR = 2;
 const MAX_SIDE_PX = 1920;
 const UI_UPDATE_MS = 100;
 
+function paint(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, compositor: Compositor, t: number): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+  const fit = Math.min(1, MAX_SIDE_PX / (Math.max(canvas.clientWidth, canvas.clientHeight) * dpr || 1));
+  const width = Math.max(1, Math.round(canvas.clientWidth * dpr * fit));
+  const height = Math.max(1, Math.round(canvas.clientHeight * dpr * fit));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  compositor.draw(t, ctx, width, height);
+  canvas.closest('.replay-shell')?.classList.add('ready');
+}
+
 interface Loaded {
   replay: ReplayFile;
   history: DayTotals[];
@@ -65,6 +78,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
   const [compositor, setCompositor] = useState<Compositor | null>(null);
+  const compositorRef = useRef<Compositor | null>(null);
   const [kind, setKind] = useState<CompositorKind>('cinema');
   const [compositorKey, setCompositorKey] = useState(0);
   const lossPolicyRef = useRef(new LossPolicy());
@@ -226,8 +240,10 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       setError('Your browser could not start the animation.');
       return;
     }
+    compositorRef.current = created;
     setCompositor(created);
     return () => {
+      if (compositorRef.current === created) compositorRef.current = null;
       created.destroy();
       setCompositor(null);
     };
@@ -236,25 +252,19 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !compositor) return;
-    if (compositor instanceof CinemaCompositor && compositor.lost) {
-      const action = lossPolicyRef.current.onLost(compositor, performance.now());
+    const current = compositorRef.current;
+    if (!canvas || !ctx || !current) return;
+    if (current instanceof CinemaCompositor) {
+      const action = lossPolicyRef.current.assess(current, performance.now());
       if (action === 'ignore') return;
-      console.warn(`Replay lost its WebGL context; ${action === 'fallback' ? 'falling back to the classic renderer' : 'recreating the renderer'}`);
-      if (action === 'fallback') setKind('classic');
-      else setCompositorKey((k) => k + 1);
-      return;
+      if (action !== 'draw') {
+        console.warn(`Replay lost its WebGL context; ${action === 'fallback' ? 'falling back to the classic renderer' : 'recreating the renderer'}`);
+        if (action === 'fallback') setKind('classic');
+        else setCompositorKey((k) => k + 1);
+        return;
+      }
     }
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    const fit = Math.min(1, MAX_SIDE_PX / (Math.max(canvas.clientWidth, canvas.clientHeight) * dpr || 1));
-    const width = Math.max(1, Math.round(canvas.clientWidth * dpr * fit));
-    const height = Math.max(1, Math.round(canvas.clientHeight * dpr * fit));
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-    compositor.draw(tRef.current, ctx, width, height);
-    canvas.closest('.replay-shell')?.classList.add('ready');
+    paint(canvas, ctx, current, tRef.current);
   }, [compositor]);
 
   useEffect(() => {
@@ -286,9 +296,10 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     let lastUi = 0;
     let lastFrame: number | null = null;
     const tick = (frameTime: number) => {
-      if (lastFrame !== null && compositor instanceof CinemaCompositor) {
-        compositor.noteFrame(frameTime - lastFrame, frameTime / 1000);
-        qualityRef.current = { tier: compositor.tier, decided: compositor.qualityDecided };
+      const current = compositorRef.current;
+      if (lastFrame !== null && current instanceof CinemaCompositor) {
+        current.noteFrame(frameTime - lastFrame, frameTime / 1000);
+        qualityRef.current = { tier: current.tier, decided: current.qualityDecided };
       }
       lastFrame = frameTime;
       const now = Math.min(clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000, show.length);

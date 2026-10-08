@@ -91,7 +91,7 @@ export class CinemaCompositor {
   }
 
   get lost(): boolean {
-    return this.renderer.lost;
+    return !this.destroyed && this.renderer.lost;
   }
 
   get tier(): Tier {

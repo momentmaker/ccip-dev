@@ -106,6 +106,14 @@ describe('CinemaCompositor', () => {
     expect(calls.filter((args) => args.length === 5)).toHaveLength(2);
   });
 
+  it('does not report a loss once destroyed, though destroying releases its context', () => {
+    const renderer = { render: vi.fn(), resize: vi.fn(), setAtlas: vi.fn(), lost: false, destroy() { this.lost = true; } };
+    const c = new CinemaCompositor(show, stars, assets, createCanvas(), { quality: 'auto', reducedMotion: false, createRenderer: () => renderer as never });
+    c.destroy();
+    expect(renderer.lost).toBe(true);
+    expect(c.lost).toBe(false);
+  });
+
   it('reports a lost context and throws when no renderer can be made', () => {
     const c = new CinemaCompositor(show, stars, assets, createCanvas(), { quality: 'auto', reducedMotion: false, createRenderer: () => fakeRenderer(true) as never });
     expect(c.lost).toBe(true);

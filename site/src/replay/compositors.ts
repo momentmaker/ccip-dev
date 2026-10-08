@@ -37,7 +37,8 @@ export class LossPolicy {
   private readonly tracker = new ContextLossTracker();
   private handled: object | null = null;
 
-  onLost(compositor: object, nowMs: number): 'ignore' | 'recreate' | 'fallback' {
+  assess(compositor: { readonly lost: boolean }, nowMs: number): 'draw' | 'ignore' | 'recreate' | 'fallback' {
+    if (!compositor.lost) return 'draw';
     if (this.handled === compositor) return 'ignore';
     this.handled = compositor;
     return this.tracker.record(nowMs) === 'fallback' ? 'fallback' : 'recreate';

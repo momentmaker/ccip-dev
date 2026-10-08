@@ -80,21 +80,35 @@ describe('buildCompositor', () => {
 });
 
 describe('LossPolicy', () => {
-  const first = {};
-  const second = {};
+  const first = { lost: true };
+  const second = { lost: true };
+  const flipping = () => ({ render: vi.fn(), resize: vi.fn(), setAtlas: vi.fn(), lost: false, destroy() { this.lost = true; } });
+
+  it('draws a compositor whose context is fine', () => {
+    expect(new LossPolicy().assess({ lost: false }, 10_000)).toBe('draw');
+  });
 
   it('recreates on the first context loss and falls back to the classic compositor on the second', () => {
     const policy = new LossPolicy();
-    expect(policy.onLost(first, 10_000)).toBe('recreate');
-    expect(policy.onLost(second, 25_000)).toBe('fallback');
+    expect(policy.assess(first, 10_000)).toBe('recreate');
+    expect(policy.assess(second, 25_000)).toBe('fallback');
   });
 
   it('counts a lost compositor once however many frames notice it', () => {
     const policy = new LossPolicy();
-    expect(policy.onLost(first, 10_000)).toBe('recreate');
-    expect(policy.onLost(first, 10_016)).toBe('ignore');
-    expect(policy.onLost(first, 10_033)).toBe('ignore');
-    expect(policy.onLost(second, 70_100)).toBe('recreate');
+    expect(policy.assess(first, 10_000)).toBe('recreate');
+    expect(policy.assess(first, 10_016)).toBe('ignore');
+    expect(policy.assess(first, 10_033)).toBe('ignore');
+    expect(policy.assess(second, 70_100)).toBe('recreate');
+  });
+
+  it('does not count a compositor that was destroyed on purpose, as on a length or chain change', () => {
+    const policy = new LossPolicy();
+    const replaced = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => flipping() as never });
+    replaced.destroy();
+    expect(policy.assess(replaced, 10_000)).toBe('draw');
+    const lost = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer(true) as never });
+    expect(policy.assess(lost, 11_000)).toBe('recreate');
   });
 });
 
