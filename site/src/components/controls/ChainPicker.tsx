@@ -108,7 +108,8 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
             }}
             onKeyDown={onKey}
           />
-          <ul role="listbox" id={listId} aria-label="Chains">
+          {/* A pressed row would take focus from the search box, and the blur closes the list before its click lands. */}
+          <ul role="listbox" id={listId} aria-label="Chains" onMouseDown={(e) => e.preventDefault()}>
             {items.map((key, i) => {
               const chain = key === ALL ? null : results.find((c) => c.selector === key)!;
               const selected = key === ALL ? props.value === null : props.value === key;
