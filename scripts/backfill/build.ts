@@ -562,7 +562,7 @@ interface PriceCacheFile {
   decimals: Record<string, number | null>;
 }
 
-class PriceCache {
+export class PriceCache {
   /** Each key's series without its glitched points, filtered once, the first time it is read. */
   private readonly filtered = new Map<string, Record<string, number>>();
   private readonly dropped = new Map<string, number>();
@@ -580,6 +580,15 @@ class PriceCache {
     const cached = existsSync(file) ? await readPriceCache(file) : null;
     const data = cached?.range === range ? cached : { range, history: {}, decimals: {} };
     return new PriceCache(client, file, fromDay, toDay, data);
+  }
+
+  /** Opens the original build's cache, refusing a missing file or another range: a silent fresh cache would refetch every series. */
+  static async openExisting(client: PricesClient, file: string, fromDay: string, toDay: string): Promise<PriceCache> {
+    if (!existsSync(file)) throw new Error(`${file} is missing: the fee build reuses the original backfill's price cache`);
+    const cached = await readPriceCache(file);
+    const range = `${fromDay}..${toDay}`;
+    if (cached.range !== range) throw new Error(`${file} covers ${cached.range}, not ${range}; refusing to start a new cache`);
+    return new PriceCache(client, file, fromDay, toDay, cached);
   }
 
   /** Fetches and caches the daily history of every key not cached yet, and the decimals of every llama key among them. */
