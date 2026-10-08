@@ -114,13 +114,15 @@ export function createSceneBuilder(): SceneBuilder {
   const coreOut = new FloatWriter();
   const coinOut = new FloatWriter();
   const finalQuads = new FloatWriter();
+  const coinGeometry: number[] = [];
   return (frame, ctx) => {
     lineOut.length = 0;
     quadOut.length = 0;
     coreOut.length = 0;
     coinOut.length = 0;
     finalQuads.length = 0;
-    return buildSceneInto(frame, ctx, { lineOut, quadOut, coreOut, coinOut, finalQuads });
+    coinGeometry.length = 0;
+    return buildSceneInto(frame, ctx, { lineOut, quadOut, coreOut, coinOut, finalQuads, coinGeometry });
   };
 }
 
@@ -130,10 +132,11 @@ interface SceneWriters {
   coreOut: FloatWriter;
   coinOut: FloatWriter;
   finalQuads: FloatWriter;
+  coinGeometry: number[];
 }
 
 function buildSceneInto(frame: ShowFrame, ctx: SceneContext, writers: SceneWriters): CinemaScene {
-  const { lineOut, quadOut, coreOut, coinOut, finalQuads } = writers;
+  const { lineOut, quadOut, coreOut, coinOut, finalQuads, coinGeometry } = writers;
   const { width: w, height: h, tier } = ctx;
   const unit = Math.min(w, h) / 1000;
   const cam = frame.camera;
@@ -294,7 +297,9 @@ function buildSceneInto(frame: ShowFrame, ctx: SceneContext, writers: SceneWrite
     const i = coinOut.length;
     d[i] = p.x;
     d[i + 1] = p.y;
-    d[i + 2] = coinDiameter(star.radius) * (Math.min(w, h) / REPLAY_COIN_UNIT) * pop;
+    const diameter = coinDiameter(star.radius) * (Math.min(w, h) / REPLAY_COIN_UNIT) * pop;
+    coinGeometry.push(p.x, p.y, diameter);
+    d[i + 2] = diameter;
     d[i + 3] = c.alpha;
     d[i + 4] = uv[0];
     d[i + 5] = uv[1];
@@ -309,10 +314,10 @@ function buildSceneInto(frame: ShowFrame, ctx: SceneContext, writers: SceneWrite
     exposure = 1 + 0.35 * Math.max(0, 1 - Math.abs(seconds - PULSE_AT_S) / PULSE_WIDTH_S);
     const origin = points.find((_, i) => (sky.stars[i]?.radius ?? 0) > 0) ?? { x: w / 2, y: h / 2 };
     const reach = Math.hypot(w, h) / 2;
-    for (let i = 0; i < coinOut.length; i += COIN_FLOATS) {
-      const x = coinOut.data[i]!;
-      const y = coinOut.data[i + 1]!;
-      const d = coinOut.data[i + 2]!;
+    for (let i = 0; i < coinGeometry.length; i += 3) {
+      const x = coinGeometry[i]!;
+      const y = coinGeometry[i + 1]!;
+      const d = coinGeometry[i + 2]!;
       const p = (seconds - 0.6 * (Math.hypot(x - origin.x, y - origin.y) / reach)) / 0.5;
       if (p > 0 && p < 1) put(x, y, (d / 2) * (1 + 0.8 * p), (d / 2) * (1 + 0.8 * p), 0, COLORS.blue, 1 - p, CINEMA_SHAPE.ring, 1.6);
     }

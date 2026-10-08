@@ -31,12 +31,13 @@ const fingerprint = (a: Float32Array): string => {
   return `${a.length}:${h}`;
 };
 const fingerprints = (scene: { lines: Float32Array; quads: Float32Array; coins: Float32Array }) => [fingerprint(scene.lines), fingerprint(scene.quads), fingerprint(scene.coins)];
-const TIMES = [0, 5, 15, 26, 29.5];
+const TIMES = [0, 5, 15, 26, 27.3, 29.5];
 const GOLDEN = [
   ['96:3881688590', '1550:1871880110', '0:2166136261'],
   ['96:3953014084', '790:2514322388', '0:2166136261'],
   ['192:1328960865', '1090:1692436568', '24:760649950'],
   ['192:2875041235', '1030:1693299645', '32:1996228850'],
+  ['192:2654241931', '1170:3806334481', '32:2480375795'],
   ['192:2845710538', '1040:3211187491', '32:3035599655'],
 ];
 
