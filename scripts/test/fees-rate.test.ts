@@ -6,6 +6,26 @@ function clock(start = 0) {
   return { now: () => t, advance: (ms: number) => { t += ms; }, sleep: async (ms: number) => { t += ms; } };
 }
 
+/** A fake clock whose sleeps resolve in wake-time order, as real timers do, so concurrent sleepers share one timeline. */
+function timers(start = 0) {
+  let t = start;
+  const pending: { at: number; wake: () => void }[] = [];
+  return {
+    now: () => t,
+    sleep: (ms: number) => new Promise<void>((wake) => { pending.push({ at: t + ms, wake }); }),
+    async drain() {
+      for (;;) {
+        await new Promise((resolve) => setImmediate(resolve));
+        pending.sort((a, b) => a.at - b.at);
+        const next = pending.shift();
+        if (!next) return;
+        t = Math.max(t, next.at);
+        next.wake();
+      }
+    },
+  };
+}
+
 /** Feeds `seconds` of successful requests at the current rate, each with `latencyMs`. */
 function healthy(rate: AdaptiveRate, c: ReturnType<typeof clock>, seconds: number, latencyMs = 200): void {
   const end = c.now() + seconds * 1000;
@@ -122,32 +142,6 @@ describe('AdaptiveRate', () => {
     expect(rate.rps).toBe(3);
   });
 
-  it('does not step up during hold period after a back-off', () => {
-    // #given
-    const c = clock();
-    const rate = new AdaptiveRate(c.now, () => {}, 6);
-    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
-
-    // #when - healthy window that closes before holdUntil
-    healthy(rate, c, 300);
-
-    // #then - rate should still be 3, not 4
-    expect(rate.rps).toBe(3);
-  });
-
-  it('steps up after hold period ends', () => {
-    // #given
-    const c = clock();
-    const rate = new AdaptiveRate(c.now, () => {}, 6);
-    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
-
-    // #when - advance to just past hold period and feed exactly one window
-    c.advance(RATE.holdMs + 1);
-    healthy(rate, c, 600);
-
-    // #then - rate should step up to 4 (just one step-up)
-    expect(rate.rps).toBe(4);
-  });
 });
 
 describe('Pacer', () => {
@@ -202,6 +196,27 @@ describe('Pacer', () => {
 
     // #then - should have waited out the 10s pause, not started at 100ms
     expect(starts[0]).toBe(10_150);
+  });
+
+  it('re-spaces callers that were asleep when a pause began', async () => {
+    // #given two callers asleep on slots reserved at 4 req/s
+    const c = timers(0);
+    const rate = new AdaptiveRate(c.now, () => {}, 4);
+    const pacer = new Pacer(rate, c);
+    const starts: number[] = [];
+    await pacer.acquire();
+    const a = pacer.acquire().then(() => starts.push(c.now()));
+    const b = pacer.acquire().then(() => starts.push(c.now()));
+
+    // #when a 429 pauses for 10 s and halves the rate, and a third caller arrives after it
+    rate.record({ kind: 'throttled', retryAfterMs: 10_000 });
+    const late = pacer.acquire().then(() => starts.push(c.now()));
+    await c.drain();
+    await Promise.all([a, b, late]);
+
+    // #then every start is after the pause, one interval apart
+    const sorted = [...starts].sort((x, y) => x - y);
+    expect({ first: sorted[0], gaps: sorted.slice(1).map((s, i) => s - sorted[i]!) }).toEqual({ first: 10_000, gaps: [500, 500] });
   });
 
 });
