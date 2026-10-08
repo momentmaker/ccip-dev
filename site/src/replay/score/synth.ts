@@ -3,7 +3,7 @@ import type { ScoreEvent } from './schedule';
 
 export const SAMPLE_RATE = 48_000;
 const PEAK = 0.891;
-const REVERB_S = 2.6;
+const REVERB_S = 1.6;
 const FADE_IN_S = 0.4;
 const FADE_OUT_S = 0.5;
 const SILENT = 0.0001;

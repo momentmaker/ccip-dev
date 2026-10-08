@@ -167,6 +167,11 @@ describe('renderScore voices', () => {
     expect(envelopeOf(sub).gain.peak()).toBeLessThanOrEqual(envelopeOf(body).gain.peak());
   });
 
+  it('reverberates with a 1.6 s impulse', async () => {
+    const ctx = await graphFor([]);
+    expect(ctx.convolvers[0]!.buffer!.length).toBe(Math.round(1.6 * 48_000));
+  });
+
   it('catches transients with a fast master compressor attack', async () => {
     const ctx = await graphFor([]);
     expect(ctx.compressors[0]!.attack.value).toBeLessThanOrEqual(0.003);

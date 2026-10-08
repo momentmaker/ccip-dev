@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { audioStartOffset, ScoreCache, scoreKey, syncAction } from '../src/replay/score/sync';
+import { audioStartOffset, idlePrefetchAllowed, ScoreCache, scoreKey, soundPending, syncAction } from '../src/replay/score/sync';
 
 describe('scoreKey', () => {
   it('changes with length, focus and data day', () => {
@@ -103,5 +103,35 @@ describe('ScoreCache', () => {
     await old;
     expect(cache.holds('15|all|d')).toBe(true);
     expect(cache.get('15|all|d', async () => buffer(99))).toBe(fresh);
+  });
+});
+
+describe('idlePrefetchAllowed', () => {
+  it('prefetches where audio works', () => {
+    expect(idlePrefetchAllowed({ audioSupported: true })).toBe(true);
+    expect(idlePrefetchAllowed({ audioSupported: true, saveData: false, deviceMemory: 8 })).toBe(true);
+    expect(idlePrefetchAllowed({ audioSupported: false })).toBe(false);
+  });
+
+  it('holds back for viewers saving data and for small devices', () => {
+    expect(idlePrefetchAllowed({ audioSupported: true, saveData: true })).toBe(false);
+    expect(idlePrefetchAllowed({ audioSupported: true, deviceMemory: 2 })).toBe(false);
+    expect(idlePrefetchAllowed({ audioSupported: true, deviceMemory: 4 })).toBe(true);
+  });
+});
+
+describe('soundPending', () => {
+  it('is busy while Sound is on and the score is not ready', () => {
+    expect(soundPending({ soundOn: true, playing: false, ready: false, live: false })).toBe(true);
+  });
+
+  it('stays busy during playback until the source starts', () => {
+    expect(soundPending({ soundOn: true, playing: true, ready: true, live: false })).toBe(true);
+    expect(soundPending({ soundOn: true, playing: true, ready: true, live: true })).toBe(false);
+  });
+
+  it('is idle when the score is ready and nothing should play, or when Sound is off', () => {
+    expect(soundPending({ soundOn: true, playing: false, ready: true, live: false })).toBe(false);
+    expect(soundPending({ soundOn: false, playing: true, ready: false, live: false })).toBe(false);
   });
 });

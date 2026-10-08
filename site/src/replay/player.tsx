@@ -37,7 +37,7 @@ import {
 import { audioCodecAvailable, canRecord, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
 import { scoreFor } from './score/schedule';
 import { renderScore } from './score/synth';
-import { audioStartOffset, ScoreCache, scoreKey, syncAction } from './score/sync';
+import { audioStartOffset, idlePrefetchAllowed, ScoreCache, scoreKey, soundPending, syncAction } from './score/sync';
 import { Show, type ShowInput } from './director/show';
 import { loadCanvasFonts } from './story/draw';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
@@ -49,6 +49,22 @@ const MAX_DPR = 2;
 const MAX_SIDE_PX = 1920;
 const UI_UPDATE_MS = 100;
 const SILENT_RECORDING_NOTE = "Recorded without sound — your browser can't encode audio";
+const PREFETCH_DEBOUNCE_MS = 400;
+const PREFETCH_IDLE_TIMEOUT_MS = 2_000;
+
+function whenIdle(task: () => void): () => void {
+  if (typeof requestIdleCallback === 'function') {
+    const handle = requestIdleCallback(task, { timeout: PREFETCH_IDLE_TIMEOUT_MS });
+    return () => cancelIdleCallback(handle);
+  }
+  const timer = setTimeout(task, 0);
+  return () => clearTimeout(timer);
+}
+
+function prefetchEnvironment(audioSupported: boolean): { audioSupported: boolean; saveData?: boolean; deviceMemory?: number } {
+  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
+  return { audioSupported, saveData: nav.connection?.saveData, deviceMemory: nav.deviceMemory };
+}
 
 function paint(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, compositor: Compositor, t: number): void {
   const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
@@ -105,6 +121,9 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [soundOn, setSoundOn] = useState(false);
   const [soundFailed, setSoundFailed] = useState(false);
   const soundAvailable = audioSupported && !soundFailed;
+  const [prefetchAllowed] = useState(() => idlePrefetchAllowed(prefetchEnvironment(audioSupported)));
+  const [readyKey, setReadyKey] = useState<string | null>(null);
+  const [sourceLive, setSourceLive] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioStateRef = useRef({ playing: false, soundOn: false, t: 0 });
@@ -234,7 +253,14 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
 
   const scoreBuffer = useCallback(
-    (source: Show) => scoreCache.get(scoreKey(source, lastDay), () => renderScore(scoreFor(source), source.length)),
+    (source: Show) => {
+      const key = scoreKey(source, lastDay);
+      const pending = scoreCache.get(key, () => renderScore(scoreFor(source), source.length));
+      void pending.then((buffer) => {
+        if (buffer && scoreCache.holds(key)) setReadyKey(key);
+      });
+      return pending;
+    },
     [scoreCache, lastDay],
   );
 
@@ -242,6 +268,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     audioTokenRef.current += 1;
     sourceRef.current?.stop();
     sourceRef.current = null;
+    setSourceLive(false);
   }, []);
 
   useEffect(() => {
@@ -251,8 +278,16 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   }, [playing, stopAudio]);
 
   useEffect(() => {
-    if (show && soundOn) void scoreBuffer(show);
-  }, [show, soundOn, scoreBuffer]);
+    if (!show || !(prefetchAllowed || soundOn)) return;
+    let cancelIdle = () => {};
+    const timer = setTimeout(() => {
+      cancelIdle = whenIdle(() => void scoreBuffer(show));
+    }, PREFETCH_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      cancelIdle();
+    };
+  }, [show, soundOn, prefetchAllowed, scoreBuffer]);
 
   useEffect(
     () => () => {
@@ -414,6 +449,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
         node.connect(ctx.destination);
         node.start(0, audioStartOffset(playhead, ctx, buffer.duration));
         sourceRef.current = node;
+        setSourceLive(true);
       })
       .catch((err: unknown) => console.warn('replay soundtrack could not start', err));
   };
@@ -519,6 +555,8 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     }
   };
 
+  const soundBusy = soundPending({ soundOn, playing, ready: show !== null && readyKey === scoreKey(show, lastDay), live: sourceLive });
+
   if (error) return <p className="card">{error}</p>;
   if (!data || !show) {
     if (!loadFailed) return null;
@@ -575,6 +613,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
               type="button"
               className="icon-btn sound-toggle"
               aria-pressed={soundOn}
+              aria-busy={soundBusy}
               aria-label="Sound"
               title={soundOn ? 'Sound on' : 'Sound off'}
               disabled={recording !== null}

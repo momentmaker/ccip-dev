@@ -20,6 +20,18 @@ export function audioStartOffset(playhead: number, latency: { outputLatency?: nu
   return Math.min(Math.max(0, playhead + lead), duration);
 }
 
+const MIN_PREFETCH_MEMORY_GB = 4;
+
+export function idlePrefetchAllowed(env: { audioSupported: boolean; saveData?: boolean; deviceMemory?: number }): boolean {
+  if (!env.audioSupported || env.saveData) return false;
+  return env.deviceMemory === undefined || env.deviceMemory >= MIN_PREFETCH_MEMORY_GB;
+}
+
+export function soundPending(state: { soundOn: boolean; playing: boolean; ready: boolean; live: boolean }): boolean {
+  if (!state.soundOn) return false;
+  return !state.ready || (state.playing && !state.live);
+}
+
 export class ScoreCache {
   private entry: { key: string; buffer: Promise<AudioBuffer | null> } | null = null;
 
