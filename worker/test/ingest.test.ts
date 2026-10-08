@@ -69,6 +69,26 @@ describe('runIngest', () => {
     expect((await readPublic('live.json')).messages.map((m: { id: string }) => m.id)).toContain('m7');
   });
 
+  describe('when storing the walked messages fails', () => {
+    const storeDown = () => watchedDb(/INSERT INTO messages/, { fail: true }).db;
+
+    it('does not save a resume cursor for a head walk it did not store', async () => {
+      const { c } = harness({ now: NOW, ccip: fakeCcip({ messages: six() }), db: storeDown() });
+      await expect(runIngest(c, { pageSize: 2, maxPages: 2 })).rejects.toThrow('D1_ERROR');
+      expect(await store.getMeta(env.DB, 'ingest_resume_cursor')).toBeNull();
+    });
+
+    it('keeps the old resume cursor, so the next run walks the same gap again', async () => {
+      await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: six() }) }).c, { pageSize: 2, maxPages: 2 });
+      const failed = harness({ now: NOW, ccip: fakeCcip({ messages: six() }), db: storeDown() });
+      await expect(runIngest(failed.c, { pageSize: 2, maxPages: 2 })).rejects.toThrow('D1_ERROR');
+      expect(await store.getMeta(env.DB, 'ingest_resume_cursor')).toBe('4');
+
+      await runIngest(harness({ now: NOW, ccip: fakeCcip({ messages: six() }) }).c, { pageSize: 2, maxPages: 2 });
+      expect(await count()).toBe(6);
+    });
+  });
+
   it('stores a message that appears on two consecutive pages only once', async () => {
     const m = six();
     const { c } = harness({ now: NOW, ccip: fakeCcip({ messages: [m[0]!, m[1]!, m[1]!, m[2]!] }) });

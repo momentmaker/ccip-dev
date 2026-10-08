@@ -1,7 +1,7 @@
 import { COIN_PRICE_DECIMALS, coingeckoKey } from '@ccip-dev/core';
 import { fakeCcip, fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runDetails } from '../src/jobs/details';
 import * as store from '../src/store';
@@ -208,6 +208,42 @@ describe('runDetails', () => {
     expect(alerts).toHaveLength(1);
     expect(alerts[0]!.signature).toMatch(/^detail-schema:/);
     expect((await row(detailToken.messageId))!.detail_fetched_at).toBe(NOW);
+  });
+
+  describe('when one message hits an infrastructure error', () => {
+    /** 'bad' fails validation, so its raw detail goes to an archive that is down; the valid detail is due after it. */
+    async function runWithArchiveDown() {
+      await store.upsertListRows(env.DB, [due('bad'), due(detailToken.messageId, { next_check_at: '2026-10-05T11:17:00.000Z' })], []);
+      const ccip = fakeCcip({ details: { bad: { messageId: 'bad', status: 5 }, [detailToken.messageId]: detailToken } });
+      const { c } = harness({ now: NOW, ccip });
+      const archiveDown = { ...env.ARCHIVE, put: async () => { throw new Error('R2 unavailable'); } } as unknown as R2Bucket;
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const outcome = await runDetails({ ...c, env: { ...c.env, ARCHIVE: archiveDown } }, { limit: 10 }).then(
+        () => null,
+        (err: unknown) => err,
+      );
+      const errors = logged.mock.calls.map((args) => String(args[0]));
+      logged.mockRestore();
+      return { outcome, errors };
+    }
+
+    it('still fills the other due messages', async () => {
+      await runWithArchiveDown();
+      expect((await row(detailToken.messageId))!.detail_fetched_at).toBe(NOW);
+    });
+
+    it('logs the failure with the message id and fails the run once the batch is done', async () => {
+      const { outcome, errors } = await runWithArchiveDown();
+      expect({ outcome: String(outcome), errors }).toEqual({
+        outcome: 'Error: 1 detail fill(s) failed; the first: bad: R2 unavailable',
+        errors: ['detail fill failed for bad: R2 unavailable'],
+      });
+    });
+
+    it('leaves the failed message due, so the next run retries it', async () => {
+      await runWithArchiveDown();
+      expect(await row('bad')).toMatchObject({ next_check_at: '2026-10-05T11:16:53.000Z', detail_fetched_at: null });
+    });
   });
 
   it('alerts once per CCIP version when the fee format is unknown', async () => {

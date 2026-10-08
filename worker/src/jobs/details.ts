@@ -22,14 +22,22 @@ export async function runDetails(
       : await store.dueForDetail(c.env.DB, c.deps.now().toISOString(), scope.limit);
   const loader = options.fallback ?? fallbackLoader(c);
   const outliers: string[] = [];
+  const failures: string[] = [];
   for (const id of ids) {
     if (options.deadline !== undefined && c.deps.now().getTime() > options.deadline) {
       console.warn(`detail fill stopped at its deadline; ${ids.length - ids.indexOf(id)} message(s) left for the per-minute job`);
       break;
     }
-    outliers.push(...(await fillOne(c, id, loader)));
+    try {
+      outliers.push(...(await fillOne(c, id, loader)));
+    } catch (err) {
+      const failure = `${id}: ${err instanceof Error ? err.message : String(err)}`;
+      console.error(`detail fill failed for ${failure}`);
+      failures.push(failure);
+    }
   }
   await alertPriceOutliers(c, outliers);
+  if (failures.length > 0) throw new Error(`${failures.length} detail fill(s) failed; the first: ${failures[0]}`);
 }
 
 /** Returns the token amounts valued above MAX_TRANSFER_USD, which were stored unpriced. */
