@@ -45,6 +45,53 @@ describe('messages', () => {
     expect((await status())?.status).toBe('SUCCESS');
   });
 
+  describe('a terminal status against a later list snapshot', () => {
+    const SEND_TS = '2026-10-08T10:00:00.000Z';
+    const RECEIPT_TS = '2026-10-08T10:02:00.000Z';
+    const stored = () =>
+      env.DB.prepare('SELECT status, receipt_ts, ready_for_manual_exec FROM messages WHERE message_id = ?')
+        .bind('t')
+        .first<{ status: string; receipt_ts: string | null; ready_for_manual_exec: number }>();
+    const upsert = (status: string, extras: { receiptTs?: string; readyForManualExecution?: boolean } = {}) =>
+      store.upsertListRows(env.DB, [liveRow({ id: 't', sendTs: SEND_TS, status, ...extras })], []);
+
+    it('keeps SUCCESS, with its receipt and manual-execution flag, when a pending status arrives', async () => {
+      await upsert('SUCCESS', { receiptTs: RECEIPT_TS });
+      await upsert('SENT', { readyForManualExecution: true });
+      expect(await stored()).toEqual({ status: 'SUCCESS', receipt_ts: RECEIPT_TS, ready_for_manual_exec: 0 });
+    });
+
+    it('keeps SUCCESS when a stale FAILED arrives', async () => {
+      await upsert('SUCCESS', { receiptTs: RECEIPT_TS });
+      await upsert('FAILED', { readyForManualExecution: true });
+      expect(await stored()).toEqual({ status: 'SUCCESS', receipt_ts: RECEIPT_TS, ready_for_manual_exec: 0 });
+    });
+
+    it('keeps FAILED, with its manual-execution flag, when a pending status arrives', async () => {
+      await upsert('FAILED', { readyForManualExecution: true });
+      await upsert('SENT');
+      expect(await stored()).toMatchObject({ status: 'FAILED', ready_for_manual_exec: 1 });
+    });
+
+    it('accepts SUCCESS over a pending status', async () => {
+      await upsert('SENT');
+      await upsert('SUCCESS', { receiptTs: RECEIPT_TS });
+      expect(await stored()).toEqual({ status: 'SUCCESS', receipt_ts: RECEIPT_TS, ready_for_manual_exec: 0 });
+    });
+
+    it('accepts SUCCESS over FAILED once the message is executed manually', async () => {
+      await upsert('FAILED', { readyForManualExecution: true });
+      await upsert('SUCCESS', { receiptTs: RECEIPT_TS });
+      expect(await stored()).toEqual({ status: 'SUCCESS', receipt_ts: RECEIPT_TS, ready_for_manual_exec: 0 });
+    });
+
+    it('accepts a FAILED snapshot over FAILED, so the manual-execution flag follows the API', async () => {
+      await upsert('FAILED');
+      await upsert('FAILED', { readyForManualExecution: true });
+      expect(await stored()).toMatchObject({ status: 'FAILED', ready_for_manual_exec: 1 });
+    });
+  });
+
   it('returns the newest live message id', async () => {
     await store.upsertListRows(
       env.DB,

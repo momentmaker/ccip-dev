@@ -69,6 +69,11 @@ export function insertTokenStatement(db: D1Database, t: TokenRow): D1PreparedSta
     .bind(t.message_id, t.idx, t.chain, t.token, t.amount, t.usd_value);
 }
 
+/**
+ * A list snapshot can be older than what the row already holds (a page read before the detail job stored SUCCESS), so a
+ * stored SUCCESS is never replaced, and a stored FAILED is replaced only by SUCCESS or a newer FAILED: such a stale row
+ * leaves status, receipt and manual-execution flag as they were.
+ */
 export async function upsertListRows(db: D1Database, rows: MessageRow[], tokens: TokenRow[]): Promise<void> {
   const insert = db.prepare(
     `INSERT INTO messages (${MESSAGE_COLUMNS.join(', ')}) VALUES (${placeholders(MESSAGE_COLUMNS.length)})
@@ -76,7 +81,9 @@ export async function upsertListRows(db: D1Database, rows: MessageRow[], tokens:
        status = CASE WHEN messages.status = 'UNRESOLVED' AND excluded.status NOT IN ('SUCCESS', 'FAILED')
                      THEN messages.status ELSE excluded.status END,
        receipt_ts = COALESCE(excluded.receipt_ts, messages.receipt_ts),
-       ready_for_manual_exec = excluded.ready_for_manual_exec`,
+       ready_for_manual_exec = excluded.ready_for_manual_exec
+     WHERE NOT ((messages.status = 'SUCCESS' AND excluded.status <> 'SUCCESS')
+             OR (messages.status = 'FAILED' AND excluded.status NOT IN ('SUCCESS', 'FAILED')))`,
   );
   await runBatch(db, [
     ...rows.map((r) => insert.bind(...MESSAGE_COLUMNS.map((c) => r[c]))),
