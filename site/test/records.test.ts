@@ -27,6 +27,12 @@ describe('computeRecords', () => {
     ]);
   });
 
+  it('counts a day for the fastest record from exactly 100 messages, not from 99', () => {
+    const fastestOf = (messages: number) => computeRecords([day('2026-10-01', messages, 0, 1, null, 5), day('2026-10-02', 500, 0, 1, null, 50)]).find((r) => r.key === 'fastest');
+    expect(fastestOf(100)).toMatchObject({ day: '2026-10-01', value: 5, display: '5s median' });
+    expect(fastestOf(99)).toMatchObject({ day: '2026-10-02', value: 50 });
+  });
+
   it('skips records no day qualifies for', () => {
     expect(computeRecords([day('2023-07-06', 2, 0, 1, null, null)]).map((r) => r.key)).toEqual(['busiest', 'biggest', 'senders']);
     expect(computeRecords([])).toEqual([]);
