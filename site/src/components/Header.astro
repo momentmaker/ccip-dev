@@ -72,8 +72,13 @@ const isCurrent = (match: string) => isCurrentPath(path, match);
     };
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape' || !menu.open) return;
+      const focusInside = menu.contains(document.activeElement);
       close();
-      menu.querySelector('summary')?.focus();
+      if (focusInside) menu.querySelector('summary')?.focus();
+    });
+    menu.addEventListener('focusout', (e) => {
+      const next = e.relatedTarget as Node | null;
+      if (next && !menu.contains(next)) close();
     });
     document.addEventListener('pointerdown', (e) => {
       if (menu.open && !menu.contains(e.target as Node)) close();
