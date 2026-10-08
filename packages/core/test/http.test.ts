@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createThrottle, getJson, issuePath, parseWith, UpstreamHttpError, UpstreamSchemaError, USER_AGENT } from '../src/http';
 import { fakeFetch, jsonResponse } from '../src/testing';
@@ -57,6 +57,20 @@ describe('getJson', () => {
     const { deps: d } = deps(fakeFetch(() => (n++ === 0 ? unread() : jsonResponse({ ok: 1 }))));
     await getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 4 });
     expect(cancelled).toBe(true);
+  });
+
+  it('still retries, and warns, when cancelling the retried body fails', async () => {
+    let n = 0;
+    const stuck = () => new Response(new ReadableStream({ cancel: () => { throw new Error('cancel refused'); } }), { status: 503 });
+    const { deps: d } = deps(fakeFetch(() => (n++ === 0 ? stuck() : jsonResponse({ ok: 1 }))));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 4 }).catch((err: unknown) => err);
+    const warnings = warn.mock.calls.map((args) => String(args[0]));
+    warn.mockRestore();
+    expect({ result, warnings }).toEqual({
+      result: { ok: 1 },
+      warnings: ['GET /a: could not cancel the body of a retried HTTP 503 response: cancel refused'],
+    });
   });
 
   it('does not retry a 404', async () => {

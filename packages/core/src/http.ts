@@ -57,7 +57,10 @@ export async function getJson(deps: HttpDeps, url: string, opts: GetJsonOptions)
     if (res.ok) return res.json();
     const retryable = res.status === 429 || res.status >= 500;
     if (!retryable || attempt >= opts.maxRetries) throw new UpstreamHttpError(opts.endpoint, res.status);
-    await res.body?.cancel();
+    await res.body?.cancel().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`${opts.endpoint}: could not cancel the body of a retried HTTP ${res.status} response: ${message}`);
+    });
     await deps.sleep(retryAfterMs(res) ?? backoffMs(attempt));
   }
 }
