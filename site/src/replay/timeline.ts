@@ -114,6 +114,7 @@ export class ReplayModel {
   private readonly firstDayIndex: number[];
   private readonly coinSets: number[][];
   private readonly spawnCache = new Map<number, Spawn[]>();
+  private starValueCache: { dayIndex: number; values: Map<number, number>; maxValue: number } | null = null;
 
   constructor(
     private readonly replay: ReplayFile,
@@ -160,6 +161,21 @@ export class ReplayModel {
       this.spawnCache.set(i, cached);
     }
     return cached;
+  }
+
+  private starValues(dayIndex: number): { values: Map<number, number>; maxValue: number } {
+    if (this.starValueCache?.dayIndex === dayIndex) return this.starValueCache;
+    const values = new Map<number, number>();
+    for (let d = Math.max(0, dayIndex - STAR_WINDOW_DAYS + 1); d <= dayIndex; d++) {
+      for (const [lane, , usd] of this.lanesByDay.get(this.days[d]!) ?? []) {
+        for (const chain of this.replay.lanes[lane] ?? []) {
+          const star = this.starOfChain[chain] ?? -1;
+          if (star >= 0) values.set(star, (values.get(star) ?? 0) + usd);
+        }
+      }
+    }
+    this.starValueCache = { dayIndex, values, maxValue: Math.max(0, ...values.values()) };
+    return this.starValueCache;
   }
 
   private dailyCoinSets(opts: CoinOptions): number[][] {
@@ -213,16 +229,7 @@ export class ReplayModel {
     const dayIndex = Math.min(this.warp.dayAt(Math.min(time, this.warp.end - 1e-9)).index, this.days.length - 1);
     const day = this.days[dayIndex]!;
 
-    const values = new Map<number, number>();
-    for (let d = Math.max(0, dayIndex - STAR_WINDOW_DAYS + 1); d <= dayIndex; d++) {
-      for (const [lane, , usd] of this.lanesByDay.get(this.days[d]!) ?? []) {
-        for (const chain of this.replay.lanes[lane] ?? []) {
-          const star = this.starOfChain[chain] ?? -1;
-          if (star >= 0) values.set(star, (values.get(star) ?? 0) + usd);
-        }
-      }
-    }
-    const maxValue = Math.max(0, ...values.values());
+    const { values, maxValue } = this.starValues(dayIndex);
     const rings: SkyFrame['rings'] = [];
     let extent = this.stars.length > 0 ? Math.hypot(this.stars[0]!.x, this.stars[0]!.y) : 1;
     const stars = this.stars.map((s, i) => {

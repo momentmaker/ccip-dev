@@ -73,6 +73,23 @@ describe('ReplayModel', () => {
     expect(model().frameAt(20)).toEqual(model().frameAt(20));
   });
 
+  it('matches a fresh model for the same time twice, across a day change, and when scrubbing back a day', () => {
+    const used = model();
+    for (const t of [20, 20, 35, 35, 20, 5, 50, 50, 19.9]) expect(used.frameAt(t)).toEqual(model().frameAt(t));
+  });
+
+  it('reads the star values from the replay once per day, not once per frame', () => {
+    let reads = 0;
+    const counted = { ...replay, lanes: new Proxy(replay.lanes, { get: (target, key, receiver) => { reads++; return Reflect.get(target, key, receiver); } }) } as ReplayFile;
+    const m = new ReplayModel(counted, history, stars, 60);
+    reads = 0;
+    m.frameAt(20);
+    const first = reads;
+    reads = 0;
+    m.frameAt(20.5);
+    expect(reads).toBeLessThan(first);
+  });
+
   it('renders the same frames whatever order they are asked for in', () => {
     const used = model();
     used.frameAt(50);
