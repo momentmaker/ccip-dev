@@ -34,6 +34,23 @@ describe('createAlerter', () => {
     expect(f.calls).toHaveLength(3);
   });
 
+  it('sends once when two runs raise the same signature at the same time', async () => {
+    const first = setup('TOKEN');
+    const second = setup('TOKEN');
+    await Promise.all([first.alert('a', 'from one cron'), second.alert('a', 'from another cron')]);
+    expect(first.f.calls.length + second.f.calls.length).toBe(1);
+  });
+
+  it('sends again once the hour has passed since the last send', async () => {
+    const { alert, f, advance } = setup('TOKEN');
+    await alert('a', 'one');
+    advance(3_599_999);
+    await alert('a', 'two');
+    advance(1);
+    await alert('a', 'three');
+    expect(f.calls.map((c) => JSON.parse(String(c.init?.body)).text)).toEqual(['ccip.dev alert: one', 'ccip.dev alert: three']);
+  });
+
   it('logs instead of sending when no bot token is configured', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { alert, f } = setup(undefined);

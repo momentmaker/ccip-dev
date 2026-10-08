@@ -42,6 +42,23 @@ export async function setMeta(db: D1Database, key: string, value: string | null)
     .run();
 }
 
+/**
+ * Writes `value` under `key` in one statement unless the stored value sorts after `staleAtOrBefore`, and returns whether
+ * this call wrote it, so of several runs racing for the same key exactly one wins.
+ */
+export async function claimMeta(db: D1Database, key: string, value: string, staleAtOrBefore: string): Promise<boolean> {
+  const result = await db
+    .prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE meta.value <= ?3')
+    .bind(key, value, staleAtOrBefore)
+    .run();
+  return result.meta.changes > 0;
+}
+
+/** Deletes `key` only while it still holds `value`, so releasing a claim never drops a newer one. */
+export async function releaseMeta(db: D1Database, key: string, value: string): Promise<void> {
+  await db.prepare('DELETE FROM meta WHERE key = ? AND value = ?').bind(key, value).run();
+}
+
 export async function knownIds(db: D1Database, ids: string[]): Promise<Set<string>> {
   const known = new Set<string>();
   for (const chunk of chunks(ids, PARAM_CHUNK)) {
