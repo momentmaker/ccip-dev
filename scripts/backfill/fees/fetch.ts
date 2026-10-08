@@ -1,11 +1,10 @@
-import { existsSync } from 'node:fs';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CCIP_API_BASE, DetailMessage, issuePath, normalizeDetail, retryAfterMs, USER_AGENT } from '@ccip-dev/core';
 import { writeFileAtomic } from '../crawl';
 import { AdaptiveRate, Pacer } from './rate';
-import { appendRecords, listArchiveDays, listSealedDays, readArchiveDay, readPartial, readSealedDay, saveUnparsed, sealDay, type DetailRecord } from './store';
+import { appendRecords, listArchiveDays, listSealedDays, readArchiveDay, readPartial, readSealedDay, readStateFile, saveUnparsed, sealDay, type DetailRecord } from './store';
 
 export interface FetchDeps {
   fetch: typeof fetch;
@@ -28,6 +27,8 @@ export interface FetchOptions {
   maxAttempts?: number;
   stallMs?: number;
   rate?: AdaptiveRate;
+  /** Days sealed even over the failure ceiling, for a day that keeps failing on reruns hours apart. */
+  acceptFailures?: string[];
   log?: (line: string) => void;
 }
 
@@ -96,7 +97,9 @@ interface Heartbeat {
 
 /**
  * Fetches every listed id with a shared pacer and a pool of workers.
- * A failed id waits 30 s, 60 s, 120 s ... before its next try, so the retries of one id outlast the stall window and an outage stops the run before any id is given up on.
+ * A failed id is retried after 5, 10, 20, 40 and 80 s. It becomes a "failed N times" skip only if the API answered something after its
+ * first failure; otherwise it keeps retrying every 80 s. So an outage, even on a day of a few messages, ends at the stall check (a canary
+ * request for the last id that worked) rather than in skips. The caller's per-day ceiling catches a day where too many ids were given up on.
  */
 async function fetchAll(
   ids: string[],
@@ -183,7 +186,7 @@ async function fetchAll(
       const previous = attempts.get(id);
       const failures = (previous?.failures ?? 0) + 1;
       const firstFailureAt = previous?.firstFailureAt ?? now;
-      if (failures >= opts.maxAttempts) {
+      if (failures >= opts.maxAttempts && heartbeat.at > firstFailureAt) {
         const minutes = Math.round((now - firstFailureAt) / 60_000);
         settle({ id, kind: 'skip', fetchedAt: iso(), status: outcome.status, reason: `failed ${failures} times over ${minutes} min: ${outcome.message}` });
       } else {
@@ -235,7 +238,10 @@ function settings(opts: FetchOptions) {
   };
 }
 
-const isFailure = (r: DetailRecord) => r.kind === 'skip' && r.reason.startsWith('failed ');
+/** A retried-out or schema-failed message is fetched again on a rerun; an unknown fee shape is not, since the same answer would come back. */
+const isRefetched = (r: DetailRecord) => r.kind === 'skip' && (r.reason.startsWith('failed ') || r.reason.startsWith('schema:'));
+const isUnusable = (r: DetailRecord) => isRefetched(r) || (r.kind === 'ok' && r.feeShapeUnknown);
+const unusableReason = (r: DetailRecord) => (r.kind === 'skip' ? r.reason : `unknown fee shape, version ${r.version ?? 'none'}`);
 
 function idsOf(raw: unknown[], day: string): string[] {
   return raw.map((m) => {
@@ -250,9 +256,8 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
   const s = settings(opts);
   await mkdir(path.join(opts.dir, 'fees'), { recursive: true });
   const statePath = path.join(opts.dir, 'fees', 'state.json');
-  const state: FetchState = existsSync(statePath)
-    ? (JSON.parse(await readFile(statePath, 'utf8')) as FetchState)
-    : { done: [], fetched: 0, skipped: 0, versions: {}, unknownShapes: 0 };
+  const state = await readStateFile<FetchState>(statePath, { done: [], fetched: 0, skipped: 0, versions: {}, unknownShapes: 0 });
+  const accepted = new Set(opts.acceptFailures ?? []);
   const tally = (records: DetailRecord[]) => {
     for (const r of records) {
       if (r.kind === 'skip') state.skipped += 1;
@@ -281,20 +286,20 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
   let fetchedThisRun = 0;
 
   for (const day of days) {
-    const earlier = (await readPartial(opts.dir, day)).filter((r) => !isFailure(r));
+    const earlier = (await readPartial(opts.dir, day)).filter((r) => !isRefetched(r));
     const known = new Set(earlier.map((r) => r.id));
     const dayIds = perDay.get(day)!;
     const ids = dayIds.filter((id) => !known.has(id));
     const skippedBefore = state.skipped;
     tally(earlier);
-    const failures: string[] = [];
+    const unusable = earlier.filter(isUnusable).map(unusableReason);
     await fetchAll(ids, s, async (records) => {
       tally(records);
-      failures.push(...records.filter(isFailure).map((r) => (r as { reason: string }).reason));
+      unusable.push(...records.filter(isUnusable).map(unusableReason));
       await appendRecords(opts.dir, day, records);
     });
-    if (failures.length > Math.max(5, Math.ceil(0.05 * dayIds.length))) {
-      throw new Error(`${day}: ${failures.length} of ${dayIds.length} messages kept failing (${failures[0]}); the CCIP API may be degraded. Rerun later to retry them`);
+    if (!accepted.has(day) && unusable.length > Math.max(5, Math.ceil(0.05 * dayIds.length))) {
+      throw new Error(`${day}: ${unusable.length} of ${dayIds.length} messages kept failing (${unusable[0]}); the CCIP API may be degraded. Rerun later to retry them`);
     }
     const count = await sealDay(opts.dir, day);
     state.fetched += count;
@@ -340,6 +345,16 @@ export async function runProbe(opts: FetchOptions & { count?: number }): Promise
   return summary;
 }
 
+/** Every `--accept-failures <YYYY-MM-DD>`; a mistyped day would otherwise match nothing and the crawl would stop on it again. */
+export function parseAcceptFailures(argv: string[]): string[] {
+  return argv.flatMap((arg, i) => {
+    if (arg !== '--accept-failures') return [];
+    const day = argv[i + 1];
+    if (day === undefined || !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error(`--accept-failures takes a day as YYYY-MM-DD, not ${day ?? 'nothing'}`);
+    return [day];
+  });
+}
+
 const histogram = (versions: Record<string, number>) =>
   Object.entries(versions).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v}:${n}`).join(' ') || 'no versions';
 
@@ -354,7 +369,8 @@ async function main(): Promise<void> {
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
   const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
-  const result = process.argv.includes('--probe') ? await runProbe({ dir: '.backfill', deps, log }) : await runFetch({ dir: '.backfill', deps, log });
+  const acceptFailures = parseAcceptFailures(process.argv);
+  const result = process.argv.includes('--probe') ? await runProbe({ dir: '.backfill', deps, log }) : await runFetch({ dir: '.backfill', deps, log, acceptFailures });
   console.log(JSON.stringify(result, null, 2));
 }
 

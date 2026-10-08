@@ -5,7 +5,7 @@ import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { USER_AGENT } from '@ccip-dev/core';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
-import { fetchDetail, recordFromBody, runFetch, runProbe, type FetchDeps } from '../backfill/fees/fetch';
+import { fetchDetail, parseAcceptFailures, recordFromBody, runFetch, runProbe, type FetchDeps } from '../backfill/fees/fetch';
 import { listSealedDays, readSealedDay, sealDay } from '../backfill/fees/store';
 
 type Reply = { status: number; body?: string; headers?: Record<string, string> };
@@ -31,6 +31,8 @@ function fakeApi(replies: Record<string, Reply | Reply[]>) {
 }
 
 const detail = (id: string) => JSON.stringify({ ...detailToken, messageId: id });
+const unknownShape = (id: string) => JSON.stringify({ ...detailToken, messageId: id, fees: { weird: 1 } });
+const schemaFailure = JSON.stringify({ nope: true });
 
 async function backfill(days: Record<string, string[]>): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), 'fees-fetch-'));
@@ -124,15 +126,6 @@ describe('runFetch', () => {
     expect(sealed.map((r) => `${r.id}:${r.kind}`).sort()).toEqual(['0xa:ok', '0xgone:skip']);
   });
 
-  it('gives up on a message after six failures and records why', async () => {
-    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
-    const { deps, calls } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
-    await runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60 * 60_000 });
-    expect(calls.filter((c) => c === '0xb')).toHaveLength(6);
-    const skip = (await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb');
-    expect(skip).toMatchObject({ kind: 'skip', reason: expect.stringMatching(/^failed 6 times/) });
-  });
-
   it('stops when nothing has been answered for fifteen minutes', async () => {
     const dir = await backfill({ '2026-10-04': Array.from({ length: 400 }, (_, i) => `0x${i}`) });
     const { deps } = fakeApi(Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`0x${i}`, { status: 429, headers: { 'retry-after': '30' } }])));
@@ -180,7 +173,7 @@ describe('runFetch outages and refusals', () => {
     const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
 
     // #then
-    await expect(run).rejects.toThrow(/kept failing/);
+    await expect(run).rejects.toThrow(/answered nothing for 15 minutes/);
     expect(await listSealedDays(dir)).toEqual([]);
   });
 
@@ -191,7 +184,7 @@ describe('runFetch outages and refusals', () => {
     expect((await readSealedDay(dir, '2026-10-04')).map((r) => r.kind)).toEqual(['ok']);
   });
 
-  it('skips one stubborn message with the default stall window while the API is healthy', async () => {
+  it('skips a lone stubborn message once the canary shows the API is answering', async () => {
     // #given
     const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
     const { deps } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
@@ -201,7 +194,7 @@ describe('runFetch outages and refusals', () => {
 
     // #then
     const skip = (await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb');
-    expect({ done: state.done, skip }).toMatchObject({ done: ['2026-10-04'], skip: { kind: 'skip', reason: expect.stringMatching(/^failed 6 times over/) } });
+    expect({ done: state.done, skip }).toMatchObject({ done: ['2026-10-04'], skip: { kind: 'skip', reason: expect.stringMatching(/^failed \d+ times over/) } });
   });
 
   it('stops when the API goes down after some answers and the canary fails too', async () => {
@@ -263,7 +256,7 @@ async function runTimed<T>(start: () => Promise<T>, clock: { drain: () => Promis
   return run;
 }
 
-function timedApi(replies: Record<string, Reply>) {
+function timedApi(replies: Record<string, Reply> | ((id: string, at: number) => Reply)) {
   let t = Date.parse('2026-10-08T00:00:00Z');
   const pending: { at: number; wake: () => void }[] = [];
   const times: Record<string, number[]> = {};
@@ -273,7 +266,7 @@ function timedApi(replies: Record<string, Reply>) {
     fetch: (async (input: string | URL) => {
       const id = decodeURIComponent(String(input).split('/messages/')[1]!);
       (times[id] ??= []).push(t);
-      const reply = replies[id] ?? { status: 404 };
+      const reply = typeof replies === 'function' ? replies(id, t) : replies[id] ?? { status: 404 };
       return new Response(reply.body ?? '', { status: reply.status });
     }) as typeof fetch,
   };
@@ -292,8 +285,8 @@ function timedApi(replies: Record<string, Reply>) {
 describe('runFetch retry spacing and degradation', () => {
   it('retries a failing message after 5, 10, 20, 40 and 80 seconds', async () => {
     // #given
-    const dir = await backfill({ '2026-10-04': ['0xb'] });
-    const { deps, times, clock } = timedApi({ '0xb': { status: 502 } });
+    const dir = await backfill({ '2026-10-04': ['0xb', '0xa'] });
+    const { deps, times, clock } = timedApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
 
     // #when
     await runTimed(() => runFetch({ dir, deps, baseUrl: 'https://api.test' }), clock);
@@ -313,7 +306,7 @@ describe('runFetch retry spacing and degradation', () => {
     const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
 
     // #then
-    await expect(run).rejects.toThrow(/2026-10-04: 8 of 10 messages kept failing \(failed 6 times.*\); the CCIP API may be degraded\. Rerun later to retry them/);
+    await expect(run).rejects.toThrow(/2026-10-04: 8 of 10 messages kept failing \(failed \d+ times.*\); the CCIP API may be degraded\. Rerun later to retry them/);
     expect(await listSealedDays(dir)).toEqual([]);
   });
 
@@ -349,5 +342,147 @@ describe('runFetch retry spacing and degradation', () => {
     const down = Array.from({ length: 50 }, () => ({ status: 403 }));
     const { deps } = fakeApi({ '0xa': [{ status: 200, body: detail('0xa') }, ...down], '0xb': { status: 502 } });
     await expect(runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60_000 })).rejects.toThrow(/refused the crawl with HTTP 403/);
+  });
+});
+
+describe('runFetch schema failures and unknown fee shapes', () => {
+  it('stops with the degraded message when every response fails the schema', async () => {
+    // #given
+    const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+    const dir = await backfill({ '2026-10-04': ids });
+    const { deps } = fakeApi(Object.fromEntries(ids.map((id) => [id, { status: 200, body: schemaFailure }])));
+
+    // #when
+    const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(run).rejects.toThrow(/^2026-10-04: 10 of 10 messages kept failing \(schema: .*\); the CCIP API may be degraded/);
+  });
+
+  it('stops with the degraded message when most responses have an unknown fee shape', async () => {
+    // #given
+    const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+    const dir = await backfill({ '2026-10-04': ids });
+    const { deps } = fakeApi(Object.fromEntries(ids.map((id) => [id, { status: 200, body: unknownShape(id) }])));
+
+    // #when
+    const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(run).rejects.toThrow(/^2026-10-04: 10 of 10 messages kept failing \(unknown fee shape/);
+  });
+
+  it('refetches a schema failure from the partial file on resume', async () => {
+    // #given
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    const earlier = [recordFromBody('0xa', { nope: true }, 't').record, recordFromBody('0xb', JSON.parse(detail('0xb')), 't').record];
+    await writeFile(partial, earlier.map((r) => `${JSON.stringify(r)}\n`).join(''));
+    const { deps, calls } = fakeApi({ '0xa': { status: 200, body: detail('0xa') } });
+
+    // #when
+    await runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    expect(calls).toEqual(['0xa']);
+  });
+
+  it('keeps the unknown fee shapes of a resumed day without refetching them, and still counts them', async () => {
+    // #given
+    const ids = Array.from({ length: 6 }, (_, i) => `0x${i}`);
+    const dir = await backfill({ '2026-10-04': ids });
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, ids.map((id) => `${JSON.stringify(recordFromBody(id, JSON.parse(unknownShape(id)), 't').record)}\n`).join(''));
+    const { deps, calls } = fakeApi(Object.fromEntries(ids.map((id) => [id, { status: 200, body: detail(id) }])));
+
+    // #when
+    const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(run).rejects.toThrow(/6 of 6 messages kept failing \(unknown fee shape/);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe('runFetch outages on small days', () => {
+  it('keeps retrying a 5-message day through a 5-minute outage instead of sealing it as skips', async () => {
+    // #given
+    const ids = ['0x1', '0x2', '0x3', '0x4', '0x5'];
+    const dir = await backfill({ '2026-10-04': ids });
+    const start = Date.parse('2026-10-08T00:00:00Z');
+    const { deps, clock } = timedApi((id, at) => (at - start < 300_000 ? { status: 502 } : { status: 200, body: detail(id) }));
+
+    // #when
+    await runTimed(() => runFetch({ dir, deps, baseUrl: 'https://api.test' }), clock);
+
+    // #then
+    expect([...new Set((await readSealedDay(dir, '2026-10-04')).map((r) => r.kind))]).toEqual(['ok']);
+  });
+
+  it('stops with the stall error when a small day never gets an answer', async () => {
+    // #given
+    const ids = ['0x1', '0x2', '0x3'];
+    const dir = await backfill({ '2026-10-04': ids });
+    const { deps, clock } = timedApi(() => ({ status: 502 }));
+
+    // #when
+    const run = runTimed(() => runFetch({ dir, deps, baseUrl: 'https://api.test' }), clock);
+
+    // #then
+    await expect(run).rejects.toThrow(/answered nothing for 15 minutes/);
+  });
+
+  it('gives up on a stubborn message after its retries while other messages are answered', async () => {
+    // #given
+    const dir = await backfill({ '2026-10-04': ['0xb', '0xa'] });
+    const { deps, clock } = timedApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
+
+    // #when
+    await runTimed(() => runFetch({ dir, deps, baseUrl: 'https://api.test' }), clock);
+
+    // #then
+    expect((await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb')).toMatchObject({ kind: 'skip', reason: expect.stringMatching(/^failed 6 times over 3 min: HTTP 502/) });
+  });
+});
+
+describe('runFetch accepted failures', () => {
+  it('seals a day over the failure ceiling and marks it done when the day is listed in acceptFailures', async () => {
+    // #given
+    const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+    const dir = await backfill({ '2026-10-04': ids });
+    const { deps } = fakeApi(Object.fromEntries(ids.map((id, i) => [id, i < 2 ? { status: 200, body: detail(id) } : { status: 502 }])));
+
+    // #when
+    const state = await runFetch({ dir, deps, baseUrl: 'https://api.test', acceptFailures: ['2026-10-04'] });
+
+    // #then
+    expect({ done: state.done, sealed: await listSealedDays(dir) }).toEqual({ done: ['2026-10-04'], sealed: ['2026-10-04'] });
+  });
+
+  it('reads every --accept-failures day from the command line', () => {
+    expect(parseAcceptFailures(['--accept-failures', '2024-01-05', '--probe', '--accept-failures', '2024-01-06'])).toEqual(['2024-01-05', '2024-01-06']);
+  });
+
+  it('refuses an --accept-failures day not written as YYYY-MM-DD', () => {
+    expect(() => parseAcceptFailures(['--accept-failures', '2024-1-5'])).toThrow('--accept-failures takes a day as YYYY-MM-DD, not 2024-1-5');
+  });
+});
+
+describe('runFetch state file', () => {
+  it('names state.json when it is corrupt', async () => {
+    // #given
+    const dir = await backfill({ '2026-10-04': ['0xa'] });
+    const statePath = path.join(dir, 'fees', 'state.json');
+    await mkdir(path.dirname(statePath), { recursive: true });
+    await writeFile(statePath, '{"done": [');
+    const { deps } = fakeApi({});
+
+    // #when
+    const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(run).rejects.toThrow(`${statePath}: `);
   });
 });

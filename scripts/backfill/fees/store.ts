@@ -92,6 +92,17 @@ export async function readSealedDay(dir: string, day: string): Promise<DetailRec
   return (await readLines(sealedFile(dir, day), { gzipped: true, tolerateCutLastLine: false })) as DetailRecord[];
 }
 
+/** A state file the scripts write, or `fresh` when there is none yet. A corrupt one names its path, since the runbook says which are safe to delete. */
+export async function readStateFile<T>(file: string, fresh: T): Promise<T> {
+  if (!existsSync(file)) return fresh;
+  const text = await readFile(file, 'utf8');
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    throw new Error(`${file}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+  }
+}
+
 export async function saveUnparsed(dir: string, id: string, body: unknown): Promise<void> {
   const file = path.join(dir, 'fees', 'unparsed', `${id}.json`);
   await mkdir(path.dirname(file), { recursive: true });
