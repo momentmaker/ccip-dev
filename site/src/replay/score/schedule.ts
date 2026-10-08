@@ -12,13 +12,16 @@ export const PROGRESSION = [
   [48, 55, 60, 64],
 ] as const;
 export const FINAL_CHORD = [50, 57, 62, 66, 69, 73, 76] as const;
+const CADENCE_CHORD = PROGRESSION[1];
 const RUN = [74, 76, 77, 79, 81, 86] as const;
 export const CHORD_S = BEAT_S * 8;
 const PAD_CUTOFF_MIN = 0.2;
+const PAD_TAIL = { release: 1.2, send: 0.35 } as const;
+const CADENCE_TAIL = { release: 0.2, send: 0 } as const;
 const PULSE_GAIN_MIN = 0.3;
 
 export type ScoreEvent =
-  | { kind: 'pad'; time: number; duration: number; chord: readonly number[]; cutoff: number }
+  | { kind: 'pad'; time: number; duration: number; chord: readonly number[]; cutoff: number; release: number; send: number }
   | { kind: 'pulse'; time: number; gain: number }
   | { kind: 'pluck'; time: number; note: number; gain: number }
   | { kind: 'chime'; time: number; note: number }
@@ -60,7 +63,9 @@ export function scoreFor(show: ScoreSource): ScoreEvent[] {
   const events: ScoreEvent[] = [];
   for (let i = 0, t = 0; t < finaleStart; i++, t += CHORD_S) {
     const cutoff = PAD_CUTOFF_MIN + (1 - PAD_CUTOFF_MIN) * clamp01(show.frameAt(t).story.usd / finalUsd);
-    events.push({ kind: 'pad', time: t, duration: Math.min(CHORD_S, finaleStart - t), chord: PROGRESSION[i % PROGRESSION.length]!, cutoff });
+    const cadence = t + CHORD_S >= finaleStart;
+    const chord = cadence ? CADENCE_CHORD : PROGRESSION[i % PROGRESSION.length]!;
+    events.push({ kind: 'pad', time: t, duration: Math.min(CHORD_S, finaleStart - t), chord, cutoff, ...(cadence ? CADENCE_TAIL : PAD_TAIL) });
   }
   for (let t = Math.ceil(storyStart / BEAT_S) * BEAT_S; t < finaleStart; t += BEAT_S) {
     const messages = daily[show.warp.dayAt(t).index] ?? 0;

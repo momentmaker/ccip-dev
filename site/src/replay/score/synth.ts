@@ -7,6 +7,7 @@ const REVERB_S = 2.6;
 const FADE_IN_S = 0.4;
 const FADE_OUT_S = 0.5;
 const SILENT = 0.0001;
+const SWELL_TAIL = { release: 1.2, send: 0.35 } as const;
 
 export function midiHz(note: number): number {
   return 440 * 2 ** ((note - 69) / 12);
@@ -63,7 +64,7 @@ function tone(v: Voices, type: OscillatorType, freq: number, at: number, peak: n
   osc.stop(at + attack + decay + 0.05);
 }
 
-function chord(v: Voices, notes: readonly number[], at: number, duration: number, from: number, to: number, peak: number): void {
+function chord(v: Voices, notes: readonly number[], at: number, duration: number, from: number, to: number, peak: number, tail: { release: number; send: number }): void {
   const filter = v.ctx.createBiquadFilter();
   filter.type = 'lowpass';
   filter.Q.value = 0.7;
@@ -74,13 +75,15 @@ function chord(v: Voices, notes: readonly number[], at: number, duration: number
   g.gain.setValueAtTime(0, at);
   g.gain.linearRampToValueAtTime(peak, at + attack);
   g.gain.setValueAtTime(peak, at + duration);
-  g.gain.linearRampToValueAtTime(0, at + duration + 1.2);
+  g.gain.linearRampToValueAtTime(0, at + duration + tail.release);
   filter.connect(g);
   g.connect(v.dry);
-  const send = v.ctx.createGain();
-  send.gain.value = 0.35;
-  g.connect(send);
-  send.connect(v.wet);
+  if (tail.send > 0) {
+    const send = v.ctx.createGain();
+    send.gain.value = tail.send;
+    g.connect(send);
+    send.connect(v.wet);
+  }
   for (const note of notes) {
     for (const detune of [-7, 0, 7]) {
       const osc = v.ctx.createOscillator();
@@ -89,7 +92,7 @@ function chord(v: Voices, notes: readonly number[], at: number, duration: number
       osc.detune.setValueAtTime(detune, at);
       osc.connect(filter);
       osc.start(at);
-      osc.stop(at + duration + 1.3);
+      osc.stop(at + duration + tail.release + 0.1);
     }
   }
 }
@@ -167,7 +170,7 @@ export async function renderScore(
   for (const e of events) {
     switch (e.kind) {
       case 'pad':
-        chord(voices, e.chord, e.time, e.duration, 300 + 2600 * e.cutoff, 300 + 2600 * e.cutoff, 0.035);
+        chord(voices, e.chord, e.time, e.duration, 300 + 2600 * e.cutoff, 300 + 2600 * e.cutoff, 0.035, e);
         break;
       case 'pulse':
         pulse(voices, e.time, e.gain);
@@ -186,7 +189,7 @@ export async function renderScore(
         e.notes.forEach((note, i) => tone(voices, 'triangle', midiHz(note), e.time + i * 0.07, 0.1, 0.005, 0.5, 0.5));
         break;
       case 'swell':
-        chord(voices, e.chord, e.time, e.duration, 400, 3200, 0.05);
+        chord(voices, e.chord, e.time, e.duration, 400, 3200, 0.05, SWELL_TAIL);
         break;
     }
   }

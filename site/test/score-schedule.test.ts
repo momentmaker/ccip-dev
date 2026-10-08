@@ -102,6 +102,27 @@ describe('scoreFor', () => {
     for (const chord of PROGRESSION) for (const note of chord) expect(dorian.has(note % 12)).toBe(true);
   });
 
+  it('cadences into the finale on G: every pad still sounding at the finale start is D major, short and dry', () => {
+    const dMajor = new Set([2, 4, 6, 7, 9, 11, 1]);
+    for (const length of [15, 30, 60] as const) {
+      const s = show(length);
+      const finaleStart = length - s.timing.finale;
+      const pads = scoreFor(s).filter((e): e is Pad => e.kind === 'pad');
+      const sounding = pads.filter((p) => p.time < finaleStart && p.time + p.duration + p.release > finaleStart);
+      expect(sounding.length).toBeGreaterThan(0);
+      for (const p of sounding) {
+        expect(p.chord.every((note) => dMajor.has(note % 12))).toBe(true);
+        expect(p.release).toBeLessThanOrEqual(0.2);
+        expect(p.send).toBe(0);
+      }
+    }
+  });
+
+  it('keeps the long, wet release on the pads before the cadence', () => {
+    const pads = scoreFor(show(60)).filter((e): e is Pad => e.kind === 'pad');
+    for (const p of pads.slice(0, -1)) expect([p.release, p.send]).toEqual([1.2, 0.35]);
+  });
+
   it('changes the pad chord every CHORD_S', () => {
     const pads = scoreFor(show()).filter((e): e is Pad => e.kind === 'pad');
     expect(pads[1]!.time - pads[0]!.time).toBeCloseTo(CHORD_S);
