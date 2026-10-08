@@ -14,7 +14,7 @@ const FAILED_FILL_RETRY_MINUTES = 60;
 
 /**
  * Thrown once a detail run has finished when some fills failed; each was logged and pushed back. In day mode a detail
- * request the API answered with an error (not a 404) counts too.
+ * request that a later retry could answer (429, 5xx or a network error) counts too.
  */
 export class DetailFillError extends Error {
   constructor(readonly failures: string[]) {
@@ -69,7 +69,7 @@ async function pushBackFailedFill(c: RunContext, id: string): Promise<void> {
 interface FillOutcome {
   /** Token amounts valued above MAX_TRANSFER_USD, which were stored unpriced. */
   outliers: string[];
-  /** Why the detail request failed when the API answered with an error rather than a 404; the message was pushed back. */
+  /** Why the detail request failed when a later retry could succeed (429, 5xx or a network error); the message was pushed back. */
   requestError: string | null;
 }
 
@@ -85,8 +85,8 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`detail fetch failed for ${id}: ${message}`);
     await store.pushBack(db, id, later(10), now.toISOString());
-    const noDetail = err instanceof UpstreamHttpError && err.status === 404;
-    return { outliers: [], requestError: noDetail ? null : message };
+    const retryable = !(err instanceof UpstreamHttpError) || err.status === 429 || err.status >= 500;
+    return { outliers: [], requestError: retryable ? message : null };
   }
 
   const parsed = DetailMessage.safeParse(raw);

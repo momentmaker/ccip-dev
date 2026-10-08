@@ -3,7 +3,7 @@ import { fakeCcip, fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
-import { runDetails } from '../src/jobs/details';
+import { DetailFillError, runDetails } from '../src/jobs/details';
 import * as store from '../src/store';
 import { COINGECKO_IDS_SQL, harness, liveRow, resetStorage, seedRegistry, TOKEN_GROUPS_SQL, watchedDb } from './helpers';
 
@@ -366,6 +366,21 @@ describe('runDetails', () => {
     it('in day mode, does not count a 404, since the API has no detail to retry for', async () => {
       await store.upsertListRows(env.DB, [due('missing')], []);
       await expect(runDetails(harness({ now: NOW, ccip: fakeCcip({ details: {} }) }).c, { day: '2026-10-05' })).resolves.toBeUndefined();
+    });
+
+    it.each([400, 403, 410])('in day mode, does not count a permanent HTTP %i, which no retry would change', async (status) => {
+      await store.upsertListRows(env.DB, [due('refused')], []);
+      const ccip = fakeCcip({ details: { refused: new UpstreamHttpError('GET /messages/{id}', status) } });
+      await expect(runDetails(harness({ now: NOW, ccip }).c, { day: '2026-10-05' })).resolves.toBeUndefined();
+    });
+
+    it.each([
+      ['HTTP 429', new UpstreamHttpError('GET /messages/{id}', 429)],
+      ['network error', new TypeError('fetch failed')],
+    ])('in day mode, counts a %s as a fill failure, since a later retry can succeed', async (_, error) => {
+      await store.upsertListRows(env.DB, [due('flaky')], []);
+      const ccip = fakeCcip({ details: { flaky: error } });
+      await expect(runDetails(harness({ now: NOW, ccip }).c, { day: '2026-10-05' })).rejects.toBeInstanceOf(DetailFillError);
     });
   });
 
