@@ -189,6 +189,8 @@ uniform float u_exposure;
 uniform float u_frame;
 uniform vec2 u_resolution;
 uniform vec4 u_shock;
+const vec3 PAGE = vec3(12.0, 15.0, 20.0) / 255.0;
+const float EDGE_FEATHER = 0.06;
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 void main() {
   vec2 uv = v_uv;
@@ -205,5 +207,7 @@ void main() {
   col *= mix(0.72, 1.0, vig);
   float g = fract(sin(dot(v_uv * u_resolution + u_frame, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
   col += g * 0.025;
+  float edge = min(min(v_uv.x, 1.0 - v_uv.x) * aspect.x, min(v_uv.y, 1.0 - v_uv.y));
+  col = mix(PAGE, col, smoothstep(0.0, EDGE_FEATHER, edge));
   outColor = vec4(col, 1.0);
 }`;

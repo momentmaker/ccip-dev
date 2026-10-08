@@ -14,6 +14,8 @@ import {
   type SceneContext,
 } from '../src/replay/cinema/scene';
 import { Show, type ShowFrame } from '../src/replay/director/show';
+import { END_TITLE_PX } from '../src/replay/story/draw';
+import { storyUnit } from '../src/replay/story/layout';
 import { COLORS } from '../src/sky/frame';
 import { LANE_SEGMENTS } from '../src/sky/instances';
 import { buildLayout } from '../src/sky/layout';
@@ -84,6 +86,17 @@ describe('buildScene', () => {
     const withTitle = buildScene(show.frameAt(28.2), ctx());
     const without = buildScene(show.frameAt(28.2), ctx({ titleTargets: [] }));
     expect(quadCount(withTitle) - quadCount(without)).toBe(targets.length);
+  });
+
+  it.each([
+    [1920, 1080],
+    [1080, 1920],
+  ])('lands the assembled title particles on the drawn end title at %ix%i', (width, height) => {
+    const em = END_TITLE_PX * storyUnit(width, height);
+    const s = buildScene(show.frameAt(28.8), ctx({ width, height, titleTargets: [{ x: 1, y: -0.25 }] }));
+    const sparks: [number, number][] = [];
+    for (let i = 0; i < s.quads.length; i += QUAD_FLOATS) if (s.quads[i + 9] === CINEMA_SHAPE.spark) sparks.push([s.quads[i]!, s.quads[i + 1]!]);
+    expect(sparks.some(([x, y]) => Math.abs(x - (width / 2 + em)) < 1e-3 && Math.abs(y - (height / 2 - 0.25 * em)) < 1e-3)).toBe(true);
   });
 
   it('pulses the exposure only around the finale beat', () => {

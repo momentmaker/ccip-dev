@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrivalSeed, assemble, burst, elasticPop, heartbeat, novaFlash, novaRing, shockAt, textTargets } from '../src/replay/cinema/fx';
+import { arrivalSeed, assemble, burst, cometFade, elasticPop, heartbeat, novaFlash, novaRing, shockAt, textTargets } from '../src/replay/cinema/fx';
 
 describe('burst', () => {
   it('starts every particle at the origin, fully opaque', () => {
@@ -72,6 +72,19 @@ describe('assemble', () => {
     expect(start.map((p) => [p.x, p.y])).toEqual([[0, 0], [10, 0], [0, 0]]);
     const end = assemble(3, sources, targets, 1);
     expect(end.map((p) => [Math.round(p.x), Math.round(p.y)])).toEqual([[100, 100], [200, 100], [300, 100]]);
+  });
+});
+
+describe('cometFade', () => {
+  it('launches a comet dim, so fresh comets bunched at one star never stack to full strength', () => {
+    expect(cometFade(0)).toBeCloseTo(0.25, 9);
+    expect(cometFade(0.05)).toBeLessThan(cometFade(0.1));
+  });
+
+  it('flies at full strength and hands over to the arrival sparks as it lands', () => {
+    expect(cometFade(0.5)).toBe(1);
+    expect(cometFade(0.97)).toBeLessThan(1);
+    expect(cometFade(1)).toBe(0);
   });
 });
 

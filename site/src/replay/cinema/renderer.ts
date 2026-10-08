@@ -19,7 +19,7 @@ import {
 
 const BLOOM_LEVELS = 5;
 const BLOOM_THRESHOLD = 0.8;
-const BLOOM_STRENGTH = 0.9;
+const BLOOM_STRENGTH = 0.6;
 
 interface Programs {
   background: WebGLProgram;

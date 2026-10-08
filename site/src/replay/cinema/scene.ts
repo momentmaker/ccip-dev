@@ -5,8 +5,10 @@ import { LANE_SEGMENTS } from '../../sky/instances';
 import { cameraProjector } from '../../sky/layout';
 import { REPLAY_COIN_UNIT } from '../compose';
 import type { ShowFrame } from '../director/show';
+import { END_TITLE_PX } from '../story/draw';
+import { storyUnit } from '../story/layout';
 import { IGNITE_S, mulberry32 } from '../timeline';
-import { arrivalSeed, assemble, burst, clamp01, easeOut, elasticPop, heartbeat, NOVA_PARTICLE_S, NOVA_PARTICLES, novaFlash, novaRing, SPARK_LIFE, shockAt } from './fx';
+import { arrivalSeed, assemble, burst, clamp01, cometFade, easeOut, elasticPop, heartbeat, NOVA_PARTICLE_S, NOVA_PARTICLES, novaFlash, novaRing, SPARK_LIFE, shockAt } from './fx';
 import type { TierConfig } from './quality';
 
 export const QUAD_FLOATS = 10;
@@ -155,9 +157,10 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     const color = kindColor(c.kind);
     const size = (10 + 16 * c.size) * unit;
     const half = (size * (6 + 8 * c.size)) / 4;
-    put(head.x - Math.cos(angle) * half, head.y - Math.sin(angle) * half, half, size * 0.35, angle, color, 0.9, CINEMA_SHAPE.streak, c.kind === 'gold' ? 2.2 : 1.6);
-    put(head.x, head.y, size, size, 0, color, 1, CINEMA_SHAPE.glow, 1.6);
-    put(head.x, head.y, (2.2 + 3 * c.size) * unit, (2.2 + 3 * c.size) * unit, 0, mixRgb(color, COLORS.star, 0.5), 1, CINEMA_SHAPE.disc, 1.2);
+    const fade = cometFade(c.progress);
+    put(head.x - Math.cos(angle) * half, head.y - Math.sin(angle) * half, half, size * 0.35, angle, color, 0.9 * fade, CINEMA_SHAPE.streak, c.kind === 'gold' ? 2.2 : 1.6);
+    put(head.x, head.y, size, size, 0, color, fade, CINEMA_SHAPE.glow, 1.6);
+    put(head.x, head.y, (2.2 + 3 * c.size) * unit, (2.2 + 3 * c.size) * unit, 0, mixRgb(color, COLORS.star, 0.5), fade, CINEMA_SHAPE.disc, 1.2);
   }
 
   for (const arrival of frame.base.arrivals) {
@@ -222,8 +225,8 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
     const fade = 1 - clamp01((frame.finale - 0.75) / 0.15);
     if (p > 0 && fade > 0 && ctx.titleTargets.length > 0) {
       const sources = points.filter((_, i) => (sky.stars[i]?.radius ?? 0) > 0).slice(0, 60);
-      const boxW = Math.min(w * 0.62, h * 1.6);
-      const targets = ctx.titleTargets.map((t) => ({ x: w / 2 + (t.x - 0.5) * boxW, y: h / 2 + (t.y - 0.5) * boxW * 0.25 }));
+      const em = END_TITLE_PX * storyUnit(w, h);
+      const targets = ctx.titleTargets.map((t) => ({ x: w / 2 + t.x * em, y: h / 2 + t.y * em }));
       const step = Math.max(1, Math.round(1 / tier.particles));
       assemble(ctx.seed, sources, targets, p).forEach((q, i) => {
         if (i % step === 0) put(q.x, q.y, 3.5 * unit * q.size, 3.5 * unit * q.size, 0, mixRgb(COLORS.blue, COLORS.star, 0.6), q.alpha * fade, CINEMA_SHAPE.spark, 2.2);

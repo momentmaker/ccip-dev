@@ -7,6 +7,9 @@ export const NOVA_PARTICLE_S = 1.2;
 export const NOVA_PARTICLES = 40;
 export const POP_S = 0.5;
 export const SHOCK_S = 0.5;
+const COMET_FADE_IN = 0.15;
+const COMET_FADE_OUT = 0.05;
+const COMET_LAUNCH_ALPHA = 0.25;
 
 export interface Particle {
   x: number;
@@ -53,6 +56,11 @@ export function elasticPop(age: number): number {
   if (p >= 1) return 1;
   if (p < 0.6) return 1.25 * easeOut(p / 0.6);
   return 1.25 - 0.25 * easeInOut((p - 0.6) / 0.4);
+}
+
+export function cometFade(progress: number): number {
+  const launch = COMET_LAUNCH_ALPHA + (1 - COMET_LAUNCH_ALPHA) * clamp01(progress / COMET_FADE_IN);
+  return launch * clamp01((1 - progress) / COMET_FADE_OUT);
 }
 
 export function heartbeat(activity: number): number {
