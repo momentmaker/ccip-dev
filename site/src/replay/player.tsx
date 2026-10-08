@@ -13,12 +13,26 @@ import Scrubber from '../components/controls/Scrubber';
 import Segmented from '../components/controls/Segmented';
 import ShapePicker from '../components/controls/ShapePicker';
 import ShareButton from '../components/ShareButton';
+import { usePrefersReducedMotion } from '../components/hooks';
 import { trailingWeights } from '../sky/weights';
 import { buildLayout } from '../sky/layout';
+import { ContextLossTracker } from '../sky/renderer';
+import { CinemaCompositor } from './cinema/compositor';
+import type { Tier } from './cinema/quality';
 import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
+import {
+  buildCompositor,
+  kindAfterLoss,
+  liveCinemaOptions,
+  RECORDING_CINEMA_OPTIONS,
+  recordingDraw,
+  recordingShow,
+  type Compositor,
+  type CompositorKind,
+} from './compositors';
 import { canRecord, recordingFilename, recordReplay } from './recorder';
-import { Show } from './director/show';
+import { Show, type ShowInput } from './director/show';
 import { loadCanvasFonts } from './story/draw';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
 
@@ -49,7 +63,13 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const lastPointerRef = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [shown, setShown] = useState(0);
-  const [compositor, setCompositor] = useState<ReplayCompositor | null>(null);
+  const [compositor, setCompositor] = useState<Compositor | null>(null);
+  const [kind, setKind] = useState<CompositorKind>('cinema');
+  const [compositorKey, setCompositorKey] = useState(0);
+  const lossTrackerRef = useRef(new ContextLossTracker());
+  const handledLossRef = useRef<Compositor | null>(null);
+  const tierRef = useRef<Tier>('high');
+  const reducedMotion = usePrefersReducedMotion();
   const [coinImages, setCoinImages] = useState<ReadonlyMap<string, CanvasImageSource>>(new Map());
   const coinLoadRef = useRef<Promise<ReadonlyMap<string, CanvasImageSource>> | null>(null);
   const [recordable, setRecordable] = useState<boolean | null>(null);
@@ -110,10 +130,11 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   }, [data]);
 
   const names = useMemo(() => (data ? chainNameMap(data.replay.chains) : new Map<string, string>()), [data]);
-  const show = useMemo(
-    () => (data ? new Show({ replay: data.replay, history: data.history, stars, length, focus, eligible: hasIcon }) : null),
-    [data, stars, length, focus],
+  const showInput = useMemo<ShowInput | null>(
+    () => (data ? { replay: data.replay, history: data.history, stars, length, focus, eligible: hasIcon, reducedMotion } : null),
+    [data, stars, length, focus, reducedMotion],
   );
+  const show = useMemo(() => (showInput ? new Show(showInput) : null), [showInput]);
   const assets = useMemo(
     () => (show ? { names, ticks: show.yearTicks().map((y) => ({ at: (y.time - show.warp.start) / (show.warp.end - show.warp.start), label: y.label })) } : null),
     [show, names],
@@ -185,29 +206,46 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   }, [aspect]);
 
   useEffect(() => {
+    if (!show) return;
+    tRef.current = show.posterTime();
+    setShown(tRef.current);
+    setPlaying(false);
+  }, [show]);
+
+  useEffect(() => {
     if (!show || !assets) return;
-    let created: ReplayCompositor;
+    const makeCanvas = () => document.createElement('canvas');
+    let created: Compositor;
     try {
-      created = new ReplayCompositor(show, stars, assets, () => document.createElement('canvas'), { chrome: false });
+      created = buildCompositor(kind, () => CinemaCompositor.isSupported(makeCanvas), {
+        cinema: () => new CinemaCompositor(show, stars, assets, makeCanvas, liveCinemaOptions(reducedMotion, tierRef.current)),
+        classic: () => new ReplayCompositor(show, stars, assets, makeCanvas, { chrome: false }),
+      });
     } catch (err) {
       console.warn('Replay compositor failed to start', err);
       setError('Your browser could not start the animation.');
       return;
     }
-    tRef.current = show.posterTime();
-    setShown(tRef.current);
-    setPlaying(false);
     setCompositor(created);
     return () => {
       created.destroy();
       setCompositor(null);
     };
-  }, [show, assets, stars]);
+  }, [show, assets, stars, kind, compositorKey, reducedMotion]);
 
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !compositor) return;
+    if (compositor instanceof CinemaCompositor && compositor.lost) {
+      if (handledLossRef.current === compositor) return;
+      handledLossRef.current = compositor;
+      const next = kindAfterLoss(lossTrackerRef.current, performance.now());
+      console.warn(`Replay lost its WebGL context; ${next === 'classic' ? 'falling back to the classic renderer' : 'recreating the renderer'}`);
+      if (next === 'classic') setKind('classic');
+      else setCompositorKey((k) => k + 1);
+      return;
+    }
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
     const fit = Math.min(1, MAX_SIDE_PX / (Math.max(canvas.clientWidth, canvas.clientHeight) * dpr || 1));
     const width = Math.max(1, Math.round(canvas.clientWidth * dpr * fit));
@@ -229,7 +267,11 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   useEffect(() => {
     if (!compositor) return;
     let alive = true;
-    void loadCanvasFonts(document.fonts).then(() => alive && drawFrame());
+    void loadCanvasFonts(document.fonts).then(() => {
+      if (!alive) return;
+      if (compositor instanceof CinemaCompositor) compositor.refreshTitle();
+      drawFrame();
+    });
     return () => {
       alive = false;
     };
@@ -243,7 +285,13 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     }
     let raf = 0;
     let lastUi = 0;
+    let lastFrame: number | null = null;
     const tick = (frameTime: number) => {
+      if (lastFrame !== null && compositor instanceof CinemaCompositor) {
+        compositor.noteFrame(frameTime - lastFrame, frameTime / 1000);
+        tierRef.current = compositor.tier;
+      }
+      lastFrame = frameTime;
       const now = Math.min(clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000, show.length);
       tRef.current = now;
       drawFrame();
@@ -261,7 +309,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [show, playing, drawFrame, aspect]);
+  }, [show, playing, drawFrame, aspect, compositor]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -308,23 +356,28 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   useEffect(() => () => recordAbortRef.current?.abort(), []);
 
   const record = async () => {
-    if (!show || !assets || recording) return;
+    if (!show || !showInput || !assets || recording) return;
     setPlaying(false);
     setRecordError(null);
     setRecordNote('Recording started');
     const controller = new AbortController();
     recordAbortRef.current = controller;
     setRecording({ progress: 0, controller });
-    let recorder: ReplayCompositor | null = null;
+    let recorder: Compositor | null = null;
     try {
-      recorder = new ReplayCompositor(show, stars, assets, () => new OffscreenCanvas(1, 1));
+      const offscreen = () => new OffscreenCanvas(1, 1);
+      const cut = recordingShow(show, showInput);
+      recorder = buildCompositor(kind, () => CinemaCompositor.isSupported(offscreen), {
+        cinema: () => new CinemaCompositor(cut, stars, assets, offscreen, RECORDING_CINEMA_OPTIONS),
+        classic: () => new ReplayCompositor(cut, stars, assets, offscreen),
+      });
       const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
       recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
       if (controller.signal.aborted) return;
-      const frames = recorder;
       await loadCanvasFonts(document.fonts);
+      if (recorder instanceof CinemaCompositor) recorder.refreshTitle();
       const blob = await recordReplay({
-        draw: (frameT, ctx, width, height) => frames.draw(frameT, ctx, width, height),
+        draw: recordingDraw(recorder),
         aspect,
         lengthS: length,
         onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),

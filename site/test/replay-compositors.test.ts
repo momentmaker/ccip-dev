@@ -1,0 +1,127 @@
+import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
+import { describe, expect, it, vi } from 'vitest';
+import { CinemaCompositor } from '../src/replay/cinema/compositor';
+import type { ReplayCompositor } from '../src/replay/compose';
+import {
+  buildCompositor,
+  kindAfterLoss,
+  liveCinemaOptions,
+  RECORDING_CINEMA_OPTIONS,
+  recordingDraw,
+  recordingShow,
+} from '../src/replay/compositors';
+import { PUNCH_IN_S } from '../src/replay/director/camera';
+import { Show, type ShowInput } from '../src/replay/director/show';
+import { buildLayout } from '../src/sky/layout';
+import { ContextLossTracker } from '../src/sky/renderer';
+import replayJson from './fixtures/replay.json';
+
+const replay = replayJson as ReplayFile;
+const history = replay.days.map((d, i) => ({ day: d.day, messages: i === 2 ? 1500 : 10, token_messages: 10, usd_value: 1000, fee_usd: null, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null })) as DayTotals[];
+const stars = buildLayout(replay.chains);
+const input = (reducedMotion: boolean): ShowInput => ({ replay, history, stars, length: 30, focus: null, eligible: () => true, reducedMotion });
+const show = new Show(input(false));
+const assets = { names: new Map<string, string>(), ticks: [] };
+
+function fake2d() {
+  return new Proxy(
+    {},
+    {
+      get: (_t, key) => {
+        if (key === 'getImageData') return (_x: number, _y: number, w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
+        if (key === 'measureText') return () => ({ width: 10 });
+        if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
+        return () => {};
+      },
+      set: () => true,
+    },
+  );
+}
+const createCanvas = () => ({ width: 1, height: 1, getContext: (kind: string) => (kind === '2d' ? fake2d() : null) }) as never;
+const fakeRenderer = (lost = false) => ({ render: vi.fn(), resize: vi.fn(), setAtlas: vi.fn(), destroy: vi.fn(), lost });
+const slamming = {
+  frameAt: (t: number) => ({ ...show.frameAt(t), slam: { start: t - 0.05, label: '1K messages', progress: 0.05 } }),
+  timing: show.timing,
+  length: show.length,
+  warp: show.warp,
+};
+
+describe('buildCompositor', () => {
+  const classic = { kind: 'classic' } as unknown as ReplayCompositor;
+  const cinema = { kind: 'cinema' } as unknown as CinemaCompositor;
+
+  it('builds the cinema compositor when WebGL2 is there', () => {
+    expect(buildCompositor('cinema', () => true, { cinema: () => cinema, classic: () => classic })).toBe(cinema);
+  });
+
+  it('builds the classic compositor without probing once the player has fallen back', () => {
+    const supported = vi.fn(() => true);
+    const makeCinema = vi.fn(() => cinema);
+    expect(buildCompositor('classic', supported, { cinema: makeCinema, classic: () => classic })).toBe(classic);
+    expect(supported).not.toHaveBeenCalled();
+    expect(makeCinema).not.toHaveBeenCalled();
+  });
+
+  it('builds the classic compositor when WebGL2 is missing', () => {
+    expect(buildCompositor('cinema', () => false, { cinema: () => cinema, classic: () => classic })).toBe(classic);
+  });
+
+  it('falls back to the classic compositor with a warning when the cinema one fails to start', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const failing = () => {
+      throw new Error('cinema: WebGL2 is unavailable');
+    };
+    expect(buildCompositor('cinema', () => true, { cinema: failing, classic: () => classic })).toBe(classic);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+});
+
+describe('kindAfterLoss', () => {
+  it('recreates the cinema compositor on the first context loss and falls back to the classic one on the second', () => {
+    const tracker = new ContextLossTracker();
+    expect(kindAfterLoss(tracker, 10_000)).toBe('cinema');
+    expect(kindAfterLoss(tracker, 25_000)).toBe('classic');
+  });
+});
+
+describe('recording', () => {
+  it('records at High even after the live player stepped down to Low', () => {
+    const live = new CinemaCompositor(show, stars, assets, createCanvas, { ...liveCinemaOptions(false, 'low'), createRenderer: () => fakeRenderer() as never });
+    expect(live.tier).toBe('low');
+    const renderer = fakeRenderer();
+    const rec = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => renderer as never });
+    for (let t = 0; t < 6; t += 1 / 60) rec.noteFrame(80, t);
+    rec.draw(15, fake2d() as never, 64, 36);
+    expect(rec.tier).toBe('high');
+    expect(renderer.render.mock.calls[0]![0].bloom).toBe('full');
+  });
+
+  it('records a full-motion show for a viewer who prefers reduced motion', () => {
+    const reduced = new Show(input(true));
+    const recorded = recordingShow(reduced, input(true));
+    const peak = recorded.slams[0]!.start + PUNCH_IN_S;
+    expect(reduced.frameAt(peak).punch).toBe(0);
+    expect(recorded.frameAt(peak).punch).toBe(1);
+  });
+
+  it('reuses the live show when it already has full motion', () => {
+    expect(recordingShow(show, input(false))).toBe(show);
+  });
+
+  it('drops the shockwave for a reduced-motion viewer but keeps it in the recording', () => {
+    const liveRenderer = fakeRenderer();
+    const recRenderer = fakeRenderer();
+    new CinemaCompositor(slamming, stars, assets, createCanvas, { ...liveCinemaOptions(true, 'high'), createRenderer: () => liveRenderer as never }).draw(15, fake2d() as never, 64, 36);
+    new CinemaCompositor(slamming, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => recRenderer as never }).draw(15, fake2d() as never, 64, 36);
+    expect(liveRenderer.render.mock.calls[0]![0].shock).toBeNull();
+    expect(recRenderer.render.mock.calls[0]![0].shock).not.toBeNull();
+  });
+
+  it('fails the recording instead of writing frozen frames when the context is lost', () => {
+    const ok = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer() as never });
+    expect(() => recordingDraw(ok)(15, fake2d() as never, 64, 36)).not.toThrow();
+    const lost = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer(true) as never });
+    expect(() => recordingDraw(lost)(15, fake2d() as never, 64, 36)).toThrow(/context/);
+  });
+});
