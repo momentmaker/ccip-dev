@@ -94,6 +94,60 @@ describe('AdaptiveRate', () => {
     // #then
     expect(rate.rps).toBe(4);
   });
+
+  it('a later 429 cannot shorten the pause', () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now);
+
+    // #when
+    rate.record({ kind: 'throttled', retryAfterMs: 30_000 });
+    c.advance(100);
+    rate.record({ kind: 'throttled', retryAfterMs: 2_000 });
+
+    // #then
+    expect(rate.pausedUntil() - c.now()).toBe(29_900);
+  });
+
+  it('two consecutive 429s halve once, not twice', () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now, () => {}, 6);
+
+    // #when
+    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
+    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
+
+    // #then
+    expect(rate.rps).toBe(3);
+  });
+
+  it('does not step up during hold period after a back-off', () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now, () => {}, 6);
+    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
+
+    // #when - healthy window that closes before holdUntil
+    healthy(rate, c, 300);
+
+    // #then - rate should still be 3, not 4
+    expect(rate.rps).toBe(3);
+  });
+
+  it('steps up after hold period ends', () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now, () => {}, 6);
+    rate.record({ kind: 'throttled', retryAfterMs: 5_000 });
+
+    // #when - advance to just past hold period and feed exactly one window
+    c.advance(RATE.holdMs + 1);
+    healthy(rate, c, 600);
+
+    // #then - rate should step up to 4 (just one step-up)
+    expect(rate.rps).toBe(4);
+  });
 });
 
 describe('Pacer', () => {
@@ -119,5 +173,34 @@ describe('Pacer', () => {
     rate.record({ kind: 'throttled', retryAfterMs: 7_000 });
     await new Pacer(rate, c).acquire();
     expect(c.now()).toBe(7_000);
+  });
+
+  it('respects a pause recorded during a reserved sleep', async () => {
+    // #given
+    const c = clock();
+    const rate = new AdaptiveRate(c.now, () => {}, 10);
+    const pacer = new Pacer(rate, c);
+    const starts: number[] = [];
+
+    // First request starts immediately at t=0, reserves next slot at t=100
+    await pacer.acquire();
+
+    // #when - second request needs to sleep until t=100, but a 429 comes at t=50
+    const secondRequestPromise = (async () => {
+      await pacer.acquire();
+      starts.push(c.now());
+    })();
+
+    // Simulate the sleep advancing time by 50ms, then record a throttle
+    c.advance(50);
+    rate.record({ kind: 'throttled', retryAfterMs: 10_000 });
+
+    // Finish the sleep to t=100, but now the pause is active until t=10_150
+    c.advance(50);
+
+    await secondRequestPromise;
+
+    // #then - should have waited out the 10s pause, not started at 100ms
+    expect(starts[0]).toBe(10_150);
   });
 });

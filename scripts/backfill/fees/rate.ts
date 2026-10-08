@@ -45,8 +45,9 @@ export class AdaptiveRate {
   record(sample: RateSample): void {
     const now = this.now();
     if (sample.kind === 'throttled') {
-      this.pause = now + Math.min(sample.retryAfterMs ?? RATE.defaultPauseMs, RATE.maxPauseMs);
-      this.backOff(now, 'HTTP 429');
+      const alreadyPaused = now < this.pause;
+      this.pause = Math.max(this.pause, now + Math.min(sample.retryAfterMs ?? RATE.defaultPauseMs, RATE.maxPauseMs));
+      this.backOff(now, 'HTTP 429', alreadyPaused);
       return;
     }
     if (sample.kind === 'ok') {
@@ -77,12 +78,15 @@ export class AdaptiveRate {
     this.resetWindow(now);
   }
 
-  private backOff(now: number, why: string): void {
-    const next = Math.max(RATE.minRps, Math.floor(this.current / 2));
-    this.log(`rate ${this.current} -> ${next} req/s (${why}); holding ${RATE.holdMs / 60_000} min`);
-    this.current = next;
-    this.holdUntil = now + RATE.holdMs;
-    this.resetWindow(now);
+  private backOff(now: number, why: string, alreadyPaused: boolean = false): void {
+    // Only halve if this is a new burst (not already paused from a previous 429)
+    if (!alreadyPaused) {
+      const next = Math.max(RATE.minRps, Math.floor(this.current / 2));
+      this.log(`rate ${this.current} -> ${next} req/s (${why}); holding ${RATE.holdMs / 60_000} min`);
+      this.current = next;
+      this.holdUntil = now + RATE.holdMs;
+      this.resetWindow(now);
+    }
   }
 
   private resetWindow(now: number): void {
@@ -100,10 +104,19 @@ export class Pacer {
   constructor(private readonly rate: AdaptiveRate, private readonly clock: { now: () => number; sleep: (ms: number) => Promise<void> }) {}
 
   async acquire(): Promise<void> {
-    const now = this.clock.now();
-    const at = Math.max(now, this.next, this.rate.pausedUntil());
+    let now = this.clock.now();
+    let at = Math.max(now, this.next, this.rate.pausedUntil());
     this.next = at + this.rate.intervalMs();
-    if (at > now) await this.clock.sleep(at - now);
+    while (at > now) {
+      await this.clock.sleep(at - now);
+      now = this.clock.now();
+      // After waking, re-check if pause was extended while we slept
+      if (now < this.rate.pausedUntil()) {
+        at = this.rate.pausedUntil();
+      } else {
+        at = now;
+      }
+    }
   }
 }
 
