@@ -12,7 +12,7 @@ export interface FeePriceAlias {
  * on chain on 2026-10-08: `decimals()` through the chain's public RPC from chainid.network, or for Aptos the mainnet
  * fullnode's view functions.
  *
- * Still unpriced, for want of a verified free price or verified decimals: Canton CC, Mova, HashKey HSK and AB.
+ * Still unpriced, for want of a verified free price or verified decimals: Canton CC and Mova.
  */
 export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   // Bitlayer WBTC (wrapped native BTC); decimals() on chain
@@ -51,6 +51,10 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '11344663589394136015:0x404460c6a5ede2d891e8297795264fde62adbb75': { key: 'coingecko:chainlink', decimals: 18 },
   // Polygon LINK (CCIP fee token); decimals() on chain
   '4051577828743386545:0xb0897686c545045afc77cf20ec7a532e3120e0f1': { key: 'coingecko:chainlink', decimals: 18 },
+  // HashKey Chain WHSK; decimals() on chain, matching the CCIP registry
+  '7613811247471741961:0xb210d2120d57b758ee163cffb43e73728c471cf1': { key: 'coingecko:hashkey-ecopoints', decimals: 18 },
+  // AB Core WAB (AB is the rebranded Newton token, not newton-protocol); decimals() on chain
+  '4829375610284793157:0x51da03503fbba94b9d0d88c15690d840f02f15f4': { key: 'coingecko:newton-project', decimals: 18 },
   // Aptos APT (the AptosCoin fungible asset at 0xa); 0x1::fungible_asset::decimals and 0x1::coin::decimals on the fullnode
   '4741433654826277614:0x000000000000000000000000000000000000000000000000000000000000000a': { key: 'coingecko:aptos', decimals: 8 },
 };
