@@ -240,7 +240,7 @@ Every random value comes from `mulberry32`, seeded by (day index, event id). Par
 ### 10.1 Schedule (pure)
 
 `scoreFor(show)` returns events with a time, kind and parameters. The music is D minor with a Lydian lift, at 96 BPM (beat 0.625 s).
-- **Pad:** a detuned saw through a lowpass, on Dm, B♭, F, C, changing every 2 bars. The filter opens as cumulative value grows.
+- **Pad:** a detuned saw through a lowpass, on Dm, G, F, C, changing every 2 bars, all diatonic to D dorian (amended 2026-10-07: B♭ is outside the mode and clashed with the plucks' B natural). The filter opens as cumulative value grows.
 - **Pulse:** a sub-bass hit on each beat, whose gain follows daily activity.
 - **Plucks:** comet plucks quantized to 1/8 notes. Notes are chosen from the scale by the lane, at most 8 per second.
 - **Joins:** a chime per join.
