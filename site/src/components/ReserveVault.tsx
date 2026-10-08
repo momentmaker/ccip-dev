@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { formatCompactCount, formatLink } from '../lib/format';
-import { usePrefersReducedMotion } from './hooks';
+import { useMotionPreference } from './hooks';
 
 const W = 240;
 const H = 276;
@@ -10,16 +10,21 @@ const coinPoints = (cx: number, cy: number, r: number) =>
   [0, 1, 2, 3, 4, 5].map((k) => `${(cx + r * Math.cos((Math.PI / 3) * k + Math.PI / 6)).toFixed(1)},${(cy + r * Math.sin((Math.PI / 3) * k + Math.PI / 6)).toFixed(1)}`).join(' ');
 
 export default function ReserveVault({ link, target, fraction, coins }: { link: number; target: number; fraction: number; coins: number }) {
-  const reduced = usePrefersReducedMotion();
+  const motion = useMotionPreference();
+  const reduced = motion === true;
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [level, setLevel] = useState(fraction);
   useEffect(() => {
-    if (reduced) return;
+    if (motion === null) return;
+    if (motion) {
+      setLevel(fraction);
+      return;
+    }
     setLevel(0);
     const id = requestAnimationFrame(() => setLevel(fraction));
     return () => cancelAnimationFrame(id);
-  }, [fraction, reduced]);
+  }, [fraction, motion]);
   const top = 10 + (1 - level) * (H - 20);
   return (
     <figure className="vault">
