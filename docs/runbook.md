@@ -109,10 +109,11 @@ Alerts arrive in the Telegram chat.
 | `job-failed:<job>` | The named job threw. Read the message in the alert and the Worker logs (`wrangler tail`). |
 | `ingest-resume` | The ingest resume walk failed and was dropped. Nothing to do unless it repeats. |
 | `price-outlier` | A token amount valued above $10 billion was stored unpriced. Check the price of the listed token on DefiLlama. |
-| `price-jump` | A price refresh rejected a jump of more than 20×. Check the listed tokens on DefiLlama. |
+| `price-jump` | A price refresh (or a detail fill's re-fetch) rejected a jump of more than 20×. Check the listed tokens on DefiLlama; if the move is real, accept it (see "Accept a real price jump"). |
 | `prices-fetch` | DefiLlama failed during detail valuation. Those tokens stay unpriced until finalize. |
 | `daily-usd-anomaly:<day>` | The day's USD moved over 10× against the trailing median. Check the day's top tokens for a bad price. |
 | `detail-schema:<path>` | A detail response failed validation. The raw copy is in `unparsed/<id>.json` in the archive bucket. |
+| `detail-fill:<day>` | Finalize rolled the day up without some message details because their fills failed; those messages keep their list values. Read the first failure in the alert and the Worker logs. The fills are retried hourly until 48 hours after send. |
 | `fee-version:<v>` | A message uses a CCIP version whose fee format is unknown. Add support for it. |
 | `archive-count:<day>` | The day's archive and D1 disagree on the message count. Re-finalize the day (below). |
 | `coingecko-ids` | CoinGecko ids could not be refreshed. Retried hourly. |
@@ -121,18 +122,52 @@ Alerts arrive in the Telegram chat.
 | `replay-publish` | `replay.json` was not published; the other history files still were. Check the D1 lane rows (`daily_breakdown`) and the finalize logs. |
 | `reserve-read` | The Reserve balance read failed several hours in a row. Check the RPC endpoints. |
 | `reserve-scan` | The Reserve transfer scan failed several hours in a row. Check the RPC endpoints. |
-| `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. |
+| `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. See "Missed Reserve outflow alert" if a crash may have eaten one. |
 | `reserve-mismatch` | Transfers do not net to the balance. Re-scan from an earlier block (see "Health checks"). |
 | `ccip.dev watchdog: …` | `status.json` is old, unreadable, or ingest lag is high. Check the Worker and the CCIP API. |
 
 ### Re-finalize a day
 
 Set `last_finalize_day` to the day before the one to redo. Set `last_archived_day` too if the archive must be
-rewritten. The next finalize run redoes everything after that day.
+rewritten. Finalize then redoes every day after that one, oldest first.
 
 `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE meta SET value = '<day>' WHERE key = 'last_finalize_day'"`
 
 Use `last_archived_day` in place of `last_finalize_day` for the second key.
+
+- **Pacing:**
+  - Each run redoes at most 3 days: the 00:10 run from `last_finalize_day`, and the 06:00 run from `last_archived_day`.
+  - Each day adds one new day, so a rewind of N days catches up by about 2 days a day. Yesterday's 00:10 finalize, which the 00:15 daily post reads, is late by about N/2 days.
+  - Until the 06:00 run catches up, it skips its usual re-finalize of yesterday. Each day still gets its full late run when its archive turn comes.
+  - Rewind no further than you need.
+- **Cost:** each day is collected by its own walk from the newest message down to that day, so redoing old days pages through every newer day again (about 1–3 pages of 1000 per day of depth). A walk stops at 200 pages, so a rewind deeper than about 60 days cannot be walked; use the backfill instead.
+- **Detail budget:**
+  - Detail fills share one 5-minute budget, which starts when the run starts and also covers the list walks. In a deep catch-up, the later days of a run may get little or none of it. They roll up with list values for the messages still missing details, and the log says "detail fill stopped at its deadline".
+  - The 06:00 run re-fills a day's missing details when it archives that day. For a day already archived, rewind `last_archived_day` too.
+- **A day that fails** (`job-failed:finalize` names it) holds both pointers, while the later days in the same run still finalize and publish. The next run retries it.
+
+### Accept a real price jump
+
+A key whose price moved more than 20× keeps its stored price, and both the prices job and detail fills keep rejecting
+the new one. Only keys seen in the last 30 days are guarded: a token dormant for longer takes its new price. To accept
+a real move, write the new price into `prices_latest`:
+
+`pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE prices_latest SET usd = <new price>, ts = '<now, ISO 8601 UTC>' WHERE llama_key = '<key from the alert>'"`
+
+The next refresh compares against that price. Messages valued while the jump was rejected keep the old price's
+value. To re-value a day, mark its messages holding the token as unpriced, then re-finalize the day (above):
+
+`pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE messages SET unpriced = 1 WHERE day = '<day>' AND message_id IN (SELECT message_id FROM message_tokens WHERE chain = '<chain selector>' AND token = '<token address as stored, lowercase for EVM>')"`
+
+### Missed Reserve outflow alert
+
+The alerter writes an alert's suppression row (`alert:<signature>` in `meta`) before it sends, so overlapping runs
+cannot send twice. A refused Telegram send deletes the row again, and the next hourly run retries. A crash between
+writing the row and sending leaves the row, though, and the outflow check skips any transaction that has one. That
+outflow is then never alerted. If the Worker logs show a crashed hourly run near an outflow, open the transaction on
+Etherscan. To have it re-alerted, delete its row within 24 hours of the transfer:
+
+`pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key = 'alert:reserve-outflow:<tx hash>'"`
 
 ### Stuck ingest resume
 
