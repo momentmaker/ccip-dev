@@ -178,7 +178,7 @@ export class CinemaCompositor {
     });
     this.renderer.render(scene);
     target.drawImage(this.glCanvas, 0, 0);
-    drawStory(target, frame, layoutFor(width, height), { names: this.assets.names, coins: this.coinImages, ticks: this.assets.ticks }, { chrome: this.opts.chrome ?? true });
+    drawStory(target, frame, layoutFor(width, height), { names: this.assets.names, coins: this.coinImages, ticks: this.assets.ticks }, { chrome: this.opts.chrome ?? true, titleAfterParticles: this.titleTargets.length > 0 });
   }
 
   destroy(): void {

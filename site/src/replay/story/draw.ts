@@ -308,8 +308,12 @@ function drawWatermark(ctx: Ctx, l: StoryLayout): void {
   ctx.restore();
 }
 
-function drawEndTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
-  const alpha = ease((frame.finale - 0.6) / 0.2);
+export function endTitleAlpha(finale: number, afterParticles: boolean): number {
+  return afterParticles ? ease((finale - 0.6) / 0.2) : ease((finale - 0.3) / 0.4);
+}
+
+function drawEndTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout, afterParticles: boolean): void {
+  const alpha = endTitleAlpha(frame.finale, afterParticles);
   if (alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -321,7 +325,7 @@ function drawEndTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.restore();
 }
 
-export function drawStory(ctx: Ctx, frame: ShowFrame, layout: StoryLayout, assets: StoryAssets, opts: { chrome?: boolean } = {}): void {
+export function drawStory(ctx: Ctx, frame: ShowFrame, layout: StoryLayout, assets: StoryAssets, opts: { chrome?: boolean; titleAfterParticles?: boolean } = {}): void {
   const chrome = opts.chrome ?? true;
   if (frame.hook) {
     drawTitle(ctx, frame, layout);
@@ -335,5 +339,5 @@ export function drawStory(ctx: Ctx, frame: ShowFrame, layout: StoryLayout, asset
   if (frame.card) drawCard(ctx, frame, layout, assets);
   if (frame.slam) drawSlam(ctx, frame, layout);
   if (chrome) drawWatermark(ctx, layout);
-  if (frame.phase === 'finale') drawEndTitle(ctx, frame, layout);
+  if (frame.phase === 'finale') drawEndTitle(ctx, frame, layout, opts.titleAfterParticles ?? false);
 }

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { TIERS } from '../src/replay/cinema/quality';
 import {
   buildScene,
+  titleAssembly,
+  titleParticleFade,
   CINEMA_SHAPE,
   COIN_FLOATS,
   dustField,
@@ -15,6 +17,8 @@ import {
 } from '../src/replay/cinema/scene';
 import { Show, type ShowFrame } from '../src/replay/director/show';
 import { END_TITLE_PX, storyUnit } from '../src/replay/story/layout';
+import { endTitleAlpha } from '../src/replay/story/draw';
+import { LOOP_S } from '../src/replay/director/show';
 import { COLORS } from '../src/sky/frame';
 import { LANE_SEGMENTS } from '../src/sky/instances';
 import { buildLayout } from '../src/sky/layout';
@@ -128,6 +132,18 @@ describe('buildScene', () => {
     expect(popping.drawn).not.toBeCloseTo(popping.rest, 4);
     const poster = sizeOf(s.posterTime());
     expect(poster.drawn).toBeCloseTo(poster.rest, 4);
+  });
+
+  it.each([15, 30, 60])('holds the formed title for at least a quarter of the %i s finale before the loop crossfade', (length) => {
+    const finaleS = new Show({ replay, history, stars, length, focus: null, eligible: () => true }).timing.finale;
+    const loopFrom = (finaleS - LOOP_S) / finaleS;
+    const fractions = Array.from({ length: 1001 }, (_, i) => i / 1000);
+    const landed = fractions.find((f) => titleAssembly(f) >= 1)!;
+    expect(loopFrom - landed).toBeGreaterThanOrEqual(0.25);
+    for (const f of fractions.filter((x) => x >= landed && x <= loopFrom)) {
+      expect(titleParticleFade(f) >= 0.5 || endTitleAlpha(f, true) >= 0.98).toBe(true);
+    }
+    expect(endTitleAlpha(landed, true)).toBe(0);
   });
 
   it('feathers the canvas edge only when asked', () => {

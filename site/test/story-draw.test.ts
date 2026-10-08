@@ -2,7 +2,7 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import type { BoardRow } from '../src/replay/director/leaderboard';
 import { Show } from '../src/replay/director/show';
-import { drawStory, loadCanvasFonts } from '../src/replay/story/draw';
+import { drawStory, endTitleAlpha, loadCanvasFonts } from '../src/replay/story/draw';
 import { layoutFor } from '../src/replay/story/layout';
 import { chainNameMap } from '../src/lib/names';
 import { buildLayout } from '../src/sky/layout';
@@ -135,11 +135,19 @@ describe('drawStory', () => {
 
   it('fades the end title in late in the finale, after the particles', () => {
     const early: string[] = [];
-    drawStory(fakeCtx(early), show.frameAt(27 + 3 * 0.55), layoutFor(1920, 1080), assets);
+    drawStory(fakeCtx(early), show.frameAt(27 + 3 * 0.55), layoutFor(1920, 1080), assets, { titleAfterParticles: true });
     expect(early).not.toContain('ccip.dev');
     const late: string[] = [];
-    drawStory(fakeCtx(late), show.frameAt(27 + 3 * 0.9), layoutFor(1920, 1080), assets);
+    drawStory(fakeCtx(late), show.frameAt(27 + 3 * 0.9), layoutFor(1920, 1080), assets, { titleAfterParticles: true });
     expect(late).toContain('ccip.dev');
+  });
+
+  it('fades the end title in earlier when no particles assemble it, as in the classic renderer', () => {
+    const texts: string[] = [];
+    drawStory(fakeCtx(texts), show.frameAt(27 + 3 * 0.4), layoutFor(1920, 1080), assets);
+    expect(texts).toContain('ccip.dev');
+    expect(endTitleAlpha(0.7, false)).toBe(1);
+    expect(endTitleAlpha(0.3, false)).toBe(0);
   });
 
   it('keeps the timeline labels and watermark by default', () => {

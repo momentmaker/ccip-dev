@@ -145,6 +145,18 @@ describe('CinemaCompositor', () => {
     expect(after).toBeGreaterThan(before);
   });
 
+  it('holds the drawn end title back for the particles only once it has particle targets', () => {
+    const texts = (c: CinemaCompositor) => {
+      const out: string[] = [];
+      c.draw(27 + 3 * 0.45, fake2d([], out) as never, 1920, 1080);
+      return out;
+    };
+    const c = new CinemaCompositor(show, stars, assets, inkCanvas([]), { quality: 'auto', reducedMotion: false, createRenderer: () => fakeRenderer() as never });
+    expect(texts(c)).toContain('ccip.dev');
+    c.refreshTitle();
+    expect(texts(c)).not.toContain('ccip.dev');
+  });
+
   it('releases its WebGL2 probe context after checking support', () => {
     const loseContext = vi.fn();
     const probe = () => ({ getContext: (kind: string) => (kind === 'webgl2' ? { getExtension: (name: string) => (name === 'WEBGL_lose_context' ? { loseContext } : null) } : null) }) as never;

@@ -20,8 +20,8 @@ export const MAX_SCENE_QUADS = 8000;
 export const MAX_SCENE_LANES = 2048;
 export const MAX_SCENE_COINS = 64;
 const DUST_SPREAD = 3;
-const TITLE_PARTICLES_FROM_S = 0.3;
-const TITLE_PARTICLES_S = 1.2;
+const TITLE_PARTICLES_FROM = 0.1;
+const TITLE_PARTICLES_SPAN = 0.35;
 const PULSE_AT_S = 0.6;
 const PULSE_WIDTH_S = 0.3;
 const RECORD_RIPPLE_S = 1.2;
@@ -61,6 +61,14 @@ export interface CinemaScene {
 
 type Rgb = readonly number[];
 const mixRgb = (a: Rgb, b: Rgb, k: number): Rgb => a.map((v, i) => v + (b[i]! - v) * k);
+
+export function titleAssembly(finale: number): number {
+  return clamp01((finale - TITLE_PARTICLES_FROM) / TITLE_PARTICLES_SPAN);
+}
+
+export function titleParticleFade(finale: number): number {
+  return 1 - clamp01((finale - 0.75) / 0.15);
+}
 
 export function dustField(seed: number, spread: number): DustField {
   const rng = mulberry32(seed);
@@ -223,8 +231,8 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
       const p = (seconds - 0.6 * (Math.hypot(x - origin.x, y - origin.y) / reach)) / 0.5;
       if (p > 0 && p < 1) put(x, y, (d / 2) * (1 + 0.8 * p), (d / 2) * (1 + 0.8 * p), 0, COLORS.blue, 1 - p, CINEMA_SHAPE.ring, 1.6);
     }
-    const p = clamp01((seconds - TITLE_PARTICLES_FROM_S) / TITLE_PARTICLES_S);
-    const fade = 1 - clamp01((frame.finale - 0.75) / 0.15);
+    const p = titleAssembly(frame.finale);
+    const fade = titleParticleFade(frame.finale);
     if (p > 0 && fade > 0 && ctx.titleTargets.length > 0) {
       const sources = points.filter((_, i) => (sky.stars[i]?.radius ?? 0) > 0).slice(0, 60);
       const em = END_TITLE_PX * storyUnit(w, h);
