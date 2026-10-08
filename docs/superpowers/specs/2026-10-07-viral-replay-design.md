@@ -241,25 +241,26 @@ Every random value comes from `mulberry32`, seeded by (day index, event id). Par
 
 `scoreFor(show)` returns events with a time, kind and parameters. The music is D minor with a Lydian lift, at 96 BPM (beat 0.625 s).
 - **Pad:** a detuned saw through a lowpass, on Dm, G, F, C, changing every 2 bars, all diatonic to D dorian (amended 2026-10-07: B♭ is outside the mode and clashed with the plucks' B natural). The filter opens as cumulative value grows.
-- **Pulse:** a sub-bass hit on each beat, whose gain follows daily activity.
+- **Pulse:** a bass hit on each beat, with quiet 2nd and 3rd harmonics so it reads on phone speakers; its gain follows daily activity (that day's messages over the busiest day).
 - **Plucks:** comet plucks quantized to 1/8 notes. Notes are chosen from the scale by the lane, at most 8 per second.
 - **Joins:** a chime per join.
-- **Milestones:** a boom per milestone: a sub drop, a noise burst and a long reverb, placed at the milestone's beat time to the frame.
+- **Milestones:** a boom per milestone, placed at the slam's start to the frame: a sub drop, a mid "body" sweep (180→90 Hz) so it carries on phone speakers, and a bright noise burst into the reverb.
 - **Records:** a rising pluck run for a record day.
-- **Finale:** a wide Dmaj9 swell into silence. The last 0.5 s fades to match the loop.
+- **Finale:** a wide Dmaj9 swell into silence, always entered from a G pad (a IV→I cadence) with a short dry release, so no F♮ or C♮ rings into the D-major swell at any length. The last 0.5 s fades to match the loop. (Amended 2026-10-07 after Plan C's final review.)
 
 ### 10.2 Rendering
 
 - An `OfflineAudioContext` (2 channels, 48 kHz, length L) synthesizes the schedule: oscillators, filters, a convolver reverb with a generated impulse, and a `DynamicsCompressor` master normalized to −1 dBFS peak.
-- It renders once per (show, length), which takes about 1 s for 30 s, and caches the result.
+- It renders once per (show, length) and caches the result. Renders take about 1.3 s for 30 s and 3.6 s for 60 s on a fast laptop, so the player pre-renders the current cut in idle time after the poster (debounced, skipped under Save-Data or low memory), and the Sound button shows a busy state until audio starts.
 - There are no samples and nothing to license.
 
 ### 10.3 Live playback and recording
 
-- **Live:** an `AudioBufferSourceNode` starts at `offset = t`, stops on pause, and restarts on scrub. Sound is off by default because of autoplay rules; the Sound button in the bar turns it on.
+- **Live:** an `AudioBufferSourceNode` starts at the live playhead (plus output latency), stops on pause with an 8 ms fade, and restarts on scrub (throttled while dragging). It rejoins the playhead after an interruption (a hidden tab, or iOS). Sound is off by default because of autoplay rules and is not remembered across visits; the Sound button in the bar turns it on, and it plays as media even with the iPhone ringer switch on silent where `navigator.audioSession` exists.
 - **Recording:**
   - The recorder asks `getFirstEncodableAudioCodec(['aac'])`. If AAC is available, it adds `AudioBufferSource({ codec: 'aac', bitrate: 128_000 })` and adds the rendered buffer.
   - If AAC isn't available, it records silent and shows "Recorded without sound — your browser can't encode audio". AAC only, because X expects it.
+  - A/V sync: the recorded buffer is not shifted for AAC priming. Without an edit list, ffmpeg/Chrome play the audio about 20–56 ms after the slam frame and Safari/iOS −24…+12 ms, inside ITU-R BT.1359 and EBU R37; shifting would push Safari's audio ahead of the picture.
 
 ## 11. Player and controls (Direction A)
 
