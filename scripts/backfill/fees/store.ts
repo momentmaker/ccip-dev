@@ -40,7 +40,7 @@ export const listArchiveDays = (dir: string) => daysIn(archiveRoot(dir));
 export const listSealedDays = (dir: string) => daysIn(detailsRoot(dir));
 
 export async function readArchiveDay(dir: string, day: string): Promise<unknown[]> {
-  return parseLines(gunzipSync(await readFile(dayFile(archiveRoot(dir), day, '.jsonl.gz'))).toString('utf8'), false);
+  return readLines(dayFile(archiveRoot(dir), day, '.jsonl.gz'), { gzipped: true, tolerateCutLastLine: false });
 }
 
 // Appends for a day must be serialized: a concurrent append would see an in-flight write as a torn tail.
@@ -63,7 +63,7 @@ async function dropTornTail(file: string): Promise<void> {
 /** A day's records so far. A last line cut short by a crash is dropped, so its message is fetched again. */
 export async function readPartial(dir: string, day: string): Promise<DetailRecord[]> {
   const file = dayFile(detailsRoot(dir), day, '.partial.jsonl');
-  return existsSync(file) ? (parseLines(await readFile(file, 'utf8'), true) as DetailRecord[]) : [];
+  return existsSync(file) ? ((await readLines(file, { gzipped: false, tolerateCutLastLine: true })) as DetailRecord[]) : [];
 }
 
 export async function sealDay(dir: string, day: string): Promise<number> {
@@ -89,13 +89,23 @@ export async function sealDay(dir: string, day: string): Promise<number> {
 }
 
 export async function readSealedDay(dir: string, day: string): Promise<DetailRecord[]> {
-  return parseLines(gunzipSync(await readFile(dayFile(detailsRoot(dir), day, '.jsonl.gz'))).toString('utf8'), false) as DetailRecord[];
+  return (await readLines(sealedFile(dir, day), { gzipped: true, tolerateCutLastLine: false })) as DetailRecord[];
 }
 
 export async function saveUnparsed(dir: string, id: string, body: unknown): Promise<void> {
   const file = path.join(dir, 'fees', 'unparsed', `${id}.json`);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFileAtomic(file, JSON.stringify(body));
+}
+
+/** A decode error alone (a zlib code, a line number) leaves the owner guessing which of ~1,200 day files to restore. */
+async function readLines(file: string, opts: { gzipped: boolean; tolerateCutLastLine: boolean }): Promise<unknown[]> {
+  const raw = await readFile(file);
+  try {
+    return parseLines((opts.gzipped ? gunzipSync(raw) : raw).toString('utf8'), opts.tolerateCutLastLine);
+  } catch (err) {
+    throw new Error(`${file}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+  }
 }
 
 function parseLines(text: string, tolerateCutLastLine: boolean): unknown[] {

@@ -28,6 +28,17 @@ describe('archive', () => {
     const dir = await backfill({ '2026-10-04': [{ messageId: '0x1' }, { messageId: '0x2' }] });
     expect(await readArchiveDay(dir, '2026-10-04')).toEqual([{ messageId: '0x1' }, { messageId: '0x2' }]);
   });
+
+  it('names the archive file whose gzip is corrupt', async () => {
+    // #given
+    const dir = await backfill({});
+    const file = path.join(dir, 'archive', 'messages', '2026', '10', '04.jsonl.gz');
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, 'not gzip');
+
+    // #when / #then
+    await expect(readArchiveDay(dir, '2026-10-04')).rejects.toThrow(`${file}: incorrect header check`);
+  });
 });
 
 describe('detail records', () => {
@@ -144,6 +155,42 @@ describe('detail records', () => {
 
     // #then
     expect({ before, afterAppend, afterRefetch }).toEqual({ before: ['0x1'], afterAppend: ['0x1', '0x3'], afterRefetch: ['0x1', '0x3', '0x2'] });
+  });
+
+  it('names the sealed file that holds a line of bad JSON', async () => {
+    // #given
+    const dir = await backfill({});
+    const sealed = path.join(dir, 'fees', 'details', '2026', '10', '04.jsonl.gz');
+    await mkdir(path.dirname(sealed), { recursive: true });
+    await writeFile(sealed, gzipSync(`${JSON.stringify(ok('0x1'))}\nnot json\n`));
+
+    // #when / #then
+    await expect(readSealedDay(dir, '2026-10-04')).rejects.toThrow(`${sealed}: line 2 is not valid JSON`);
+  });
+
+  it('names the partial file that holds a line of bad JSON', async () => {
+    // #given
+    const dir = await backfill({});
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, `not json\n${JSON.stringify(ok('0x1'))}\n`);
+
+    // #when / #then
+    await expect(readPartial(dir, '2026-10-04')).rejects.toThrow(`${partial}: line 1 is not valid JSON`);
+  });
+
+  it('keeps the original read error as the cause', async () => {
+    // #given
+    const dir = await backfill({});
+    const file = path.join(dir, 'archive', 'messages', '2026', '10', '04.jsonl.gz');
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, 'not gzip');
+
+    // #when
+    const err = await readArchiveDay(dir, '2026-10-04').catch((e: unknown) => e);
+
+    // #then
+    expect((err as Error).cause).toMatchObject({ code: 'Z_DATA_ERROR' });
   });
 
   it('reads a partial file holding only a fragment as empty, and appends cleanly after it', async () => {
