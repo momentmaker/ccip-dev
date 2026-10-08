@@ -28,6 +28,12 @@ export function resyncAfter(event: 'visible' | 'running', audio: { playing: bool
   return event === 'visible' || interrupted;
 }
 
+export function suspendWhenIdle(ctx: { state: string; suspend(): Promise<void> }, stillIdle: () => boolean, delayMs: number): void {
+  setTimeout(() => {
+    if (stillIdle() && ctx.state === 'running') void ctx.suspend();
+  }, delayMs);
+}
+
 export function scrubRestartDelay(lastRestartMs: number, nowMs: number, intervalMs: number): number {
   return Math.max(0, intervalMs - (nowMs - lastRestartMs));
 }

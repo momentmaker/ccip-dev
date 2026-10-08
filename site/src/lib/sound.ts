@@ -28,6 +28,17 @@ export class NoteLimiter {
   }
 }
 
+type AudioSessionNavigator = { audioSession?: { type: string } };
+
+export function preferPlaybackSession(nav: AudioSessionNavigator | undefined = globalThis.navigator as AudioSessionNavigator | undefined): void {
+  if (!nav?.audioSession) return;
+  try {
+    nav.audioSession.type = 'playback';
+  } catch (err) {
+    console.warn('could not mark the audio session as playback', err);
+  }
+}
+
 type Storage = { getItem(key: string): string | null; setItem(key: string, value: string): void };
 
 export class SkySound {
@@ -51,6 +62,7 @@ export class SkySound {
     }
     if (!on) return;
     this.ctx ??= this.createContext();
+    preferPlaybackSession();
     void this.ctx.resume();
   }
 

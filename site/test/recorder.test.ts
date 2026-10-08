@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const calls = vi.hoisted(() => ({ added: [] as [number, number][], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [] as unknown[], audioTracks: 0, codec: 'aac' as string | null, audioCloses: 0, audioFails: false, probeFails: false }));
+const calls = vi.hoisted(() => ({ added: [] as [number, number][], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [] as unknown[], audioTracks: 0, codec: 'aac' as string | null, audioCloses: 0, audioFails: false, probeFails: false, audioConfigs: [] as unknown[], probeArgs: [] as unknown[] }));
 
 vi.mock('mediabunny', () => {
   class BufferTarget {
@@ -17,7 +17,9 @@ vi.mock('mediabunny', () => {
     }
   }
   class AudioBufferSource {
-    constructor(readonly config: unknown) {}
+    constructor(readonly config: unknown) {
+      calls.audioConfigs.push(config);
+    }
     async add(buffer: unknown) {
       if (calls.audioFails) throw new DOMException('AAC encoder failed', 'EncodingError');
       calls.audioAdds.push(buffer);
@@ -44,7 +46,8 @@ vi.mock('mediabunny', () => {
       calls.cancelled += 1;
     }
   }
-  const getFirstEncodableAudioCodec = async () => {
+  const getFirstEncodableAudioCodec = async (...args: unknown[]) => {
+    calls.probeArgs.push(args);
     if (calls.probeFails) throw new Error('probe exploded');
     return calls.codec;
   };
@@ -62,7 +65,7 @@ class FakeOffscreenCanvas {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  Object.assign(calls, { added: [], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [], audioTracks: 0, codec: 'aac', audioCloses: 0, audioFails: false, probeFails: false });
+  Object.assign(calls, { added: [], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [], audioTracks: 0, codec: 'aac', audioCloses: 0, audioFails: false, probeFails: false, audioConfigs: [], probeArgs: [] });
 });
 
 describe('recording helpers', () => {
@@ -145,6 +148,13 @@ describe('audio', () => {
     await recordReplay({ draw: () => {}, aspect: '1:1', lengthS: 1, onProgress: () => {}, signal: new AbortController().signal, audio });
     expect(calls.audioTracks).toBe(1);
     expect(calls.audioAdds).toEqual([audio]);
+    expect(calls.audioConfigs).toEqual([{ codec: 'aac', bitrate: 128_000 }]);
+  });
+
+  it('probes for stereo 48 kHz AAC', async () => {
+    vi.stubGlobal('AudioEncoder', class {});
+    await audioCodecAvailable();
+    expect(calls.probeArgs).toEqual([[['aac'], { numberOfChannels: 2, sampleRate: 48_000 }]]);
   });
 
   it('records silently without audio', async () => {

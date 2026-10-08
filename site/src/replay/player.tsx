@@ -7,6 +7,7 @@ import { chainName, chainNameMap } from '../lib/names';
 import { formatUtcDay } from '../lib/format';
 import { barVisible, BAR_IDLE_MS, formatClock, pickableChains } from '../lib/controls';
 import { replayHead } from '../lib/replay-head';
+import { preferPlaybackSession } from '../lib/sound';
 import ChainPicker from '../components/controls/ChainPicker';
 import RecordPill from '../components/controls/RecordPill';
 import Scrubber from '../components/controls/Scrubber';
@@ -37,7 +38,7 @@ import {
 import { audioCodecAvailable, canRecord, raceAbort, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
 import { scoreFor } from './score/schedule';
 import { renderScore } from './score/synth';
-import { audioStartOffset, fade, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, syncAction } from './score/sync';
+import { audioStartOffset, fade, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, suspendWhenIdle, syncAction } from './score/sync';
 import { Show, type ShowInput } from './director/show';
 import { loadCanvasFonts } from './story/draw';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
@@ -52,6 +53,7 @@ const SILENT_RECORDING_NOTE = "Recorded without sound — your browser can't enc
 const PREFETCH_DEBOUNCE_MS = 400;
 const PREFETCH_IDLE_TIMEOUT_MS = 2_000;
 const SCRUB_RESTART_MS = 100;
+const SUSPEND_AFTER_MS = 50;
 
 type AudioIntent = { playing: boolean; soundOn: boolean; t: number; scrubbed: boolean };
 
@@ -274,6 +276,8 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     sourceRef.current = null;
     setSourceLive(false);
     if (live) live.node.stop(fade(live.gain.gain, live.gain.gain.value, 0, live.node.context.currentTime));
+    const ctx = audioCtxRef.current;
+    if (ctx) suspendWhenIdle(ctx, () => !audioWantedRef.current, SUSPEND_AFTER_MS);
   }, []);
 
   failSoundRef.current = (err: unknown) => {
@@ -483,6 +487,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     audioWantedRef.current = true;
     const key = scoreKey(current, lastDay);
     const token = audioTokenRef.current;
+    preferPlaybackSession();
     Promise.all([scoreBuffer(current), ctx.resume()])
       .then(([buffer]) => {
         if (!buffer || token !== audioTokenRef.current || !scoreCache.holds(key)) return;

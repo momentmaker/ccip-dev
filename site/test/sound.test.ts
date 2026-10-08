@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { chordFrequencies, NoteLimiter, noteFrequency, noteIndex, SkySound, SOUND_KEY } from '../src/lib/sound';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { chordFrequencies, NoteLimiter, noteFrequency, noteIndex, preferPlaybackSession, SkySound, SOUND_KEY } from '../src/lib/sound';
 
 function fakeAudio() {
   const oscillators: { frequency: { value: number } }[] = [];
@@ -71,11 +71,49 @@ describe('SkySound', () => {
     expect(new SkySound(storage, () => audio.ctx).enabled).toBe(true);
   });
 
+  it('asks for a playback audio session before resuming, so the ringer switch does not mute it', () => {
+    const session = { type: 'auto' };
+    vi.stubGlobal('navigator', { audioSession: session });
+    const audio = fakeAudio();
+    new SkySound(memoryStorage(), () => audio.ctx).setEnabled(true);
+    expect(session.type).toBe('playback');
+    vi.unstubAllGlobals();
+  });
+
   it('stays silent while the tab is hidden', () => {
     const audio = fakeAudio();
     const sound = new SkySound(memoryStorage(), () => audio.ctx);
     sound.setEnabled(true);
     sound.play(100, false, 0, true);
     expect(audio.oscillators).toHaveLength(0);
+  });
+});
+
+describe('preferPlaybackSession', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('marks the audio session as playback where the browser has one', () => {
+    const nav = { audioSession: { type: 'auto' } };
+    preferPlaybackSession(nav);
+    expect(nav.audioSession.type).toBe('playback');
+  });
+
+  it('does nothing where there is no audio session or no navigator', () => {
+    expect(() => preferPlaybackSession({})).not.toThrow();
+    expect(() => preferPlaybackSession(undefined)).not.toThrow();
+  });
+
+  it('warns instead of throwing when the session refuses the type', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const nav = {
+      audioSession: Object.defineProperty({}, 'type', {
+        set() {
+          throw new Error('nope');
+        },
+      }) as { type: string },
+    };
+    expect(() => preferPlaybackSession(nav)).not.toThrow();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

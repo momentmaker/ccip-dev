@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { audioStartOffset, fade, FADE_S, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, syncAction } from '../src/replay/score/sync';
+import { audioStartOffset, fade, FADE_S, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, suspendWhenIdle, syncAction } from '../src/replay/score/sync';
 
 describe('scoreKey', () => {
   it('changes with length, focus and data day', () => {
@@ -25,6 +25,14 @@ describe('syncAction', () => {
   it('restarts at the new offset after a scrub, and stops on pause', () => {
     expect(syncAction({ playing: true, soundOn: true, t: 5 }, { playing: true, soundOn: true, t: 12, scrubbed: true })).toEqual({ kind: 'start', offset: 12 });
     expect(syncAction({ playing: true, soundOn: true, t: 5 }, { playing: false, soundOn: true, t: 5, scrubbed: false })).toEqual({ kind: 'stop' });
+  });
+
+  it('does nothing when Sound is switched on while paused', () => {
+    expect(syncAction({ playing: false, soundOn: false, t: 5 }, { playing: false, soundOn: true, t: 5, scrubbed: false })).toEqual({ kind: 'none' });
+  });
+
+  it('does nothing when scrubbing while paused, even with Sound on', () => {
+    expect(syncAction({ playing: false, soundOn: true, t: 5 }, { playing: false, soundOn: true, t: 12, scrubbed: true })).toEqual({ kind: 'none' });
   });
 
   it('does nothing while playing steadily', () => {
@@ -176,5 +184,40 @@ describe('fade', () => {
     expect(calls).toEqual([['set', 1, 2], ['lin', 0, 2 + FADE_S]]);
     expect(FADE_S).toBeGreaterThanOrEqual(0.005);
     expect(FADE_S).toBeLessThanOrEqual(0.01);
+  });
+});
+
+describe('suspendWhenIdle', () => {
+  const fakeContext = (state = 'running') => ({ state, suspend: vi.fn(async () => {}) });
+
+  it('suspends the context once the fade has passed and nothing wants audio', () => {
+    vi.useFakeTimers();
+    const ctx = fakeContext();
+    suspendWhenIdle(ctx, () => true, 50);
+    vi.advanceTimersByTime(49);
+    expect(ctx.suspend).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(ctx.suspend).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('keeps the context running when audio is wanted again before the delay ends', () => {
+    vi.useFakeTimers();
+    const ctx = fakeContext();
+    let wanted = false;
+    suspendWhenIdle(ctx, () => !wanted, 50);
+    wanted = true;
+    vi.advanceTimersByTime(50);
+    expect(ctx.suspend).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('leaves a context alone that is not running', () => {
+    vi.useFakeTimers();
+    const ctx = fakeContext('closed');
+    suspendWhenIdle(ctx, () => true, 50);
+    vi.advanceTimersByTime(50);
+    expect(ctx.suspend).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });
