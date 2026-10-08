@@ -80,12 +80,21 @@ describe('CinemaCompositor', () => {
 
   it('starts from the tier it is given and never steps back up', () => {
     const renderer = fakeRenderer();
-    const c = new CinemaCompositor(show, stars, assets, createCanvas(), { quality: 'auto', reducedMotion: false, startTier: 'medium', createRenderer: () => renderer as never });
+    const c = new CinemaCompositor(show, stars, assets, createCanvas(), { quality: 'auto', reducedMotion: false, startQuality: { tier: 'medium', decided: false }, createRenderer: () => renderer as never });
     expect(c.tier).toBe('medium');
     for (let t = 0; t < 2.1; t += 1 / 60) c.noteFrame(10, t);
     c.draw(15, fake2d([]) as never, 640, 360);
     expect(c.tier).toBe('medium');
     expect(renderer.render.mock.calls[0]![0].bloom).toBe('half');
+  });
+
+  it('carries a decided tier across a recreate instead of judging a fresh window', () => {
+    const first = new CinemaCompositor(show, stars, assets, createCanvas(), { quality: 'auto', reducedMotion: false, createRenderer: () => fakeRenderer() as never });
+    for (let t = 0; t < 2.1; t += 1 / 60) first.noteFrame(10, t);
+    expect(first.qualityDecided).toBe(true);
+    const next = new CinemaCompositor(show, stars, assets, createCanvas(), { quality: 'auto', reducedMotion: false, startQuality: { tier: first.tier, decided: first.qualityDecided }, createRenderer: () => fakeRenderer() as never });
+    for (let t = 0; t < 2.1; t += 1 / 60) next.noteFrame(40, t);
+    expect(next.tier).toBe('high');
   });
 
   it('packs coin images into one atlas and uploads it', () => {

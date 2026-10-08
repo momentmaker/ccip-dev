@@ -35,6 +35,8 @@ export function intersects(a: Box, b: Box): boolean {
 const centered = (width: number, w: number, y: number, h: number): Box => ({ x: (width - w) / 2, y, w, h });
 
 export const storyUnit = (width: number, height: number) => Math.min(width, height) / 1080;
+export const END_TITLE = 'ccip.dev';
+export const END_TITLE_PX = 130;
 
 export function layoutFor(width: number, height: number): StoryLayout {
   const aspect = aspectOf(width, height);

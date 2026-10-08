@@ -26,21 +26,25 @@ export class QualityController {
   private windowStart: number | null = null;
   private samples: number[] = [];
   private lastNowS: number | null = null;
-  private decided: boolean;
+  private settled: boolean;
 
-  constructor(opts: { start?: Tier; locked?: boolean; windowS?: number }) {
+  constructor(opts: { start?: Tier; decided?: boolean; locked?: boolean; windowS?: number }) {
     this.current = opts.start ?? 'high';
     this.locked = opts.locked ?? false;
     this.windowS = opts.windowS ?? 2;
-    this.decided = this.locked || this.current === 'low';
+    this.settled = (opts.decided ?? false) || this.locked || this.current === 'low';
   }
 
   get tier(): Tier {
     return this.current;
   }
 
+  get decided(): boolean {
+    return this.settled;
+  }
+
   sample(frameMs: number, nowS: number): Tier {
-    if (this.decided) return this.current;
+    if (this.settled) return this.current;
     if (frameMs > MAX_FRAME_MS) return this.current;
     const gapped = this.lastNowS !== null && nowS - this.lastNowS > MAX_GAP_S;
     this.lastNowS = nowS;
@@ -50,7 +54,7 @@ export class QualityController {
     }
     this.samples.push(frameMs);
     if (nowS - this.windowStart >= this.windowS && this.samples.length >= MIN_SAMPLES) {
-      this.decided = true;
+      this.settled = true;
       this.current = this.stepDown(this.median());
       this.samples = [];
     }

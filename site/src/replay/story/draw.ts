@@ -2,7 +2,7 @@ import { formatCount, formatUtcDay } from '../../lib/format';
 import { chainName, type ChainNames } from '../../lib/names';
 import { stripCells, stripColumns, type BoardRow } from '../director/leaderboard';
 import type { ShowFrame } from '../director/show';
-import type { Box, StoryLayout } from './layout';
+import { END_TITLE, END_TITLE_PX, type Box, type StoryLayout } from './layout';
 import { odometer, rollOf } from './odometer';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -22,8 +22,6 @@ const SCRIM = 'rgba(12, 15, 20, 0.55)';
 const SANS = 'Inter, sans-serif';
 const MONO = '"JetBrains Mono", monospace';
 const CANVAS_FONTS = ['400 16px Inter', '600 16px Inter', '800 16px Inter', '600 16px "JetBrains Mono"'] as const;
-export const END_TITLE = 'ccip.dev';
-export const END_TITLE_PX = 130;
 export const endTitleFont = (px: number) => `800 ${px}px ${SANS}`;
 
 export function loadCanvasFonts(fonts: Pick<FontFaceSet, 'load'>): Promise<void> {

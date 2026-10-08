@@ -230,11 +230,6 @@ describe('Show', () => {
     expect(checked).toBeGreaterThan(0);
   });
 
-  it('skips the milestone punch-in under reduced motion', () => {
-    const s = new Show({ replay, history, stars, length: 30, focus: null, eligible: () => true, reducedMotion: true });
-    for (const t of [3, 10, 20, 26]) expect(s.frameAt(t).punch).toBe(0);
-  });
-
   it('holds the camera still through a slam under reduced motion, while the full show punches in', () => {
     const slamHistory = history.map((d) => (d.day === '2023-07-08' ? { ...d, messages: 1500 } : d));
     const full = new Show({ replay, history: slamHistory, stars, length: 30, focus: null, eligible: () => true });

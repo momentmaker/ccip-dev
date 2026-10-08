@@ -14,8 +14,7 @@ import {
   type SceneContext,
 } from '../src/replay/cinema/scene';
 import { Show, type ShowFrame } from '../src/replay/director/show';
-import { END_TITLE_PX } from '../src/replay/story/draw';
-import { storyUnit } from '../src/replay/story/layout';
+import { END_TITLE_PX, storyUnit } from '../src/replay/story/layout';
 import { COLORS } from '../src/sky/frame';
 import { LANE_SEGMENTS } from '../src/sky/instances';
 import { buildLayout } from '../src/sky/layout';
@@ -97,6 +96,20 @@ describe('buildScene', () => {
     const sparks: [number, number][] = [];
     for (let i = 0; i < s.quads.length; i += QUAD_FLOATS) if (s.quads[i + 9] === CINEMA_SHAPE.spark) sparks.push([s.quads[i]!, s.quads[i + 1]!]);
     expect(sparks.some(([x, y]) => Math.abs(x - (width / 2 + em)) < 1e-3 && Math.abs(y - (height / 2 - 0.25 * em)) < 1e-3)).toBe(true);
+  });
+
+  it('lets the traffic frozen at the end of the story settle out early in the finale, so the title assembles over a calm sky', () => {
+    const quiet = (f: ShowFrame) => withSky(f, { comets: [] }, { arrivals: [] });
+    const start = show.frameAt(27.05);
+    expect(quadCount(buildScene(start, ctx({ titleTargets: [] })))).toBeGreaterThan(quadCount(buildScene(quiet(start), ctx({ titleTargets: [] }))));
+    const settled = show.frameAt(28);
+    expect(settled.base.sky.comets.length + settled.base.arrivals.length).toBeGreaterThan(0);
+    expect(buildScene(settled, ctx())).toEqual(buildScene(quiet(settled), ctx()));
+  });
+
+  it('feathers the canvas edge only when asked', () => {
+    expect(buildScene(show.frameAt(15), ctx()).edgeFeather).toBe(0);
+    expect(buildScene(show.frameAt(15), ctx({ edgeFeather: 0.06 })).edgeFeather).toBe(0.06);
   });
 
   it('pulses the exposure only around the finale beat', () => {

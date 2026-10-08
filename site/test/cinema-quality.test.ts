@@ -94,6 +94,18 @@ describe('QualityController', () => {
   it('never changes when locked, as for recordings', () => {
     expect(feed(new QualityController({ locked: true }), 80, 0, 6)).toBe('high');
   });
+
+  it('reports when it has decided', () => {
+    const c = new QualityController({});
+    expect(c.decided).toBe(false);
+    feed(c, 10, 0, 2.1);
+    expect(c.decided).toBe(true);
+  });
+
+  it('keeps a tier already decided this session instead of judging a fresh window', () => {
+    expect(feed(new QualityController({ start: 'high', decided: true }), 40, 0, 6)).toBe('high');
+    expect(feed(new QualityController({ start: 'medium', decided: true }), 40, 0, 6)).toBe('medium');
+  });
 });
 
 describe('atlasLayout', () => {

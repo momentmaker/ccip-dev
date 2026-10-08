@@ -81,6 +81,13 @@ describe('ReplayCompositor', () => {
     expect(createRenderer).toHaveBeenLastCalledWith(expect.anything(), { preferGl: false });
     createRenderer.mockImplementation(() => renderer);
   });
+
+  it('starts on the 2D sky when asked, so it never depends on a GPU context', () => {
+    createRenderer.mockClear();
+    new ReplayCompositor(showStub(showFrame()), [], assets, () => ({ width: 10, height: 10 }) as never, { preferGl: false });
+    expect(createRenderer).toHaveBeenCalledTimes(1);
+    expect(createRenderer).toHaveBeenCalledWith(expect.anything(), { preferGl: false });
+  });
 });
 
 const coinTarget = (drawn: unknown[][], alphas: number[]) =>

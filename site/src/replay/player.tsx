@@ -16,16 +16,17 @@ import ShareButton from '../components/ShareButton';
 import { usePrefersReducedMotion } from '../components/hooks';
 import { trailingWeights } from '../sky/weights';
 import { buildLayout } from '../sky/layout';
-import { ContextLossTracker } from '../sky/renderer';
 import { CinemaCompositor } from './cinema/compositor';
 import type { Tier } from './cinema/quality';
 import { COIN_WAIT_MS, loadCoinImages, settleWithin } from './coin-images';
 import { ReplayCompositor } from './compose';
 import {
   buildCompositor,
-  kindAfterLoss,
   liveCinemaOptions,
+  liveClassicOptions,
+  LossPolicy,
   RECORDING_CINEMA_OPTIONS,
+  recordErrorMessage,
   recordingDraw,
   recordingShow,
   type Compositor,
@@ -66,9 +67,8 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [compositor, setCompositor] = useState<Compositor | null>(null);
   const [kind, setKind] = useState<CompositorKind>('cinema');
   const [compositorKey, setCompositorKey] = useState(0);
-  const lossTrackerRef = useRef(new ContextLossTracker());
-  const handledLossRef = useRef<Compositor | null>(null);
-  const tierRef = useRef<Tier>('high');
+  const lossPolicyRef = useRef(new LossPolicy());
+  const qualityRef = useRef<{ tier: Tier; decided: boolean }>({ tier: 'high', decided: false });
   const reducedMotion = usePrefersReducedMotion();
   const [coinImages, setCoinImages] = useState<ReadonlyMap<string, CanvasImageSource>>(new Map());
   const coinLoadRef = useRef<Promise<ReadonlyMap<string, CanvasImageSource>> | null>(null);
@@ -218,8 +218,8 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     let created: Compositor;
     try {
       created = buildCompositor(kind, () => CinemaCompositor.isSupported(makeCanvas), {
-        cinema: () => new CinemaCompositor(show, stars, assets, makeCanvas, liveCinemaOptions(reducedMotion, tierRef.current)),
-        classic: () => new ReplayCompositor(show, stars, assets, makeCanvas, { chrome: false }),
+        cinema: () => new CinemaCompositor(show, stars, assets, makeCanvas, liveCinemaOptions(reducedMotion, qualityRef.current)),
+        classic: () => new ReplayCompositor(show, stars, assets, makeCanvas, liveClassicOptions(kind)),
       });
     } catch (err) {
       console.warn('Replay compositor failed to start', err);
@@ -238,11 +238,10 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !compositor) return;
     if (compositor instanceof CinemaCompositor && compositor.lost) {
-      if (handledLossRef.current === compositor) return;
-      handledLossRef.current = compositor;
-      const next = kindAfterLoss(lossTrackerRef.current, performance.now());
-      console.warn(`Replay lost its WebGL context; ${next === 'classic' ? 'falling back to the classic renderer' : 'recreating the renderer'}`);
-      if (next === 'classic') setKind('classic');
+      const action = lossPolicyRef.current.onLost(compositor, performance.now());
+      if (action === 'ignore') return;
+      console.warn(`Replay lost its WebGL context; ${action === 'fallback' ? 'falling back to the classic renderer' : 'recreating the renderer'}`);
+      if (action === 'fallback') setKind('classic');
       else setCompositorKey((k) => k + 1);
       return;
     }
@@ -289,7 +288,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     const tick = (frameTime: number) => {
       if (lastFrame !== null && compositor instanceof CinemaCompositor) {
         compositor.noteFrame(frameTime - lastFrame, frameTime / 1000);
-        tierRef.current = compositor.tier;
+        qualityRef.current = { tier: compositor.tier, decided: compositor.qualityDecided };
       }
       lastFrame = frameTime;
       const now = Math.min(clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000, show.length);
@@ -369,7 +368,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       const cut = recordingShow(show, showInput);
       recorder = buildCompositor(kind, () => CinemaCompositor.isSupported(offscreen), {
         cinema: () => new CinemaCompositor(cut, stars, assets, offscreen, RECORDING_CINEMA_OPTIONS),
-        classic: () => new ReplayCompositor(cut, stars, assets, offscreen),
+        classic: () => new ReplayCompositor(cut, stars, assets, offscreen, { preferGl: kind !== 'classic' }),
       });
       const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
       recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
@@ -396,7 +395,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       if ((err as Error).name !== 'AbortError') {
         console.error('replay recording failed', err);
         setRecordNote('');
-        setRecordError('Recording failed — try again or use Chrome');
+        setRecordError(recordErrorMessage(err));
       }
     } finally {
       if (controller.signal.aborted) setRecordNote('Recording cancelled');

@@ -52,12 +52,12 @@ export class ReplayCompositor {
     private readonly stars: readonly StarPoint[],
     private readonly assets: CompositorAssets,
     private readonly createCanvas: () => SkyCanvas,
-    private readonly options: { chrome?: boolean } = {},
+    private readonly options: { chrome?: boolean; preferGl?: boolean } = {},
   ) {
     let canvas = createCanvas();
     let renderer: SkyRenderer;
     try {
-      renderer = createRenderer(canvas);
+      renderer = createRenderer(canvas, { preferGl: options.preferGl ?? true });
     } catch {
       canvas = createCanvas();
       renderer = createRenderer(canvas, { preferGl: false });

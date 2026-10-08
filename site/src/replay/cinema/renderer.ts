@@ -321,6 +321,7 @@ export class CinemaRenderer {
       gl.uniform1f(u('u_frame'), scene.frame);
       gl.uniform2f(u('u_resolution'), width, height);
       gl.uniform4f(u('u_shock'), scene.shock?.x ?? 0.5, scene.shock?.y ?? 0.5, scene.shock?.progress ?? 0, scene.shock?.strength ?? 0);
+      gl.uniform1f(u('u_feather'), scene.edgeFeather);
     });
     gl.bindVertexArray(null);
   }

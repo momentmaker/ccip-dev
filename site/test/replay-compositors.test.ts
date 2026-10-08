@@ -4,16 +4,18 @@ import { CinemaCompositor } from '../src/replay/cinema/compositor';
 import type { ReplayCompositor } from '../src/replay/compose';
 import {
   buildCompositor,
-  kindAfterLoss,
   liveCinemaOptions,
+  liveClassicOptions,
+  LossPolicy,
   RECORDING_CINEMA_OPTIONS,
+  recordErrorMessage,
+  RecordingContextLostError,
   recordingDraw,
   recordingShow,
 } from '../src/replay/compositors';
 import { PUNCH_IN_S } from '../src/replay/director/camera';
 import { Show, type ShowInput } from '../src/replay/director/show';
 import { buildLayout } from '../src/sky/layout';
-import { ContextLossTracker } from '../src/sky/renderer';
 import replayJson from './fixtures/replay.json';
 
 const replay = replayJson as ReplayFile;
@@ -77,17 +79,46 @@ describe('buildCompositor', () => {
   });
 });
 
-describe('kindAfterLoss', () => {
-  it('recreates the cinema compositor on the first context loss and falls back to the classic one on the second', () => {
-    const tracker = new ContextLossTracker();
-    expect(kindAfterLoss(tracker, 10_000)).toBe('cinema');
-    expect(kindAfterLoss(tracker, 25_000)).toBe('classic');
+describe('LossPolicy', () => {
+  const first = {};
+  const second = {};
+
+  it('recreates on the first context loss and falls back to the classic compositor on the second', () => {
+    const policy = new LossPolicy();
+    expect(policy.onLost(first, 10_000)).toBe('recreate');
+    expect(policy.onLost(second, 25_000)).toBe('fallback');
+  });
+
+  it('counts a lost compositor once however many frames notice it', () => {
+    const policy = new LossPolicy();
+    expect(policy.onLost(first, 10_000)).toBe('recreate');
+    expect(policy.onLost(first, 10_016)).toBe('ignore');
+    expect(policy.onLost(first, 10_033)).toBe('ignore');
+    expect(policy.onLost(second, 70_100)).toBe('recreate');
+  });
+});
+
+describe('liveClassicOptions', () => {
+  it('keeps the GL sky until the player has fallen back after context losses, then uses the 2D sky', () => {
+    expect(liveClassicOptions('cinema')).toEqual({ chrome: false, preferGl: true });
+    expect(liveClassicOptions('classic')).toEqual({ chrome: false, preferGl: false });
+  });
+});
+
+describe('edge feather', () => {
+  it('feathers the live canvas into the page and leaves recordings unfeathered', () => {
+    const live = fakeRenderer();
+    const rec = fakeRenderer();
+    new CinemaCompositor(show, stars, assets, createCanvas, { ...liveCinemaOptions(false, { tier: 'high', decided: false }), createRenderer: () => live as never }).draw(15, fake2d() as never, 64, 36);
+    new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => rec as never }).draw(15, fake2d() as never, 64, 36);
+    expect(live.render.mock.calls[0]![0].edgeFeather).toBeGreaterThan(0);
+    expect(rec.render.mock.calls[0]![0].edgeFeather).toBe(0);
   });
 });
 
 describe('recording', () => {
   it('records at High even after the live player stepped down to Low', () => {
-    const live = new CinemaCompositor(show, stars, assets, createCanvas, { ...liveCinemaOptions(false, 'low'), createRenderer: () => fakeRenderer() as never });
+    const live = new CinemaCompositor(show, stars, assets, createCanvas, { ...liveCinemaOptions(false, { tier: 'low', decided: true }), createRenderer: () => fakeRenderer() as never });
     expect(live.tier).toBe('low');
     const renderer = fakeRenderer();
     const rec = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => renderer as never });
@@ -112,7 +143,7 @@ describe('recording', () => {
   it('drops the shockwave for a reduced-motion viewer but keeps it in the recording', () => {
     const liveRenderer = fakeRenderer();
     const recRenderer = fakeRenderer();
-    new CinemaCompositor(slamming, stars, assets, createCanvas, { ...liveCinemaOptions(true, 'high'), createRenderer: () => liveRenderer as never }).draw(15, fake2d() as never, 64, 36);
+    new CinemaCompositor(slamming, stars, assets, createCanvas, { ...liveCinemaOptions(true, { tier: 'high', decided: false }), createRenderer: () => liveRenderer as never }).draw(15, fake2d() as never, 64, 36);
     new CinemaCompositor(slamming, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => recRenderer as never }).draw(15, fake2d() as never, 64, 36);
     expect(liveRenderer.render.mock.calls[0]![0].shock).toBeNull();
     expect(recRenderer.render.mock.calls[0]![0].shock).not.toBeNull();
@@ -122,6 +153,15 @@ describe('recording', () => {
     const ok = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer() as never });
     expect(() => recordingDraw(ok)(15, fake2d() as never, 64, 36)).not.toThrow();
     const lost = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer(true) as never });
-    expect(() => recordingDraw(lost)(15, fake2d() as never, 64, 36)).toThrow(/context/);
+    expect(() => recordingDraw(lost)(15, fake2d() as never, 64, 36)).toThrow(RecordingContextLostError);
+  });
+
+  it('tells the viewer the graphics context was lost, rather than blaming the browser', () => {
+    expect(recordErrorMessage(new RecordingContextLostError())).toBe('The graphics context was lost while recording. Try again.');
+    expect(recordErrorMessage(new Error('encoder failed'))).toBe('Recording failed — try again or use Chrome');
+  });
+
+  it('cannot be changed by a caller', () => {
+    expect(Object.isFrozen(RECORDING_CINEMA_OPTIONS)).toBe(true);
   });
 });

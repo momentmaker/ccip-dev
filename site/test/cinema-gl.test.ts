@@ -135,6 +135,7 @@ const sceneWith = (bloom: CinemaScene['bloom']): CinemaScene => ({
   exposure: 1,
   bloom,
   frame: 0,
+  edgeFeather: 0,
 });
 
 describe('CinemaRenderer', () => {

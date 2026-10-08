@@ -3,8 +3,8 @@ import type { StarPoint } from '../../sky/layout';
 import { COIN_RASTER_PX } from '../coin-images';
 import type { CompositorAssets } from '../compose';
 import type { Show, ShowFrame } from '../director/show';
-import { drawStory, END_TITLE, endTitleFont } from '../story/draw';
-import { layoutFor } from '../story/layout';
+import { drawStory, endTitleFont } from '../story/draw';
+import { END_TITLE, layoutFor } from '../story/layout';
 import { atlasLayout } from './atlas';
 import { textTargets } from './fx';
 import { QualityController, TIERS, type Tier } from './quality';
@@ -19,7 +19,8 @@ export interface CinemaOptions {
   quality: 'auto' | 'high';
   reducedMotion: boolean;
   chrome?: boolean;
-  startTier?: Tier;
+  featherEdge?: boolean;
+  startQuality?: { tier: Tier; decided: boolean };
   createRenderer?: (canvas: SkyCanvas) => RendererLike | null;
 }
 
@@ -27,6 +28,7 @@ const TITLE_RASTER_PX = 150;
 const TITLE_SAMPLE_PX = 6;
 const MAX_TITLE_PARTICLES = 700;
 const SEED = 5;
+const EDGE_FEATHER = 0.06;
 
 function rasterTitle(createCanvas: () => SkyCanvas): { x: number; y: number }[] {
   const canvas = createCanvas();
@@ -83,7 +85,7 @@ export class CinemaCompositor {
     const renderer = (opts.createRenderer ?? ((c: SkyCanvas) => CinemaRenderer.create(c)))(this.glCanvas);
     if (!renderer) throw new Error('cinema: WebGL2 is unavailable');
     this.renderer = renderer;
-    this.quality = new QualityController({ start: opts.startTier, locked: opts.quality === 'high' });
+    this.quality = new QualityController({ start: opts.startQuality?.tier, decided: opts.startQuality?.decided, locked: opts.quality === 'high' });
     this.fullExtent = Math.max(1e-6, ...stars.map((s) => Math.hypot(s.x, s.y)));
     this.dust = dustField(17, this.fullExtent);
   }
@@ -94,6 +96,10 @@ export class CinemaCompositor {
 
   get tier(): Tier {
     return this.quality.tier;
+  }
+
+  get qualityDecided(): boolean {
+    return this.quality.decided;
   }
 
   noteFrame(ms: number, nowS: number): void {
@@ -168,6 +174,7 @@ export class CinemaCompositor {
       reducedMotion: this.opts.reducedMotion,
       seed: SEED,
       finaleSeconds: this.show.timing.finale,
+      edgeFeather: this.opts.featherEdge ? EDGE_FEATHER : 0,
     });
     this.renderer.render(scene);
     target.drawImage(this.glCanvas, 0, 0);
