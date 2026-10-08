@@ -1,6 +1,6 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { cometCount, daySpawns, mulberry32, REPLAY_COMET_S, ReplayModel } from '../src/replay/timeline';
+import { ARRIVAL_S, cometCount, daySpawns, mulberry32, REPLAY_COMET_S, ReplayModel } from '../src/replay/timeline';
 import { durationWarp } from '../src/replay/director/warp';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
@@ -291,6 +291,48 @@ describe('arrivals', () => {
 
   it('has no arrivals before any comet flies', () => {
     expect(model().frameAt(0).arrivals).toEqual([]);
+  });
+});
+
+describe('comet to arrival handoff', () => {
+  const day = '2024-01-01';
+  const single = {
+    ...replay,
+    since: day,
+    chains: [
+      { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: day },
+      { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: day },
+    ],
+    lanes: [[0, 1]],
+    days: [{ day, lanes: [[0, 1, 100]] }],
+  } as ReplayFile;
+  const m = new ReplayModel(single, [], buildLayout(single.chains), 10);
+  const [spawn] = daySpawns([[0, 1, 100]], 0);
+  const takeoff = m.dayStart(0) + spawn!.offset * m.warp.dayLength(0);
+  const landing = takeoff + REPLAY_COMET_S;
+  const inFlight = (t: number) => ({ comets: m.frameAt(t).sky.comets.length, arrivals: m.frameAt(t).arrivals.length });
+
+  it('flies the comet just before it lands, with no arrival yet', () => {
+    expect(inFlight(landing - 1e-6)).toEqual({ comets: 1, arrivals: 0 });
+  });
+
+  it('turns the comet into an arrival the moment it lands, never both and never neither', () => {
+    const counts = inFlight(landing);
+    expect(counts.comets + counts.arrivals).toBe(1);
+    expect(inFlight(landing + 1e-6)).toEqual({ comets: 0, arrivals: 1 });
+  });
+
+  it('keeps the arrival until just under 0.4 s and drops it at 0.4 s', () => {
+    expect(inFlight(landing + ARRIVAL_S - 1e-6)).toEqual({ comets: 0, arrivals: 1 });
+    expect(inFlight(landing + ARRIVAL_S)).toEqual({ comets: 0, arrivals: 0 });
+    expect(inFlight(landing + ARRIVAL_S + 1e-6)).toEqual({ comets: 0, arrivals: 0 });
+  });
+
+  it('has exactly one of comet or arrival on every frame from takeoff until the arrival ends', () => {
+    for (let t = takeoff + 1e-6; t < landing + ARRIVAL_S - 1e-6; t += 0.005) {
+      const { comets, arrivals } = inFlight(t);
+      expect(comets + arrivals).toBe(1);
+    }
   });
 });
 

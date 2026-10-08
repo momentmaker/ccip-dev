@@ -17,6 +17,23 @@ describe('burst', () => {
   });
 });
 
+describe('burst particles', () => {
+  it('returns one particle per requested count, each visible and sized within range', () => {
+    const out = burst(7, 12, 0.3, 1, 0, 0, 100);
+    expect(out).toHaveLength(12);
+    for (const p of out) {
+      expect(p.alpha).toBeGreaterThan(0);
+      expect(p.size).toBeGreaterThanOrEqual(0.5);
+      expect(p.size).toBeLessThanOrEqual(1);
+      expect(Math.hypot(p.x, p.y)).toBeGreaterThan(0);
+    }
+  });
+
+  it('returns nothing for a count of zero', () => {
+    expect(burst(7, 0, 0.3, 1, 0, 0, 100)).toEqual([]);
+  });
+});
+
 describe('supernova and pop', () => {
   it('flashes for 0.3 s and rings out over 0.8 s', () => {
     expect(novaFlash(0)).toBe(1);
@@ -93,6 +110,22 @@ describe('assemble', () => {
     expect(assemble(3, sources, targets, Number.NaN)).toEqual(assemble(3, sources, targets, 0));
   });
 
+  it('has every particle strictly between its source and target at half progress', () => {
+    const along = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
+    const goals = [{ x: 100, y: 0 }, { x: 200, y: 0 }];
+    const mid = assemble(3, along, goals, 0.5);
+    const start = assemble(3, along, goals, 0);
+    expect(mid).toHaveLength(2);
+    mid.forEach((p, i) => {
+      const gap = Math.hypot(goals[i]!.x - p.x, goals[i]!.y - p.y);
+      const total = Math.hypot(goals[i]!.x - start[i]!.x, goals[i]!.y - start[i]!.y);
+      expect(Math.hypot(p.x, p.y)).toBeGreaterThan(0);
+      expect(gap).toBeGreaterThan(0);
+      expect(gap).toBeLessThan(total);
+      expect(p.alpha).toBe(1);
+    });
+  });
+
   it('clamps progress to the range 0 to 1', () => {
     expect(assemble(3, sources, targets, 2)).toEqual(assemble(3, sources, targets, 1));
     expect(assemble(3, sources, targets, -1)).toEqual(assemble(3, sources, targets, 0));
@@ -117,5 +150,12 @@ describe('arrivalSeed', () => {
   it('is stable for the same arrival and differs between arrivals', () => {
     expect(arrivalSeed(4, 10.0001)).toBe(arrivalSeed(4, 10.0));
     expect(arrivalSeed(4, 10)).not.toBe(arrivalSeed(5, 10));
+  });
+
+  it('is the same for the same input and differs across times and lanes', () => {
+    expect(arrivalSeed(3, 12.5)).toBe(arrivalSeed(3, 12.5));
+    expect(arrivalSeed(3, 12.5)).not.toBe(arrivalSeed(3, 13));
+    const seeds = new Set([0, 1, 2, 3].flatMap((to) => [1, 2, 3].map((time) => arrivalSeed(to, time))));
+    expect(seeds.size).toBe(12);
   });
 });

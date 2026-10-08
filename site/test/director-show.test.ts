@@ -259,6 +259,39 @@ describe('Show', () => {
   });
 });
 
+describe('Show focus arrivals', () => {
+  const days = Array.from({ length: 60 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+  const chains = ['a', 'b', 'c', 'd'].map((selector) => ({ selector, name: `${selector}-mainnet`, display_name: selector.toUpperCase(), first_day: days[0]! }));
+  const lanesFixture = {
+    ...replay,
+    since: days[0]!,
+    chains,
+    lanes: [[0, 1], [1, 2], [2, 3], [3, 0]],
+    days: days.map((day) => ({ day, lanes: [[0, 3000, 1e6], [1, 3000, 1e5], [2, 3000, 1e4], [3, 3000, 1e3]] })),
+  } as ReplayFile;
+  const flat = days.map((day) => ({ ...history[0]!, day, messages: 5000 }));
+  const focused = new Show({ replay: lanesFixture, history: flat, stars: buildLayout(chains), length: 30, focus: 'a', eligible: () => true });
+  const focusStar = focused.frameAt(0).focusStar;
+  const key = (a: { from: number; to: number; age: number }) => `${a.from}>${a.to}@${a.age.toFixed(6)}`;
+  const touchesFocus = (a: { from: number; to: number }) => a.from === focusStar || a.to === focusStar;
+
+  it('keeps every arrival that touches the focus chain and only a stable share of the rest', () => {
+    let focusSeen = 0;
+    let droppedElsewhere = 0;
+    for (let t = focused.warp.start + 1; t < focused.warp.end - 1; t += 0.1) {
+      const raw = focused.model.frameAt(t).arrivals;
+      const shown = focused.frameAt(t).base.arrivals;
+      const rawFocus = raw.filter(touchesFocus).map(key);
+      expect(shown.filter(touchesFocus).map(key)).toEqual(rawFocus);
+      expect(shown.map(key).every((k) => raw.map(key).includes(k))).toBe(true);
+      focusSeen += rawFocus.length;
+      droppedElsewhere += raw.length - shown.length;
+    }
+    expect(focusSeen).toBeGreaterThan(0);
+    expect(droppedElsewhere).toBeGreaterThan(0);
+  });
+});
+
 describe('Show finale', () => {
   const days = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
   const busy = {
