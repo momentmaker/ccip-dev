@@ -199,7 +199,7 @@ describe('reserveStats', () => {
     expect(stats.cost_basis).toMatchObject({ cost_usd: -10_000, change_pct: null });
   });
 
-  it('values everything at zero, and calls every priced deposit a gain, when LINK is priced at 0', () => {
+  it('values everything at zero, and calls every priced deposit a 100% loss, when LINK is priced at 0', () => {
     const stats = reserveStats({ transfers: [t('2026-09-01T10:00:00.000Z', '0x50', 'in', 100_000, 10), t('2026-09-16T15:00:00.000Z', '0x51', 'in', 50_000, 20)], linkPriceUsd: 0, now: NOW });
     expect(stats.cost_basis).toMatchObject({ cost_usd: 2_000_000, value_usd: 0, change_usd: -2_000_000, change_pct: -100 });
     expect(stats.transfers.map((x) => [x.value_now_usd, x.change_pct])).toEqual([[0, -100], [0, -100]]);
