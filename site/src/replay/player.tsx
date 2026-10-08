@@ -29,6 +29,7 @@ import {
   recordErrorMessage,
   recordingDraw,
   recordingShow,
+  recordWithFallback,
   shouldSample,
   type Compositor,
   type CompositorKind,
@@ -374,25 +375,29 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     const controller = new AbortController();
     recordAbortRef.current = controller;
     setRecording({ progress: 0, controller });
-    let recorder: Compositor | null = null;
+    const recorders: Compositor[] = [];
     try {
-      const offscreen = () => new OffscreenCanvas(1, 1);
+      const detached = () => document.createElement('canvas');
       const cut = recordingShow(show, showInput);
-      recorder = buildCompositor(kind, () => CinemaCompositor.isSupported(offscreen), {
-        cinema: () => new CinemaCompositor(cut, stars, assets, offscreen, RECORDING_CINEMA_OPTIONS),
-        classic: () => new ReplayCompositor(cut, stars, assets, offscreen, { preferGl: kind !== 'classic' }),
-      });
       const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
-      recorder.setCoinImages(await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins));
+      const coins = await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins);
       if (controller.signal.aborted) return;
       await loadCanvasFonts(document.fonts);
-      if (recorder instanceof CinemaCompositor) recorder.refreshTitle();
-      const blob = await recordReplay({
-        draw: recordingDraw(recorder),
-        aspect,
-        lengthS: length,
-        onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),
-        signal: controller.signal,
+      const blob = await recordWithFallback((recorderKind) => {
+        const recorder = buildCompositor(recorderKind, () => CinemaCompositor.isSupported(detached), {
+          cinema: () => new CinemaCompositor(cut, stars, assets, detached, RECORDING_CINEMA_OPTIONS),
+          classic: () => new ReplayCompositor(cut, stars, assets, detached, { preferGl: recorderKind === 'cinema' && kind !== 'classic' }),
+        });
+        recorders.push(recorder);
+        recorder.setCoinImages(coins);
+        if (recorder instanceof CinemaCompositor) recorder.refreshTitle();
+        return recordReplay({
+          draw: recordingDraw(recorder),
+          aspect,
+          lengthS: length,
+          onProgress: (progress) => setRecording((r) => (r ? { ...r, progress } : r)),
+          signal: controller.signal,
+        });
       });
       if (controller.signal.aborted) return;
       const href = URL.createObjectURL(blob);
@@ -411,7 +416,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       }
     } finally {
       if (controller.signal.aborted) setRecordNote('Recording cancelled');
-      recorder?.destroy();
+      for (const r of recorders) r.destroy();
       if (recordAbortRef.current === controller) recordAbortRef.current = null;
       setRecording(null);
     }

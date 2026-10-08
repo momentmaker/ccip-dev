@@ -25,6 +25,8 @@ const TITLE_PARTICLES_SPAN = 0.35;
 const PULSE_AT_S = 0.6;
 const PULSE_WIDTH_S = 0.3;
 const RECORD_RIPPLE_S = 1.2;
+const NEBULA_NOISE_SCALE = 2.2;
+const NEBULA_DRIFT_PER_S = 0.002;
 const TITLE_PARTICLE_GAIN = 3;
 
 export interface DustField {
@@ -248,7 +250,7 @@ export function buildScene(frame: ShowFrame, ctx: SceneContext): CinemaScene {
   return {
     width: w,
     height: h,
-    nebula: tier.nebula ? { offset: [frame.t * 0.02 + cam.cx * 0.05, cam.cy * 0.05], intensity: 0.08, seed: (ctx.seed % 997) / 997 } : null,
+    nebula: tier.nebula ? { offset: [frame.t * NEBULA_DRIFT_PER_S * NEBULA_NOISE_SCALE * (w / h) + cam.cx * 0.05, cam.cy * 0.05], intensity: 0.08, seed: (ctx.seed % 997) / 997 } : null,
     lines: new Float32Array(lines),
     quads: new Float32Array([...quads, ...coreQuads]),
     coins: new Float32Array(coins),

@@ -12,6 +12,7 @@ import {
   RecordingContextLostError,
   recordingDraw,
   recordingShow,
+  recordWithFallback,
   shouldSample,
 } from '../src/replay/compositors';
 import { PUNCH_IN_S } from '../src/replay/director/camera';
@@ -110,6 +111,34 @@ describe('LossPolicy', () => {
     expect(policy.assess(replaced, 10_000)).toBe('draw');
     const lost = new CinemaCompositor(show, stars, assets, createCanvas, { ...RECORDING_CINEMA_OPTIONS, createRenderer: () => fakeRenderer(true) as never });
     expect(policy.assess(lost, 11_000)).toBe('recreate');
+  });
+});
+
+describe('recordWithFallback', () => {
+  const blob = new Blob(['mp4']);
+
+  it('records with the cinema compositor when it holds up', async () => {
+    const attempt = vi.fn(async () => blob);
+    await expect(recordWithFallback(attempt)).resolves.toBe(blob);
+    expect(attempt.mock.calls).toEqual([['cinema']]);
+  });
+
+  it('retries once with the classic compositor when the cinema context is lost mid-recording', async () => {
+    const attempt = vi.fn(async (kind: string) => {
+      if (kind === 'cinema') throw new RecordingContextLostError();
+      return blob;
+    });
+    await expect(recordWithFallback(attempt)).resolves.toBe(blob);
+    expect(attempt.mock.calls).toEqual([['cinema'], ['classic']]);
+  });
+
+  it('does not retry other failures, such as a cancel', async () => {
+    const cancel = new DOMException('Recording cancelled', 'AbortError');
+    const attempt = vi.fn(async () => {
+      throw cancel;
+    });
+    await expect(recordWithFallback(attempt)).rejects.toBe(cancel);
+    expect(attempt).toHaveBeenCalledTimes(1);
   });
 });
 

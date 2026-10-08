@@ -62,6 +62,12 @@ describe('textTargets', () => {
       { x: 0, y: 1 / 2 },
     ]);
   });
+
+  it('treats a step below one as one instead of looping forever', () => {
+    const data = new Uint8ClampedArray(2 * 1 * 4).fill(255);
+    expect(textTargets({ width: 2, height: 1, data }, 0)).toEqual(textTargets({ width: 2, height: 1, data }, 1));
+    expect(textTargets({ width: 2, height: 1, data }, -3)).toEqual(textTargets({ width: 2, height: 1, data }, 1));
+  });
 });
 
 describe('assemble', () => {
@@ -72,6 +78,10 @@ describe('assemble', () => {
     expect(start.map((p) => [p.x, p.y])).toEqual([[0, 0], [10, 0], [0, 0]]);
     const end = assemble(3, sources, targets, 1);
     expect(end.map((p) => [Math.round(p.x), Math.round(p.y)])).toEqual([[100, 100], [200, 100], [300, 100]]);
+  });
+
+  it('treats a NaN progress as not started', () => {
+    expect(assemble(3, sources, targets, Number.NaN)).toEqual(assemble(3, sources, targets, 0));
   });
 });
 

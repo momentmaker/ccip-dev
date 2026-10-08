@@ -67,6 +67,16 @@ export function recordingDraw(compositor: Compositor): (t: number, ctx: Ctx2d, w
   };
 }
 
+export async function recordWithFallback(attempt: (kind: CompositorKind) => Promise<Blob>): Promise<Blob> {
+  try {
+    return await attempt('cinema');
+  } catch (err) {
+    if (!(err instanceof RecordingContextLostError)) throw err;
+    console.warn('replay recording lost its WebGL context; recording again with the classic renderer');
+    return attempt('classic');
+  }
+}
+
 export function recordErrorMessage(err: unknown): string {
   return err instanceof RecordingContextLostError ? 'The graphics context was lost while recording. Try again.' : 'Recording failed — try again or use Chrome';
 }

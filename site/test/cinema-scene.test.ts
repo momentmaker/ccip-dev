@@ -146,6 +146,16 @@ describe('buildScene', () => {
     expect(endTitleAlpha(landed, true)).toBe(0);
   });
 
+  it.each([
+    [1280, 720],
+    [720, 720],
+    [720, 1280],
+  ])('drifts the nebula about 2 percent of the frame width per 10 s at %ix%i', (width, height) => {
+    const at = (t: number) => buildScene(show.frameAt(t), ctx({ width, height })).nebula!.offset[0];
+    const widthInNoise = 2.2 * (width / height);
+    expect((at(15) - at(5)) / widthInNoise).toBeCloseTo(0.02, 6);
+  });
+
   it('feathers the canvas edge only when asked', () => {
     expect(buildScene(show.frameAt(15), ctx()).edgeFeather).toBe(0);
     expect(buildScene(show.frameAt(15), ctx({ edgeFeather: 0.06 })).edgeFeather).toBe(0.06);
