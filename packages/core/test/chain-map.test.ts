@@ -25,8 +25,18 @@ describe('llamaKey', () => {
     );
   });
 
-  it('returns null for an EVM chain DefiLlama does not price', () => {
-    expect(llamaKey({ family: 'EVM', chainId: '1750' }, '0xabc')).toBeNull();
+  const wellFormed = '0x9818B6c09f5ECc843060927E8587c427C7C93583';
+
+  it('returns null for a well-formed address on an EVM chain DefiLlama does not price', () => {
+    expect(llamaKey({ family: 'EVM', chainId: '1750' }, wellFormed)).toBeNull();
+  });
+
+  it('prices the same well-formed address once the chain has a slug', () => {
+    expect(llamaKey({ family: 'EVM', chainId: '1' }, wellFormed)).toBe(`ethereum:${wellFormed.toLowerCase()}`);
+  });
+
+  it('returns null for a malformed address even on a priced chain', () => {
+    expect(llamaKey(base, '0xabc')).toBeNull();
   });
 
   it('returns null for chain families it does not know', () => {
