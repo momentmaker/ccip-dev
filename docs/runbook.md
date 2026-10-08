@@ -218,7 +218,7 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
 
 Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one CCIP detail per message. Spec: `docs/superpowers/specs/2026-10-08-fee-backfill-design.md`. Data lives in `.backfill/fees/`. The original backfill data in `.backfill/` (archive, prices, registry, sql) must be on disk; the fee scripts only read it. Run everything from the repo root.
 
-1. **Probe** (about 17–22 minutes, up to about 4,000 requests, with no per-day ceiling): `pnpm backfill:fees:fetch --probe`. Read `.backfill/fees/probe.json`.
+1. **Probe** (about 19–22 minutes, up to about 4,000 requests, with no per-day ceiling): `pnpm backfill:fees:fetch --probe`. Read `.backfill/fees/probe.json`.
    - Every `versions` entry should have fees: `feeNull` and `unknownShapes` near 0, `schemaFailures` 0. If not, stop and check `.backfill/fees/unparsed/`.
    - `statuses` counts responses per HTTP status. A large share of 5xx or other 4xx means the API is unhealthy; wait and probe again.
 2. **Fetch** (2.5–6 days, resumable): `caffeinate -i pnpm backfill:fees:fetch`.
@@ -229,7 +229,9 @@ Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one 
      - `the CCIP API refused the crawl with HTTP <401|403|451>; check access, then rerun to resume`: the API is blocking you. Check access first.
      - `the CCIP API has answered nothing for 15 minutes; stopping, and a rerun resumes`: after 15 minutes without an answer it re-fetches its latest good message and stops only if that fails too (a 429 or 5xx counts as failing). If nothing has succeeded yet in the run, it stops at once with no re-fetch.
      - `<day>: n of m messages kept failing (…); the CCIP API may be degraded. Rerun later to retry them`: a day whose retried-out skips exceed max(5, 5% of its messages) is not sealed. A rerun refetches those messages.
-     - `the archive for <day> has a row without a messageId`, or `line N is not valid JSON: …`: a corrupt input or data file. Restore it from backup; re-run the original backfill build only if you know what you're doing.
+     - `the archive for <day> has a row without a messageId`, or `line N is not valid JSON: …`: a corrupt file. The error is thrown while reading one file, and the surrounding log or stack names its path.
+       - Under `.backfill/archive/messages/`: original input. Restore it from a copy of `.backfill/`.
+       - Under `.backfill/fees/details/`: derived data. Delete it. If it was sealed (`….jsonl.gz`), also remove the day from `done` in `.backfill/fees/state.json` and rerun the fetch, as in the incomplete-day recipe under Build.
 3. **Build** (any time, as often as you like): `pnpm backfill:fees:build`.
    - **Output:** SQL for the sealed days not built yet, or whose sealed file changed since, in `.backfill/fees/sql/B<NNNN>/` with a `BUILD` file.
    - **Checks:** logged and saved in `.backfill/fees/checks/B<NNNN>.json`.
@@ -238,7 +240,7 @@ Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one 
      - `largest fee: …`: the 10 largest fees.
    - **Read the checks before the next upload.** Upload applies every `B<NNNN>` folder that has a `BUILD` file, in order, with no per-batch choice. Don't upload a batch with an outlier or low-priced day you can't explain.
      - To hold a batch back, move its folder out of `.backfill/fees/sql/`.
-     - Built days are not regenerated. To redo a day after a fix, remove it from `built` in `.backfill/fees/build-state.json` and rebuild.
+     - Built days are not regenerated. To redo a day after a fix, remove it from `built` in `.backfill/fees/build-state.json` and rebuild. This works only for a batch not uploaded yet: message updates only touch rows with `detail_fetched_at IS NULL`, so rows an uploaded batch already filled are never rewritten, and only the daily rollups would change. To redo an uploaded day, use the fee-wipe path described at the end of this section, or manual SQL.
    - **Stops:**
      - `<file> is missing: the fee build reuses the original backfill's price cache`, or `<file> covers X..Y, not A..B; refusing to start a new cache`: restore the original `.backfill/prices/cache.json` and archive. Never delete the cache.
      - `fee build: <day> has n archived messages with no detail record; its sealed file is incomplete`: the sealed day is in `done`, so a plain fetch rerun skips it and every later build fails on it. Delete `.backfill/fees/details/YYYY/MM/DD.jsonl.gz` for that day, remove the day from `done` in `.backfill/fees/state.json`, run `pnpm backfill:fees:fetch` again, then build.
