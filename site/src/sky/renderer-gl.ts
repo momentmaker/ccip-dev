@@ -103,7 +103,8 @@ export class GlRenderer implements SkyRenderer {
   ) {}
 
   init(): void {
-    this.release();
+    // On a restore every handle belongs to the lost context; deleting them only logs INVALID_OPERATION.
+    this.forgetHandles();
     const gl = this.gl;
     this.quadProgram = link(gl, QUAD_VERT, QUAD_FRAG);
     this.lineProgram = link(gl, LINE_VERT, LINE_FRAG);
@@ -111,8 +112,6 @@ export class GlRenderer implements SkyRenderer {
     const instances = gl.createBuffer()!;
     const lines = gl.createBuffer()!;
     this.buffers = [corners, instances, lines];
-    this.instanceStorage.capacity = 0;
-    this.laneStorage.capacity = 0;
 
     this.quadVao = gl.createVertexArray();
     gl.bindVertexArray(this.quadVao);
@@ -171,6 +170,16 @@ export class GlRenderer implements SkyRenderer {
     gl.bindVertexArray(null);
   }
 
+  private forgetHandles(): void {
+    this.buffers = [];
+    this.instanceStorage.capacity = 0;
+    this.laneStorage.capacity = 0;
+    this.quadVao = null;
+    this.lineVao = null;
+    this.quadProgram = null;
+    this.lineProgram = null;
+  }
+
   private release(): void {
     const gl = this.gl;
     for (const b of this.buffers) gl.deleteBuffer(b);
@@ -178,11 +187,7 @@ export class GlRenderer implements SkyRenderer {
     if (this.lineVao) gl.deleteVertexArray(this.lineVao);
     if (this.quadProgram) gl.deleteProgram(this.quadProgram);
     if (this.lineProgram) gl.deleteProgram(this.lineProgram);
-    this.buffers = [];
-    this.quadVao = null;
-    this.lineVao = null;
-    this.quadProgram = null;
-    this.lineProgram = null;
+    this.forgetHandles();
   }
 
   destroy(): void {

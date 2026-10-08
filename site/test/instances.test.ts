@@ -112,4 +112,11 @@ describe('reusable targets', () => {
     buildLaneVertices({ ...frame, lanes: [...frame.lanes, ...frame.lanes] }, project, undefined, target);
     expect(buildLaneVertices(frame, project, undefined, target)).toEqual(buildLaneVertices(frame, project));
   });
+
+  it('zeroes the tail a frame leaves unwritten, instead of keeping the previous frame there', () => {
+    const target = new GrowingFloats();
+    buildInstances(frame, project, 1, undefined, target);
+    const notStarted: SkyFrame = { ...frame, comets: [{ ...frame.comets[0]!, progress: -0.5 }] };
+    expect(buildInstances(notStarted, project, 1, undefined, target)).toEqual(buildInstances(notStarted, project, 1));
+  });
 });

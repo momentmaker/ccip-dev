@@ -65,7 +65,7 @@ describe('GlRenderer.destroy', () => {
 });
 
 function recordingGl() {
-  const calls: { name: string; args: unknown[] }[] = [];
+  const calls: { name: string; args: unknown[]; result?: unknown }[] = [];
   const gl = new Proxy({} as Record<string | symbol, unknown>, {
     get: (_t, key) => {
       if (key === 'getExtension') return () => null;
@@ -76,8 +76,9 @@ function recordingGl() {
       if (typeof key === 'string' && /^[A-Z_0-9]+$/.test(key)) return 1;
       if (typeof key !== 'string') return undefined;
       return (...args: unknown[]) => {
-        calls.push({ name: key, args });
-        return /^create/.test(key) ? { created: key, n: calls.length } : undefined;
+        const result = /^create/.test(key) ? { created: key, n: calls.length } : undefined;
+        calls.push({ name: key, args, result });
+        return result;
       };
     },
   });
@@ -86,16 +87,24 @@ function recordingGl() {
 }
 
 describe('GlRenderer.init', () => {
-  it('releases the previous programs, buffers and vertex arrays when run again after a context restore', () => {
+  it('drops the old handles on re-init without deleting them, since a restored context no longer owns them', () => {
     const { gl, named } = recordingGl();
-    const { canvas } = fakeCanvas({ webgl2: gl });
-    const renderer = GlRenderer.create(canvas)!;
-    const firstBuffers = named('createBuffer').length;
-    const firstVaos = named('createVertexArray').length;
+    const renderer = GlRenderer.create(fakeCanvas({ webgl2: gl }).canvas)!;
     renderer.init();
-    expect(named('deleteBuffer')).toHaveLength(firstBuffers);
-    expect(named('deleteVertexArray')).toHaveLength(firstVaos);
-    expect(named('deleteProgram')).toHaveLength(2);
+    const deletes = ['deleteBuffer', 'deleteVertexArray', 'deleteProgram'].flatMap(named);
+    expect(deletes).toHaveLength(0);
+  });
+
+  it('deletes only the handles from the latest init on destroy', () => {
+    const { gl, named } = recordingGl();
+    const renderer = GlRenderer.create(fakeCanvas({ webgl2: gl }).canvas)!;
+    const firstBuffers = named('createBuffer').length;
+    renderer.init();
+    renderer.destroy();
+    const latest = named('createBuffer').slice(firstBuffers).map((c) => c.result);
+    const deleted = named('deleteBuffer').map((c) => c.args[0]);
+    expect(deleted).toHaveLength(3);
+    deleted.forEach((handle, i) => expect(handle).toBe(latest[i]));
   });
 
   it('does not lose the context while re-initialising', () => {

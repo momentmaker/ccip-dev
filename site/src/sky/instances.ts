@@ -67,6 +67,7 @@ export function buildInstances(frame: SkyFrame, project: Projector, sizeScale: n
     const p = pts[r.star];
     put(p?.x ?? 0, p?.y ?? 0, p ? (10 + (r.reach ?? GOLD_RING_REACH) * r.progress) * sizeScale : 0, kindColor(r.kind ?? 'gold'), p ? 1 - r.progress : 0, SHAPE.ring);
   }
+  out.fill(0, i);
   return out;
 }
 
