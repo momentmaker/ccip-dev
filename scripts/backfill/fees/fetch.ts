@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { CCIP_API_BASE, DetailMessage, issuePath, normalizeDetail, USER_AGENT } from '@ccip-dev/core';
+import { CCIP_API_BASE, DetailMessage, issuePath, normalizeDetail, retryAfterMs, USER_AGENT } from '@ccip-dev/core';
 import { writeFileAtomic } from '../crawl';
 import { AdaptiveRate, Pacer } from './rate';
 import { appendRecords, listArchiveDays, listSealedDays, readArchiveDay, readPartial, readSealedDay, saveUnparsed, sealDay, type DetailRecord } from './store';
@@ -16,6 +16,7 @@ export interface FetchDeps {
 export type DetailOutcome =
   | { kind: 'ok'; body: unknown; latencyMs: number }
   | { kind: 'gone'; status: number }
+  | { kind: 'refused'; status: number }
   | { kind: 'throttled'; retryAfterMs: number | null }
   | { kind: 'error'; status: number | null; message: string };
 
@@ -47,7 +48,9 @@ export interface ProbeSummary {
   statuses: Record<string, number>;
 }
 
-const MAX_RETRY_AFTER_MS = 30_000;
+const FIRST_RETRY_DELAY_MS = 30_000;
+const REFUSED_STATUSES = new Set([401, 403, 451]);
+const GONE_STATUSES = new Set([404, 410]);
 
 export async function fetchDetail(deps: FetchDeps, baseUrl: string, id: string): Promise<DetailOutcome> {
   const started = deps.now();
@@ -61,8 +64,9 @@ export async function fetchDetail(deps: FetchDeps, baseUrl: string, id: string):
     // The body is not used; reading it to the end releases the connection for the next request. The status already decides the outcome.
     await res.arrayBuffer().catch((err: unknown) => console.warn(`could not read the body of HTTP ${res.status} for ${id}: ${errorText(err)}`));
     if (res.status === 429) return { kind: 'throttled', retryAfterMs: retryAfterMs(res) };
-    if (res.status >= 500) return { kind: 'error', status: res.status, message: `HTTP ${res.status}` };
-    return { kind: 'gone', status: res.status };
+    if (GONE_STATUSES.has(res.status)) return { kind: 'gone', status: res.status };
+    if (REFUSED_STATUSES.has(res.status)) return { kind: 'refused', status: res.status };
+    return { kind: 'error', status: res.status, message: `HTTP ${res.status}` };
   }
   try {
     return { kind: 'ok', body: await res.json(), latencyMs: deps.now() - started };
@@ -81,49 +85,103 @@ export function recordFromBody(id: string, body: unknown, fetchedAt: string): { 
   };
 }
 
-/** Fetches every listed id with a shared pacer and a pool of workers; resolves with the records in the order they were answered. */
+/** Time of the last answer that proved the API alive; shared by a whole run so a day boundary cannot reset the stall clock. */
+interface Heartbeat {
+  at: number;
+}
+
+/**
+ * Fetches every listed id with a shared pacer and a pool of workers.
+ * A failed id waits 30 s, 60 s, 120 s ... before its next try, so the retries of one id outlast the stall window and an outage stops the run before any id is given up on.
+ */
 async function fetchAll(
   ids: string[],
-  opts: Required<Pick<FetchOptions, 'deps' | 'baseUrl' | 'concurrency' | 'maxAttempts' | 'stallMs'>> & { dir: string; rate: AdaptiveRate; pacer: Pacer },
+  opts: Required<Pick<FetchOptions, 'deps' | 'baseUrl' | 'concurrency' | 'maxAttempts' | 'stallMs'>> & { dir: string; rate: AdaptiveRate; pacer: Pacer; heartbeat: Heartbeat },
   onRecords: (records: DetailRecord[]) => Promise<void>,
 ): Promise<{ statuses: Record<string, number> }> {
+  const { deps, heartbeat } = opts;
   const queue = [...ids];
-  const attempts = new Map<string, number>();
+  const attempts = new Map<string, { failures: number; firstFailureAt: number; notBefore: number }>();
   const statuses: Record<string, number> = {};
   const buffer: DetailRecord[] = [];
   let flushing = Promise.resolve();
-  let lastAnswer = opts.deps.now();
+  let unresolved = ids.length;
+  let stopped = false;
+  const idle: (() => void)[] = [];
+  const wakeIdle = () => idle.splice(0).forEach((wake) => wake());
   const flush = () => (flushing = flushing.then(() => onRecords(buffer.splice(0))));
-  const iso = () => new Date(opts.deps.now()).toISOString();
+  const iso = () => new Date(deps.now()).toISOString();
+  const notBefore = (id: string) => attempts.get(id)?.notBefore ?? 0;
+
+  const takeDue = (): { id: string } | { waitMs: number } | { idle: true } => {
+    const now = deps.now();
+    const index = queue.findIndex((id) => notBefore(id) <= now);
+    if (index >= 0) return { id: queue.splice(index, 1)[0]! };
+    if (queue.length === 0) return { idle: true };
+    return { waitMs: Math.min(...queue.map(notBefore)) - now };
+  };
+
+  const settle = (record: DetailRecord) => {
+    buffer.push(record);
+    unresolved -= 1;
+  };
+
+  const step = async (id: string) => {
+    await opts.pacer.acquire();
+    const outcome = await fetchDetail(deps, opts.baseUrl, id);
+    const label = outcome.kind === 'ok' ? '200' : outcome.kind === 'throttled' ? '429' : String(outcome.status ?? 'network');
+    statuses[label] = (statuses[label] ?? 0) + 1;
+    if (outcome.kind === 'refused') throw new Error(`the CCIP API refused the crawl with HTTP ${outcome.status}; check access, then rerun to resume`);
+    if (outcome.kind === 'ok') {
+      opts.rate.record({ kind: 'ok', latencyMs: outcome.latencyMs });
+      heartbeat.at = deps.now();
+      const { record, keepRaw } = recordFromBody(id, outcome.body, iso());
+      if (keepRaw) await saveUnparsed(opts.dir, id, outcome.body);
+      settle(record);
+    } else if (outcome.kind === 'gone') {
+      opts.rate.record({ kind: 'ok', latencyMs: null });
+      heartbeat.at = deps.now();
+      settle({ id, kind: 'skip', fetchedAt: iso(), status: outcome.status, reason: `HTTP ${outcome.status}` });
+    } else if (outcome.kind === 'throttled') {
+      opts.rate.record(outcome);
+      queue.unshift(id);
+    } else {
+      opts.rate.record({ kind: 'error' });
+      const now = deps.now();
+      const previous = attempts.get(id);
+      const failures = (previous?.failures ?? 0) + 1;
+      const firstFailureAt = previous?.firstFailureAt ?? now;
+      if (failures >= opts.maxAttempts) {
+        const minutes = Math.round((now - firstFailureAt) / 60_000);
+        settle({ id, kind: 'skip', fetchedAt: iso(), status: outcome.status, reason: `failed ${failures} times over ${minutes} min: ${outcome.message}` });
+      } else {
+        attempts.set(id, { failures, firstFailureAt, notBefore: now + FIRST_RETRY_DELAY_MS * 2 ** (failures - 1) });
+        queue.push(id);
+      }
+    }
+    if (buffer.length >= 50) await flush();
+  };
 
   const worker = async () => {
-    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-      if (opts.deps.now() - lastAnswer > opts.stallMs) throw new Error('the CCIP API has answered nothing for 15 minutes; stopping, and a rerun resumes');
-      await opts.pacer.acquire();
-      const outcome = await fetchDetail(opts.deps, opts.baseUrl, id);
-      const label = outcome.kind === 'ok' ? '200' : outcome.kind === 'throttled' ? '429' : String(outcome.status ?? 'network');
-      statuses[label] = (statuses[label] ?? 0) + 1;
-      if (outcome.kind === 'ok') {
-        opts.rate.record({ kind: 'ok', latencyMs: outcome.latencyMs });
-        lastAnswer = opts.deps.now();
-        const { record, keepRaw } = recordFromBody(id, outcome.body, iso());
-        if (keepRaw) await saveUnparsed(opts.dir, id, outcome.body);
-        buffer.push(record);
-      } else if (outcome.kind === 'gone') {
-        opts.rate.record({ kind: 'ok', latencyMs: null });
-        lastAnswer = opts.deps.now();
-        buffer.push({ id, kind: 'skip', fetchedAt: iso(), status: outcome.status, reason: `HTTP ${outcome.status}` });
-      } else if (outcome.kind === 'throttled') {
-        opts.rate.record(outcome);
-        queue.unshift(id);
-      } else {
-        opts.rate.record({ kind: 'error' });
-        const n = (attempts.get(id) ?? 0) + 1;
-        attempts.set(id, n);
-        if (n >= opts.maxAttempts) buffer.push({ id, kind: 'skip', fetchedAt: iso(), status: outcome.status, reason: `failed ${n} times: ${outcome.message}` });
-        else queue.push(id);
+    try {
+      while (unresolved > 0 && !stopped) {
+        if (deps.now() - heartbeat.at > opts.stallMs) {
+          throw new Error(`the CCIP API has answered nothing for ${Math.round(opts.stallMs / 60_000)} minutes; stopping, and a rerun resumes`);
+        }
+        const next = takeDue();
+        if ('id' in next) {
+          try {
+            await step(next.id);
+          } finally {
+            wakeIdle();
+          }
+        } else if ('waitMs' in next) await deps.sleep(Math.max(next.waitMs, 1));
+        else await new Promise<void>((wake) => idle.push(wake));
       }
-      if (buffer.length >= 50) await flush();
+    } catch (err) {
+      stopped = true;
+      wakeIdle();
+      throw err;
     }
   };
 
@@ -142,11 +200,18 @@ function settings(opts: FetchOptions) {
     maxAttempts: opts.maxAttempts ?? 6,
     stallMs: opts.stallMs ?? 15 * 60_000,
     rate,
+    heartbeat: { at: opts.deps.now() },
     pacer: new Pacer(rate, { now: opts.deps.now, sleep: opts.deps.sleep }),
   };
 }
 
-const idsOf = (raw: unknown[]) => raw.map((m) => (m as { messageId: string }).messageId);
+function idsOf(raw: unknown[], day: string): string[] {
+  return raw.map((m) => {
+    const id = (m as { messageId?: unknown } | null)?.messageId;
+    if (typeof id !== 'string' || id === '') throw new Error(`the archive for ${day} has a row without a messageId`);
+    return id;
+  });
+}
 
 export async function runFetch(opts: FetchOptions): Promise<FetchState> {
   const log = opts.log ?? (() => {});
@@ -178,7 +243,7 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
 
   const days = (await listArchiveDays(opts.dir)).filter((d) => !state.done.includes(d));
   const perDay = new Map<string, string[]>();
-  for (const day of days) perDay.set(day, idsOf(await readArchiveDay(opts.dir, day)));
+  for (const day of days) perDay.set(day, idsOf(await readArchiveDay(opts.dir, day), day));
   const total = state.fetched + [...perDay.values()].reduce((n, ids) => n + ids.length, 0);
   const started = opts.deps.now();
   let fetchedThisRun = 0;
@@ -187,9 +252,9 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
     const earlier = await readPartial(opts.dir, day);
     const known = new Set(earlier.map((r) => r.id));
     const ids = perDay.get(day)!.filter((id) => !known.has(id));
-    tally(earlier);
     const skippedBefore = state.skipped;
-    await fetchAll(ids, s, async (records) => {
+    tally(earlier);
+        await fetchAll(ids, s, async (records) => {
       tally(records);
       await appendRecords(opts.dir, day, records);
     });
@@ -200,7 +265,7 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
     await writeFileAtomic(statePath, JSON.stringify(state));
     const hours = (opts.deps.now() - started) / 3_600_000;
     const eta = fetchedThisRun > 0 ? ((total - state.fetched) * hours) / fetchedThisRun : null;
-    log(`${day}: ${count} messages (${state.skipped - skippedBefore} skipped) · ${s.rate.rps} req/s · ${state.fetched}/${total} · ETA ${eta === null ? '?' : eta.toFixed(1)}h`);
+    log(`${day}: ${count} messages (${state.skipped - skippedBefore} skipped) · ${s.rate.rps} req/s · ${state.fetched}/${total} · unknown fee shapes ${state.unknownShapes} · ${histogram(state.versions)} · ETA ${eta === null ? '?' : eta.toFixed(1)}h`);
   }
   return state;
 }
@@ -214,7 +279,7 @@ export async function runProbe(opts: FetchOptions & { count?: number }): Promise
     const out: string[] = [];
     for (const day of ordered) {
       if (out.length >= count) break;
-      out.push(...idsOf(await readArchiveDay(opts.dir, day)).slice(0, count - out.length));
+      out.push(...idsOf(await readArchiveDay(opts.dir, day), day).slice(0, count - out.length));
     }
     return out;
   };
@@ -237,12 +302,8 @@ export async function runProbe(opts: FetchOptions & { count?: number }): Promise
   return summary;
 }
 
-function retryAfterMs(res: Response): number | null {
-  const header = res.headers.get('retry-after');
-  if (header === null || header.trim() === '') return null;
-  const seconds = Number(header);
-  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : null;
-}
+const histogram = (versions: Record<string, number>) =>
+  Object.entries(versions).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v}:${n}`).join(' ') || 'no versions';
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

@@ -1,21 +1,24 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { USER_AGENT } from '@ccip-dev/core';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { fetchDetail, recordFromBody, runFetch, runProbe, type FetchDeps } from '../backfill/fees/fetch';
-import { readSealedDay, sealDay } from '../backfill/fees/store';
+import { listSealedDays, readSealedDay, sealDay } from '../backfill/fees/store';
 
 type Reply = { status: number; body?: string; headers?: Record<string, string> };
 
 function fakeApi(replies: Record<string, Reply | Reply[]>) {
   let t = Date.parse('2026-10-08T00:00:00Z');
   const calls: string[] = [];
+  const userAgents: (string | null)[] = [];
   const deps: FetchDeps = {
     now: () => t,
     sleep: async (ms) => { t += ms; },
-    fetch: (async (input: string | URL) => {
+    fetch: (async (input: string | URL, init?: RequestInit) => {
+      userAgents.push(new Headers(init?.headers).get('user-agent'));
       const id = decodeURIComponent(String(input).split('/messages/')[1]!);
       calls.push(id);
       const entry = replies[id] ?? { status: 404 };
@@ -24,7 +27,7 @@ function fakeApi(replies: Record<string, Reply | Reply[]>) {
       return new Response(reply.body ?? '', { status: reply.status, headers: reply.headers });
     }) as typeof fetch,
   };
-  return { deps, calls };
+  return { deps, calls, userAgents, elapsed: () => t - Date.parse('2026-10-08T00:00:00Z') };
 }
 
 const detail = (id: string) => JSON.stringify({ ...detailToken, messageId: id });
@@ -48,6 +51,18 @@ describe('fetchDetail', () => {
   it('reads a 429 with its Retry-After', async () => {
     const { deps } = fakeApi({ '0x1': { status: 429, headers: { 'retry-after': '7' } } });
     expect(await fetchDetail(deps, 'https://api.test', '0x1')).toEqual({ kind: 'throttled', retryAfterMs: 7000 });
+  });
+
+  it('sends the curl user agent', async () => {
+    const { deps, userAgents } = fakeApi({ '0x1': { status: 200, body: detail('0x1') } });
+    await fetchDetail(deps, 'https://api.test', '0x1');
+    expect(userAgents).toEqual([USER_AGENT]);
+  });
+
+  it('maps 403 to refused, 410 to gone and 400 to a retryable error', async () => {
+    const { deps } = fakeApi({ '0x1': { status: 403 }, '0x2': { status: 410 }, '0x3': { status: 400 } });
+    const outcomes = [await fetchDetail(deps, 'https://api.test', '0x1'), await fetchDetail(deps, 'https://api.test', '0x2'), await fetchDetail(deps, 'https://api.test', '0x3')];
+    expect(outcomes.map((o) => o.kind)).toEqual(['refused', 'gone', 'error']);
   });
 
   it('treats a 404 as gone', async () => {
@@ -106,8 +121,9 @@ describe('runFetch', () => {
 
   it('gives up on a message after six failures and records why', async () => {
     const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
-    const { deps } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
-    await runFetch({ dir, deps, baseUrl: 'https://api.test' });
+    const { deps, calls } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
+    await runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60 * 60_000 });
+    expect(calls.filter((c) => c === '0xb')).toHaveLength(6);
     const skip = (await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb');
     expect(skip).toMatchObject({ kind: 'skip', reason: expect.stringMatching(/^failed 6 times/) });
   });
@@ -126,6 +142,7 @@ describe('runProbe', () => {
     const summary = await runProbe({ dir, deps, baseUrl: 'https://api.test', count: 1 });
     expect({ fetched: summary.fetched, versions: Object.values(summary.versions).reduce((a, b) => a + b, 0) }).toEqual({ fetched: 2, versions: 2 });
     expect(JSON.parse(await readFile(path.join(dir, 'fees', 'probe.json'), 'utf8')).fetched).toBe(2);
+    expect(await listSealedDays(dir)).toEqual([]);
   });
 });
 
@@ -144,5 +161,73 @@ describe('runFetch crash recovery', () => {
 
     // #then
     expect({ calls, done: [...state.done].sort(), fetched: state.fetched }).toEqual({ calls: ['0xb'], done: ['2026-10-03', '2026-10-04'], fetched: 2 });
+  });
+});
+
+describe('runFetch outages and refusals', () => {
+  it('stops instead of sealing days as skips when every request fails', async () => {
+    // #given
+    const days = Object.fromEntries(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06'].map((d) => [d, ['0xa', '0xb']]));
+    const dir = await backfill(days);
+    const { deps } = fakeApi({ '0xa': { status: 502 }, '0xb': { status: 502 } });
+
+    // #when
+    const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(run).rejects.toThrow(/answered nothing for 15 minutes/);
+    expect(await listSealedDays(dir)).toEqual([]);
+  });
+
+  it('records a message that fails twice and then succeeds as ok', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa'] });
+    const { deps } = fakeApi({ '0xa': [{ status: 502 }, { status: 502 }, { status: 200, body: detail('0xa') }] });
+    await runFetch({ dir, deps, baseUrl: 'https://api.test' });
+    expect((await readSealedDay(dir, '2026-10-04')).map((r) => r.kind)).toEqual(['ok']);
+  });
+
+  it('skips a message that keeps failing only after its retries span fifteen minutes', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
+    const { deps, elapsed } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
+    await runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60 * 60_000 });
+    const skip = (await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb');
+    expect({ kind: skip?.kind, longEnough: elapsed() >= 15 * 60_000 }).toEqual({ kind: 'skip', longEnough: true });
+  });
+
+  it('stops with the refusal when the API answers 403', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
+    const { deps } = fakeApi({ '0xa': { status: 403 }, '0xb': { status: 403 } });
+    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test' })).rejects.toThrow(/refused the crawl with HTTP 403/);
+    expect(await listSealedDays(dir)).toEqual([]);
+  });
+
+  it('stops every worker once one has thrown', async () => {
+    const dir = await backfill({ '2026-10-04': Array.from({ length: 60 }, (_, i) => `0x${i}`) });
+    const { deps, calls } = fakeApi(Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`0x${i}`, { status: 403 }])));
+    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test' })).rejects.toThrow();
+    expect(calls.length).toBeLessThanOrEqual(6);
+  });
+
+  it('names the day of an archive row without a message id', async () => {
+    const dir = await backfill({ '2026-10-04': [] });
+    const file = path.join(dir, 'archive', 'messages', '2026', '10', '04.jsonl.gz');
+    await writeFile(file, gzipSync(`${JSON.stringify({ nope: 1 })}\n`));
+    const { deps } = fakeApi({});
+    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test' })).rejects.toThrow(/2026-10-04/);
+  });
+
+  it('keeps the raw body of a schema failure under fees/unparsed', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa'] });
+    const { deps } = fakeApi({ '0xa': { status: 200, body: JSON.stringify({ nope: true }) } });
+    await runFetch({ dir, deps, baseUrl: 'https://api.test' });
+    expect(await readdir(path.join(dir, 'fees', 'unparsed'))).toEqual(['0xa.json']);
+  });
+
+  it('logs skips, unknown fee shapes and the version histogram for a day', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xgone'] });
+    const { deps } = fakeApi({ '0xa': { status: 200, body: detail('0xa') } });
+    const lines: string[] = [];
+    await runFetch({ dir, deps, baseUrl: 'https://api.test', log: (l) => lines.push(l) });
+    expect(lines.at(-1)).toMatch(/^2026-10-04: 2 messages \(1 skipped\) · .* · unknown fee shapes 0 · /);
   });
 });
