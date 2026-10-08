@@ -1,5 +1,6 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
+import { daysBetween } from '../src/lib/days';
 import { Show } from '../src/replay/director/show';
 import { BEAT_S, capPlucks, CHORD_S, EIGHTH_S, MAX_PLUCKS_PER_S, PROGRESSION, scoreFor, type ScoreEvent, type ScoreSource } from '../src/replay/score/schedule';
 import { buildLayout } from '../src/sky/layout';
@@ -8,6 +9,9 @@ import replayJson from './fixtures/replay.json';
 const replay = replayJson as ReplayFile;
 const history = replay.days.map((d) => ({ day: d.day, messages: 10, token_messages: 10, usd_value: 1000, fee_usd: null, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null })) as DayTotals[];
 const stars = buildLayout(replay.chains);
+const longReplay = { ...replay, since: '2023-04-01' } as ReplayFile;
+const busyHistory = daysBetween('2023-04-01', replay.days.at(-1)!.day).map((day, i) => ({ ...history[0]!, day, messages: i === 40 ? 400 : i === 70 ? 4000 : 10, usd_value: 50_000_000 })) as DayTotals[];
+const busyShow = (length = 30) => new Show({ replay: longReplay, history: busyHistory, stars, length, focus: null, eligible: () => true });
 const show = (length = 30) => new Show({ replay, history, stars, length, focus: null, eligible: () => true });
 
 const sourceOf = (s: Show, override: Partial<ScoreSource> = {}): ScoreSource => ({
@@ -35,10 +39,11 @@ describe('scoreFor', () => {
     }
   });
 
-  it('lands a boom exactly on every milestone slam', () => {
-    const s = show();
-    const fake = sourceOf(s, { slams: [{ start: 10, label: '$1B moved' }, { start: 20.4, label: '1M messages' }] as never });
-    expect(scoreFor(fake).filter((e) => e.kind === 'boom').map((e) => e.time)).toEqual([10, 20.4]);
+  it('lands a boom exactly on every milestone slam of a real show', () => {
+    const s = busyShow();
+    expect(s.slams.length).toBeGreaterThan(0);
+    const booms = scoreFor(s).filter((e) => e.kind === 'boom').map((e) => e.time);
+    expect(booms).toEqual(s.slams.map((slam) => slam.start));
   });
 
   it('chimes for each join card, in order', () => {
@@ -48,10 +53,20 @@ describe('scoreFor', () => {
     expect(chimes.map((e) => e.time)).toEqual(joins.map((c) => c.start));
   });
 
-  it('runs for each record card', () => {
-    const s = show();
+  it('runs for each record card of a real show', () => {
+    const s = busyShow();
+    const records = s.cards.filter((c) => c.kind === 'record');
+    expect(records.length).toBeGreaterThan(0);
     const runs = scoreFor(s).filter((e) => e.kind === 'run');
-    expect(runs.map((e) => e.time)).toEqual(s.cards.filter((c) => c.kind === 'record').map((c) => c.start));
+    expect(runs.map((e) => e.time)).toEqual(records.map((c) => c.start));
+  });
+
+  it('alternates chime notes over join cards only', () => {
+    const s = show();
+    const card = (kind: 'join' | 'record', start: number) => ({ kind, time: start, start, end: start + 1, label: '', selectors: [], count: 0 });
+    const cards = [card('join', 5), card('record', 8), card('join', 11), card('join', 14)];
+    const notes = scoreFor(sourceOf(s, { cards })).filter((e): e is Extract<ScoreEvent, { kind: 'chime' }> => e.kind === 'chime').map((e) => e.note);
+    expect(notes).toEqual([86, 93, 86]);
   });
 
   it('plucks only on eighths, within the cap, when comets fly', () => {

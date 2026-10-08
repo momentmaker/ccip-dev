@@ -75,10 +75,11 @@ export function scoreFor(show: ScoreSource): ScoreEvent[] {
     plucks.push({ kind: 'pluck', time: t, note: SCALE[index]!, gain: Math.min(1, 0.25 + 0.15 * Math.log2(1 + comets.length)) });
   }
   events.push(...capPlucks(plucks, MAX_PLUCKS_PER_S));
-  show.cards.forEach((c, i) => {
+  let chimes = 0;
+  for (const c of show.cards) {
     if (c.kind === 'record') events.push({ kind: 'run', time: c.start, notes: RUN });
-    else events.push({ kind: 'chime', time: c.start, note: i % 2 === 0 ? 86 : 93 });
-  });
+    else events.push({ kind: 'chime', time: c.start, note: chimes++ % 2 === 0 ? 86 : 93 });
+  }
   for (const s of show.slams) events.push({ kind: 'boom', time: s.start });
   events.push({ kind: 'swell', time: finaleStart, duration: length - finaleStart, chord: FINAL_CHORD });
   return events.filter((e) => e.time >= 0 && e.time < length).sort((a, b) => a.time - b.time);
