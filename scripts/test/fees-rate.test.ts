@@ -43,7 +43,7 @@ describe('AdaptiveRate', () => {
     // #given
     const c = clock();
     const rate = new AdaptiveRate(c.now);
-    healthy(rate, c, 600 * 3);
+    healthy(rate, c, 600 * 3 + 1);
 
     // #when
     rate.record({ kind: 'throttled', retryAfterMs: 12_000 });
