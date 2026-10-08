@@ -59,7 +59,6 @@ h2 { font-size: 20px; font-weight: 600; margin: 32px 0 12px; }
 
 .card, .tile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
 .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.tile .label { white-space: nowrap; }
 .tile .value { font: 600 24px/1.2 var(--font-mono); font-variant-numeric: tabular-nums; margin: 6px 0 2px; }
 .tile .sub { color: var(--muted); font-size: 12px; }
 .lift { transition: transform 0.15s ease, box-shadow 0.15s ease; }
@@ -125,6 +124,6 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 .chain-icons img { border-radius: 50%; box-shadow: 0 0 0 1px var(--card); }
 
 @media (max-width: 400px) {
-  .tile .label { font-size: 10px; letter-spacing: 0.04em; }
+  .tile .label { white-space: nowrap; font-size: 10px; letter-spacing: 0.04em; }
   .tile .info { margin-left: 2px; }
 }
