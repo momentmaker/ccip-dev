@@ -6,7 +6,7 @@ import type { RunContext } from '../context';
 import * as store from '../store';
 import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
 import { alertPriceOutliers } from '../price-outliers';
-import { alertPriceJumps, guardPriceJumps } from './prices';
+import { alertPriceJumps, guardPriceJumps, refreshHorizon } from './prices';
 
 const MINUTE = 60_000;
 const MAX_PRICE_AGE_MINUTES = 15;
@@ -111,7 +111,7 @@ async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, Pr
   if (missing.length > 0) {
     try {
       const fetched = await c.prices.latest(missing);
-      const stored = await store.getPrices(db, [...fetched.keys()]);
+      const stored = await store.getPricesSeenSince(db, [...fetched.keys()], refreshHorizon(c.deps.now()));
       const { accepted, jumps } = guardPriceJumps(fetched, stored);
       await store.upsertPrices(db, accepted, nowIso);
       for (const [key, info] of accepted) prices.set(key, info);

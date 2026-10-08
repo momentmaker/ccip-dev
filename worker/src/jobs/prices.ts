@@ -5,6 +5,8 @@ import * as store from '../store';
 
 const DAY = 86_400_000;
 export const PRICE_JUMP_FACTOR = 20;
+/** The prices job refreshes the keys seen within this many days. */
+export const PRICE_REFRESH_DAYS = 30;
 const MAX_JUMPS_LISTED = 5;
 const LAG_LIMIT_MINUTES = 10;
 
@@ -12,7 +14,7 @@ export async function runPrices(c: RunContext): Promise<void> {
   const now = c.deps.now();
   await checkIngestLag(c, now);
   await publishStatus(c, now);
-  const keys = await store.keysSeenSince(c.env.DB, new Date(now.getTime() - 30 * DAY).toISOString());
+  const keys = await store.keysSeenSince(c.env.DB, refreshHorizon(now));
   if (keys.length === 0) return;
   const fetched = await c.prices.latest(keys);
   const { accepted, jumps } = guardPriceJumps(fetched, await store.getPrices(c.env.DB, [...fetched.keys()]));
@@ -45,6 +47,11 @@ export async function alertPriceJumps(c: RunContext, source: string, jumps: Pric
   if (jumps.length === 0) return;
   const listed = jumps.slice(0, MAX_JUMPS_LISTED).map((j) => `${j.key} ${j.from} → ${j.to}`);
   await c.alert('price-jump', `${source} rejected ${jumps.length} jump(s) over ${PRICE_JUMP_FACTOR}×: ${listed.join('; ')}`);
+}
+
+/** The oldest seen_at the prices job still refreshes; a stored price seen before it is not kept current. */
+export function refreshHorizon(now: Date): string {
+  return new Date(now.getTime() - PRICE_REFRESH_DAYS * DAY).toISOString();
 }
 
 function isJump(oldPrice: number, newPrice: number): boolean {

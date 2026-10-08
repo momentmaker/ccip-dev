@@ -109,12 +109,26 @@ export async function upsertListRows(db: D1Database, rows: MessageRow[], tokens:
 }
 
 export async function getPrices(db: D1Database, keys: string[], freshSinceIso?: string): Promise<Map<string, PriceInfo>> {
+  return pricesSince(db, keys, 'ts', freshSinceIso);
+}
+
+/** Stored prices of the keys last seen at or after `seenSinceIso`, the ones the prices job still refreshes. */
+export async function getPricesSeenSince(db: D1Database, keys: string[], seenSinceIso: string): Promise<Map<string, PriceInfo>> {
+  return pricesSince(db, keys, 'seen_at', seenSinceIso);
+}
+
+async function pricesSince(
+  db: D1Database,
+  keys: string[],
+  column: 'ts' | 'seen_at',
+  sinceIso: string | undefined,
+): Promise<Map<string, PriceInfo>> {
   const prices = new Map<string, PriceInfo>();
-  const freshness = freshSinceIso === undefined ? '' : ' AND ts >= ?';
+  const since = sinceIso === undefined ? '' : ` AND ${column} >= ?`;
   for (const chunk of chunks(keys, PARAM_CHUNK - 1)) {
     const { results } = await db
-      .prepare(`SELECT llama_key, usd, decimals FROM prices_latest WHERE llama_key IN (${placeholders(chunk.length)})${freshness}`)
-      .bind(...chunk, ...(freshSinceIso === undefined ? [] : [freshSinceIso]))
+      .prepare(`SELECT llama_key, usd, decimals FROM prices_latest WHERE llama_key IN (${placeholders(chunk.length)})${since}`)
+      .bind(...chunk, ...(sinceIso === undefined ? [] : [sinceIso]))
       .all<{ llama_key: string; usd: number; decimals: number }>();
     for (const r of results) prices.set(r.llama_key, { price: r.usd, decimals: r.decimals });
   }

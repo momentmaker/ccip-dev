@@ -75,6 +75,40 @@ describe('runDetails', () => {
     });
   });
 
+  describe('the jump guard against a price the prices job no longer tracks', () => {
+    const DORMANT = '2026-08-20T00:00:00.000Z';
+    const fillAt1 = async () => {
+      await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+      const prices = fakePrices({ latest: { [TOKEN_KEY]: { price: 1, decimals: 18 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+      const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+      await runDetails(c, { limit: 10 });
+      return {
+        stored: await env.DB.prepare('SELECT usd, ts FROM prices_latest WHERE llama_key = ?').bind(TOKEN_KEY).first(),
+        usdValue: (await row(detailToken.messageId))!.usd_value,
+        alerts: alerts.map((a) => a.signature),
+      };
+    };
+
+    it('accepts the new price of a token last seen more than 30 days ago, however far it moved', async () => {
+      await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 0.04, decimals: 18 }]]), DORMANT);
+      expect(await fillAt1()).toEqual({
+        stored: { usd: 1, ts: NOW },
+        usdValue: expect.closeTo(24000.580226526876, 6),
+        alerts: [],
+      });
+    });
+
+    it('still rejects the jump when the stored price is old but the token was seen within 30 days', async () => {
+      await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 0.04, decimals: 18 }]]), DORMANT);
+      await store.touchPrices(env.DB, [TOKEN_KEY], '2026-10-05T11:00:00.000Z');
+      expect(await fillAt1()).toEqual({
+        stored: { usd: 0.04, ts: DORMANT },
+        usdValue: expect.closeTo(24000.580226526876 * 0.04, 6),
+        alerts: ['price-jump'],
+      });
+    });
+  });
+
   it('uses a price stored within the last 15 minutes without fetching it', async () => {
     await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 1, decimals: 18 }]]), '2026-10-05T11:10:00.000Z');
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
