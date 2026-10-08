@@ -195,12 +195,14 @@ In focus mode, the counters count only lanes touching the focus chain, cumulativ
    - Quads stretched along their velocity, 6–14× the head size, with a motion-blur falloff.
    - Colors: pale for data, blue for tokens, gold for $1M+, following the global color rule.
    - On arrival: 8–16 seeded sparks and a ripple ring of 0.4 s at the destination star.
+   - Comets are thinned when they spawn (a seeded keep test per spawn, sized so about 225 fly at once), so every drawn comet flies its whole lane and lands; the old newest-250 cap evicted every comet at 12–19% of its flight. Glows fade in over the first 10% of flight, and comet glows and arrival effects are normalized per lane and per destination star, so 2025–26 hubs glow without burning out (target ≤ 1.5% near-white pixels). (Amended 2026-10-07 after Plan B's reviews.)
 4. **Stars.** A glow plus a core. A heartbeat scales brightness by `0.8 + 0.4·activity_d`, where activity is the chain's messages that day normalized by its 30-day maximum and smoothed over 0.3 s.
 5. **Coins.** Textured quads from an icon atlas: the chain coin images rasterized at 128 px into one texture, built by the player before the first frame. A join pops the coin in with an elastic scale curve (0 → 1.25 → 1 over 0.5 s).
 6. **Supernova on a join.** A flash sprite of 0.3 s, a shockwave ring of 0.8 s, and 40 seeded particles of 1.2 s.
 7. **Post.**
    - The frame renders to an HDR target, RGBA16F when `EXT_color_buffer_float` is available and RGBA8 otherwise.
-   - Bloom uses a threshold plus 5 levels of mip down- and up-sampling.
+   - Bloom uses a threshold plus 5 levels of mip down- and up-sampling. The bloom chain starts at half the canvas on High and a quarter on Medium ("full" and "half" in §8.3 are relative to that chain).
+   - The canvas edge feathers into the page's `#0c0f14` in the live player only; recordings have no feather.
    - The composite applies ACES-style tone mapping, a vignette and film grain (seeded by frame index).
    - A milestone shockwave is a screen-space radial distortion plus a chromatic aberration pulse lasting 0.5 s.
 
@@ -216,8 +218,9 @@ Every random value comes from `mulberry32`, seeded by (day index, event id). Par
 | Medium | half resolution | 50% | yes | 2 |
 | Low | none | 25% | no | 1 |
 
-- **Live player:** it measures the median frame time over the first 2 s of play and steps down one tier at a time when that exceeds 22 ms (High), or 30 ms (Medium). It never steps up within a session.
-- **Recording:** always High.
+- **Live player:** once per session, after the hook (so it measures the real story, not two stars), it takes the median frame time over a 2 s window of at least 20 frames, ignoring pauses (frames over 250 ms) and restarting after a gap of more than 0.5 s. Over 30 ms it goes straight to Low, over 22 ms to Medium; otherwise it stays High. It never re-evaluates and never steps up within a session, across chain and length changes. (Amended 2026-10-07: the original rolling rule could lock in a bad first window, and the hook measured nothing.)
+- **Recording:** always High, with full motion even when the viewer prefers reduced motion. If the GPU context is lost mid-recording, the recording retries once on the classic renderer rather than writing frozen frames.
+- **Finale:** in-flight comets, arrivals, supernova rings and coin pops keep moving with video time through the finale and settle, so the poster and the last frames hold no frozen effects. The particle title's timings are fractions of the finale, so "ccip.dev" assembles and holds at 15, 30 and 60 s.
 - **No WebGL2:** the existing `ReplayCompositor` path is used, with the story layer drawn on top. The video is then "classic" but complete.
 
 ## 9. Story layer (2D)
