@@ -37,6 +37,17 @@ describe('LiveScene', () => {
     expect(scene.frame(MAX_COMETS).comets).toHaveLength(MAX_COMETS);
   });
 
+  it('drops the oldest launches once past the cap, keeping the newest in order', () => {
+    const scene = newScene();
+    const extra = 3;
+    for (let i = 0; i < MAX_COMETS + extra; i++) scene.launch(msg(`m${i}`, 1), i, caption);
+    const now = MAX_COMETS + extra;
+    const progress = scene.frame(now).comets.map((c) => c.progress);
+    expect(progress).toHaveLength(MAX_COMETS);
+    expect(progress[0]).toBeCloseTo((now - extra) / COMET_MS, 9);
+    expect(progress.at(-1)).toBeCloseTo(1 / COMET_MS, 9);
+  });
+
   it('gives a $1M+ message a caption for 4 s and a ring when it arrives', () => {
     const scene = newScene();
     expect(scene.launch(msg('whale', 4_200_000, 'USDC'), 0, caption)).toEqual({ id: 'whale', text: 'caption', until: CAPTION_MS });
