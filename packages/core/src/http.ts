@@ -69,7 +69,7 @@ function backoffMs(attempt: number): number {
   return 1000 * 2 ** attempt;
 }
 
-function retryAfterMs(res: Response): number | null {
+export function retryAfterMs(res: Response): number | null {
   const header = res.headers.get('retry-after');
   if (header === null || header.trim() === '') return null;
   const seconds = Number(header);

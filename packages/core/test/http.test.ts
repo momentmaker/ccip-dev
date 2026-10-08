@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createThrottle, getJson, issuePath, parseWith, UpstreamHttpError, UpstreamSchemaError, USER_AGENT } from '../src/http';
+import { createThrottle, getJson, issuePath, parseWith, retryAfterMs, UpstreamHttpError, UpstreamSchemaError, USER_AGENT } from '../src/http';
 import { fakeFetch, jsonResponse } from '../src/testing';
 
 function deps(fetchFn: typeof fetch) {
@@ -136,5 +136,15 @@ describe('issuePath', () => {
   it('names the root when the value itself is wrong', () => {
     const result = z.object({ id: z.string() }).safeParse('nope');
     expect(result.success ? null : issuePath(result.error)).toBe('(root)');
+  });
+});
+
+describe('retryAfterMs', () => {
+  it('reads seconds and caps them at 30 seconds', () => {
+    expect([retryAfterMs(new Response('', { headers: { 'retry-after': '7' } })), retryAfterMs(new Response('', { headers: { 'retry-after': '600' } }))]).toEqual([7000, 30_000]);
+  });
+
+  it('is null when the header is absent or not a number', () => {
+    expect([retryAfterMs(new Response('')), retryAfterMs(new Response('', { headers: { 'retry-after': 'soon' } }))]).toEqual([null, null]);
   });
 });
