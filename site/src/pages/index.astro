@@ -48,7 +48,7 @@ const next = reserve.pace?.next_expected_deposit ?? null;
     initialFeed={newestFirst(live.messages)}
     liveUpdatedAt={live.updated_at}
     today={today}
-    yesterday={history.days.at(-1) ?? null}
+    recentDays={history.days.slice(-3)}
     records={records}
   >
     <Fragment set:html={fallbackSvg} />

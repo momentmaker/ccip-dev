@@ -6,6 +6,7 @@ import { LiveScheduler, pruneStale, type Planned } from '../../lib/live-schedule
 import { laneLabel } from '../../lib/names';
 import { startPoller } from '../../lib/poller';
 import { liveRecordBreaks, type DayRecord } from '../../lib/records';
+import { previousDay, yesterdayFor } from '../../lib/yesterday';
 import { SkySound } from '../../lib/sound';
 import type { StarPoint } from '../../sky/layout';
 import { GOLD_USD, type Caption } from '../../sky/scene';
@@ -25,7 +26,7 @@ export interface HomeLiveProps {
   initialFeed: LiveMessage[];
   liveUpdatedAt: string;
   today: TodayFile;
-  yesterday: DayTotals | null;
+  recentDays: DayTotals[];
   records: DayRecord[];
   children?: ReactNode;
 }
@@ -46,12 +47,14 @@ export default function HomeLive(props: HomeLiveProps) {
   const [feed, setFeed] = useState<LiveMessage[]>(props.initialFeed);
   const [liveUpdatedAt, setLiveUpdatedAt] = useState<string | null>(props.liveUpdatedAt);
   const [today, setToday] = useState(props.today);
+  const [rolledOver, setRolledOver] = useState<{ day: string; messages: number; usd_value: number } | null>(null);
   const [paused, setPaused] = useState({ live: false, today: false });
   const [arrived, setArrived] = useState({ count: 0, usd: 0 });
   const [captions, setCaptions] = useState<Caption[]>([]);
   const [announcement, setAnnouncement] = useState('');
   const [skyReady, setSkyReady] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
+  const todayRef = useRef(props.today);
   const queueRef = useRef<Planned<LiveMessage>[]>([]);
   const schedulerRef = useRef(new LiveScheduler<LiveMessage>());
   const soundRef = useRef<SkySound | null>(null);
@@ -92,6 +95,11 @@ export default function HomeLive(props: HomeLiveProps) {
     const stopToday = startPoller({
       name: 'today.json',
       onData: (file) => {
+        const shown = todayRef.current;
+        if (file.day !== shown.day) {
+          setRolledOver({ day: shown.day, messages: shown.totals.messages, usd_value: shown.totals.usd_value });
+        }
+        todayRef.current = file;
         setToday(file);
         setPaused((p) => ({ ...p, today: false }));
       },
@@ -135,6 +143,7 @@ export default function HomeLive(props: HomeLiveProps) {
     { day: today.day, messages: today.totals.messages, usd_value: today.totals.usd_value, unique_senders: today.totals.unique_senders },
     props.records,
   );
+  const yesterday = yesterdayFor(props.recentDays, today.day) ?? (rolledOver && rolledOver.day === previousDay(today.day) ? rolledOver : null);
   const headline = `${formatCount(today.totals.messages)} CCIP messages today`;
 
   return (
@@ -160,7 +169,7 @@ export default function HomeLive(props: HomeLiveProps) {
           ))}
         </div>
         <div className="hero-overlay">
-          <Headline today={today} yesterday={props.yesterday} animate={!reducedMotion} />
+          <Headline today={today} yesterday={yesterday} animate={!reducedMotion} />
         </div>
         <div className="hero-toolbar">
           <span className="arrived">

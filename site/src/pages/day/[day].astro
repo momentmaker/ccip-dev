@@ -9,6 +9,7 @@ import { iconHref } from '../../lib/chain-icons';
 import { chainNameMap } from '../../lib/names';
 import { computeMilestones, computeRecords } from '../../lib/records';
 import { COINS_WIDE } from '../../sky/coins';
+import { changeTone } from '../../lib/tone';
 import { buildLayout } from '../../sky/layout';
 import { skySvg } from '../../sky/svg';
 import { windowWeights } from '../../sky/weights';
@@ -36,8 +37,8 @@ const svg = skySvg({
 });
 const label = formatUtcDay(day);
 const delta = (d: DayDelta) => [
-  { text: d.vsPrevious === null ? null : `${formatPct(d.vsPrevious)} vs day before`, up: (d.vsPrevious ?? 0) >= 0 },
-  { text: d.vsAvg7 === null ? null : `${formatPct(d.vsAvg7)} vs 7-day avg`, up: (d.vsAvg7 ?? 0) >= 0 },
+  { text: d.vsPrevious === null ? null : `${formatPct(d.vsPrevious)} vs day before`, tone: changeTone(d.vsPrevious) },
+  { text: d.vsAvg7 === null ? null : `${formatPct(d.vsAvg7)} vs 7-day avg`, tone: changeTone(d.vsAvg7) },
 ];
 const tiles = [
   { title: 'Messages', metric: 'messages', value: formatCount(view.row.messages), deltas: delta(view.deltas.messages) },
@@ -65,7 +66,7 @@ const tiles = [
       <div class="tile">
         <span class="label">{t.title}<InfoLink metric={t.metric} label={t.title.toLowerCase()} /></span>
         <p class="value">{t.value}</p>
-        {t.deltas.map((d) => d.text && <span class={`sub ${d.up ? 'up' : 'down'}`}>{d.text}<br /></span>)}
+        {t.deltas.map((d) => d.text && <span class={`sub ${d.tone}`}>{d.text}<br /></span>)}
       </div>
     ))}
   </section>

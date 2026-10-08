@@ -1,9 +1,9 @@
-import type { DayTotals, TodayFile } from '@ccip-dev/core/public';
+import type { TodayFile } from '@ccip-dev/core/public';
 import { formatCount, formatUsd } from '../../lib/format';
 import { useCountUp } from '../hooks';
 import InfoLink from '../InfoLink';
 
-export default function Headline({ today, yesterday, animate }: { today: TodayFile; yesterday: DayTotals | null; animate: boolean }) {
+export default function Headline({ today, yesterday, animate }: { today: TodayFile; yesterday: { messages: number; usd_value: number } | null; animate: boolean }) {
   const messages = useCountUp(today.totals.messages, animate);
   const usd = useCountUp(today.totals.usd_value, animate);
   return (

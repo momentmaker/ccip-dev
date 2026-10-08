@@ -1,5 +1,5 @@
 import type { ReserveFile } from '@ccip-dev/core/public';
-import { formatCountdown } from './format';
+import { formatCountdown, formatUsd } from './format';
 
 export const DEPOSIT_PAST_DUE = 'Deposit expected — watching';
 export const OVERDUE_GRACE_MS = 24 * 3_600_000;
@@ -33,4 +33,9 @@ export function depositCoins(weekly: ReserveFile['weekly']): { week: string; lin
     .filter((w) => w.deposits > 0)
     .slice(-MAX_COINS)
     .map((w) => ({ week: w.week, link: w.link, usd: w.usd }));
+}
+
+export function valueAtPriceText(valueUsd: number | null | undefined, priceUsd: number | null | undefined): string {
+  if (valueUsd == null || priceUsd == null) return '';
+  return `≈ ${formatUsd(valueUsd)} at $${priceUsd.toFixed(2)} per LINK`;
 }

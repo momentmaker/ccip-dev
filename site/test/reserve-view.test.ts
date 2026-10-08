@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, DEPOSIT_PAST_DUE, depositCoins, MAX_COINS, vaultFill } from '../src/lib/reserve-view';
+import { countdown, DEPOSIT_PAST_DUE, depositCoins, MAX_COINS, valueAtPriceText, vaultFill } from '../src/lib/reserve-view';
 
 const HOUR = 3_600_000;
 const DUE = '2026-10-08T15:35:00.000Z';
@@ -36,5 +36,17 @@ describe('depositCoins', () => {
     expect(coins).toHaveLength(MAX_COINS);
     expect(coins.at(-1)).toEqual({ week: 'w29', link: 290, usd: 2900 });
     expect(coins.some((c) => c.week === 'w03')).toBe(false);
+  });
+});
+
+describe('valueAtPriceText', () => {
+  it('states the value at the LINK price', () => {
+    expect(valueAtPriceText(1_234_567, 18.456)).toBe('≈ $1.2M at $18.46 per LINK');
+  });
+
+  it('says nothing without a price or a value', () => {
+    expect(valueAtPriceText(1_234_567, null)).toBe('');
+    expect(valueAtPriceText(1_234_567, undefined)).toBe('');
+    expect(valueAtPriceText(null, 18.4)).toBe('');
   });
 });

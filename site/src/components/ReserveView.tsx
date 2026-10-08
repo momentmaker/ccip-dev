@@ -4,14 +4,13 @@ import { trackDataError } from '../lib/analytics';
 import { fetchPublic } from '../lib/data';
 import { DASH, formatCount, formatLink, formatPct, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime } from '../lib/format';
 import { shortAddress } from '../lib/names';
-import { depositCoins, vaultFill } from '../lib/reserve-view';
+import { depositCoins, valueAtPriceText, vaultFill } from '../lib/reserve-view';
+import { changeTone } from '../lib/tone';
 import DepositCountdown from './DepositCountdown';
 import FreshnessNote from './FreshnessNote';
 import InfoLink from './InfoLink';
 import ReserveVault from './ReserveVault';
 import ShareButton from './ShareButton';
-
-const tone = (v: number | null) => ((v ?? 0) >= 0 ? 'up' : 'down');
 
 export default function ReserveView({ initial }: { initial: ReserveFile }) {
   const [reserve, setReserve] = useState(initial);
@@ -50,7 +49,7 @@ export default function ReserveView({ initial }: { initial: ReserveFile }) {
             <InfoLink metric="reserve" label="the Reserve figures" />
           </p>
           <h1>{formatLink(reserve.latest?.link)}</h1>
-          <p className="muted">{cost?.value_usd != null ? `≈ ${formatUsd(cost.value_usd)} at $${price?.toFixed(2)} per LINK` : ''}</p>
+          <p className="muted">{valueAtPriceText(cost?.value_usd, price)}</p>
         </div>
         <ShareButton view="reserve" headline={headline} url="https://ccip.dev/reserve/" cardUrl="/og/reserve.png" />
       </div>
@@ -67,7 +66,7 @@ export default function ReserveView({ initial }: { initial: ReserveFile }) {
               <dt>Worth now</dt>
               <dd className="mono">{formatUsdFull(cost.value_usd)}</dd>
               <dt>Change</dt>
-              <dd className={`mono ${tone(cost.change_pct)}`}>
+              <dd className={`mono ${changeTone(cost.change_pct)}`}>
                 {formatUsd(cost.change_usd)} ({formatPct(cost.change_pct)})
               </dd>
               <dt>Average deposit price</dt>
@@ -149,7 +148,7 @@ export default function ReserveView({ initial }: { initial: ReserveFile }) {
                     <td className="num">{t.price_usd === null ? DASH : `$${t.price_usd.toFixed(2)}`}</td>
                     <td className="num">{formatUsd(t.usd)}</td>
                     <td className="num">{formatUsd(t.value_now_usd)}</td>
-                    <td className={`num ${tone(t.change_pct)}`}>{formatPct(t.change_pct)}</td>
+                    <td className={`num ${changeTone(t.change_pct)}`}>{formatPct(t.change_pct)}</td>
                     <td>
                       <a className="mono" href={`https://etherscan.io/tx/${t.tx}`} rel="noopener">
                         {shortAddress(t.tx)}
