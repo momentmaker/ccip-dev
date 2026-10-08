@@ -42,18 +42,16 @@ const description = name
   : 'Watch CCIP grow: every chain and lane from 2023-07-06 to today in 30 seconds, recordable as a video.';
 ---
 <Base title={name ? `${name} on Chainlink CCIP · Replay` : 'Replay'} description={description} cardPath={focusChain ? `replay/${slugs[focusChain.selector]}` : 'replay'}>
-  <div class="replay-col">
-    <div class="page-head">
-      <div>
-        <p class="label">{replay.since} → {last}</p>
-        <h1 id="replay-title">{head.title}</h1>
-        <p id="replay-lead" class="muted">{head.lead}</p>
-      </div>
+  <div class="page-head">
+    <div>
+      <p class="label">{replay.since} → {last}</p>
+      <h1 id="replay-title">{head.title}</h1>
+      <p id="replay-lead" class="muted">{head.lead}</p>
     </div>
-    <div class="replay-shell">
-      <figure class="card poster" set:html={poster} />
-      <ReplayPlayer client:only="react" focus={focus} slugs={slugs} />
-    </div>
+  </div>
+  <div class="replay-shell">
+    <figure class="card poster" set:html={poster} />
+    <ReplayPlayer client:only="react" focus={focus} slugs={slugs} />
   </div>
 </Base>
 

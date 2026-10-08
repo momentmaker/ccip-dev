@@ -643,6 +643,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
         className={`player-stage${barVisible({ playing, recording: recording !== null, lastActivityMs: activity.lastMs, nowMs: activity.nowMs }) ? '' : ' idle'}`}
         onPointerMove={onStagePointer}
         onPointerDown={onStagePointer}
+        data-aspect={aspect}
         style={{ aspectRatio: String(RATIO[aspect]), ['--ratio' as string]: String(RATIO[aspect]) }}
       >
         <canvas ref={canvasRef} aria-label={`Time-lapse of CCIP ${focusName ? `for ${focusName} ` : ''}from ${since} to ${lastDay}`} />
