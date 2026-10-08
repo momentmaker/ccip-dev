@@ -48,7 +48,7 @@ export interface ProbeSummary {
   statuses: Record<string, number>;
 }
 
-const FIRST_RETRY_DELAY_MS = 30_000;
+const RETRY_DELAYS_MS = [5_000, 10_000, 20_000, 40_000, 80_000];
 const REFUSED_STATUSES = new Set([401, 403, 451]);
 const GONE_STATUSES = new Set([404, 410]);
 
@@ -85,6 +85,9 @@ export function recordFromBody(id: string, body: unknown, fetchedAt: string): { 
   };
 }
 
+const refusedError = (status: number) => new Error(`the CCIP API refused the crawl with HTTP ${status}; check access, then rerun to resume`);
+const labelOf = (outcome: DetailOutcome) => (outcome.kind === 'ok' ? '200' : outcome.kind === 'throttled' ? '429' : String(outcome.status ?? 'network'));
+
 /** Time of the last answer that proved the API alive; shared by a whole run so a day boundary cannot reset the stall clock. */
 interface Heartbeat {
   at: number;
@@ -112,6 +115,10 @@ async function fetchAll(
   const wakeIdle = () => idle.splice(0).forEach((wake) => wake());
   const flush = () => (flushing = flushing.then(() => onRecords(buffer.splice(0))));
   const iso = () => new Date(deps.now()).toISOString();
+  const countStatus = (outcome: DetailOutcome) => {
+    const label = labelOf(outcome);
+    statuses[label] = (statuses[label] ?? 0) + 1;
+  };
   let canary: Promise<void> | null = null;
   const stallError = () => new Error(`the CCIP API has answered nothing for ${Math.round(opts.stallMs / 60_000)} minutes; stopping, and a rerun resumes`);
 
@@ -123,6 +130,11 @@ async function fetchAll(
       try {
         await opts.pacer.acquire();
         const outcome = await fetchDetail(deps, opts.baseUrl, known);
+        countStatus(outcome);
+        if (outcome.kind === 'refused') throw refusedError(outcome.status);
+        if (outcome.kind === 'throttled') opts.rate.record(outcome);
+        else if (outcome.kind === 'error') opts.rate.record({ kind: 'error' });
+        else opts.rate.record({ kind: 'ok', latencyMs: outcome.kind === 'ok' ? outcome.latencyMs : null });
         if (outcome.kind !== 'ok' && outcome.kind !== 'gone') throw stallError();
         heartbeat.at = deps.now();
       } finally {
@@ -149,9 +161,8 @@ async function fetchAll(
   const step = async (id: string) => {
     await opts.pacer.acquire();
     const outcome = await fetchDetail(deps, opts.baseUrl, id);
-    const label = outcome.kind === 'ok' ? '200' : outcome.kind === 'throttled' ? '429' : String(outcome.status ?? 'network');
-    statuses[label] = (statuses[label] ?? 0) + 1;
-    if (outcome.kind === 'refused') throw new Error(`the CCIP API refused the crawl with HTTP ${outcome.status}; check access, then rerun to resume`);
+    countStatus(outcome);
+    if (outcome.kind === 'refused') throw refusedError(outcome.status);
     if (outcome.kind === 'ok') {
       opts.rate.record({ kind: 'ok', latencyMs: outcome.latencyMs });
       heartbeat.at = deps.now();
@@ -176,7 +187,7 @@ async function fetchAll(
         const minutes = Math.round((now - firstFailureAt) / 60_000);
         settle({ id, kind: 'skip', fetchedAt: iso(), status: outcome.status, reason: `failed ${failures} times over ${minutes} min: ${outcome.message}` });
       } else {
-        attempts.set(id, { failures, firstFailureAt, notBefore: now + FIRST_RETRY_DELAY_MS * 2 ** (failures - 1) });
+        attempts.set(id, { failures, firstFailureAt, notBefore: now + RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length) - 1]! });
         queue.push(id);
       }
     }
@@ -224,6 +235,8 @@ function settings(opts: FetchOptions) {
   };
 }
 
+const isFailure = (r: DetailRecord) => r.kind === 'skip' && r.reason.startsWith('failed ');
+
 function idsOf(raw: unknown[], day: string): string[] {
   return raw.map((m) => {
     const id = (m as { messageId?: unknown } | null)?.messageId;
@@ -268,15 +281,21 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
   let fetchedThisRun = 0;
 
   for (const day of days) {
-    const earlier = await readPartial(opts.dir, day);
+    const earlier = (await readPartial(opts.dir, day)).filter((r) => !isFailure(r));
     const known = new Set(earlier.map((r) => r.id));
-    const ids = perDay.get(day)!.filter((id) => !known.has(id));
+    const dayIds = perDay.get(day)!;
+    const ids = dayIds.filter((id) => !known.has(id));
     const skippedBefore = state.skipped;
     tally(earlier);
-        await fetchAll(ids, s, async (records) => {
+    const failures: string[] = [];
+    await fetchAll(ids, s, async (records) => {
       tally(records);
+      failures.push(...records.filter(isFailure).map((r) => (r as { reason: string }).reason));
       await appendRecords(opts.dir, day, records);
     });
+    if (failures.length > Math.max(5, Math.ceil(0.05 * dayIds.length))) {
+      throw new Error(`${day}: ${failures.length} of ${dayIds.length} messages kept failing (${failures[0]}); the CCIP API may be degraded. Rerun later to retry them`);
+    }
     const count = await sealDay(opts.dir, day);
     state.fetched += count;
     fetchedThisRun += ids.length;

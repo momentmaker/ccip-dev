@@ -65,6 +65,11 @@ describe('fetchDetail', () => {
     expect(outcomes.map((o) => o.kind)).toEqual(['refused', 'gone', 'error']);
   });
 
+  it('turns a rejected fetch into a network error', async () => {
+    const deps: FetchDeps = { now: () => 0, sleep: async () => {}, fetch: (async () => { throw new Error('socket hang up'); }) as typeof fetch };
+    expect(await fetchDetail(deps, 'https://api.test', '0x1')).toEqual({ kind: 'error', status: null, message: 'socket hang up' });
+  });
+
   it('treats a 404 as gone', async () => {
     const { deps } = fakeApi({});
     expect(await fetchDetail(deps, 'https://api.test', '0x1')).toEqual({ kind: 'gone', status: 404 });
@@ -167,15 +172,15 @@ describe('runFetch crash recovery', () => {
 describe('runFetch outages and refusals', () => {
   it('stops instead of sealing days as skips when every request fails', async () => {
     // #given
-    const days = Object.fromEntries(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06'].map((d) => [d, ['0xa', '0xb']]));
-    const dir = await backfill(days);
-    const { deps } = fakeApi({ '0xa': { status: 502 }, '0xb': { status: 502 } });
+    const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+    const dir = await backfill(Object.fromEntries(['2026-10-01', '2026-10-02', '2026-10-03'].map((d) => [d, ids])));
+    const { deps } = fakeApi(Object.fromEntries(ids.map((id) => [id, { status: 502 }])));
 
     // #when
     const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
 
     // #then
-    await expect(run).rejects.toThrow(/answered nothing for 15 minutes/);
+    await expect(run).rejects.toThrow(/kept failing/);
     expect(await listSealedDays(dir)).toEqual([]);
   });
 
@@ -184,14 +189,6 @@ describe('runFetch outages and refusals', () => {
     const { deps } = fakeApi({ '0xa': [{ status: 502 }, { status: 502 }, { status: 200, body: detail('0xa') }] });
     await runFetch({ dir, deps, baseUrl: 'https://api.test' });
     expect((await readSealedDay(dir, '2026-10-04')).map((r) => r.kind)).toEqual(['ok']);
-  });
-
-  it('skips a message that keeps failing only after its retries span fifteen minutes', async () => {
-    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
-    const { deps, elapsed } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, '0xb': { status: 502 } });
-    await runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60 * 60_000 });
-    const skip = (await readSealedDay(dir, '2026-10-04')).find((r) => r.id === '0xb');
-    expect({ kind: skip?.kind, longEnough: elapsed() >= 15 * 60_000 }).toEqual({ kind: 'skip', longEnough: true });
   });
 
   it('skips one stubborn message with the default stall window while the API is healthy', async () => {
@@ -211,7 +208,7 @@ describe('runFetch outages and refusals', () => {
     const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
     const down = Array.from({ length: 50 }, () => ({ status: 502 }));
     const { deps } = fakeApi({ '0xa': [{ status: 200, body: detail('0xa') }, ...down], '0xb': { status: 502 } });
-    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test' })).rejects.toThrow(/answered nothing for 15 minutes/);
+    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60_000 })).rejects.toThrow(/answered nothing for 1 minutes/);
     expect(await listSealedDays(dir)).toEqual([]);
   });
 
@@ -250,5 +247,107 @@ describe('runFetch outages and refusals', () => {
     const lines: string[] = [];
     await runFetch({ dir, deps, baseUrl: 'https://api.test', log: (l) => lines.push(l) });
     expect(lines.at(-1)).toMatch(/^2026-10-04: 2 messages \(1 skipped\) · .* · unknown fee shapes 0 · /);
+  });
+});
+
+/** A fake clock whose sleeps resolve in wake-time order, so the call times it records are the real schedule. */
+async function runTimed<T>(start: () => Promise<T>, clock: { drain: () => Promise<void> }): Promise<T> {
+  const run = start();
+  let finished = false;
+  const settled = run.then(() => { finished = true; }, () => { finished = true; });
+  while (!finished) {
+    await new Promise((resolve) => setImmediate(resolve));
+    await clock.drain();
+  }
+  await settled;
+  return run;
+}
+
+function timedApi(replies: Record<string, Reply>) {
+  let t = Date.parse('2026-10-08T00:00:00Z');
+  const pending: { at: number; wake: () => void }[] = [];
+  const times: Record<string, number[]> = {};
+  const deps: FetchDeps = {
+    now: () => t,
+    sleep: (ms) => new Promise<void>((wake) => { pending.push({ at: t + ms, wake }); }),
+    fetch: (async (input: string | URL) => {
+      const id = decodeURIComponent(String(input).split('/messages/')[1]!);
+      (times[id] ??= []).push(t);
+      const reply = replies[id] ?? { status: 404 };
+      return new Response(reply.body ?? '', { status: reply.status });
+    }) as typeof fetch,
+  };
+  const clock = {
+    async drain() {
+      pending.sort((a, b) => a.at - b.at);
+      const next = pending.shift();
+      if (!next) return;
+      t = Math.max(t, next.at);
+      next.wake();
+    },
+  };
+  return { deps, times, clock };
+}
+
+describe('runFetch retry spacing and degradation', () => {
+  it('retries a failing message after 5, 10, 20, 40 and 80 seconds', async () => {
+    // #given
+    const dir = await backfill({ '2026-10-04': ['0xb'] });
+    const { deps, times, clock } = timedApi({ '0xb': { status: 502 } });
+
+    // #when
+    await runTimed(() => runFetch({ dir, deps, baseUrl: 'https://api.test' }), clock);
+
+    // #then
+    const gaps = times['0xb']!.slice(1).map((at, i) => Math.round((at - times['0xb']![i]!) / 1000));
+    expect(gaps).toEqual([5, 10, 20, 40, 80]);
+  });
+
+  it('refuses to seal a day in which most messages kept failing', async () => {
+    // #given
+    const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+    const dir = await backfill({ '2026-10-04': ids });
+    const { deps } = fakeApi(Object.fromEntries(ids.map((id, i) => [id, i < 2 ? { status: 200, body: detail(id) } : { status: 502 }])));
+
+    // #when
+    const run = runFetch({ dir, deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(run).rejects.toThrow(/2026-10-04: 8 of 10 messages kept failing \(failed 6 times.*\); the CCIP API may be degraded\. Rerun later to retry them/);
+    expect(await listSealedDays(dir)).toEqual([]);
+  });
+
+  it('refetches the failed messages of a stopped day on the next run and then seals it', async () => {
+    // #given
+    const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+    const dir = await backfill({ '2026-10-04': ids });
+    const degraded = fakeApi(Object.fromEntries(ids.map((id, i) => [id, i < 2 ? { status: 200, body: detail(id) } : { status: 502 }])));
+    await expect(runFetch({ dir, deps: degraded.deps, baseUrl: 'https://api.test' })).rejects.toThrow(/degraded/);
+    const healed = fakeApi(Object.fromEntries(ids.map((id) => [id, { status: 200, body: detail(id) }])));
+
+    // #when
+    await runFetch({ dir, deps: healed.deps, baseUrl: 'https://api.test' });
+
+    // #then
+    const sealed = await readSealedDay(dir, '2026-10-04');
+    expect({ calls: healed.calls.sort(), kinds: [...new Set(sealed.map((r) => r.kind))], count: sealed.length }).toEqual({ calls: ids.slice(2).sort(), kinds: ['ok'], count: 10 });
+  });
+
+  it('counts the skips of a resumed partial file in the day line', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xg', '0xa'] });
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, `${JSON.stringify({ id: '0xg', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' })}\n`);
+    const { deps, calls } = fakeApi({ '0xa': { status: 200, body: detail('0xa') } });
+    const lines: string[] = [];
+    await runFetch({ dir, deps, baseUrl: 'https://api.test', log: (l) => lines.push(l) });
+    expect({ calls, line: lines.at(-1) }).toMatchObject({ calls: ['0xa'], line: expect.stringContaining('2 messages (1 skipped)') });
+  });
+
+  it('reports a refused canary as a refusal, not a stall', async () => {
+    const dir = await backfill({ '2026-10-04': ['0xa', '0xb'] });
+    const down = Array.from({ length: 50 }, () => ({ status: 403 }));
+    const { deps } = fakeApi({ '0xa': [{ status: 200, body: detail('0xa') }, ...down], '0xb': { status: 502 } });
+    await expect(runFetch({ dir, deps, baseUrl: 'https://api.test', stallMs: 60_000 })).rejects.toThrow(/refused the crawl with HTTP 403/);
   });
 });
