@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { countUpStart, countUpValue, easeOutCubic, useCountUp, usePrefersReducedMotion } from '../src/components/hooks';
+import { countUpPlan, countUpValue, easeOutCubic, useCountUp, useMotionPreference, usePrefersReducedMotion } from '../src/components/hooks';
 
 describe('count-up helpers', () => {
   it('eases out and clamps', () => {
@@ -34,9 +34,27 @@ describe('hook first render', () => {
     expect(render(() => useCountUp(1234, true))).toBe('<i>1234</i>');
   });
 
-  it('countUpStart seeds the first run from the target and later runs from what is shown', () => {
-    expect(countUpStart(null, 500)).toBe(500);
-    expect(countUpStart(120, 500)).toBe(120);
+  it('countUpPlan waits until the motion preference is known', () => {
+    expect(countUpPlan(null, 500, null)).toEqual({ kind: 'wait' });
+  });
+
+  it('countUpPlan runs the first animation from just under the target, so the jump from the server value is slight', () => {
+    expect(countUpPlan(null, 1000, true)).toEqual({ kind: 'animate', from: 880 });
+  });
+
+  it('countUpPlan starts later animations from what is shown', () => {
+    expect(countUpPlan(120, 500, true)).toEqual({ kind: 'animate', from: 120 });
+  });
+
+  it('countUpPlan snaps when motion is reduced, or nothing changed', () => {
+    expect(countUpPlan(null, 500, false)).toEqual({ kind: 'set' });
+    expect(countUpPlan(120, 500, false)).toEqual({ kind: 'set' });
+    expect(countUpPlan(500, 500, true)).toEqual({ kind: 'set' });
+  });
+
+  it('useMotionPreference is unresolved on the first render', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
+    expect(render(() => useMotionPreference())).toBe('<i>null</i>');
   });
 
   it('usePrefersReducedMotion starts false on the client too, so it matches the server markup', () => {

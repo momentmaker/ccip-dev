@@ -15,6 +15,17 @@ const at = (selector: string) => {
   return projector(700, 700, stars)(s.x, s.y);
 };
 
+describe('skyOverlay label edges', () => {
+  it('keeps every label inside a small margin of the sky edge', () => {
+    const W = 140;
+    const { labels } = skyOverlay(stars, values, W, W, { coins: 0, labels: 3, hasIcon: all, labelWidth: () => 60 });
+    for (const l of labels) {
+      if (l.side === 'right') expect(l.x + 60).toBeLessThanOrEqual(W - 8);
+      else expect(l.x - 60).toBeGreaterThanOrEqual(8);
+    }
+  });
+});
+
 describe('skyOverlay', () => {
   it('puts coins on the top chains at their projected stars', () => {
     const { coins } = skyOverlay(stars, values, 700, 700, { coins: 2, labels: 0, hasIcon: all });

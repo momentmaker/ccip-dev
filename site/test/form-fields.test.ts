@@ -20,10 +20,8 @@ describe('form fields carry a name and an id', () => {
   });
 
   it('gives two scrubbers on one page different ids', () => {
-    const ids = (html: string) => html.match(/<input[^>]*id="([^"]+)"/)![1];
     const both = renderToString(createElement('div', null, createElement(Scrubber, { length: 10, time: 1, onScrub: () => {}, marks: [], ticks: [], valueText: 'a' }), createElement(Scrubber, { length: 10, time: 1, onScrub: () => {}, marks: [], ticks: [], valueText: 'b' })));
     const found = [...both.matchAll(/<input[^>]*id="([^"]+)"/g)].map((m) => m[1]);
     expect(new Set(found).size).toBe(2);
-    expect(ids(scrubber())).toBeTruthy();
   });
 });

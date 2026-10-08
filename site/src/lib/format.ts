@@ -84,3 +84,7 @@ export function formatAgo(iso: string, now: Date): string {
   if (seconds < 86_400) return `${Math.floor(seconds / 3_600)} h ago`;
   return `${Math.floor(seconds / 86_400)} d ago`;
 }
+
+export function formatPrice(value: number | null | undefined): string {
+  return value == null ? DASH : `$${value.toFixed(2)}`;
+}

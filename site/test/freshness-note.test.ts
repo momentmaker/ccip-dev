@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import FreshnessNote from '../src/components/FreshnessNote';
 
-const html = (paused: boolean) => renderToString(createElement(FreshnessNote, { updatedAt: null, paused }));
+const html = (paused: boolean, updatedAt: string | null = null) => renderToString(createElement(FreshnessNote, { updatedAt, paused }));
 
 describe('FreshnessNote live region', () => {
   it('is always in the page as an empty status region while data is flowing', () => {
@@ -21,5 +21,10 @@ describe('FreshnessNote live region', () => {
   it('keeps the region as the first element in both states so React reuses it', () => {
     expect(html(false)).toMatch(/^<p [^>]*role="status"/);
     expect(html(true)).toMatch(/^<p [^>]*role="status"/);
+  });
+
+  it('keeps the age out of the announced text, which would otherwise change every second', () => {
+    const out = html(true, '2026-10-07T12:00:00.000Z');
+    expect(out).toMatch(/role="status"[^>]*>Live data paused — retrying<\/p>/);
   });
 });

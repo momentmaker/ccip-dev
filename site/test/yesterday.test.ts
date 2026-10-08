@@ -1,6 +1,6 @@
-import type { DayTotals } from '@ccip-dev/core/public';
+import type { DayTotals, TodayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { previousDay, yesterdayFor } from '../src/lib/yesterday';
+import { previousDay, rolloverSnapshot, yesterdayFor } from '../src/lib/yesterday';
 
 const row = (day: string, messages: number) => ({ day, messages, usd_value: messages * 10 }) as DayTotals;
 const days = [row('2026-10-05', 100), row('2026-10-06', 200)];
@@ -28,5 +28,21 @@ describe('previousDay', () => {
   it('steps back one UTC day', () => {
     expect(previousDay('2026-10-07')).toBe('2026-10-06');
     expect(previousDay('2027-01-01')).toBe('2026-12-31');
+  });
+});
+
+describe('rolloverSnapshot', () => {
+  const polled = { day: '2026-10-07', totals: { messages: 321, usd_value: 4500 } } as unknown as TodayFile;
+
+  it('keeps the totals of the day a live poll saw before the day changed', () => {
+    expect(rolloverSnapshot(polled, '2026-10-08')).toEqual({ day: '2026-10-07', messages: 321, usd_value: 4500 });
+  });
+
+  it('has nothing without a previous live poll, so build-time partials are never shown as yesterday', () => {
+    expect(rolloverSnapshot(null, '2026-10-08')).toBeNull();
+  });
+
+  it('has nothing while the day is unchanged', () => {
+    expect(rolloverSnapshot(polled, '2026-10-07')).toBeNull();
   });
 });

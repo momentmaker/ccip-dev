@@ -32,6 +32,7 @@ const DEFAULT_LABEL_WIDTH = 80;
 
 const COIN_SLIDE_MAX = 0.25;
 
+const LABEL_EDGE = 8;
 const intersects = (a: Rect, b: Rect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 const squareAt = (x: number, y: number, d: number): Rect => ({ left: x - d / 2, top: y - d / 2, right: x + d / 2, bottom: y + d / 2 });
 
@@ -104,9 +105,10 @@ export function skyOverlay(
     const top = y - LABEL_HALF_HEIGHT;
     const bottom = y + LABEL_HALF_HEIGHT;
     const rightBox = { left: x + offset, top, right: x + offset + w, bottom };
-    if (!avoid.some((rect) => intersects(rightBox, rect))) return [{ selector, x: x + offset, y, side: 'right' }];
+    const clear = (box: Rect) => box.left >= LABEL_EDGE && box.right <= width - LABEL_EDGE && !avoid.some((rect) => intersects(box, rect));
+    if (clear(rightBox)) return [{ selector, x: x + offset, y, side: 'right' }];
     const leftBox = { left: x - offset - w, top, right: x - offset, bottom };
-    if (!avoid.some((rect) => intersects(leftBox, rect))) return [{ selector, x: x - offset, y, side: 'left' }];
+    if (clear(leftBox)) return [{ selector, x: x - offset, y, side: 'left' }];
     return [];
   });
   return { points: placed.map(({ selector, x, y, d, reach }) => ({ selector, x, y, d, reach })), coins, labels };

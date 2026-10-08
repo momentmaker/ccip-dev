@@ -74,16 +74,20 @@ export interface ChordScale {
   icon: number;
   margin: number;
   maxChars: number;
+  minArc: number;
 }
 
 export function chordScale(widthPx: number | null): ChordScale {
   const onScreen = widthPx && widthPx > 0 ? (LABEL_BASE.font * widthPx) / CHORD_VIEW : LABEL_BASE.font;
   const k = Math.max(1, LABEL_MIN_PX / onScreen);
+  const font = LABEL_BASE.font * k;
+  const margin = LABEL_BASE.margin * k;
   return {
-    font: LABEL_BASE.font * k,
+    font,
     icon: LABEL_BASE.icon * k,
-    margin: LABEL_BASE.margin * k,
+    margin,
     maxChars: k > 1 ? SHRUNK_LABEL_CHARS : Infinity,
+    minArc: font / (CHORD_VIEW / 2 - margin),
   };
 }
 

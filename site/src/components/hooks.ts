@@ -8,12 +8,19 @@ export function countUpValue(from: number, to: number, elapsedMs: number, durati
   return from + (to - from) * easeOutCubic(elapsedMs / durationMs);
 }
 
-export function countUpStart(shown: number | null, target: number): number {
-  return shown ?? target;
+export type CountUpPlan = { kind: 'wait' } | { kind: 'set' } | { kind: 'animate'; from: number };
+
+const FIRST_RUN_FROM = 0.88;
+
+export function countUpPlan(shown: number | null, target: number, animate: boolean | null): CountUpPlan {
+  if (animate === null) return { kind: 'wait' };
+  const from = shown ?? target * FIRST_RUN_FROM;
+  if (!animate || from === target) return { kind: 'set' };
+  return { kind: 'animate', from };
 }
 
-export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
+export function useMotionPreference(): boolean | null {
+  const [reduced, setReduced] = useState<boolean | null>(null);
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => setReduced(query.matches);
@@ -22,6 +29,10 @@ export function usePrefersReducedMotion(): boolean {
     return () => query.removeEventListener('change', update);
   }, []);
   return reduced;
+}
+
+export function usePrefersReducedMotion(): boolean {
+  return useMotionPreference() === true;
 }
 
 export function useNow(intervalMs: number): Date | null {
@@ -34,12 +45,13 @@ export function useNow(intervalMs: number): Date | null {
   return now;
 }
 
-export function useCountUp(target: number, animate: boolean): number {
+export function useCountUp(target: number, animate: boolean | null): number {
   const [value, setValue] = useState(target);
   const shownRef = useRef<number | null>(null);
   useEffect(() => {
-    const from = countUpStart(shownRef.current, target);
-    if (!animate || from === target) {
+    const plan = countUpPlan(shownRef.current, target, animate);
+    if (plan.kind === 'wait') return;
+    if (plan.kind === 'set') {
       shownRef.current = target;
       setValue(target);
       return;
@@ -47,7 +59,7 @@ export function useCountUp(target: number, animate: boolean): number {
     const start = performance.now();
     let raf = 0;
     const step = (now: number) => {
-      const next = countUpValue(from, target, now - start, COUNT_UP_MS);
+      const next = countUpValue(plan.from, target, now - start, COUNT_UP_MS);
       shownRef.current = next;
       setValue(next);
       if (now - start < COUNT_UP_MS) raf = requestAnimationFrame(step);

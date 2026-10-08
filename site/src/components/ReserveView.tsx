@@ -2,7 +2,7 @@ import type { ReserveFile } from '@ccip-dev/core/public';
 import { useEffect, useState } from 'react';
 import { trackDataError } from '../lib/analytics';
 import { fetchPublic } from '../lib/data';
-import { DASH, formatCount, formatLink, formatPct, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime } from '../lib/format';
+import { DASH, formatCount, formatLink, formatPct, formatPrice, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime } from '../lib/format';
 import { shortAddress } from '../lib/names';
 import { depositCoins, valueAtPriceText, vaultFill } from '../lib/reserve-view';
 import { changeTone } from '../lib/tone';
@@ -53,7 +53,7 @@ export default function ReserveView({ initial }: { initial: ReserveFile }) {
         </div>
         <ShareButton view="reserve" headline={headline} url="https://ccip.dev/reserve/" cardUrl="/og/reserve.png" />
       </div>
-      {failed && <FreshnessNote updatedAt={reserve.updated_at} paused />}
+      <FreshnessNote updatedAt={reserve.updated_at} paused={failed} />
 
       <section className="reserve-grid">
         {fill && <ReserveVault link={reserve.latest!.link} target={fill.target} fraction={fill.fraction} coins={depositCoins(reserve.weekly).length} />}
@@ -70,9 +70,9 @@ export default function ReserveView({ initial }: { initial: ReserveFile }) {
                 {formatUsd(cost.change_usd)} ({formatPct(cost.change_pct)})
               </dd>
               <dt>Average deposit price</dt>
-              <dd className="mono">${cost.avg_deposit_price_usd?.toFixed(2) ?? DASH}</dd>
+              <dd className="mono">{formatPrice(cost.avg_deposit_price_usd)}</dd>
               <dt>LINK now</dt>
-              <dd className="mono">${price?.toFixed(2) ?? DASH}</dd>
+              <dd className="mono">{formatPrice(price)}</dd>
             </dl>
           ) : (
             <p className="muted">The cost basis appears once the Reserve's transfer history is loaded.</p>

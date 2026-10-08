@@ -77,7 +77,7 @@ describe('labelAngle', () => {
 
 describe('chordScale', () => {
   it('keeps the design sizes when the chord is drawn near its native width', () => {
-    expect(chordScale(640)).toEqual({ font: 12, icon: 14, margin: 90, maxChars: Infinity });
+    expect(chordScale(640)).toMatchObject({ font: 12, icon: 14, margin: 90, maxChars: Infinity });
     expect(chordScale(720).font).toBe(12);
     expect(chordScale(null).font).toBe(12);
   });
@@ -94,6 +94,13 @@ describe('chordScale', () => {
     expect(phone.margin).toBeGreaterThan(90);
     expect(phone.icon).toBeGreaterThan(14);
     expect(phone.maxChars).toBe(11);
+  });
+});
+
+describe('chordScale minArc', () => {
+  it('needs a wider arc before labelling a chain when labels are larger relative to the ring', () => {
+    expect(chordScale(640).minArc).toBeCloseTo(0.052, 2);
+    expect(chordScale(320).minArc).toBeGreaterThan(chordScale(640).minArc * 1.5);
   });
 });
 

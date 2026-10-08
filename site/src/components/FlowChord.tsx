@@ -88,7 +88,7 @@ export default function FlowChord({ data }: { data: FlowData }) {
                 style={{ cursor: 'pointer' }}
               >
                 <path d={arcPath(g) ?? ''} fill={groupColor(group.key, g.index)} />
-                {g.endAngle - g.startAngle > 0.05 && (
+                {g.endAngle - g.startAngle > scale.minArc && (
                   <g transform={`rotate(${(mid * 180) / Math.PI - 90}) translate(${OUTER + 8}) ${flip ? 'rotate(180)' : ''}`}>
                     {href && (
                       <g transform={`translate(${flip ? -LABEL_ICON / 2 : LABEL_ICON / 2} 0) rotate(${-labelAngle(mid)})`}>

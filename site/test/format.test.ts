@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DASH, formatAgo, formatCompactCount, formatCount, formatCountdown, formatDuration, formatLink, formatPct, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime,
+  DASH, formatAgo, formatCompactCount, formatCount, formatCountdown, formatDuration, formatLink, formatPct, formatPrice, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime,
 } from '../src/lib/format';
 
 describe('formatUsd', () => {
@@ -81,5 +81,13 @@ describe('dates are UTC whatever the visitor time zone', () => {
     expect(formatAgo('2026-10-07T10:00:00.000Z', now)).toBe('2 h ago');
     expect(formatAgo('2026-10-03T12:00:00.000Z', now)).toBe('4 d ago');
     expect(formatAgo('2026-10-07T12:00:05.000Z', now)).toBe('just now');
+  });
+});
+
+describe('formatPrice', () => {
+  it('prints a dollar price with cents, or a dash for none', () => {
+    expect(formatPrice(18.456)).toBe('$18.46');
+    expect(formatPrice(null)).toBe(DASH);
+    expect(formatPrice(undefined)).toBe(DASH);
   });
 });
