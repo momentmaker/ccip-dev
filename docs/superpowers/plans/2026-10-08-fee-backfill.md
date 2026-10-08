@@ -21,7 +21,7 @@ A small core helper builds the LINK fee set from a registry snapshot. A guard st
 - **Rate:**
   - Start at 3 req/s. Add 1 req/s after each healthy 10-minute window, up to a cap of 8.
   - Never go below 1 req/s.
-  - Halve on a 429, or on an error rate above 1% over at least 20 requests, then hold for 10 minutes.
+  - Halve on a 429 (one burst counts once), or on an error rate above 1% with at least 3 errors over at least 100 requests, then hold for 10 minutes. (Amended during execution; see the spec §3.1.)
   - On a 429, pause for `Retry-After`, capped at 30 s, or 5 s when it's absent.
   - Up to 6 requests in flight.
   - Stop after 15 minutes without a successful answer.

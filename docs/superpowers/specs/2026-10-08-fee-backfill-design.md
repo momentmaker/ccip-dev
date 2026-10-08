@@ -49,7 +49,7 @@ There are three commands, in the style of the existing backfill (`scripts/backfi
   - Send the `curl/8.7.1` user agent, as the API requires, with a 30 s request timeout.
   - Each rate change is logged. At full speed the crawl takes about 2.5–3 days; if the API never allows more than 3 req/s, about 6.
 - **Output per message:** a normalized record in `.backfill/fees/details/YYYY/MM/DD.jsonl.gz`, with `messageId`, `version`, `fee {token, amount} | null`, `feeShapeUnknown` and `tokens[]`.
-- **Skips:** a 404 or a schema failure goes to `skipped.jsonl` with its status and reason. Raw bodies of unknown fee shapes go to `unparsed/`, so they can be investigated.
+- **Skips:** a 404, a 410, a schema failure, or a message that kept failing after its retries is recorded as a skip with its status and reason. Raw bodies of schema failures and unknown fee shapes go to `unparsed/`, so they can be investigated.
 - **Resume:**
   - `state.json` records the finished days and a cursor within the current day, written atomically.
   - A restart continues where it stopped.
