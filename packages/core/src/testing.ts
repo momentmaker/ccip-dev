@@ -74,6 +74,7 @@ export function listMessage(spec: ListMessageSpec): ListMessage {
 export interface FakeCcipOptions {
   /** Newest first, exactly as the API orders them. Cursors are string offsets into this array. */
   messages?: ListMessage[];
+  /** Raw details by message id; an Error is thrown, and a missing id answers 404 as the API does. */
   details?: Record<string, unknown>;
   chains?: NetworkInfo[];
   tokens?: RegistryToken[];
@@ -97,7 +98,7 @@ export function fakeCcip(opts: FakeCcipOptions = {}): FakeCcip {
     },
     async getMessageRaw(id) {
       const detail = opts.details?.[id];
-      if (detail === undefined) throw new Error(`fake 404 for ${id}`);
+      if (detail === undefined) throw new UpstreamHttpError('GET /messages/{id}', 404);
       if (detail instanceof Error) throw detail;
       return detail;
     },

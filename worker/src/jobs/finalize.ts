@@ -13,7 +13,11 @@ const PAGE_SIZE = 1000;
 const MAX_PAGES = 200;
 const MAX_DAYS_PER_RUN = 3;
 const DETAIL_BUDGET_MS = 5 * 60_000;
-/** pushBack's 48-hour cut-off for the day's last message, plus a margin: until then an hourly retry can still fill it. */
+/**
+ * A day's last message reaches pushBack's 48-hour cut-off 72 hours after the day starts; until then an hourly retry can
+ * still fill it. A retry pushed back just before the cut-off lands up to an hour later, which the D+3 06:00 late run still
+ * re-fills. It cannot be longer: a day held past D+3 00:10 would push yesterday out of the MAX_DAYS_PER_RUN window.
+ */
 const DETAIL_RETRY_WINDOW_MS = 72 * 3_600_000;
 const ANOMALY_FACTOR = 10;
 const ANOMALY_WINDOW_DAYS = 30;

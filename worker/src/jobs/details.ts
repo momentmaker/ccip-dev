@@ -1,6 +1,6 @@
 import {
-  DetailMessage, issuePath, normalizeDetail, priceKeys, scheduleNextCheck, toMessageRow, toTokenRows, valueFee, valueTokens,
-  type NormalizedMessage, type PriceFallback, type PriceInfo, type PriceLookup,
+  DetailMessage, issuePath, normalizeDetail, priceKeys, scheduleNextCheck, toMessageRow, toTokenRows, UpstreamHttpError, valueFee,
+  valueTokens, type NormalizedMessage, type PriceFallback, type PriceInfo, type PriceLookup,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import * as store from '../store';
@@ -12,7 +12,10 @@ const MINUTE = 60_000;
 const MAX_PRICE_AGE_MINUTES = 15;
 const FAILED_FILL_RETRY_MINUTES = 60;
 
-/** Thrown once a detail run has finished when some fills failed; each was logged and pushed back. */
+/**
+ * Thrown once a detail run has finished when some fills failed; each was logged and pushed back. In day mode a detail
+ * request the API answered with an error (not a 404) counts too.
+ */
 export class DetailFillError extends Error {
   constructor(readonly failures: string[]) {
     super(`${failures.length} detail fill(s) failed; the first: ${failures[0]}`);
@@ -38,7 +41,9 @@ export async function runDetails(
       break;
     }
     try {
-      outliers.push(...(await fillOne(c, id, loader)));
+      const fill = await fillOne(c, id, loader);
+      outliers.push(...fill.outliers);
+      if (fill.requestError !== null && 'day' in scope) failures.push(`${id}: ${fill.requestError}`);
     } catch (err) {
       const failure = `${id}: ${err instanceof Error ? err.message : String(err)}`;
       console.error(`detail fill failed for ${failure}`);
@@ -61,8 +66,14 @@ async function pushBackFailedFill(c: RunContext, id: string): Promise<void> {
   }
 }
 
-/** Returns the token amounts valued above MAX_TRANSFER_USD, which were stored unpriced. */
-async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promise<string[]> {
+interface FillOutcome {
+  /** Token amounts valued above MAX_TRANSFER_USD, which were stored unpriced. */
+  outliers: string[];
+  /** Why the detail request failed when the API answered with an error rather than a 404; the message was pushed back. */
+  requestError: string | null;
+}
+
+async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promise<FillOutcome> {
   const db = c.env.DB;
   const now = c.deps.now();
   const later = (minutes: number) => new Date(now.getTime() + minutes * MINUTE).toISOString();
@@ -71,9 +82,11 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
   try {
     raw = await c.ccip.getMessageRaw(id);
   } catch (err) {
-    console.warn(`detail fetch failed for ${id}: ${err instanceof Error ? err.message : String(err)}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`detail fetch failed for ${id}: ${message}`);
     await store.pushBack(db, id, later(10), now.toISOString());
-    return [];
+    const noDetail = err instanceof UpstreamHttpError && err.status === 404;
+    return { outliers: [], requestError: noDetail ? null : message };
   }
 
   const parsed = DetailMessage.safeParse(raw);
@@ -82,7 +95,7 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
     await c.env.ARCHIVE.put(`unparsed/${id}.json`, JSON.stringify(raw));
     await store.pushBack(db, id, later(60), now.toISOString());
     await c.alert(`detail-schema:${path}`, `Detail response for ${id} failed validation at ${path}; raw saved to unparsed/${id}.json`);
-    return [];
+    return { outliers: [], requestError: null };
   }
 
   const { message, version, feeShapeUnknown } = normalizeDetail(parsed.data);
@@ -106,7 +119,7 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
     nextCheckAt: next.nextCheckAt,
   });
   await store.applyDetail(db, row, toTokenRows(message, valuation));
-  return valuation.outliers;
+  return { outliers: valuation.outliers, requestError: null };
 }
 
 /**

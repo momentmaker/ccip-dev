@@ -1,4 +1,4 @@
-import { COIN_PRICE_DECIMALS, coingeckoKey } from '@ccip-dev/core';
+import { COIN_PRICE_DECIMALS, coingeckoKey, UpstreamHttpError } from '@ccip-dev/core';
 import { fakeCcip, fakePrices, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -342,6 +342,31 @@ describe('runDetails', () => {
     await store.upsertListRows(env.DB, [due('fresh', { status: 'SUCCESS' })], []);
     await runDetails(harness({ now: NOW, ccip: fakeCcip({ details: {} }) }).c, { limit: 10 });
     expect(await row('fresh')).toMatchObject({ status: 'SUCCESS', next_check_at: '2026-10-05T11:30:00.000Z' });
+  });
+
+  describe('a detail request the API answers with an error', () => {
+    const apiError = () => new UpstreamHttpError('GET /messages/{id}', 503);
+
+    it('in the per-minute run, pushes the message back 10 minutes and carries on', async () => {
+      await store.upsertListRows(env.DB, [due('flaky')], []);
+      await runDetails(harness({ now: NOW, ccip: fakeCcip({ details: { flaky: apiError() } }) }).c, { limit: 10 });
+      expect((await row('flaky'))!.next_check_at).toBe('2026-10-05T11:30:00.000Z');
+    });
+
+    it('in day mode, pushes the message back and fails the run as a fill failure', async () => {
+      await store.upsertListRows(env.DB, [due('flaky')], []);
+      const outcome = await runDetails(harness({ now: NOW, ccip: fakeCcip({ details: { flaky: apiError() } }) }).c, { day: '2026-10-05' })
+        .then(() => null, (err: unknown) => String(err));
+      expect({ outcome, next: (await row('flaky'))!.next_check_at }).toEqual({
+        outcome: 'DetailFillError: 1 detail fill(s) failed; the first: flaky: GET /messages/{id} returned HTTP 503',
+        next: '2026-10-05T11:30:00.000Z',
+      });
+    });
+
+    it('in day mode, does not count a 404, since the API has no detail to retry for', async () => {
+      await store.upsertListRows(env.DB, [due('missing')], []);
+      await expect(runDetails(harness({ now: NOW, ccip: fakeCcip({ details: {} }) }).c, { day: '2026-10-05' })).resolves.toBeUndefined();
+    });
   });
 
   it('processes at most `limit` due messages, oldest first', async () => {
