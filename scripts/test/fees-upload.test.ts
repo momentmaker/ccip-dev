@@ -126,4 +126,40 @@ describe('uploadFees', () => {
     const state = JSON.parse(await readFile(path.join(dir, 'fees', 'upload-state.json'), 'utf8')) as { applied: string[] };
     expect(state.applied).toEqual(['B0001@id-1/00001.sql', 'B0001@id-1/00002.sql', 'B0002@id-2/00001.sql']);
   });
+
+  it('refuses a batch built before batches already uploaded, without applying anything', async () => {
+    // #given
+    const dir = await mkdtemp(path.join(tmpdir(), 'fees-upload-'));
+    await writeBatch(dir, 'B0002', ['00001.sql'], 'id-2');
+    await uploadFees({ dir, deps: deps('2026-10-09T12:00:00Z').deps });
+    await writeBatch(dir, 'B0001', ['00001.sql'], 'id-1');
+    const rerun = deps('2026-10-09T12:00:00Z');
+
+    // #when
+    const run = uploadFees({ dir, deps: rerun.deps });
+
+    // #then
+    await expect(run).rejects.toThrow('B0001 was built before batches already uploaded; delete it and rebuild its days instead (see docs/runbook.md, Fee backfill)');
+    expect(rerun.runs).toEqual([]);
+  });
+
+  it('names upload-state.json when it is corrupt', async () => {
+    // #given
+    const dir = await feeSql();
+    const statePath = path.join(dir, 'fees', 'upload-state.json');
+    await writeFile(statePath, '{"applied": [');
+
+    // #when, #then
+    await expect(uploadFees({ dir, deps: deps('2026-10-09T12:00:00Z').deps })).rejects.toThrow(`${statePath}: `);
+  });
+
+  it('names upload-state.json when the original upload finds it corrupt', async () => {
+    // #given
+    const dir = await feeSql();
+    const statePath = path.join(dir, 'fees', 'upload-state.json');
+    await writeFile(statePath, '{"applied": [');
+
+    // #when, #then
+    await expect(feeUploadStarted(dir)).rejects.toThrow(`${statePath}: `);
+  });
 });
