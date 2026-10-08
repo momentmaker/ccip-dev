@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -76,6 +76,17 @@ describe('upload', () => {
     const resumed = deps();
     expect(await upload({ dir, archiveBaseUrl: BASE, deps: resumed.deps })).toMatchObject({ archivesUploaded: 1, archivesSkipped: 1 });
     expect(resumed.requests).toEqual(['PUT messages/2026/10/06.jsonl.gz']);
+  });
+
+  it('replaces upload-state.json through a temp file, so a failed state write leaves the previous state whole', async () => {
+    const dir = await backfillDir();
+    await upload({ dir, archiveBaseUrl: BASE, deps: deps().deps });
+    const statePath = path.join(dir, 'upload-state.json');
+    const before = await readFile(statePath, 'utf8');
+    await writeFile(path.join(dir, 'sql', 'BUILD'), 'build-2\n');
+    await mkdir(`${statePath}.tmp`);
+    await expect(upload({ dir, archiveBaseUrl: BASE, deps: deps().deps })).rejects.toThrow('EISDIR');
+    expect(await readFile(statePath, 'utf8')).toBe(before);
   });
 
   it('stops with the file name when an upload fails', async () => {

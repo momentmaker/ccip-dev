@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AwsClient } from 'aws4fetch';
 import { d1Query, wrangler } from '../lib/d1';
+import { writeFileAtomic } from './crawl';
 
 export interface UploadDeps {
   runSqlFile(file: string): void;
@@ -50,7 +51,7 @@ export async function upload(opts: {
     }
     opts.deps.runSqlFile(path.join(opts.dir, 'sql', file));
     state.applied.push(file);
-    await writeFile(statePath, JSON.stringify(state));
+    await writeFileAtomic(statePath, JSON.stringify(state));
     result.sqlApplied += 1;
     log(`applied ${file}`);
   }
@@ -72,7 +73,7 @@ export async function upload(opts: {
     });
     if (!put.ok) throw new Error(`PUT ${key} returned HTTP ${put.status}`);
     state.archived.push(key);
-    await writeFile(statePath, JSON.stringify(state));
+    await writeFileAtomic(statePath, JSON.stringify(state));
     result.archivesUploaded += 1;
     log(`uploaded ${key}`);
   }
