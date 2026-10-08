@@ -1,4 +1,5 @@
 import { normalizeAddress } from './normalize';
+import { LINK_TOKEN, LINK_TOKEN_CHAIN_SELECTOR, UNLISTED_LINK_FEE_TOKENS } from './reserve';
 import type { DailyBreakdown, DailyTotals, Dim, MessageRow, TokenRow } from './types';
 
 export interface DayRollup {
@@ -96,6 +97,17 @@ export type LinkFeeMatcher = (chain: string, feeToken: string) => boolean;
 
 export function linkFeeMatcher(keys: ReadonlySet<string>): LinkFeeMatcher {
   return (chain, feeToken) => keys.has(`${chain}:${normalizeAddress(feeToken)}`);
+}
+
+/** The LINK fee tokens as `chain:address` keys; the same set the Worker's `store.linkFeeTokens` reads from D1. */
+export function linkFeeKeys(tokens: readonly { chain: string; address: string; groupId: string | null }[]): Set<string> {
+  const ethLink = normalizeAddress(LINK_TOKEN);
+  const group = tokens.find((t) => t.chain === LINK_TOKEN_CHAIN_SELECTOR && normalizeAddress(t.address) === ethLink)?.groupId ?? null;
+  return new Set([
+    `${LINK_TOKEN_CHAIN_SELECTOR}:${ethLink}`,
+    ...Object.entries(UNLISTED_LINK_FEE_TOKENS).map(([chain, address]) => `${chain}:${normalizeAddress(address)}`),
+    ...(group === null ? [] : tokens.filter((t) => t.groupId === group).map((t) => `${t.chain}:${normalizeAddress(t.address)}`)),
+  ]);
 }
 
 export function linkFeeUsd(messages: MessageRow[], day: string, isLinkFee: LinkFeeMatcher): number | null {

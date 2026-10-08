@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dayOf } from '../src/time';
-import { linkFeeMatcher, linkFeeUsd, median, rollupDay } from '../src/rollup';
+import { linkFeeMatcher, linkFeeKeys, linkFeeUsd, median, rollupDay } from '../src/rollup';
 import type { MessageRow, TokenRow } from '../src/types';
 
 function row(id: string, overrides: Partial<MessageRow> = {}): MessageRow {
@@ -107,5 +107,28 @@ describe('linkFeeUsd', () => {
   it('ignores other days and counts a duplicated message once', () => {
     const rows = [row('a', '2026-10-05', LINK_BASE, 2), row('a', '2026-10-05', LINK_BASE, 2), row('z', '2026-10-04', LINK_BASE, 9)];
     expect(linkFeeUsd(rows, '2026-10-05', isLinkFee)).toBe(2);
+  });
+});
+
+describe('linkFeeKeys', () => {
+  const ethLink = { chain: '5009297550715157269', address: '0x514910771af9ca656af840dff83e8264ecf986ca', groupId: 'link-group' };
+  const baseLink = { chain: '15971525489660198786', address: '0x88fb150bdc53a65fe94dea0c9ba0a6daf8c6e196', groupId: 'link-group' };
+  const baseWeth = { chain: '15971525489660198786', address: '0x4200000000000000000000000000000000000006', groupId: 'weth-group' };
+
+  it("includes every registry token in Ethereum LINK's group", () => {
+    // #given / #when
+    const keys = linkFeeKeys([ethLink, baseLink, baseWeth]);
+
+    // #then
+    expect(keys.has(`${baseLink.chain}:${baseLink.address}`)).toBe(true);
+  });
+
+  it('leaves out tokens of other groups', () => {
+    expect(linkFeeKeys([ethLink, baseLink, baseWeth]).has(`${baseWeth.chain}:${baseWeth.address}`)).toBe(false);
+  });
+
+  it('includes Ethereum LINK and the unlisted LINK fee tokens even with an empty registry', () => {
+    const keys = linkFeeKeys([]);
+    expect([keys.has('5009297550715157269:0x514910771af9ca656af840dff83e8264ecf986ca'), keys.has('4949039107694359620:0xf97f4df75117a78c1a5a0dbb814af92458539fb4')]).toEqual([true, true]);
   });
 });
