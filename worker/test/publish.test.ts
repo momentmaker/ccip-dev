@@ -127,7 +127,7 @@ describe('publishLiveFiles', () => {
 
 describe('a mixed-case (EIP-55) sender', () => {
   const CHECKSUMMED = toChecksumAddress(SENDER);
-  const labels = buildLabelIndex([{ name: 'Maple Finance', kind: 'protocol', verified: true, addresses: [{ chain: 'ethereum-mainnet-base-1', address: CHECKSUMMED }] }]);
+  const labels = buildLabelIndex([{ name: 'Maple Finance', kind: 'protocol', verified: true, addresses: [{ chain: 'ethereum-mainnet-base-1', address: CHECKSUMMED }], tokens: [] }]);
 
   it('is mixed case to begin with, so the test exercises normalization', () => {
     expect(CHECKSUMMED).not.toBe(SENDER);
