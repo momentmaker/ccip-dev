@@ -41,8 +41,11 @@ There are three commands, in the style of the existing backfill (`scripts/backfi
 - **Rate** (adaptive: additive increase, multiplicative decrease):
   - Start at 3 req/s, with request starts spaced evenly and up to 6 requests in flight.
   - **Step up:** after each 10-minute window with no 429, an error rate of 1% or less, and a median latency within 2× the first window's median, add 1 req/s, up to a cap of 8 req/s.
-  - **Back off:** on a 429, pause for `Retry-After` (capped at 30 s; 5 s when absent), halve the rate (never below 1 req/s), and hold for 10 minutes before stepping up again. An error rate above 1% over at least 20 requests in a window also halves the rate.
-  - **Stall guard:** if no request has succeeded for 15 minutes, stop with a clear message. A rerun resumes.
+  - **Back off:** on a 429, pause for `Retry-After` (capped at 30 s; 5 s when absent), halve the rate (never below 1 req/s), and hold for 10 minutes before stepping up again. 429s that arrive while a pause is active belong to the same burst and only extend the pause. An error rate above 1%, with at least 3 errors over at least 100 requests in a window, also halves the rate.
+  - **Retries:** a message whose request fails (5xx, network, a 4xx other than 404, 410, 401, 403 or 451) is retried after 5, 10, 20, 40 and 80 s, then recorded as a skip.
+  - **Gone and refused:** 404 and 410 are skips. 401, 403 and 451 stop the crawl.
+  - **Stall guard:** if nothing has been answered for 15 minutes, re-fetch the latest message that succeeded (a canary). If it answers, carry on; otherwise stop with a clear message. A rerun resumes.
+  - **Degradation ceiling:** a day whose retried-out skips exceed max(5, 5% of its messages) is not sealed. The crawl stops with a message that the API may be degraded, and a rerun retries those messages.
   - Send the `curl/8.7.1` user agent, as the API requires, with a 30 s request timeout.
   - Each rate change is logged. At full speed the crawl takes about 2.5–3 days; if the API never allows more than 3 req/s, about 6.
 - **Output per message:** a normalized record in `.backfill/fees/details/YYYY/MM/DD.jsonl.gz`, with `messageId`, `version`, `fee {token, amount} | null`, `feeShapeUnknown` and `tokens[]`.
