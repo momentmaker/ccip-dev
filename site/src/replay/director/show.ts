@@ -213,6 +213,10 @@ export class Show {
     };
   }
 
+  dailyMessages(): number[] {
+    return this.counter.dailyMessages();
+  }
+
   posterTime(): number {
     return this.length - LOOP_S;
   }
