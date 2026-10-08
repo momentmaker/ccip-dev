@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { appendFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, open, readdir, readFile, rename, rm, truncate } from 'node:fs/promises';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { writeFileAtomic } from '../crawl';
@@ -44,7 +44,16 @@ export async function appendRecords(dir: string, day: string, records: DetailRec
   if (records.length === 0) return;
   const file = dayFile(detailsRoot(dir), day, '.partial.jsonl');
   await mkdir(path.dirname(file), { recursive: true });
+  await dropTornTail(file);
   await appendFile(file, records.map((r) => `${JSON.stringify(r)}\n`).join(''));
+}
+
+/** A crash mid-append leaves a last line without its newline; cut it so the next append starts on a clean line. */
+async function dropTornTail(file: string): Promise<void> {
+  if (!existsSync(file)) return;
+  const text = await readFile(file, 'utf8');
+  if (text.length === 0 || text.endsWith('\n')) return;
+  await truncate(file, Buffer.byteLength(text.slice(0, text.lastIndexOf('\n') + 1)));
 }
 
 /** A day's records so far. A last line cut short by a crash is dropped, so its message is fetched again. */
@@ -63,7 +72,13 @@ export async function sealDay(dir: string, day: string): Promise<number> {
   for (const r of await readPartial(dir, day)) byId.set(r.id, r);
   await mkdir(path.dirname(sealed), { recursive: true });
   const tmp = `${sealed}.tmp`;
-  await writeFile(tmp, gzipSync([...byId.values()].map((r) => `${JSON.stringify(r)}\n`).join('')));
+  const fh = await open(tmp, 'w');
+  try {
+    await fh.writeFile(gzipSync([...byId.values()].map((r) => `${JSON.stringify(r)}\n`).join('')));
+    await fh.sync();
+  } finally {
+    await fh.close();
+  }
   await rename(tmp, sealed);
   await rm(partial, { force: true });
   return byId.size;
@@ -80,12 +95,13 @@ export async function saveUnparsed(dir: string, id: string, body: unknown): Prom
 }
 
 function parseLines(text: string, tolerateCutLastLine: boolean): unknown[] {
+  const tornTail = tolerateCutLastLine && !text.endsWith('\n');
   const lines = text.split('\n').filter((l) => l.length > 0);
   return lines.flatMap((line, i) => {
     try {
       return [JSON.parse(line) as unknown];
     } catch (err) {
-      if (tolerateCutLastLine && i === lines.length - 1) return [];
+      if (tornTail && i === lines.length - 1) return [];
       throw new Error(`line ${i + 1} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
     }
   });

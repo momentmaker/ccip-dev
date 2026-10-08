@@ -91,4 +91,40 @@ describe('detail records', () => {
     // #then
     expect({ count, ids: (await readSealedDay(dir, '2026-10-04')).map((r) => r.id) }).toEqual({ count: 2, ids: ['0x1', '0x2'] });
   });
+
+  it('appends after a torn tail without gluing onto the fragment', async () => {
+    // #given
+    const dir = await backfill({});
+    await appendRecords(dir, '2026-10-04', [ok('0x1'), ok('0x2')]);
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await writeFile(partial, `${await readFile(partial, 'utf8')}{"id":"0x3","kind":"o`);
+
+    // #when
+    await appendRecords(dir, '2026-10-04', [ok('0x3'), ok('0x4')]);
+
+    // #then
+    expect((await readPartial(dir, '2026-10-04')).map((r) => r.id)).toEqual(['0x1', '0x2', '0x3', '0x4']);
+  });
+
+  it('throws on a corrupt line in the middle of a partial file', async () => {
+    // #given
+    const dir = await backfill({});
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, `${JSON.stringify(ok('0x1'))}\nnot json\n${JSON.stringify(ok('0x2'))}\n`);
+
+    // #when / #then
+    await expect(readPartial(dir, '2026-10-04')).rejects.toThrow('line 2');
+  });
+
+  it('throws on a corrupt last line that ends in a newline', async () => {
+    // #given
+    const dir = await backfill({});
+    const partial = path.join(dir, 'fees', 'details', '2026', '10', '04.partial.jsonl');
+    await mkdir(path.dirname(partial), { recursive: true });
+    await writeFile(partial, `${JSON.stringify(ok('0x1'))}\nnot json\n`);
+
+    // #when / #then
+    await expect(readPartial(dir, '2026-10-04')).rejects.toThrow('line 2');
+  });
 });
