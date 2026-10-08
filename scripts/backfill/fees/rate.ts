@@ -6,7 +6,8 @@ export const RATE = {
   windowMs: 10 * 60_000,
   holdMs: 10 * 60_000,
   maxErrorRate: 0.01,
-  minSamplesForErrorRate: 20,
+  minSamplesForErrorRate: 100,
+  minErrorsForBackoff: 3,
   latencyFactor: 2,
   defaultPauseMs: 5_000,
   maxPauseMs: 30_000,
@@ -56,7 +57,7 @@ export class AdaptiveRate {
       this.errors += 1;
     }
     const total = this.ok + this.errors;
-    if (total >= RATE.minSamplesForErrorRate && this.errors / total > RATE.maxErrorRate) {
+    if (total >= RATE.minSamplesForErrorRate && this.errors >= RATE.minErrorsForBackoff && this.errors / total > RATE.maxErrorRate) {
       this.backOff(now, `${this.errors} of ${total} requests failed`);
       return;
     }

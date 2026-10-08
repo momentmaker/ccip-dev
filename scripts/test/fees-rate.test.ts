@@ -88,18 +88,24 @@ describe('AdaptiveRate', () => {
     expect(rate.rps).toBe(RATE.minRps);
   });
 
-  it('halves when more than 1% of at least 20 requests fail', () => {
+  it('halves when at least 3 of at least 100 requests fail, above 1%', () => {
     // #given
     const c = clock();
     const rate = new AdaptiveRate(c.now, () => {}, 6);
 
     // #when
-    for (let i = 0; i < 18; i++) rate.record({ kind: 'ok', latencyMs: 100 });
-    rate.record({ kind: 'error' });
-    rate.record({ kind: 'error' });
+    for (let i = 0; i < 97; i++) rate.record({ kind: 'ok', latencyMs: 100 });
+    for (let i = 0; i < 3; i++) rate.record({ kind: 'error' });
 
     // #then
     expect(rate.rps).toBe(3);
+  });
+
+  it('does not halve for one error among the first 20 requests', () => {
+    const rate = new AdaptiveRate(clock().now, () => {}, 6);
+    for (let i = 0; i < 19; i++) rate.record({ kind: 'ok', latencyMs: 100 });
+    rate.record({ kind: 'error' });
+    expect(rate.rps).toBe(6);
   });
 
   it('does not step up when the median latency more than doubles', () => {
