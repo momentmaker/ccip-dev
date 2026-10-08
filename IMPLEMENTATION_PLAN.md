@@ -69,3 +69,9 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Success Criteria**: Every High and Medium item fixed; Low items fixed or ruled out with a reason; tests for each behavior change; budgets hold; the live site verified after each pushed batch.
 **Tests**: per item, test-first where behavior changes.
 **Status**: Complete (2026-10-08). 5 batches, each task-reviewed, then a final opus review and one fix wave (tests: core 209, site 953 + 5 workerd, worker 214, scripts 150; JS 115.3 KB of 150 home, 139.1 of 200 replay). Highlights: a finalize day whose detail fill fails on a retryable error is held 72 h, then rolled up with a `detail-fill` alert; terminal statuses are kept; alerts are claimed atomically; per-message isolation; bounded catch-up; render buffers stream through `bufferSubData`, bit-identical over 3,452 frames; about 65 mutation-verified tests. Final-review fix: the Reserve vault was empty for reduced-motion users. Open, outside the range: a day failing for a non-detail reason (list walk, D1) still holds its pointer indefinitely and is alerted every run.
+
+## Stage 12: Fee backfill
+**Goal**: Fees for every historical day (2023-07-06 to 2026-10-04) from one CCIP detail request per message, at 3 req/s newest first, valued at send-day prices and loaded into `messages.fee_*`, `daily_totals.fee_usd`/`fee_link_usd` and `daily_breakdown.fee_usd`. Spec: `docs/superpowers/specs/2026-10-08-fee-backfill-design.md`.
+**Success Criteria**: The fee history covers 2023-07-06 onward with no seam at 2026-10-04/05; the fees note disappears from the site; the original backfill re-upload can no longer wipe fees.
+**Tests**: fetch order, resume, rate limiting and 429 back-off, skips; fee valuation and aggregates equal `rollupDay`; upload resume and finalize-window refusal; the conflict guard; site coverage derived from data.
+**Status**: Not Started (spec awaiting owner review)
