@@ -98,3 +98,32 @@ describe('upload', () => {
     await expect(upload({ dir, archiveBaseUrl: BASE, deps: failing })).rejects.toThrow('PUT messages/2026/10/05.jsonl.gz returned HTTP 403');
   });
 });
+
+describe('guard against wiping backfilled fees', () => {
+  async function withFeeUpload(): Promise<string> {
+    const dir = await backfillDir();
+    await mkdir(path.join(dir, 'fees'), { recursive: true });
+    await writeFile(path.join(dir, 'fees', 'upload-state.json'), JSON.stringify({ applied: ['B0001@id-1/00001.sql'] }));
+    return dir;
+  }
+
+  it('refuses to apply the original SQL after a fee upload', async () => {
+    // #given
+    const dir = await withFeeUpload();
+
+    // #when / #then
+    await expect(upload({ dir, archiveBaseUrl: BASE, deps: deps().deps })).rejects.toThrow(/--allow-fee-wipe/);
+  });
+
+  it('applies it when told the fee wipe is intended', async () => {
+    // #given
+    const dir = await withFeeUpload();
+    const d = deps();
+
+    // #when
+    await upload({ dir, archiveBaseUrl: BASE, deps: d.deps, allowFeeWipe: true });
+
+    // #then
+    expect(d.sqlRuns).toEqual(['00001.sql', '00002.sql']);
+  });
+});

@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { AwsClient } from 'aws4fetch';
 import { d1Query, wrangler } from '../lib/d1';
 import { writeFileAtomic } from './crawl';
+import { feeUploadStarted } from './fees/upload';
 
 export interface UploadDeps {
   runSqlFile(file: string): void;
@@ -28,6 +29,7 @@ export async function upload(opts: {
   dir: string;
   archiveBaseUrl: string;
   deps: UploadDeps;
+  allowFeeWipe?: boolean;
   log?: (line: string) => void;
 }): Promise<UploadResult> {
   const log = opts.log ?? (() => {});
@@ -44,6 +46,13 @@ export async function upload(opts: {
   if (saved && saved.build !== build) log(`new build ${build.slice(0, 12)}: re-applying every SQL file and re-uploading every archive`);
 
   const sqlFiles = (await readdir(path.join(opts.dir, 'sql'))).filter((f) => f.endsWith('.sql')).sort();
+  const pending = sqlFiles.filter((f) => !state.applied.includes(f));
+  if (pending.length > 0 && !opts.allowFeeWipe && (await feeUploadStarted(opts.dir))) {
+    throw new Error(
+      'The fee backfill has been uploaded, and this SQL would reset daily fee totals and breakdowns to NULL. ' +
+        'Rerun with --allow-fee-wipe only if you then rerun pnpm backfill:fees:upload (see docs/runbook.md, "Fee backfill").',
+    );
+  }
   for (const file of sqlFiles) {
     if (state.applied.includes(file)) {
       result.sqlSkipped += 1;
@@ -94,6 +103,7 @@ async function main(): Promise<void> {
   const aws = new AwsClient({ accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY, service: 's3', region: 'auto' });
   const result = await upload({
     dir: '.backfill',
+    allowFeeWipe: process.argv.includes('--allow-fee-wipe'),
     archiveBaseUrl: `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/ccip-dev-archive`,
     deps: {
       runSqlFile: (file) => {

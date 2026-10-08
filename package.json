@@ -13,6 +13,7 @@
     "backfill:upload": "tsx --env-file=.env scripts/backfill/upload.ts",
     "backfill:fees:build": "tsx scripts/backfill/fees/build.ts",
     "backfill:fees:fetch": "tsx scripts/backfill/fees/fetch.ts",
+    "backfill:fees:upload": "tsx --env-file=.env scripts/backfill/fees/upload.ts",
     "endpoints:refresh": "tsx scripts/refresh-endpoints.ts",
     "labels:build": "tsx scripts/build-labels.ts",
     "labels:check": "tsx scripts/build-labels.ts --check",
