@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const calls = vi.hoisted(() => ({ added: [] as [number, number][], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [] as unknown[], audioTracks: 0, codec: 'aac' as string | null }));
+const calls = vi.hoisted(() => ({ added: [] as [number, number][], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [] as unknown[], audioTracks: 0, codec: 'aac' as string | null, audioCloses: 0, audioFails: false, probeFails: false }));
 
 vi.mock('mediabunny', () => {
   class BufferTarget {
@@ -19,7 +19,11 @@ vi.mock('mediabunny', () => {
   class AudioBufferSource {
     constructor(readonly config: unknown) {}
     async add(buffer: unknown) {
+      if (calls.audioFails) throw new DOMException('AAC encoder failed', 'EncodingError');
       calls.audioAdds.push(buffer);
+    }
+    close() {
+      calls.audioCloses += 1;
     }
   }
   class Output {
@@ -40,11 +44,14 @@ vi.mock('mediabunny', () => {
       calls.cancelled += 1;
     }
   }
-  const getFirstEncodableAudioCodec = async () => calls.codec;
+  const getFirstEncodableAudioCodec = async () => {
+    if (calls.probeFails) throw new Error('probe exploded');
+    return calls.codec;
+  };
   return { BufferTarget, Mp4OutputFormat, CanvasSource, AudioBufferSource, Output, getFirstEncodableAudioCodec };
 });
 
-import { audioCodecAvailable, canRecord, recordingFilename, recordReplay, totalFrames } from '../src/replay/recorder';
+import { AudioEncodeError, audioCodecAvailable, canRecord, recordingFilename, recordReplay, recordWithAudioFallback, totalFrames } from '../src/replay/recorder';
 
 class FakeOffscreenCanvas {
   constructor(readonly width: number, readonly height: number) {}
@@ -55,7 +62,7 @@ class FakeOffscreenCanvas {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  Object.assign(calls, { added: [], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [], audioTracks: 0, codec: 'aac' });
+  Object.assign(calls, { added: [], finalized: 0, cancelled: 0, failAt: -1, audioAdds: [], audioTracks: 0, codec: 'aac', audioCloses: 0, audioFails: false, probeFails: false });
 });
 
 describe('recording helpers', () => {
@@ -153,5 +160,69 @@ describe('audio', () => {
     expect(await audioCodecAvailable()).toBe(true);
     calls.codec = null;
     expect(await audioCodecAvailable()).toBe(false);
+  });
+
+  it('reports no AAC when probing the encoder fails', async () => {
+    vi.stubGlobal('AudioEncoder', class {});
+    calls.probeFails = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await audioCodecAvailable()).toBe(false);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('closes the audio source once the whole score is added', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+    const audio = { duration: 1 } as unknown as AudioBuffer;
+    await recordReplay({ draw: () => {}, aspect: '1:1', lengthS: 1, onProgress: () => {}, signal: new AbortController().signal, audio });
+    expect(calls.audioCloses).toBe(1);
+  });
+
+  it('marks a failed soundtrack encode as an audio failure and cancels the output', async () => {
+    vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+    calls.audioFails = true;
+    const audio = { duration: 1 } as unknown as AudioBuffer;
+    const run = recordReplay({ draw: () => {}, aspect: '1:1', lengthS: 1, onProgress: () => {}, signal: new AbortController().signal, audio });
+    await expect(run).rejects.toBeInstanceOf(AudioEncodeError);
+    expect(calls.cancelled).toBe(1);
+    expect(calls.added).toHaveLength(0);
+  });
+});
+
+describe('recordWithAudioFallback', () => {
+  const blob = new Blob(['mp4']);
+  const audio = { duration: 30 } as unknown as AudioBuffer;
+
+  it('records with the soundtrack when it encodes', async () => {
+    const attempt = vi.fn(async () => blob);
+    await expect(recordWithAudioFallback(attempt, audio)).resolves.toEqual({ blob, audible: true });
+    expect(attempt.mock.calls).toEqual([[audio]]);
+  });
+
+  it('records once, silently, when there is no soundtrack', async () => {
+    const attempt = vi.fn(async () => blob);
+    await expect(recordWithAudioFallback(attempt, null)).resolves.toEqual({ blob, audible: false });
+    expect(attempt.mock.calls).toEqual([[null]]);
+  });
+
+  it('records again without sound once when the soundtrack fails to encode', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const attempt = vi.fn(async (soundtrack: AudioBuffer | null) => {
+      if (soundtrack) throw new AudioEncodeError(new Error('AAC encoder failed'));
+      return blob;
+    });
+    await expect(recordWithAudioFallback(attempt, audio)).resolves.toEqual({ blob, audible: false });
+    expect(attempt.mock.calls).toEqual([[audio], [null]]);
+    warn.mockRestore();
+  });
+
+  it('does not retry a cancel or any other failure', async () => {
+    for (const failure of [new DOMException('Recording cancelled', 'AbortError'), new Error('encoder exploded')]) {
+      const attempt = vi.fn(async () => {
+        throw failure;
+      });
+      await expect(recordWithAudioFallback(attempt, audio)).rejects.toBe(failure);
+      expect(attempt).toHaveBeenCalledTimes(1);
+    }
   });
 });

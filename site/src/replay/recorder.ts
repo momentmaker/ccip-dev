@@ -45,8 +45,43 @@ export const AUDIO_BITRATE = 128_000;
 
 export async function audioCodecAvailable(): Promise<boolean> {
   if (typeof AudioEncoder === 'undefined') return false;
-  const { getFirstEncodableAudioCodec } = await import('mediabunny');
-  return (await getFirstEncodableAudioCodec(['aac'], { numberOfChannels: 2, sampleRate: 48_000 })) === 'aac';
+  try {
+    const { getFirstEncodableAudioCodec } = await import('mediabunny');
+    return (await getFirstEncodableAudioCodec(['aac'], { numberOfChannels: 2, sampleRate: 48_000 })) === 'aac';
+  } catch (err) {
+    console.warn('recording: probing the AAC encoder failed; recording without sound', err);
+    return false;
+  }
+}
+
+export class AudioEncodeError extends Error {
+  constructor(cause: unknown) {
+    super('recording: the soundtrack could not be encoded', { cause });
+    this.name = 'AudioEncodeError';
+  }
+}
+
+export async function recordWithAudioFallback(
+  attempt: (audio: AudioBuffer | null) => Promise<Blob>,
+  audio: AudioBuffer | null,
+): Promise<{ blob: Blob; audible: boolean }> {
+  if (!audio) return { blob: await attempt(null), audible: false };
+  try {
+    return { blob: await attempt(audio), audible: true };
+  } catch (err) {
+    if (!(err instanceof AudioEncodeError)) throw err;
+    console.warn('replay recording could not encode its soundtrack; recording again without sound', err);
+    return { blob: await attempt(null), audible: false };
+  }
+}
+
+async function addSoundtrack(source: { add(buffer: AudioBuffer): Promise<void>; close(): void }, audio: AudioBuffer): Promise<void> {
+  try {
+    await source.add(audio);
+    source.close();
+  } catch (err) {
+    throw new AudioEncodeError(err);
+  }
 }
 
 export async function recordReplay(opts: RecordOptions): Promise<Blob> {
@@ -63,7 +98,7 @@ export async function recordReplay(opts: RecordOptions): Promise<Blob> {
   const frames = totalFrames(opts.lengthS);
   try {
     await output.start();
-    if (audioSource && opts.audio) await audioSource.add(opts.audio);
+    if (audioSource && opts.audio) await addSoundtrack(audioSource, opts.audio);
     for (let f = 0; f < frames; f++) {
       if (opts.signal.aborted) throw new DOMException('Recording cancelled', 'AbortError');
       const t = f / REPLAY_FPS;
