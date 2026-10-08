@@ -21,6 +21,27 @@ export function audioStartOffset(playhead: number, latency: { outputLatency?: nu
 }
 
 const MIN_PREFETCH_MEMORY_GB = 4;
+export const FADE_S = 0.008;
+
+export function resyncAfter(event: 'visible' | 'running', audio: { playing: boolean; soundOn: boolean }, interrupted: boolean): boolean {
+  if (!audio.playing || !audio.soundOn) return false;
+  return event === 'visible' || interrupted;
+}
+
+export function scrubRestartDelay(lastRestartMs: number, nowMs: number, intervalMs: number): number {
+  return Math.max(0, intervalMs - (nowMs - lastRestartMs));
+}
+
+export function fade(
+  gain: { setValueAtTime(value: number, time: number): unknown; linearRampToValueAtTime(value: number, time: number): unknown },
+  from: number,
+  to: number,
+  at: number,
+): number {
+  gain.setValueAtTime(from, at);
+  gain.linearRampToValueAtTime(to, at + FADE_S);
+  return at + FADE_S;
+}
 
 export function idlePrefetchAllowed(env: { audioSupported: boolean; saveData?: boolean; deviceMemory?: number }): boolean {
   if (!env.audioSupported || env.saveData) return false;
@@ -44,8 +65,10 @@ export class ScoreCache {
       buffer: Promise.resolve()
         .then(render)
         .catch((err: unknown) => {
-          if (this.entry === entry) this.entry = null;
-          this.onFail(err);
+          if (this.entry === entry) {
+            this.entry = null;
+            this.onFail(err);
+          }
           return null;
         }),
     };

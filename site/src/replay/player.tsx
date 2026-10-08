@@ -34,10 +34,10 @@ import {
   type Compositor,
   type CompositorKind,
 } from './compositors';
-import { audioCodecAvailable, canRecord, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
+import { audioCodecAvailable, canRecord, raceAbort, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
 import { scoreFor } from './score/schedule';
 import { renderScore } from './score/synth';
-import { audioStartOffset, idlePrefetchAllowed, ScoreCache, scoreKey, soundPending, syncAction } from './score/sync';
+import { audioStartOffset, fade, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, syncAction } from './score/sync';
 import { Show, type ShowInput } from './director/show';
 import { loadCanvasFonts } from './story/draw';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
@@ -51,6 +51,9 @@ const UI_UPDATE_MS = 100;
 const SILENT_RECORDING_NOTE = "Recorded without sound — your browser can't encode audio";
 const PREFETCH_DEBOUNCE_MS = 400;
 const PREFETCH_IDLE_TIMEOUT_MS = 2_000;
+const SCRUB_RESTART_MS = 100;
+
+type AudioIntent = { playing: boolean; soundOn: boolean; t: number; scrubbed: boolean };
 
 function whenIdle(task: () => void): () => void {
   if (typeof requestIdleCallback === 'function') {
@@ -125,16 +128,16 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const [readyKey, setReadyKey] = useState<string | null>(null);
   const [sourceLive, setSourceLive] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const sourceRef = useRef<{ node: AudioBufferSourceNode; gain: GainNode } | null>(null);
   const audioStateRef = useRef({ playing: false, soundOn: false, t: 0 });
   const audioTokenRef = useRef(0);
-  const failSound = (err: unknown) => {
-    console.warn('replay soundtrack could not be rendered; sound is off', err);
-    audioStateRef.current = { ...audioStateRef.current, soundOn: false };
-    setSoundOn(false);
-    setSoundFailed(true);
-  };
-  const [scoreCache] = useState(() => new ScoreCache(failSound));
+  const audioWantedRef = useRef(false);
+  const interruptedRef = useRef(false);
+  const applyAudioRef = useRef<(next: AudioIntent) => void>(() => {});
+  const failSoundRef = useRef<(err: unknown) => void>(() => {});
+  const scrubTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastScrubRestartRef = useRef(-Infinity);
+  const [scoreCache] = useState(() => new ScoreCache((err) => failSoundRef.current(err)));
 
   useEffect(() => {
     let cancelled = false;
@@ -266,10 +269,32 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
 
   const stopAudio = useCallback(() => {
     audioTokenRef.current += 1;
-    sourceRef.current?.stop();
+    audioWantedRef.current = false;
+    const live = sourceRef.current;
     sourceRef.current = null;
     setSourceLive(false);
+    if (live) live.node.stop(fade(live.gain.gain, live.gain.gain.value, 0, live.node.context.currentTime));
   }, []);
+
+  failSoundRef.current = (err: unknown) => {
+    console.warn('replay soundtrack could not be rendered; sound is off', err);
+    stopAudio();
+    audioStateRef.current = { ...audioStateRef.current, soundOn: false };
+    setSoundOn(false);
+    setSoundFailed(true);
+  };
+
+  const rejoin = useCallback((event: 'visible' | 'running', interrupted: boolean) => {
+    if (resyncAfter(event, audioStateRef.current, interrupted)) applyAudioRef.current({ ...audioStateRef.current, t: tRef.current, scrubbed: true });
+  }, []);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') rejoin('visible', false);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [rejoin]);
 
   useEffect(() => {
     if (playing) return;
@@ -291,6 +316,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
 
   useEffect(
     () => () => {
+      if (scrubTimerRef.current) clearTimeout(scrubTimerRef.current);
       stopAudio();
       void audioCtxRef.current?.close();
     },
@@ -430,14 +456,31 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     return () => clearTimeout(timer);
   }, [playing, recording, activity.lastMs]);
 
+  const audioContext = (): AudioContext => {
+    if (audioCtxRef.current) return audioCtxRef.current;
+    const ctx = new AudioContext();
+    ctx.addEventListener('statechange', () => {
+      if (ctx.state !== 'running') {
+        if (audioWantedRef.current) interruptedRef.current = true;
+        return;
+      }
+      const interrupted = interruptedRef.current;
+      interruptedRef.current = false;
+      rejoin('running', interrupted);
+    });
+    audioCtxRef.current = ctx;
+    return ctx;
+  };
+
   const startAudio = (current: Show) => {
     let ctx: AudioContext;
     try {
-      ctx = audioCtxRef.current ??= new AudioContext();
+      ctx = audioContext();
     } catch (err) {
-      failSound(err);
+      failSoundRef.current(err);
       return;
     }
+    audioWantedRef.current = true;
     const key = scoreKey(current, lastDay);
     const token = audioTokenRef.current;
     Promise.all([scoreBuffer(current), ctx.resume()])
@@ -446,20 +489,37 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
         const playhead = clockRef.current.offset + (performance.now() - clockRef.current.startedAt) / 1000;
         const node = ctx.createBufferSource();
         node.buffer = buffer;
-        node.connect(ctx.destination);
+        const gain = ctx.createGain();
+        fade(gain.gain, 0, 1, ctx.currentTime);
+        node.connect(gain);
+        gain.connect(ctx.destination);
         node.start(0, audioStartOffset(playhead, ctx, buffer.duration));
-        sourceRef.current = node;
+        sourceRef.current = { node, gain };
         setSourceLive(true);
       })
       .catch((err: unknown) => console.warn('replay soundtrack could not start', err));
   };
 
-  const applyAudio = (next: { playing: boolean; soundOn: boolean; t: number; scrubbed: boolean }) => {
+  const applyAudio = (next: AudioIntent) => {
     const action = syncAction(audioStateRef.current, next);
     audioStateRef.current = { playing: next.playing, soundOn: next.soundOn, t: next.t };
     if (action.kind === 'none') return;
     stopAudio();
     if (action.kind === 'start' && show) startAudio(show);
+  };
+  applyAudioRef.current = applyAudio;
+
+  const restartAtPlayhead = () => {
+    scrubTimerRef.current = null;
+    lastScrubRestartRef.current = performance.now();
+    applyAudioRef.current({ ...audioStateRef.current, t: tRef.current, scrubbed: true });
+  };
+
+  const scrubAudio = () => {
+    if (scrubTimerRef.current) clearTimeout(scrubTimerRef.current);
+    const delay = scrubRestartDelay(lastScrubRestartRef.current, performance.now(), SCRUB_RESTART_MS);
+    if (delay === 0) restartAtPlayhead();
+    else scrubTimerRef.current = setTimeout(restartAtPlayhead, delay);
   };
 
   const toggleSound = () => {
@@ -486,7 +546,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     clockRef.current = { startedAt: performance.now(), offset: value };
     setShown(value);
     if (!playing) drawFrame();
-    applyAudio({ playing, soundOn, t: value, scrubbed: true });
+    scrubAudio();
   };
 
   useEffect(() => () => recordAbortRef.current?.abort(), []);
@@ -508,7 +568,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       const coins = await settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins);
       if (controller.signal.aborted) return;
       await loadCanvasFonts(document.fonts);
-      const audio = soundAvailable && (await audioCodecAvailable()) ? await scoreBuffer(cut) : null;
+      const audio = soundAvailable && (await audioCodecAvailable()) ? await raceAbort(scoreBuffer(cut), controller.signal) : null;
       if (controller.signal.aborted) return;
       const { blob, audible } = await recordWithAudioFallback(
         (soundtrack) =>

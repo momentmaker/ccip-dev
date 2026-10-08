@@ -54,6 +54,24 @@ export async function audioCodecAvailable(): Promise<boolean> {
   }
 }
 
+export function raceAbort<T>(work: Promise<T>, signal: AbortSignal): Promise<T | null> {
+  if (signal.aborted) return Promise.resolve(null);
+  return new Promise<T | null>((resolve, reject) => {
+    const onAbort = () => resolve(null);
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (err: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
+}
+
 export class AudioEncodeError extends Error {
   constructor(cause: unknown) {
     super('recording: the soundtrack could not be encoded', { cause });

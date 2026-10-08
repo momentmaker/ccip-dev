@@ -51,7 +51,7 @@ vi.mock('mediabunny', () => {
   return { BufferTarget, Mp4OutputFormat, CanvasSource, AudioBufferSource, Output, getFirstEncodableAudioCodec };
 });
 
-import { AudioEncodeError, audioCodecAvailable, canRecord, recordingFilename, recordReplay, recordWithAudioFallback, totalFrames } from '../src/replay/recorder';
+import { AudioEncodeError, audioCodecAvailable, canRecord, raceAbort, recordingFilename, recordReplay, recordWithAudioFallback, totalFrames } from '../src/replay/recorder';
 
 class FakeOffscreenCanvas {
   constructor(readonly width: number, readonly height: number) {}
@@ -224,5 +224,28 @@ describe('recordWithAudioFallback', () => {
       await expect(recordWithAudioFallback(attempt, audio)).rejects.toBe(failure);
       expect(attempt).toHaveBeenCalledTimes(1);
     }
+  });
+});
+
+describe('raceAbort', () => {
+  it('passes the value through when nobody cancels', async () => {
+    await expect(raceAbort(Promise.resolve(7), new AbortController().signal)).resolves.toBe(7);
+  });
+
+  it('gives up at once on cancel and leaves the work running', async () => {
+    const controller = new AbortController();
+    let finish!: (v: number) => void;
+    const work = new Promise<number>((resolve) => (finish = resolve));
+    const raced = raceAbort(work, controller.signal);
+    controller.abort();
+    await expect(raced).resolves.toBeNull();
+    finish(3);
+    await expect(work).resolves.toBe(3);
+  });
+
+  it('gives up immediately when already cancelled', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(raceAbort(new Promise<number>(() => {}), controller.signal)).resolves.toBeNull();
   });
 });

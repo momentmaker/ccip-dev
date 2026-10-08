@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { audioStartOffset, idlePrefetchAllowed, ScoreCache, scoreKey, soundPending, syncAction } from '../src/replay/score/sync';
+import { audioStartOffset, fade, FADE_S, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, syncAction } from '../src/replay/score/sync';
 
 describe('scoreKey', () => {
   it('changes with length, focus and data day', () => {
@@ -93,9 +93,10 @@ describe('ScoreCache', () => {
     expect(onFail).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps a newer render when an older one fails late', async () => {
+  it('keeps a newer render, and Sound, when an older one fails late', async () => {
     let failOld!: (err: Error) => void;
-    const cache = new ScoreCache(() => {});
+    const onFail = vi.fn();
+    const cache = new ScoreCache(onFail);
     const old = cache.get('30|all|d', () => new Promise<AudioBuffer>((_resolve, reject) => (failOld = reject)));
     const fresh = cache.get('15|all|d', async () => buffer(15));
     await fresh;
@@ -103,6 +104,7 @@ describe('ScoreCache', () => {
     await old;
     expect(cache.holds('15|all|d')).toBe(true);
     expect(cache.get('15|all|d', async () => buffer(99))).toBe(fresh);
+    expect(onFail).not.toHaveBeenCalled();
   });
 });
 
@@ -133,5 +135,46 @@ describe('soundPending', () => {
   it('is idle when the score is ready and nothing should play, or when Sound is off', () => {
     expect(soundPending({ soundOn: true, playing: false, ready: true, live: false })).toBe(false);
     expect(soundPending({ soundOn: false, playing: true, ready: false, live: false })).toBe(false);
+  });
+});
+
+describe('resyncAfter', () => {
+  const audible = { playing: true, soundOn: true };
+  it('rejoins the playhead when the page becomes visible while audible', () => {
+    expect(resyncAfter('visible', audible, false)).toBe(true);
+    expect(resyncAfter('visible', { playing: true, soundOn: false }, false)).toBe(false);
+    expect(resyncAfter('visible', { playing: false, soundOn: true }, false)).toBe(false);
+  });
+
+  it('rejoins when the context runs again after an interruption, not after its own resume', () => {
+    expect(resyncAfter('running', audible, true)).toBe(true);
+    expect(resyncAfter('running', audible, false)).toBe(false);
+    expect(resyncAfter('running', { playing: false, soundOn: true }, true)).toBe(false);
+  });
+});
+
+describe('scrubRestartDelay', () => {
+  it('restarts at once when the last restart is at least the interval old', () => {
+    expect(scrubRestartDelay(-Infinity, 1000, 100)).toBe(0);
+    expect(scrubRestartDelay(900, 1000, 100)).toBe(0);
+  });
+
+  it('defers a restart to the end of the interval while the viewer drags', () => {
+    expect(scrubRestartDelay(960, 1000, 100)).toBe(60);
+    expect(scrubRestartDelay(1000, 1000, 100)).toBe(100);
+  });
+});
+
+describe('fade', () => {
+  it('ramps a gain between two levels over a few milliseconds and returns when it ends', () => {
+    const calls: [string, number, number][] = [];
+    const gain = {
+      setValueAtTime: (v: number, t: number) => calls.push(['set', v, t]),
+      linearRampToValueAtTime: (v: number, t: number) => calls.push(['lin', v, t]),
+    };
+    expect(fade(gain, 1, 0, 2)).toBeCloseTo(2 + FADE_S, 9);
+    expect(calls).toEqual([['set', 1, 2], ['lin', 0, 2 + FADE_S]]);
+    expect(FADE_S).toBeGreaterThanOrEqual(0.005);
+    expect(FADE_S).toBeLessThanOrEqual(0.01);
   });
 });
