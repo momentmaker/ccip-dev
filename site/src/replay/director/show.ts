@@ -4,7 +4,7 @@ import { formatUtcDay } from '../../lib/format';
 import { shortChainName } from '../../lib/names';
 import { computeMilestones } from '../../lib/records';
 import type { StarPoint } from '../../sky/layout';
-import { REPLAY_COINS, REPLAY_COMET_S, ReplayModel, type ReplayFrameState } from '../timeline';
+import { ARRIVAL_S, IGNITE_S, MAX_ARRIVALS, REPLAY_COINS, REPLAY_COMET_S, ReplayModel, type FrameArrival, type ReplayFrameState } from '../timeline';
 import {
   joinEvents,
   laneOpenEvents,
@@ -163,6 +163,21 @@ export class Show {
         return touches(a.from, a.to) || (a.from * 31 + a.to * 17 + spawn) % 4 === 0;
       });
       sky.stars = sky.stars.map((s, i) => (i === this.focusStar ? s : { ...s, brightness: s.brightness * 0.6 }));
+    }
+    const beyond = Math.max(0, time - modelT);
+    if (beyond > 0) {
+      sky.rings = sky.rings.map((r) => ({ ...r, progress: r.progress + beyond / IGNITE_S })).filter((r) => r.progress < 1);
+      const flash = new Map(sky.rings.map((r) => [r.star, 1 - r.progress]));
+      sky.stars = sky.stars.map((s, i) => (s.flash > 0 ? { ...s, flash: flash.get(i) ?? 0 } : s));
+      const landed: FrameArrival[] = [];
+      sky.comets = sky.comets.flatMap((c) => {
+        const progress = c.progress + beyond / REPLAY_COMET_S;
+        if (progress < 1) return [{ ...c, progress }];
+        const age = (progress - 1) * REPLAY_COMET_S;
+        if (age < ARRIVAL_S) landed.push({ from: c.from, to: c.to, age, size: c.size, kind: c.kind });
+        return [];
+      });
+      arrivals = [...arrivals.map((a) => ({ ...a, age: a.age + beyond })).filter((a) => a.age < ARRIVAL_S), ...landed].slice(-MAX_ARRIVALS);
     }
     if (phase === 'hook' && this.hookLane) {
       sky.comets.push({ ...this.hookLane, progress: clamp01(time / this.timing.hook), size: 0.4, kind: 'data' });

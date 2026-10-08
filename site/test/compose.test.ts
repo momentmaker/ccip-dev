@@ -1,5 +1,8 @@
+import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it, vi } from 'vitest';
 import { ReplayCompositor, drawCoins } from '../src/replay/compose';
+import { Show } from '../src/replay/director/show';
+import { buildLayout } from '../src/sky/layout';
 import type { ReplayFrameState } from '../src/replay/timeline';
 
 const { renderer, createRenderer } = vi.hoisted(() => {
@@ -189,5 +192,31 @@ describe('ReplayCompositor loop cache without a 2D context', () => {
     compositor.draw(29.9, target, 10, 10);
     expect(warn.mock.calls.filter(([m]) => String(m).includes('loop'))).toHaveLength(1);
     warn.mockRestore();
+  });
+});
+
+describe('ReplayCompositor in the finale', () => {
+  const days = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+  const chains = ['a', 'b', 'c'].map((selector) => ({ selector, name: `${selector}-mainnet`, display_name: selector.toUpperCase(), first_day: days[0]! }));
+  const busy = {
+    schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', attribution: '', since: days[0]!, chains,
+    lanes: [[0, 1], [1, 2], [2, 0]],
+    days: days.map((day) => ({ day, lanes: [[0, 3000, 1e6], [1, 1500, 1e5], [2, 500, 1e4]] })),
+  } as unknown as ReplayFile;
+  const history = days.map((day) => ({ day, messages: 5000, token_messages: 5000, usd_value: 1e6, fee_usd: null, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null })) as DayTotals[];
+  const target = new Proxy({}, {
+    get: (_t, key) => (key === 'measureText' ? () => ({ width: 0 }) : key === 'createLinearGradient' || key === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}),
+    set: () => true,
+  }) as unknown as CanvasRenderingContext2D;
+
+  it('lands the classic comets after the story ends instead of freezing them on the poster', () => {
+    const show = new Show({ replay: busy, history, stars: buildLayout(chains), length: 30, focus: null, eligible: () => true });
+    const compositor = new ReplayCompositor(show, buildLayout(chains), assets, () => ({ width: 10, height: 10, getContext: () => null }) as never, { chrome: false });
+    renderer.draw.mockClear();
+    compositor.draw(show.length - show.timing.finale + 0.05, target, 100, 100);
+    compositor.draw(show.posterTime(), target, 100, 100);
+    const [early, poster] = renderer.draw.mock.calls.map(([sky]) => sky as { comets: unknown[] });
+    expect(early!.comets.length).toBeGreaterThan(0);
+    expect(poster!.comets).toEqual([]);
   });
 });

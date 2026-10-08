@@ -18,6 +18,8 @@ import { END_TITLE_PX, storyUnit } from '../src/replay/story/layout';
 import { COLORS } from '../src/sky/frame';
 import { LANE_SEGMENTS } from '../src/sky/instances';
 import { buildLayout } from '../src/sky/layout';
+import { coinDiameter } from '../src/sky/coins';
+import { REPLAY_COIN_UNIT } from '../src/replay/compose';
 import replayJson from './fixtures/replay.json';
 
 const replay = replayJson as ReplayFile;
@@ -98,13 +100,34 @@ describe('buildScene', () => {
     expect(sparks.some(([x, y]) => Math.abs(x - (width / 2 + em)) < 1e-3 && Math.abs(y - (height / 2 - 0.25 * em)) < 1e-3)).toBe(true);
   });
 
-  it('lets the traffic frozen at the end of the story settle out early in the finale, so the title assembles over a calm sky', () => {
-    const quiet = (f: ShowFrame) => withSky(f, { comets: [] }, { arrivals: [] });
-    const start = show.frameAt(27.05);
-    expect(quadCount(buildScene(start, ctx({ titleTargets: [] })))).toBeGreaterThan(quadCount(buildScene(quiet(start), ctx({ titleTargets: [] }))));
-    const settled = show.frameAt(28);
-    expect(settled.base.sky.comets.length + settled.base.arrivals.length).toBeGreaterThan(0);
-    expect(buildScene(settled, ctx())).toEqual(buildScene(quiet(settled), ctx()));
+  it('lets a coin that popped in at the end of the story settle to its size in the finale', () => {
+    const days = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+    const late = {
+      ...replay,
+      since: days[0]!,
+      chains: [
+        { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: days[0]! },
+        { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: days[0]! },
+        { selector: 'd', name: 'delta-mainnet', display_name: 'Delta', first_day: days.at(-1)! },
+      ],
+      lanes: [[0, 1], [2, 0]],
+      days: days.map((day, i) => ({ day, lanes: i === days.length - 1 ? [[0, 3000, 1e6], [1, 50, 1e9]] : [[0, 3000, 1e6]] })),
+    } as ReplayFile;
+    const lateHistory = late.days.map((d) => ({ ...history[0]!, day: d.day, messages: 3000 }));
+    const s = new Show({ replay: late, history: lateHistory, stars: buildLayout(late.chains), length: 30, focus: null, eligible: () => true });
+    const lateAtlas = new Map(late.chains.map((c) => [c.selector, [0, 0, 1, 1] as const]));
+    const sizeOf = (t: number) => {
+      const f = s.frameAt(t);
+      const k = f.base.coins.findIndex((c) => c.selector === 'd');
+      const scene = buildScene(f, ctx({ atlas: lateAtlas, fullExtent: s.fullExtent }));
+      const star = f.base.sky.stars[f.base.coins[k]!.star]!;
+      return { drawn: scene.coins[k * COIN_FLOATS + 2]!, rest: coinDiameter(star.radius) * (720 / REPLAY_COIN_UNIT) };
+    };
+    const finaleStart = s.length - s.timing.finale;
+    const popping = sizeOf(finaleStart + 0.05);
+    expect(popping.drawn).not.toBeCloseTo(popping.rest, 4);
+    const poster = sizeOf(s.posterTime());
+    expect(poster.drawn).toBeCloseTo(poster.rest, 4);
   });
 
   it('feathers the canvas edge only when asked', () => {

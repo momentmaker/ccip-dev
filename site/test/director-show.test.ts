@@ -2,7 +2,7 @@ import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { SLAM_S } from '../src/replay/director/beats';
 import { PUNCH, PUNCH_IN_S } from '../src/replay/director/camera';
-import { REPLAY_COMET_S } from '../src/replay/timeline';
+import { ARRIVAL_S, IGNITE_S, REPLAY_COMET_S } from '../src/replay/timeline';
 import { Show, yearsLabel } from '../src/replay/director/show';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
@@ -256,5 +256,66 @@ describe('Show', () => {
       }
     }
     expect(seen).toBeGreaterThan(0);
+  });
+});
+
+describe('Show finale', () => {
+  const days = Array.from({ length: 400 }, (_, i) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10));
+  const busy = {
+    ...replay,
+    since: days[0]!,
+    chains: [
+      { selector: 'a', name: 'alpha-mainnet', display_name: 'Alpha', first_day: days[0]! },
+      { selector: 'b', name: 'beta-mainnet', display_name: 'Beta', first_day: days[0]! },
+      { selector: 'c', name: 'gamma-mainnet', display_name: 'Gamma', first_day: days[0]! },
+      { selector: 'd', name: 'delta-mainnet', display_name: 'Delta', first_day: days.at(-1)! },
+    ],
+    lanes: [[0, 1], [1, 2], [2, 0], [3, 0]],
+    days: days.map((day, i) => ({ day, lanes: i === days.length - 1 ? [[0, 3000, 1e6], [1, 1500, 1e5], [2, 500, 1e4], [3, 50, 1e3]] : [[0, 3000, 1e6], [1, 1500, 1e5], [2, 500, 1e4]] })),
+  } as ReplayFile;
+  const busyHistory = busy.days.map((d) => ({ ...history[0]!, day: d.day, messages: 5000 }));
+  const busyShow = (length: number) => new Show({ replay: busy, history: busyHistory, stars: buildLayout(busy.chains), length, focus: null, eligible: () => true });
+
+  it.each([15, 30, 60])('carries a ring ignited at the end of the story on through the finale until it completes (%i s)', (length) => {
+    const s = busyShow(length);
+    const finaleStart = s.length - s.timing.finale;
+    const progressAt = (t: number) => s.frameAt(t).base.sky.rings.map((r) => r.progress);
+    const first = progressAt(finaleStart + 0.01);
+    expect(first.length).toBeGreaterThan(0);
+    let previous = first;
+    for (let t = finaleStart + 0.05; t < finaleStart + IGNITE_S + 0.05; t += 0.05) {
+      const now = progressAt(t);
+      expect(now.length).toBeLessThanOrEqual(previous.length);
+      now.forEach((p, i) => {
+        expect(p).toBeGreaterThan(previous[previous.length - now.length + i]!);
+        expect(p).toBeLessThan(1);
+      });
+      previous = now;
+    }
+    const flash = s.frameAt(finaleStart + 0.2).base.sky.stars.find((st) => st.flash > 0);
+    expect(flash?.flash).toBeCloseTo(1 - s.frameAt(finaleStart + 0.2).base.sky.rings[0]!.progress, 9);
+  });
+
+  it.each([15, 30, 60])('flies the comets in the air when the story ends on until they land (%i s)', (length) => {
+    const s = busyShow(length);
+    const finaleStart = s.length - s.timing.finale;
+    const a = s.frameAt(finaleStart + 0.1);
+    const b = s.frameAt(finaleStart + 0.2);
+    const step = 0.1 / REPLAY_COMET_S;
+    expect(a.base.sky.comets.length).toBeGreaterThan(0);
+    for (const c of a.base.sky.comets) {
+      const moved = c.progress + step;
+      if (moved < 1) expect(b.base.sky.comets.some((n) => n.from === c.from && n.to === c.to && Math.abs(n.progress - moved) < 1e-9)).toBe(true);
+      else if ((moved - 1) * REPLAY_COMET_S < ARRIVAL_S) expect(b.base.arrivals.some((n) => n.from === c.from && n.to === c.to && Math.abs(n.age - (moved - 1) * REPLAY_COMET_S) < 1e-9)).toBe(true);
+    }
+  });
+
+  it.each([15, 30, 60])('leaves nothing in flight on the poster frame (%i s)', (length) => {
+    const s = busyShow(length);
+    const poster = s.frameAt(s.posterTime());
+    expect(poster.base.sky.rings).toEqual([]);
+    expect(poster.base.sky.comets).toEqual([]);
+    expect(poster.base.arrivals).toEqual([]);
+    expect(poster.base.sky.stars.every((st) => st.flash === 0)).toBe(true);
   });
 });
