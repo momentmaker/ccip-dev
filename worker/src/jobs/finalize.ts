@@ -13,6 +13,8 @@ const PAGE_SIZE = 1000;
 const MAX_PAGES = 200;
 const MAX_DAYS_PER_RUN = 3;
 const DETAIL_BUDGET_MS = 5 * 60_000;
+/** pushBack's 48-hour cut-off for the day's last message, plus a margin: until then an hourly retry can still fill it. */
+const DETAIL_RETRY_WINDOW_MS = 72 * 3_600_000;
 const ANOMALY_FACTOR = 10;
 const ANOMALY_WINDOW_DAYS = 30;
 
@@ -101,14 +103,16 @@ async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promi
 }
 
 /**
- * Fills the day's missing details. A fill that fails does not stop the day, as a fill cut off by the deadline does not:
- * the message keeps its list values, and an alert names the day.
+ * Fills the day's missing details. A failed fill fails the day, so its pointer holds and later runs retry it, while the
+ * hourly retries can still succeed (DETAIL_RETRY_WINDOW_MS from the day's start). After that the day is rolled up with
+ * those messages' list values, so a fill that can never succeed stops blocking finalize, and an alert names the day.
  */
 async function fillDetails(c: RunContext, day: string, shared: RunShared): Promise<void> {
   try {
     await runDetails(c, { day }, { deadline: shared.deadline, fallback: shared.loader });
   } catch (err) {
-    if (!(err instanceof DetailFillError)) throw err;
+    const retriesMaySucceed = c.deps.now().getTime() < Date.parse(dayStartIso(day)) + DETAIL_RETRY_WINDOW_MS;
+    if (!(err instanceof DetailFillError) || retriesMaySucceed) throw err;
     await c.alert(
       `detail-fill:${day}`,
       `${day} was rolled up without ${err.failures.length} message detail(s) that failed to fill; the first: ${err.failures[0]}`,

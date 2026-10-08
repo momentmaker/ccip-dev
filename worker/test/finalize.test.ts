@@ -5,6 +5,7 @@ import {
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import detailMultiToken from '../../packages/core/test/fixtures/detail-multi-token.json';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
@@ -465,20 +466,70 @@ describe('runFinalize', () => {
         },
       });
 
-    it('still rolls the day up and advances, and alerts that the day lacks that detail', async () => {
-      await seedMeta('2026-10-07', '2026-10-07');
-      const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ messages: MESSAGES, details: { d8: { messageId: 'd8', status: 5 } } }) });
+    /** Runs finalize with an archive whose unparsed/ prefix is down, so an invalid detail makes its fill fail. */
+    async function runWithFillFailing(mode: 'early' | 'late', now: string, ccip: ReturnType<typeof fakeCcip>) {
+      const { c, alerts } = harness({ now, ccip });
       const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-      await runFinalize({ ...c, env: { ...c.env, ARCHIVE: archiveDownForUnparsed() } }, 'early');
+      const outcome = await runFinalize({ ...c, env: { ...c.env, ARCHIVE: archiveDownForUnparsed() } }, mode).then(
+        () => null,
+        (err: unknown) => String(err),
+      );
       logged.mockRestore();
-      expect({
-        totals: (await env.DB.prepare('SELECT day, messages FROM daily_totals ORDER BY day').all()).results,
-        pointer: await store.getMeta(env.DB, 'last_finalize_day'),
-        alerts,
-      }).toEqual({
-        totals: [{ day: '2026-10-08', messages: 1 }, { day: '2026-10-09', messages: 2 }],
-        pointer: '2026-10-09',
+      return { outcome, alerts };
+    }
+    const dayRows = async () => (await env.DB.prepare('SELECT day, messages FROM daily_totals ORDER BY day').all()).results;
+
+    it('holds the day, and its pointer, while the hourly retries can still fill it (yesterday)', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      const ccip = fakeCcip({ messages: MESSAGES, details: { d9a: { messageId: 'd9a', status: 5 } } });
+      const { outcome, alerts } = await runWithFillFailing('early', NOW, ccip);
+      expect({ outcome, totals: await dayRows(), pointer: await store.getMeta(env.DB, 'last_finalize_day'), alerts }).toEqual({
+        outcome: 'Error: finalize failed for 1 day(s); the first: 2026-10-09: 1 detail fill(s) failed; the first: d9a: R2 unavailable',
+        totals: [],
+        pointer: '2026-10-08',
+        alerts: [],
+      });
+    });
+
+    it('rolls up a day 72 hours or more past its start with list values, advances, and alerts', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const ccip = fakeCcip({ messages: MESSAGES, details: { d8: { messageId: 'd8', status: 5 } } });
+      const { outcome, alerts } = await runWithFillFailing('early', '2026-10-11T00:10:00.000Z', ccip);
+      expect({ outcome, totals: await dayRows(), pointer: await store.getMeta(env.DB, 'last_finalize_day'), alerts }).toEqual({
+        outcome: null,
+        totals: [{ day: '2026-10-08', messages: 1 }, { day: '2026-10-09', messages: 2 }, { day: '2026-10-10', messages: 1 }],
+        pointer: '2026-10-10',
         alerts: [{ signature: 'detail-fill:2026-10-08', text: '2026-10-08 was rolled up without 1 message detail(s) that failed to fill; the first: d8: R2 unavailable' }],
+      });
+    });
+
+    it('finalizes the held day with its fee and every token once a later run fills it', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      const tokenA = '0x9818b6c09f5ecc843060927e8587c427c7c93583';
+      const listed = listMessage({
+        id: 'd9m', sendTs: '2026-10-09T20:00:00.000Z', status: 'SUCCESS', receiptTs: '2026-10-09T20:01:00.000Z',
+        token: { address: tokenA, amount: '24000580226526875891506' },
+      });
+      await runWithFillFailing('early', NOW, fakeCcip({ messages: [listed], details: { d9m: { messageId: 'd9m', status: 5 } } }));
+      expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-08');
+
+      const detail = {
+        ...detailMultiToken, messageId: 'd9m', sendTimestamp: '2026-10-09T20:00:00.000Z', status: 'SUCCESS', receiptTimestamp: '2026-10-09T20:01:00.000Z',
+      };
+      const prices = fakePrices({
+        latest: {
+          [`base:${tokenA}`]: { price: 1, decimals: 18 },
+          'base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { price: 1, decimals: 6 },
+          'base:0x4200000000000000000000000000000000000006': { price: 2500, decimals: 18 },
+        },
+      });
+      await runFinalize(harness({ now: '2026-10-11T00:10:00.000Z', ccip: fakeCcip({ messages: [listed], details: { d9m: detail } }), prices }).c, 'early');
+      const totals = await env.DB.prepare('SELECT token_messages, usd_value, fee_usd FROM daily_totals WHERE day = ?').bind('2026-10-09').first();
+      const tokens = await env.DB.prepare('SELECT COUNT(*) AS n FROM message_tokens WHERE message_id = ?').bind('d9m').first<{ n: number }>();
+      expect({ pointer: await store.getMeta(env.DB, 'last_finalize_day'), totals, tokens: tokens!.n }).toEqual({
+        pointer: '2026-10-10',
+        totals: { token_messages: 1, usd_value: expect.closeTo(24003.080226526876, 6), fee_usd: expect.closeTo(0.2667427841755925, 9) },
+        tokens: 2,
       });
     });
   });
