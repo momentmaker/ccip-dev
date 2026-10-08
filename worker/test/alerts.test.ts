@@ -66,7 +66,7 @@ describe('createAlerter', () => {
     await alert('a', 'one');
     await alert('a', 'two');
     expect(f.calls).toHaveLength(2);
-    expect(error).toHaveBeenCalledWith('[alert] Telegram returned HTTP 500 for signature a');
+    expect(error).toHaveBeenCalledWith('[alert] Telegram returned HTTP 500 for signature a: one');
     error.mockRestore();
   });
 

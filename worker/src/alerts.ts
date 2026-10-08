@@ -29,7 +29,7 @@ export function createAlerter(db: D1Database, telegram: { token?: string; chatId
       `ccip.dev alert: ${text}`,
     );
     if (failure) {
-      console.error(`[alert] ${failure} for signature ${signature}`);
+      console.error(`[alert] ${failure} for signature ${signature}: ${text}`);
       await releaseMeta(db, key, claim);
     }
   };

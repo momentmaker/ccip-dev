@@ -75,6 +75,27 @@ describe('runDetails', () => {
     });
   });
 
+  it('still applies the detail, without a misleading prices-fetch alert, when the price-jump alert itself fails', async () => {
+    await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 0.04, decimals: 18 }]]), '2026-10-05T09:20:00.000Z');
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    const prices = fakePrices({ latest: { [TOKEN_KEY]: { price: 1, decimals: 18 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+    const raised: string[] = [];
+    const alert = async (signature: string) => {
+      if (signature === 'price-jump') throw new Error('D1 unavailable');
+      raised.push(signature);
+    };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await runDetails({ ...c, alert }, { limit: 10 });
+    const errors = logged.mock.calls.map((args) => String(args[0]));
+    logged.mockRestore();
+    expect({ filled: (await row(detailToken.messageId))!.detail_fetched_at, raised, errors }).toEqual({
+      filled: NOW,
+      raised: [],
+      errors: ['price-jump alert failed: D1 unavailable'],
+    });
+  });
+
   describe('the jump guard against a price the prices job no longer tracks', () => {
     const DORMANT = '2026-08-20T00:00:00.000Z';
     const fillAt1 = async () => {

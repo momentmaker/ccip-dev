@@ -6,7 +6,7 @@ import type { RunContext } from '../context';
 import * as store from '../store';
 import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
 import { alertPriceOutliers } from '../price-outliers';
-import { alertPriceJumps, guardPriceJumps, refreshHorizon } from './prices';
+import { alertPriceJumps, guardPriceJumps, refreshHorizon, type PriceJump } from './prices';
 
 const MINUTE = 60_000;
 const MAX_PRICE_AGE_MINUTES = 15;
@@ -129,18 +129,24 @@ async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, Pr
   const freshSince = new Date(c.deps.now().getTime() - MAX_PRICE_AGE_MINUTES * MINUTE).toISOString();
   const prices = await store.getPrices(db, keys, freshSince);
   const missing = keys.filter((k) => !prices.has(k));
+  let jumps: PriceJump[] = [];
   if (missing.length > 0) {
     try {
       const fetched = await c.prices.latest(missing);
       const stored = await store.getPricesSeenSince(db, [...fetched.keys()], refreshHorizon(c.deps.now()));
-      const { accepted, jumps } = guardPriceJumps(fetched, stored);
-      await store.upsertPrices(db, accepted, nowIso);
-      for (const [key, info] of accepted) prices.set(key, info);
-      for (const { key } of jumps) prices.set(key, stored.get(key)!);
-      await alertPriceJumps(c, 'Detail price fetch', jumps);
+      const guarded = guardPriceJumps(fetched, stored);
+      await store.upsertPrices(db, guarded.accepted, nowIso);
+      for (const [key, info] of guarded.accepted) prices.set(key, info);
+      for (const { key } of guarded.jumps) prices.set(key, stored.get(key)!);
+      jumps = guarded.jumps;
     } catch (err) {
       await c.alert('prices-fetch', `Price fetch failed; ${missing.length} key(s) stay unpriced: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+  try {
+    await alertPriceJumps(c, 'Detail price fetch', jumps);
+  } catch (err) {
+    console.error(`price-jump alert failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   await store.touchPrices(db, keys, nowIso);
   return prices;
