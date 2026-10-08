@@ -269,14 +269,25 @@ describe('runDetails', () => {
     it('logs the failure with the message id and fails the run once the batch is done', async () => {
       const { outcome, errors } = await runWithArchiveDown();
       expect({ outcome: String(outcome), errors }).toEqual({
-        outcome: 'Error: 1 detail fill(s) failed; the first: bad: R2 unavailable',
+        outcome: 'DetailFillError: 1 detail fill(s) failed; the first: bad: R2 unavailable',
         errors: ['detail fill failed for bad: R2 unavailable'],
       });
     });
 
-    it('leaves the failed message due, so the next run retries it', async () => {
+    it('pushes the failed message back an hour, so a fill that keeps failing is not retried every minute', async () => {
       await runWithArchiveDown();
-      expect(await row('bad')).toMatchObject({ next_check_at: '2026-10-05T11:16:53.000Z', detail_fetched_at: null });
+      expect(await row('bad')).toMatchObject({ next_check_at: '2026-10-05T12:20:00.000Z', detail_fetched_at: null });
+    });
+
+    it('stops polling a message whose fill still fails 48 hours after send', async () => {
+      const old = liveRow({ id: 'old', sendTs: '2026-10-03T10:00:00.000Z' }, { next_check_at: '2026-10-05T11:00:00.000Z' });
+      await store.upsertListRows(env.DB, [old], []);
+      const { c } = harness({ now: NOW, ccip: fakeCcip({ details: { old: { messageId: 'old', status: 5 } } }) });
+      const archiveDown = { ...env.ARCHIVE, put: async () => { throw new Error('R2 unavailable'); } } as unknown as R2Bucket;
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await runDetails({ ...c, env: { ...c.env, ARCHIVE: archiveDown } }, { limit: 10 }).catch(() => {});
+      logged.mockRestore();
+      expect(await row('old')).toMatchObject({ status: 'UNRESOLVED', next_check_at: null });
     });
   });
 

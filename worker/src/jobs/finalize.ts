@@ -6,7 +6,7 @@ import type { RunContext } from '../context';
 import { publishHistoryFiles, retryPut } from '../publish';
 import * as store from '../store';
 import { fallbackLoader, type FallbackLoader } from '../price-fallback';
-import { runDetails } from './details';
+import { DetailFillError, runDetails } from './details';
 import { storeListMessages } from './ingest';
 
 const PAGE_SIZE = 1000;
@@ -83,13 +83,29 @@ async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promi
   const db = c.env.DB;
   const bucket = await collectDay(c, day);
   await storeListMessages(c, bucket.messages, shared.loader);
-  await runDetails(c, { day }, { deadline: shared.deadline, fallback: shared.loader });
+  await fillDetails(c, day, shared);
   const messages = await store.messagesForDay(db, day);
   const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(db, day));
   await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
   await alertOnUsdAnomaly(c, day, totals.usd_value);
   await store.setFeeLinkUsd(db, day, linkFeeUsd(messages, day, shared.isLinkFee));
   return bucket.raw;
+}
+
+/**
+ * Fills the day's missing details. A fill that fails does not stop the day, as a fill cut off by the deadline does not:
+ * the message keeps its list values, and an alert names the day.
+ */
+async function fillDetails(c: RunContext, day: string, shared: RunShared): Promise<void> {
+  try {
+    await runDetails(c, { day }, { deadline: shared.deadline, fallback: shared.loader });
+  } catch (err) {
+    if (!(err instanceof DetailFillError)) throw err;
+    await c.alert(
+      `detail-fill:${day}`,
+      `${day} was rolled up without ${err.failures.length} message detail(s) that failed to fill; the first: ${err.failures[0]}`,
+    );
+  }
 }
 
 async function alertOnUsdAnomaly(c: RunContext, day: string, usdValue: number): Promise<void> {

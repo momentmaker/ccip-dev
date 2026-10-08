@@ -334,26 +334,21 @@ describe('runFinalize', () => {
   });
 
   describe('when one day fails', () => {
-    const DETAILS = { d8: { messageId: 'd8', status: 5 } };
-    const archiveFailing = (prefix: string) =>
-      new Proxy(env.ARCHIVE, {
-        get(target, prop) {
-          if (prop === 'put') {
-            return (key: string, ...rest: unknown[]) => {
-              if (key.startsWith(prefix)) throw new Error('R2 unavailable');
-              return (target.put as (...args: unknown[]) => unknown)(key, ...rest);
-            };
-          }
-          const value: unknown = Reflect.get(target, prop, target);
-          return typeof value === 'function' ? value.bind(target) : value;
-        },
-      });
+    /** MESSAGES, except that the `failing`th walk (a list call without a cursor) fails, as an API outage during that day's walk would. */
+    function apiFailingWalk(failing: number) {
+      const ccip = api();
+      const listMessages = ccip.listMessages.bind(ccip);
+      let walks = 0;
+      ccip.listMessages = async (opts) => {
+        if (!opts.cursor && ++walks === failing) throw new Error('CCIP list down');
+        return listMessages(opts);
+      };
+      return ccip;
+    }
 
-    /** 2026-10-08 holds d8, whose detail is invalid, so its fill writes to an archive whose unparsed/ prefix is down. */
-    async function runWithDay8Failing(mode: 'early' | 'late', now = NOW) {
-      const { c } = harness({ now, ccip: fakeCcip({ messages: MESSAGES, details: DETAILS }) });
+    async function runWithWalkFailing(failing: number, mode: 'early' | 'late', now = NOW) {
       const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const outcome = await runFinalize({ ...c, env: { ...c.env, ARCHIVE: archiveFailing('unparsed/') } }, mode).then(
+      const outcome = await runFinalize(harness({ now, ccip: apiFailingWalk(failing) }).c, mode).then(
         () => null,
         (err: unknown) => String(err),
       );
@@ -362,28 +357,41 @@ describe('runFinalize', () => {
       return { outcome, errors };
     }
 
+    const finalized = async () => ({
+      totals: (await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all()).results,
+      pointer: await store.getMeta(env.DB, 'last_finalize_day'),
+      published: (await readPublic('history.json')).days.map((d: { day: string }) => d.day),
+    });
+
     it('logs it, finalizes the days after it and publishes them, then fails the run naming the day', async () => {
       await seedMeta('2026-10-07', '2026-10-07');
-      const { outcome, errors } = await runWithDay8Failing('early');
-      expect({
-        outcome,
-        errors: errors.filter((e) => e.startsWith('finalize')),
-        totals: (await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all()).results,
-        published: (await readPublic('history.json')).days.map((d: { day: string }) => d.day),
-      }).toEqual({
-        outcome: 'Error: finalize failed for 1 day(s); the first: 2026-10-08: 1 detail fill(s) failed; the first: d8: R2 unavailable',
-        errors: ['finalize of 2026-10-08 failed: 1 detail fill(s) failed; the first: d8: R2 unavailable'],
+      const { outcome, errors } = await runWithWalkFailing(1, 'early');
+      expect({ outcome, errors: errors.filter((e) => e.startsWith('finalize')), ...(await finalized()) }).toEqual({
+        outcome: 'Error: finalize failed for 1 day(s); the first: 2026-10-08: CCIP list down',
+        errors: ['finalize of 2026-10-08 failed: CCIP list down'],
         totals: [{ day: '2026-10-09' }],
+        pointer: '2026-10-07',
         published: ['2026-10-09'],
+      });
+    });
+
+    it('when it is the newest day, advances last_finalize_day through the days before it', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const { outcome } = await runWithWalkFailing(2, 'early');
+      expect({ outcome, ...(await finalized()) }).toEqual({
+        outcome: 'Error: finalize failed for 1 day(s); the first: 2026-10-09: CCIP list down',
+        totals: [{ day: '2026-10-08' }],
+        pointer: '2026-10-08',
+        published: ['2026-10-08'],
       });
     });
 
     it('keeps last_finalize_day before the failed day, so the next run retries it', async () => {
       await seedMeta('2026-10-07', '2026-10-07');
-      await runWithDay8Failing('early');
+      await runWithWalkFailing(1, 'early');
       expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-07');
 
-      await runFinalize(harness({ now: NOW, ccip: fakeCcip({ messages: MESSAGES, details: DETAILS }) }).c, 'early');
+      await runFinalize(harness({ now: NOW, ccip: api() }).c, 'early');
       expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-09');
       expect((await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all()).results).toEqual([
         { day: '2026-10-08' }, { day: '2026-10-09' },
@@ -392,7 +400,7 @@ describe('runFinalize', () => {
 
     it('archives the later days but keeps last_archived_day before the failed day', async () => {
       await seedMeta('2026-10-09', '2026-10-07');
-      await runWithDay8Failing('late');
+      await runWithWalkFailing(1, 'late');
       expect({
         archived: (await env.ARCHIVE.list({ prefix: 'messages/' })).objects.map((o) => o.key),
         pointer: await store.getMeta(env.DB, 'last_archived_day'),
@@ -401,9 +409,43 @@ describe('runFinalize', () => {
 
     it('publishes nothing when no day was finalized', async () => {
       await seedMeta('2026-10-07', '2026-10-07');
-      const { outcome } = await runWithDay8Failing('early', '2026-10-09T00:10:00.000Z');
+      const { outcome } = await runWithWalkFailing(1, 'early', '2026-10-09T00:10:00.000Z');
       expect(outcome).toContain('2026-10-08');
       expect(await env.PUBLIC.get('v1/history.json')).toBeNull();
+    });
+  });
+
+  describe('when a detail fill fails', () => {
+    /** d8's detail is invalid, so its fill writes to an archive whose unparsed/ prefix is down. */
+    const archiveDownForUnparsed = () =>
+      new Proxy(env.ARCHIVE, {
+        get(target, prop) {
+          if (prop === 'put') {
+            return (key: string, ...rest: unknown[]) => {
+              if (key.startsWith('unparsed/')) throw new Error('R2 unavailable');
+              return (target.put as (...args: unknown[]) => unknown)(key, ...rest);
+            };
+          }
+          const value: unknown = Reflect.get(target, prop, target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+
+    it('still rolls the day up and advances, and alerts that the day lacks that detail', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ messages: MESSAGES, details: { d8: { messageId: 'd8', status: 5 } } }) });
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await runFinalize({ ...c, env: { ...c.env, ARCHIVE: archiveDownForUnparsed() } }, 'early');
+      logged.mockRestore();
+      expect({
+        totals: (await env.DB.prepare('SELECT day, messages FROM daily_totals ORDER BY day').all()).results,
+        pointer: await store.getMeta(env.DB, 'last_finalize_day'),
+        alerts,
+      }).toEqual({
+        totals: [{ day: '2026-10-08', messages: 1 }, { day: '2026-10-09', messages: 2 }],
+        pointer: '2026-10-09',
+        alerts: [{ signature: 'detail-fill:2026-10-08', text: '2026-10-08 was rolled up without 1 message detail(s) that failed to fill; the first: d8: R2 unavailable' }],
+      });
     });
   });
 

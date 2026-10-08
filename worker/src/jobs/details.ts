@@ -10,6 +10,15 @@ import { alertPriceJumps, guardPriceJumps, refreshHorizon } from './prices';
 
 const MINUTE = 60_000;
 const MAX_PRICE_AGE_MINUTES = 15;
+const FAILED_FILL_RETRY_MINUTES = 60;
+
+/** Thrown once a detail run has finished when some fills failed; each was logged and pushed back. */
+export class DetailFillError extends Error {
+  constructor(readonly failures: string[]) {
+    super(`${failures.length} detail fill(s) failed; the first: ${failures[0]}`);
+    this.name = 'DetailFillError';
+  }
+}
 
 export async function runDetails(
   c: RunContext,
@@ -34,10 +43,22 @@ export async function runDetails(
       const failure = `${id}: ${err instanceof Error ? err.message : String(err)}`;
       console.error(`detail fill failed for ${failure}`);
       failures.push(failure);
+      await pushBackFailedFill(c, id);
     }
   }
   await alertPriceOutliers(c, outliers);
-  if (failures.length > 0) throw new Error(`${failures.length} detail fill(s) failed; the first: ${failures[0]}`);
+  if (failures.length > 0) throw new DetailFillError(failures);
+}
+
+/** Best effort: a fill that fails the same way every time is then retried hourly, and stops at the 48-hour cut-off. */
+async function pushBackFailedFill(c: RunContext, id: string): Promise<void> {
+  const now = c.deps.now();
+  const until = new Date(now.getTime() + FAILED_FILL_RETRY_MINUTES * MINUTE).toISOString();
+  try {
+    await store.pushBack(c.env.DB, id, until, now.toISOString());
+  } catch (err) {
+    console.error(`detail fill push-back failed for ${id}: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /** Returns the token amounts valued above MAX_TRANSFER_USD, which were stored unpriced. */
