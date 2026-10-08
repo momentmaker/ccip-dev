@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -9,7 +9,7 @@ import {
 } from '@ccip-dev/core';
 import { PriceCache, SqlWriter } from '../build';
 import { writeFileAtomic } from '../crawl';
-import { listArchiveDays, listSealedDays, readArchiveDay, readSealedDay, type DetailRecord } from './store';
+import { listArchiveDays, listSealedDays, readArchiveDay, readSealedDay, sealedFile, type DetailRecord } from './store';
 
 export const FEE_DIMS = new Set(['src_chain', 'dst_chain', 'lane', 'sender']);
 
@@ -28,6 +28,7 @@ export interface FeeBuildResult {
   messagesUpdated: number;
   sqlFiles: number;
   outlierDays: string[];
+  lowPricedDays: string[];
   largest: { id: string; day: string; usd: number; token: string }[];
 }
 
@@ -36,8 +37,7 @@ interface BuildState {
   batches: number;
 }
 
-const sealedPath = (dir: string, day: string) => path.join(dir, 'fees', 'details', day.slice(0, 4), day.slice(5, 7), `${day.slice(8, 10)}.jsonl.gz`);
-const sealedHash = async (dir: string, day: string) => createHash('sha256').update(await readFile(sealedPath(dir, day))).digest('hex');
+const sealedHash = async (dir: string, day: string) => createHash('sha256').update(await readFile(sealedFile(dir, day))).digest('hex');
 
 export async function buildFees(opts: { dir: string; prices: PricesClient; chunkSize?: number; log?: (line: string) => void }): Promise<FeeBuildResult> {
   const log = opts.log ?? (() => {});
@@ -49,21 +49,26 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
     if (state.built[day] !== hash) hashes.set(day, hash);
   }
   const days = [...hashes.keys()];
-  const result: FeeBuildResult = { batch: null, days: [], messagesUpdated: 0, sqlFiles: 0, outlierDays: [], largest: [] };
+  const result: FeeBuildResult = { batch: null, days: [], messagesUpdated: 0, sqlFiles: 0, outlierDays: [], lowPricedDays: [], largest: [] };
   if (days.length === 0) return result;
 
   const archiveDays = await listArchiveDays(opts.dir);
+  if (archiveDays.length === 0) throw new Error(`no archive days under ${path.join(opts.dir, 'archive', 'messages')}`);
   const prices = await PriceCache.openExisting(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), archiveDays.at(-1)!, archiveDays[0]!);
   const registry = JSON.parse(await readFile(path.join(opts.dir, 'registry', 'tokens.json'), 'utf8')) as RegistryToken[];
   const isLinkFee = linkFeeMatcher(linkFeeKeys(registry.map(normalizeRegistryToken)));
   const batch = `B${String(state.batches + 1).padStart(4, '0')}`;
-  const writer = new SqlWriter(path.join(opts.dir, 'fees', 'sql', batch), opts.chunkSize ?? 20_000);
+  const batchDir = path.join(opts.dir, 'fees', 'sql', batch);
+  await rm(batchDir, { recursive: true, force: true });
+  const writer = new SqlWriter(batchDir, opts.chunkSize ?? 20_000);
   const checks: FeeDayCheck[] = [];
 
   for (const day of days) {
     const byId = new Map<string, DetailRecord>((await readSealedDay(opts.dir, day)).map((r) => [r.id, r]));
-    const messages: NormalizedMessage[] = (await readArchiveDay(opts.dir, day)).map((raw) => {
-      const m = normalizeList(ListMessage.parse(raw));
+    const archived = (await readArchiveDay(opts.dir, day)).map((raw) => normalizeList(ListMessage.parse(raw)));
+    const missing = archived.filter((m) => !byId.has(m.messageId)).length;
+    if (missing > 0) throw new Error(`fee build: ${day} has ${missing} archived messages with no detail record; its sealed file is incomplete`);
+    const messages: NormalizedMessage[] = archived.map((m) => {
       const rec = byId.get(m.messageId);
       return rec?.kind === 'ok' ? { ...m, fee: rec.fee } : m;
     });
@@ -106,15 +111,28 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
   const written = await writer.finish();
   result.batch = batch;
   result.sqlFiles = written.files;
-  result.outlierDays = flagFeeOutliers(checks);
+  result.outlierDays = flagFeeOutliers([...(await earlierChecks(opts.dir, batch)).filter((c) => !result.days.includes(c.day)), ...checks]).filter((d) => result.days.includes(d));
+  result.lowPricedDays = checks.filter((c) => c.withFee > 0 && c.priced / c.withFee < 0.9).map((c) => c.day);
   for (const day of result.days) state.built[day] = hashes.get(day)!;
   state.batches += 1;
   await mkdir(path.join(opts.dir, 'fees', 'checks'), { recursive: true });
-  await writeFileAtomic(path.join(opts.dir, 'fees', 'checks', `${batch}.json`), `${JSON.stringify({ checks, outlierDays: result.outlierDays, largest: result.largest }, null, 2)}\n`);
+  await writeFileAtomic(path.join(opts.dir, 'fees', 'checks', `${batch}.json`), `${JSON.stringify({ checks, outlierDays: result.outlierDays, lowPricedDays: result.lowPricedDays, largest: result.largest }, null, 2)}\n`);
   await writeFileAtomic(statePath, JSON.stringify(state));
   for (const day of result.outlierDays) log(`check: ${day} has fees per message more than 5x its neighbours' median`);
+  for (const day of result.lowPricedDays) log(`check: ${day} has fee tokens without a price on more than 10% of its fee messages`);
   for (const l of result.largest) log(`largest fee: ${l.day} ${l.id} $${l.usd.toFixed(2)} (${l.token})`);
   return result;
+}
+
+/** The checks of every batch before this one, so a small rebuild batch still has neighbours to compare with. */
+async function earlierChecks(dir: string, batch: string): Promise<FeeDayCheck[]> {
+  const checksDir = path.join(dir, 'fees', 'checks');
+  if (!existsSync(checksDir)) return [];
+  const files = (await readdir(checksDir)).filter((f) => f.endsWith('.json') && f !== `${batch}.json`).sort();
+  const perBatch = await Promise.all(files.map(async (f) => (JSON.parse(await readFile(path.join(checksDir, f), 'utf8')) as { checks: FeeDayCheck[] }).checks));
+  const latest = new Map<string, FeeDayCheck>();
+  for (const checks of perBatch) for (const c of checks) latest.set(c.day, c);
+  return [...latest.values()];
 }
 
 /** Days whose fees per message are more than 5x the median of the days within a week of them; a sign of a price or decimals error. */

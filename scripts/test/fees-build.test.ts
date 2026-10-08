@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -6,7 +6,7 @@ import type { PricesClient } from '@ccip-dev/core';
 import { describe, expect, it } from 'vitest';
 import listPage from '../../packages/core/test/fixtures/list-page.json';
 import { buildFees, flagFeeOutliers } from '../backfill/fees/build';
-import { appendRecords, sealDay, type DetailRecord } from '../backfill/fees/store';
+import { appendRecords, readSealedDay, sealDay, type DetailRecord } from '../backfill/fees/store';
 
 const DAY = '2026-10-04';
 const BASE = '15971525489660198786';
@@ -91,7 +91,11 @@ describe('buildFees', () => {
     // #when
     await buildFees({ dir, prices: noPrices });
     // #then
-    expect(await sqlOf(dir)).toMatch(new RegExp(`UPDATE daily_breakdown SET fee_usd = 3 WHERE day = '${DAY}' AND dim = 'src_chain' AND key = '${BASE}';`));
+    const sql = await sqlOf(dir);
+    expect(sql).toMatch(new RegExp(`UPDATE daily_breakdown SET fee_usd = 3 WHERE day = '${DAY}' AND dim = 'src_chain' AND key = '${BASE}';`));
+    expect(sql).toMatch(new RegExp(`dim = 'lane' AND key = '${BASE}>\\d+';`));
+    expect(sql).toMatch(new RegExp(`dim = 'sender' AND key = '${BASE}:0x[0-9a-fA-F]+';`));
+    expect(sql).not.toMatch(/dim = 'token'/);
   });
 
   it('writes NULL fee aggregates for a day whose details were all skipped', async () => {
@@ -120,16 +124,75 @@ describe('buildFees', () => {
 });
 
 describe('rebuilding a changed day', () => {
+  async function reseal(dir: string, extra: DetailRecord[]): Promise<void> {
+    await appendRecords(dir, DAY, [...(await readSealedDay(dir, DAY)), ...extra]);
+    await sealDay(dir, DAY);
+  }
+
   it('builds again only the day whose sealed file changed, in a new batch', async () => {
     // #given
     const dir = await backfill({ records });
     await buildFees({ dir, prices: noPrices });
-    await appendRecords(dir, DAY, [ok('0xgone', WETH, '1000000000000000')]);
-    await sealDay(dir, DAY);
+    await reseal(dir, [ok('0xgone', WETH, '1000000000000000')]);
     // #when
     const second = await buildFees({ dir, prices: noPrices });
     // #then
     expect([second.batch, second.days]).toEqual(['B0002', [DAY]]);
+    expect(await readFile(path.join(dir, 'fees', 'sql', 'B0002', '00001.sql'), 'utf8')).toContain('UPDATE daily_totals SET fee_usd = 5, fee_link_usd = 1');
+  });
+
+  it('refuses a sealed day that lacks a record for an archived message', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await buildFees({ dir, prices: noPrices });
+    await appendRecords(dir, DAY, [ok('0xweth', WETH, '1000000000000000')]);
+    await sealDay(dir, DAY);
+    // #when, #then
+    await expect(buildFees({ dir, prices: noPrices })).rejects.toThrow('fee build: 2026-10-04 has 2 archived messages with no detail record; its sealed file is incomplete');
+  });
+});
+
+describe('buildFees inputs', () => {
+  it('refuses a missing price cache', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await rm(path.join(dir, 'prices', 'cache.json'));
+    // #when, #then
+    await expect(buildFees({ dir, prices: noPrices })).rejects.toThrow(/price cache/);
+  });
+
+  it('refuses an empty archive', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await rm(path.join(dir, 'archive'), { recursive: true });
+    // #when, #then
+    await expect(buildFees({ dir, prices: noPrices })).rejects.toThrow(`no archive days under ${path.join(dir, 'archive', 'messages')}`);
+  });
+
+  it('adds the price series of a new fee token and keeps the cached ones', async () => {
+    // #given
+    const NEW = '0x1111111111111111111111111111111111111111';
+    const dir = await backfill({ records: [ok('0xlink', LINK, '100000000000000000'), ok('0xweth', NEW, '1000000000000000'), ok('0xgone', WETH, '1000000000000000')] });
+    const client = {
+      latest: async () => new Map([[`base:${NEW}`, { price: 1, decimals: 18 }]]),
+      dailyHistory: async () => [[DAY, 4]],
+    } as unknown as PricesClient;
+    // #when
+    await buildFees({ dir, prices: client });
+    // #then
+    const cache = JSON.parse(await readFile(path.join(dir, 'prices', 'cache.json'), 'utf8')) as { history: Record<string, unknown> };
+    expect(Object.keys(cache.history).sort()).toEqual([`base:${LINK}`, `base:${NEW}`, `base:${WETH}`].sort());
+  });
+
+  it('flags a day whose fee tokens mostly lack a price', async () => {
+    // #given
+    const NEW = '0x1111111111111111111111111111111111111111';
+    const dir = await backfill({ records: [ok('0xlink', LINK, '100000000000000000'), ok('0xweth', NEW, '1000000000000000'), ok('0xgone', NEW, '1000000000000000')] });
+    const client = { latest: async () => new Map(), dailyHistory: async () => [] } as unknown as PricesClient;
+    // #when
+    const result = await buildFees({ dir, prices: client });
+    // #then
+    expect(result.lowPricedDays).toEqual([DAY]);
   });
 });
 

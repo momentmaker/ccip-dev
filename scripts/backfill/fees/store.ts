@@ -33,6 +33,9 @@ async function daysIn(root: string): Promise<string[]> {
     .reverse();
 }
 
+/** The sealed file of a day; the fee build hashes it to tell when a day changed. */
+export const sealedFile = (dir: string, day: string) => dayFile(detailsRoot(dir), day, '.jsonl.gz');
+
 export const listArchiveDays = (dir: string) => daysIn(archiveRoot(dir));
 export const listSealedDays = (dir: string) => daysIn(detailsRoot(dir));
 
