@@ -4,8 +4,8 @@ import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  buildRows, createPricesClient, linkFeeKeys, linkFeeMatcher, linkFeeUsd, ListMessage, llamaKey, normalizeList, normalizeRegistryToken, rollupDay,
-  sqlLiteral, valueFee, type HttpDeps, type NormalizedMessage, type PricesClient, type RegistryToken,
+  buildRows, createPricesClient, FEE_PRICE_ALIASES, feePriceKeys, linkFeeKeys, linkFeeMatcher, linkFeeUsd, ListMessage, normalizeList, normalizeRegistryToken,
+  rollupDay, sqlLiteral, valueFee, type FeePriceAlias, type HttpDeps, type NormalizedMessage, type PricesClient, type RegistryToken,
 } from '@ccip-dev/core';
 import { PriceCache, SqlWriter } from '../build';
 import { writeFileAtomic } from '../crawl';
@@ -37,6 +37,14 @@ export interface FeeBuildResult {
 interface BuildState {
   built: Record<string, string>;
   batches: number;
+  /** `feePricingHash` of the table the built days were priced with; absent before the table existed. */
+  pricing?: string;
+}
+
+/** The fee price table prices fees on every day, so a change to it makes every built day stale. */
+export function feePricingHash(aliases: Readonly<Record<string, FeePriceAlias>>): string {
+  const canonical = Object.fromEntries(Object.keys(aliases).sort().map((k) => [k, { decimals: aliases[k]!.decimals, key: aliases[k]!.key }]));
+  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
 
 const sealedHash = async (dir: string, day: string) => createHash('sha256').update(await readFile(sealedFile(dir, day))).digest('hex');
@@ -59,14 +67,17 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
   const log = opts.log ?? (() => {});
   const statePath = path.join(opts.dir, 'fees', 'build-state.json');
   const state = await readStateFile<BuildState>(statePath, { built: {}, batches: 0 });
+  const pricing = feePricingHash(FEE_PRICE_ALIASES);
+  const repriced = state.pricing !== pricing;
   const hashes = new Map<string, string>();
   for (const day of await listSealedDays(opts.dir)) {
     const hash = await sealedHash(opts.dir, day);
-    if (state.built[day] !== hash) hashes.set(day, hash);
+    if (repriced || state.built[day] !== hash) hashes.set(day, hash);
   }
   const days = [...hashes.keys()];
   const result: FeeBuildResult = { batch: null, days: [], messagesUpdated: 0, sqlFiles: 0, outlierDays: [], lowPricedDays: [], unknownShapeDays: [], largest: [] };
   if (days.length === 0) return result;
+  if (repriced && Object.keys(state.built).length > 0) log('the fee price table changed since the last build; building every sealed day again');
 
   const archiveDays = await listArchiveDays(opts.dir);
   if (archiveDays.length === 0) throw new Error(`no archive days under ${path.join(opts.dir, 'archive', 'messages')}`);
@@ -89,7 +100,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
       const rec = byId.get(m.messageId);
       return rec?.kind === 'ok' ? { ...m, fee: rec.fee } : m;
     });
-    await prices.ensure(messages.flatMap((m) => (m.fee ? [llamaKey(m.src, m.fee.token)] : [])).filter((k): k is string => k !== null));
+    await prices.ensure(messages.flatMap((m) => (m.fee ? feePriceKeys(m.fee, m.src) : [])));
     const lookup = prices.lookupOn(day);
     const { rows } = buildRows(messages, lookup, (m) => {
       const rec = byId.get(m.messageId);
@@ -99,7 +110,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
     const statements = filled.map(
       (r) =>
         `UPDATE messages SET fee_token = ${sqlLiteral(r.fee_token)}, fee_amount = ${sqlLiteral(r.fee_amount)}, fee_usd = ${sqlLiteral(r.fee_usd)}, ` +
-        `detail_fetched_at = ${sqlLiteral(r.detail_fetched_at)} WHERE message_id = ${sqlLiteral(r.message_id)} AND source = 'backfill' AND detail_fetched_at IS NULL;`,
+        `detail_fetched_at = ${sqlLiteral(r.detail_fetched_at)} WHERE message_id = ${sqlLiteral(r.message_id)} AND source = 'backfill' AND (detail_fetched_at IS NULL OR fee_usd IS NULL);`,
     );
     const { totals, breakdown } = rollupDay(day, rows, []);
     statements.push(`UPDATE daily_totals SET fee_usd = ${sqlLiteral(totals.fee_usd)}, fee_link_usd = ${sqlLiteral(linkFeeUsd(rows, day, isLinkFee))} WHERE day = ${sqlLiteral(day)};`);
@@ -137,6 +148,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
   result.unknownShapeDays = checks.filter((c) => c.unknownShapes > 0).map((c) => c.day);
   for (const day of result.days) state.built[day] = hashes.get(day)!;
   state.batches = batchNumber;
+  state.pricing = pricing;
   await mkdir(path.join(opts.dir, 'fees', 'checks'), { recursive: true });
   await writeFileAtomic(path.join(opts.dir, 'fees', 'checks', `${batch}.json`), `${JSON.stringify({ checks, outlierDays: result.outlierDays, lowPricedDays: result.lowPricedDays, unknownShapeDays: result.unknownShapeDays, largest: result.largest }, null, 2)}\n`);
   await writeFileAtomic(statePath, JSON.stringify(state));

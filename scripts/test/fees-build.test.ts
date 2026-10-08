@@ -1,11 +1,12 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { gzipSync } from 'node:zlib';
-import type { PricesClient } from '@ccip-dev/core';
+import { FEE_PRICE_ALIASES, type PricesClient } from '@ccip-dev/core';
 import { describe, expect, it } from 'vitest';
 import listPage from '../../packages/core/test/fixtures/list-page.json';
-import { buildFees, flagFeeOutliers } from '../backfill/fees/build';
+import { buildFees, feePricingHash, flagFeeOutliers } from '../backfill/fees/build';
 import { appendRecords, readSealedDay, sealDay, type DetailRecord } from '../backfill/fees/store';
 
 const DAY = '2026-10-04';
@@ -14,9 +15,16 @@ const LINK = '0x88fb150bdc53a65fe94dea0c9ba0a6daf8c6e196';
 const WETH = '0x4200000000000000000000000000000000000006';
 const sample = listPage.data[0];
 
-function message(id: string): unknown {
+interface SourceChain {
+  chainSelector: string;
+  chainId: string;
+}
+
+const ON_BASE: SourceChain = { chainSelector: BASE, chainId: '8453' };
+
+function message(id: string, src: SourceChain): unknown {
   const m = structuredClone(sample) as Record<string, unknown> & { sourceNetworkInfo: Record<string, unknown> };
-  return { ...m, messageId: id, sendTimestamp: `${DAY}T12:00:00Z`, sourceNetworkInfo: { ...m.sourceNetworkInfo, chainSelector: BASE, chainId: '8453', chainFamily: 'EVM' } };
+  return { ...m, messageId: id, sendTimestamp: `${DAY}T12:00:00Z`, sourceNetworkInfo: { ...m.sourceNetworkInfo, ...src, chainFamily: 'EVM' } };
 }
 
 const ok = (id: string, token: string, amount: string): DetailRecord => ({ id, kind: 'ok', fetchedAt: '2026-10-08T00:00:00.000Z', version: '1.6.0', fee: { token, amount }, feeShapeUnknown: false, tokens: [] });
@@ -27,11 +35,11 @@ const noPrices: PricesClient = {
   dailyHistory: async () => [],
 } as unknown as PricesClient;
 
-async function backfill(opts: { range?: string; records: DetailRecord[] }): Promise<string> {
+async function backfill(opts: { range?: string; records: DetailRecord[]; src?: SourceChain }): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), 'fees-build-'));
   const archive = path.join(dir, 'archive', 'messages', '2026', '10', '04.jsonl.gz');
   await mkdir(path.dirname(archive), { recursive: true });
-  await writeFile(archive, gzipSync(['0xlink', '0xweth', '0xgone'].map((id) => JSON.stringify(message(id))).join('\n') + '\n'));
+  await writeFile(archive, gzipSync(['0xlink', '0xweth', '0xgone'].map((id) => JSON.stringify(message(id, opts.src ?? ON_BASE))).join('\n') + '\n'));
   await mkdir(path.join(dir, 'prices'), { recursive: true });
   await writeFile(path.join(dir, 'prices', 'cache.json'), JSON.stringify({
     range: opts.range ?? `${DAY}..${DAY}`,
@@ -54,6 +62,8 @@ async function sqlOf(dir: string): Promise<string> {
   return (await Promise.all(files.map((f) => readFile(path.join(batchDir, f), 'utf8')))).join('');
 }
 
+const MIGRATIONS = path.resolve(import.meta.dirname, '../../worker/migrations');
+
 const records = [ok('0xlink', LINK, '100000000000000000'), ok('0xweth', WETH, '1000000000000000'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
 
 describe('buildFees', () => {
@@ -64,8 +74,29 @@ describe('buildFees', () => {
     await buildFees({ dir, prices: noPrices });
     // #then
     expect(await sqlOf(dir)).toContain(
-      `UPDATE messages SET fee_token = '${WETH}', fee_amount = '1000000000000000', fee_usd = 2, detail_fetched_at = '2026-10-08T00:00:00.000Z' WHERE message_id = '0xweth' AND source = 'backfill' AND detail_fetched_at IS NULL;`,
+      `UPDATE messages SET fee_token = '${WETH}', fee_amount = '1000000000000000', fee_usd = 2, detail_fetched_at = '2026-10-08T00:00:00.000Z' WHERE message_id = '0xweth' AND source = 'backfill' AND (detail_fetched_at IS NULL OR fee_usd IS NULL);`,
     );
+  });
+
+  it('fills the fee of a row an earlier batch filled without a price, and leaves a priced row alone', async () => {
+    // #given
+    const dir = await backfill({ records });
+    const db = new DatabaseSync(':memory:');
+    for (const file of (await readdir(MIGRATIONS)).filter((f) => f.endsWith('.sql')).sort()) db.exec(await readFile(path.join(MIGRATIONS, file), 'utf8'));
+    const filledEarlier = db.prepare(
+      `INSERT INTO messages (message_id, day, send_ts, status, src_chain, dst_chain, sender, fee_token, fee_amount, fee_usd, detail_fetched_at, source)
+       VALUES (?, '${DAY}', '${DAY}T12:00:00Z', 'SUCCESS', '${BASE}', '1', '0x1', ?, ?, ?, '2026-10-07T00:00:00.000Z', 'backfill')`,
+    );
+    filledEarlier.run('0xlink', LINK, '100000000000000000', 99);
+    filledEarlier.run('0xweth', WETH, '1000000000000000', null);
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    db.exec(await sqlOf(dir));
+    // #then
+    expect(db.prepare('SELECT message_id, fee_usd FROM messages ORDER BY message_id').all()).toEqual([
+      { message_id: '0xlink', fee_usd: 99 },
+      { message_id: '0xweth', fee_usd: 2 },
+    ]);
   });
 
   it('leaves a skipped message out of the message updates', async () => {
@@ -197,6 +228,35 @@ describe('buildFees inputs', () => {
   });
 });
 
+describe('fee price aliases', () => {
+  const BITLAYER: SourceChain = { chainSelector: '7937294810946806131', chainId: '200901' };
+  const WBTC = '0xff204e2681a6fa0e2c3fade68a1b28fb90e4fc5f';
+  const bitlayerRecords = [ok('0xlink', WBTC, '500000000000000000'), ok('0xweth', WBTC, '1000000000000000'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
+  const bitcoinOnly = {
+    latest: async () => new Map(),
+    dailyHistory: async (key: string) => (key === 'coingecko:bitcoin' ? [[DAY, 80_000]] : []),
+  } as unknown as PricesClient;
+
+  it("adds the price series of an aliased fee token's coin", async () => {
+    // #given
+    const dir = await backfill({ records: bitlayerRecords, src: BITLAYER });
+    // #when
+    await buildFees({ dir, prices: bitcoinOnly });
+    // #then
+    const cache = JSON.parse(await readFile(path.join(dir, 'prices', 'cache.json'), 'utf8')) as { history: Record<string, unknown> };
+    expect(cache.history['coingecko:bitcoin']).toEqual({ [DAY]: 80_000 });
+  });
+
+  it('values an aliased fee token as its coin', async () => {
+    // #given
+    const dir = await backfill({ records: bitlayerRecords, src: BITLAYER });
+    // #when
+    await buildFees({ dir, prices: bitcoinOnly });
+    // #then
+    expect(await sqlOf(dir)).toContain(`fee_usd = 40000, detail_fetched_at = '2026-10-08T00:00:00.000Z' WHERE message_id = '0xlink'`);
+  });
+});
+
 describe('unknown fee shapes', () => {
   const withUnknown = [ok('0xlink', LINK, '100000000000000000'), unknownShape('0xweth'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
 
@@ -258,6 +318,57 @@ describe('buildFees state', () => {
     await expect(buildFees({ dir, prices: noPrices })).rejects.toThrow(`${statePath}: `);
   });
 
+  const editState = async (dir: string, edit: (state: Record<string, unknown>) => void) => {
+    const statePath = path.join(dir, 'fees', 'build-state.json');
+    const state = JSON.parse(await readFile(statePath, 'utf8')) as Record<string, unknown>;
+    edit(state);
+    await writeFile(statePath, JSON.stringify(state));
+  };
+
+  it('stores the hash of the fee price table it priced with', async () => {
+    // #given
+    const dir = await backfill({ records });
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    // #then
+    const state = JSON.parse(await readFile(path.join(dir, 'fees', 'build-state.json'), 'utf8')) as { pricing?: string };
+    expect(state.pricing).toBe(feePricingHash(FEE_PRICE_ALIASES));
+  });
+
+  it('builds every built day again when the fee price table changed', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await buildFees({ dir, prices: noPrices });
+    await editState(dir, (state) => { state.pricing = 'an older table'; });
+    // #when
+    const rebuilt = await buildFees({ dir, prices: noPrices });
+    // #then
+    expect([rebuilt.batch, rebuilt.days]).toEqual(['B0002', [DAY]]);
+  });
+
+  it('builds every built day again when the state predates the fee price table', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await buildFees({ dir, prices: noPrices });
+    await editState(dir, (state) => { delete state.pricing; });
+    // #when
+    const rebuilt = await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(rebuilt.days).toEqual([DAY]);
+  });
+
+  it('logs why it rebuilds every day', async () => {
+    // #given
+    const dir = await backfill({ records });
+    await buildFees({ dir, prices: noPrices });
+    await editState(dir, (state) => { state.pricing = 'an older table'; });
+    const lines: string[] = [];
+    // #when
+    await buildFees({ dir, prices: noPrices, log: (l) => lines.push(l) });
+    // #then
+    expect(lines).toContain('the fee price table changed since the last build; building every sealed day again');
+  });
+
   it('numbers a new batch after every earlier one when build-state.json is gone', async () => {
     // #given
     const dir = await backfill({ records });
@@ -267,6 +378,24 @@ describe('buildFees state', () => {
     const rebuilt = await buildFees({ dir, prices: noPrices });
     // #then
     expect(rebuilt.batch).toBe('B0002');
+  });
+});
+
+describe('feePricingHash', () => {
+  const table = { '1:0xa': { key: 'coingecko:a', decimals: 18 }, '2:0xb': { key: 'coingecko:b', decimals: 8 } };
+
+  it('changes when an entry changes', () => {
+    // #when
+    const changed = feePricingHash({ ...table, '2:0xb': { key: 'coingecko:b', decimals: 18 } });
+    // #then
+    expect(changed).not.toBe(feePricingHash(table));
+  });
+
+  it('does not depend on the order of the entries', () => {
+    // #when
+    const reordered = feePricingHash({ '2:0xb': { decimals: 8, key: 'coingecko:b' }, '1:0xa': { key: 'coingecko:a', decimals: 18 } });
+    // #then
+    expect(reordered).toBe(feePricingHash(table));
   });
 });
 
