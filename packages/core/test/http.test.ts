@@ -41,6 +41,24 @@ describe('getJson', () => {
     expect(sleeps).toEqual([30_000]);
   });
 
+  it('falls back to exponential backoff when Retry-After is empty', async () => {
+    let n = 0;
+    const { deps: d, sleeps } = deps(
+      fakeFetch(() => (n++ === 0 ? jsonResponse({}, 429, { 'retry-after': '' }) : jsonResponse({ ok: 1 }))),
+    );
+    await getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 4 });
+    expect(sleeps).toEqual([1000]);
+  });
+
+  it('cancels the body of a response it retries', async () => {
+    let n = 0;
+    let cancelled = false;
+    const unread = () => new Response(new ReadableStream({ cancel: () => { cancelled = true; } }), { status: 503 });
+    const { deps: d } = deps(fakeFetch(() => (n++ === 0 ? unread() : jsonResponse({ ok: 1 }))));
+    await getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 4 });
+    expect(cancelled).toBe(true);
+  });
+
   it('does not retry a 404', async () => {
     const f = fakeFetch(() => jsonResponse({}, 404));
     const { deps: d } = deps(f);

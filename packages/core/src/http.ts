@@ -57,6 +57,7 @@ export async function getJson(deps: HttpDeps, url: string, opts: GetJsonOptions)
     if (res.ok) return res.json();
     const retryable = res.status === 429 || res.status >= 500;
     if (!retryable || attempt >= opts.maxRetries) throw new UpstreamHttpError(opts.endpoint, res.status);
+    await res.body?.cancel();
     await deps.sleep(retryAfterMs(res) ?? backoffMs(attempt));
   }
 }
@@ -67,7 +68,7 @@ function backoffMs(attempt: number): number {
 
 function retryAfterMs(res: Response): number | null {
   const header = res.headers.get('retry-after');
-  if (header === null) return null;
+  if (header === null || header.trim() === '') return null;
   const seconds = Number(header);
   return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds * 1000, MAX_RETRY_AFTER_MS) : null;
 }
