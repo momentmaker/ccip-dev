@@ -475,7 +475,20 @@ export async function countForDay(db: D1Database, day: string): Promise<number> 
   return row?.n ?? 0;
 }
 
+/** Runs in batches of BATCH_SIZE statements, so a failure after the first batch leaves the day partly replaced. */
 export async function replaceDaily(db: D1Database, totals: DailyTotals, breakdown: DailyBreakdown[], computedAt: string): Promise<void> {
+  try {
+    await writeDaily(db, totals, breakdown, computedAt);
+  } catch (err) {
+    console.error(
+      `replaceDaily for ${totals.day} failed, so its daily_totals and daily_breakdown rows may be partly replaced until the day is ` +
+        `finalized again: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    throw err;
+  }
+}
+
+async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyBreakdown[], computedAt: string): Promise<void> {
   const insertBreakdown = db.prepare(
     `INSERT INTO daily_breakdown (day, dim, key, messages, usd_value, fee_usd) VALUES (?, ?, ?, ?, ?, ?) ${BREAKDOWN_CONFLICT}`,
   );

@@ -1,9 +1,9 @@
 import { chainRef, siblingKeys } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as store from '../src/store';
-import { liveRow, resetStorage, seedRegistry } from './helpers';
+import { liveRow, resetStorage, seedRegistry, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -99,6 +99,49 @@ describe('messages', () => {
       [],
     );
     expect(await store.newestLiveId(env.DB)).toBe('new');
+  });
+});
+
+describe('claims', () => {
+  const KEY = 'alert:a';
+
+  it('claims an absent key, refuses a live claim, and takes over one at or before the stale cut-off', async () => {
+    const outcomes = [
+      await store.claimMeta(env.DB, KEY, '2026-10-08T10:00:00.000Z', '2026-10-08T09:00:00.000Z'),
+      await store.claimMeta(env.DB, KEY, '2026-10-08T10:30:00.000Z', '2026-10-08T09:30:00.000Z'),
+      await store.claimMeta(env.DB, KEY, '2026-10-08T11:00:00.000Z', '2026-10-08T10:00:00.000Z'),
+    ];
+    expect({ outcomes, held: await store.getMeta(env.DB, KEY) }).toEqual({ outcomes: [true, false, true], held: '2026-10-08T11:00:00.000Z' });
+  });
+
+  it('releases its own claim', async () => {
+    await store.claimMeta(env.DB, KEY, '2026-10-08T10:00:00.000Z', '2026-10-08T09:00:00.000Z');
+    await store.releaseMeta(env.DB, KEY, '2026-10-08T10:00:00.000Z');
+    expect(await store.getMeta(env.DB, KEY)).toBeNull();
+  });
+
+  it('leaves a newer claim alone when releasing an older one', async () => {
+    await store.claimMeta(env.DB, KEY, '2026-10-08T10:00:00.000Z', '2026-10-08T09:00:00.000Z');
+    await store.claimMeta(env.DB, KEY, '2026-10-08T11:00:00.000Z', '2026-10-08T10:00:00.000Z');
+    await store.releaseMeta(env.DB, KEY, '2026-10-08T10:00:00.000Z');
+    expect(await store.getMeta(env.DB, KEY)).toBe('2026-10-08T11:00:00.000Z');
+  });
+});
+
+describe('replaceDaily', () => {
+  it('logs that the day may be partly replaced when the write fails', async () => {
+    const { db } = watchedDb(/INSERT INTO daily_breakdown/, { fail: true });
+    const totals = { day: '2026-10-09', messages: 1, token_messages: 0, usd_value: 0, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 };
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const outcome = await store.replaceDaily(db, totals, [], '2026-10-10T00:10:00.000Z').then(() => null, (err: unknown) => String(err));
+    const errors = logged.mock.calls.map((args) => String(args[0]));
+    logged.mockRestore();
+    expect({ outcome, errors }).toEqual({
+      outcome: 'Error: D1_ERROR: no such table: tokens',
+      errors: [
+        'replaceDaily for 2026-10-09 failed, so its daily_totals and daily_breakdown rows may be partly replaced until the day is finalized again: D1_ERROR: no such table: tokens',
+      ],
+    });
   });
 });
 

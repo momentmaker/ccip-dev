@@ -10,7 +10,7 @@ import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
 import * as store from '../src/store';
 import { fallbackLoader } from '../src/price-fallback';
-import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
+import { harness, liveRow, readPublic, resetStorage, seedRegistry, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -319,6 +319,24 @@ describe('runFinalize', () => {
       });
     });
 
+    it('in the late run, archives the oldest three unarchived days and leaves yesterday\'s re-finalize for later', async () => {
+      await store.setMeta(env.DB, 'live_start_day', '2026-10-04');
+      await store.setMeta(env.DB, 'last_finalize_day', '2026-10-09');
+      await store.setMeta(env.DB, 'last_archived_day', '2026-10-04');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await runFinalize(harness({ now: '2026-10-10T06:00:00.000Z', ccip: api() }).c, 'late');
+      warn.mockRestore();
+      expect({
+        finalized: await finalizedDays(),
+        archived: (await env.ARCHIVE.list({ prefix: 'messages/' })).objects.map((o) => o.key),
+        pointer: await store.getMeta(env.DB, 'last_archived_day'),
+      }).toEqual({
+        finalized: ['2026-10-05', '2026-10-06', '2026-10-07'],
+        archived: ['messages/2026/10/05.jsonl.gz', 'messages/2026/10/06.jsonl.gz', 'messages/2026/10/07.jsonl.gz'],
+        pointer: '2026-10-07',
+      });
+    });
+
     it('collects each day just before finalizing it, so only one day of list pages is held at a time', async () => {
       await seedMeta('2026-10-07', '2026-10-07');
       const ccip = api();
@@ -405,6 +423,22 @@ describe('runFinalize', () => {
         archived: (await env.ARCHIVE.list({ prefix: 'messages/' })).objects.map((o) => o.key),
         pointer: await store.getMeta(env.DB, 'last_archived_day'),
       }).toEqual({ archived: ['messages/2026/10/09.jsonl.gz'], pointer: '2026-10-07' });
+    });
+
+    it('logs the day failures before rethrowing a history publish failure that would mask them', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const { db } = watchedDb(/FROM daily_totals ORDER BY day/, { fail: true });
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const outcome = await runFinalize(harness({ now: NOW, ccip: apiFailingWalk(2), db }).c, 'early').then(
+        () => null,
+        (err: unknown) => String(err),
+      );
+      const errors = logged.mock.calls.map((args) => String(args[0]));
+      logged.mockRestore();
+      expect({ outcome, errors: errors.filter((e) => e.startsWith('history')) }).toEqual({
+        outcome: 'Error: D1_ERROR: no such table: tokens',
+        errors: ['history publish failed after finalize failed for 1 day(s); the first: 2026-10-09: CCIP list down'],
+      });
     });
 
     it('publishes nothing when no day was finalized', async () => {

@@ -74,8 +74,16 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
       failures.push(`${day}: ${message}`);
     }
   }
-  if (failures.length < days.length) await publishHistoryFiles(c);
-  if (failures.length > 0) throw new Error(`finalize failed for ${failures.length} day(s); the first: ${failures[0]}`);
+  const summary = `finalize failed for ${failures.length} day(s); the first: ${failures[0]}`;
+  if (failures.length < days.length) {
+    try {
+      await publishHistoryFiles(c);
+    } catch (err) {
+      if (failures.length > 0) console.error(`history publish failed after ${summary}`);
+      throw err;
+    }
+  }
+  if (failures.length > 0) throw new Error(summary);
 }
 
 /** Collects one day's list messages, stores them, fills details and rolls the day up; returns its raw list objects. */
