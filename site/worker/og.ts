@@ -7,7 +7,7 @@ import { sponsorView } from '../src/lib/sponsor';
 import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
 import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
-import { cardTree, sparkSvg } from './cards/frame';
+import { cardTree, SPARK_H, SPARK_W, sparkSvg } from './cards/frame';
 import type { VNode } from './h';
 
 export const FALLBACK_MAX_AGE = 60;
@@ -149,7 +149,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
     if (cached) return cached;
     const built = await build(route, deps, env, url.origin);
     if (!built) return route.kind === 'daily' ? fallback(env, url.origin) : new Response('Not found', { status: 404 });
-    const spark = built.spec.spark ? sparkSvg(built.spec.spark, 560, 110) : null;
+    const spark = built.spec.spark ? sparkSvg(built.spec.spark, SPARK_W, SPARK_H) : null;
     const [sky, coins] = await Promise.all([skyDataUri(env, url.origin), coinLayer(env, url.origin)]);
     const png = await deps.renderPng(
       cardTree(built.spec, {

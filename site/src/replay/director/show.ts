@@ -125,7 +125,7 @@ export class Show {
     ];
     const preJoin = focusChain ? { preDays: Math.max(0, this.days.indexOf(focusChain.first_day)), preShareMax: WARP_PRE_JOIN_SHARE } : undefined;
     this.warp = storyWarp(this.counter.dailyMessages(), dayFlags(events, this.days.length), this.timing.hook, length - this.timing.finale, length, preJoin);
-    this.model = new ReplayModel(replay, history, [], stars, length, { count: REPLAY_COINS, eligible: input.eligible }, this.warp);
+    this.model = new ReplayModel(replay, history, stars, length, { count: REPLAY_COINS, eligible: input.eligible }, this.warp);
     this.cards = scheduleCards(events, this.warp, this.focusName);
     this.slams = scheduleSlams(events, this.warp);
     this.board = new Leaderboard(replay, this.days, input.eligible, this.warp);

@@ -1,5 +1,5 @@
 import type { DayTotals } from '@ccip-dev/core/public';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { ADDITIVE, CHART_H, CHART_W, chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, stepIndex, type HistoryMetric } from '../lib/charts';
 import { formatCount, formatDuration, formatUsd, formatUtcDay } from '../lib/format';
 import { FEES_SINCE } from '../lib/records';
@@ -75,10 +75,11 @@ function Chart({ rows, spec, cumulative }: { rows: DayTotals[]; spec: MetricSpec
 
 export default function HistoryCharts({ rows }: { rows: DayTotals[] }) {
   const [cumulative, setCumulative] = useState(false);
+  const cumulativeId = useId();
   return (
     <div>
       <label className="toggle">
-        <input type="checkbox" checked={cumulative} onChange={(e) => setCumulative(e.target.checked)} /> Cumulative
+        <input id={cumulativeId} name="cumulative" type="checkbox" checked={cumulative} onChange={(e) => setCumulative(e.target.checked)} /> Cumulative
       </label>
       <div className="charts">
         {METRICS.map((spec) => (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { nearestMark, spacedTicks } from '../../lib/controls';
 
 const TICK_GAP_PX = 32;
@@ -12,6 +12,7 @@ export default function Scrubber(props: {
   valueText: string;
   disabled?: boolean;
 }) {
+  const inputId = useId();
   const [hover, setHover] = useState(-1);
   const railRef = useRef<HTMLDivElement>(null);
   const [railWidth, setRailWidth] = useState(0);
@@ -45,6 +46,8 @@ export default function Scrubber(props: {
         )}
       </div>
       <input
+        id={inputId}
+        name="position"
         type="range"
         min={0}
         max={props.length}

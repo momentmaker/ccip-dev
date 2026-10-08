@@ -2,7 +2,7 @@ import type { HistoryFile, ReserveFile, TodayFile, TopFile } from '@ccip-dev/cor
 import { describe, expect, it } from 'vitest';
 import { cardMaxAge } from '../worker/cache';
 import { cardText, dayCard, flowCard, historyCard, homeCard, recordsCard, replayChainCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
-import { bigFontSize, cardTree, coinsClearOfBadge, sparkSvg } from '../worker/cards/frame';
+import { bigFontSize, CARD_H, CARD_W, cardTree, coinsClearOfBadge, SKY_W, SPARK_H, SPARK_W, SPARK_X, sparkSvg } from '../worker/cards/frame';
 import { chainNameMap } from '../src/lib/names';
 
 const envelope = { schema_version: 1 as const, updated_at: '2026-10-07T00:00:00.000Z', attribution: 'Data: Chainlink CCIP API, DefiLlama' };
@@ -105,6 +105,19 @@ describe('card content', () => {
     const capped = '"maxWidth":718,"whiteSpace":"nowrap","overflow":"hidden","textOverflow":"ellipsis"';
     expect(render('data:image/svg+xml;base64,AA').split(capped)).toHaveLength(3);
     expect(render(null).split(capped)).toHaveLength(1);
+  });
+});
+
+describe('sparkline placement', () => {
+  const tree = () => JSON.stringify(cardTree(replayChainCard({ name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: null }, 'base'), { skyDataUri: null, coins: [], sparkDataUri: 'data:image/svg+xml;base64,AA', sponsorLine: null }));
+
+  it('renders the sparkline at the shared size', () => {
+    expect(tree()).toContain(`"width":${SPARK_W},"height":${SPARK_H}`);
+  });
+
+  it('ends before the sky starts', () => {
+    expect(SPARK_X + SPARK_W).toBeLessThanOrEqual(CARD_W - SKY_W);
+    expect(CARD_H).toBeGreaterThan(SPARK_H);
   });
 });
 

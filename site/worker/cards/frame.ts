@@ -4,8 +4,11 @@ import type { CardSpec } from './content';
 
 export const CARD_W = 1200;
 export const CARD_H = 630;
-const SKY_W = 640;
+export const SKY_W = 640;
 const PAD_X = 72;
+export const SPARK_X = PAD_X;
+export const SPARK_W = CARD_W - SKY_W - PAD_X - SPARK_X;
+export const SPARK_H = 110;
 const BADGE_R = 66;
 const BADGE_CX = 320;
 const BADGE_GAP = 24;
@@ -78,7 +81,7 @@ export function cardTree(spec: CardSpec, opts: { skyDataUri: string | null; coin
         h('div', { style: { fontSize: 34, marginTop: 14, ...capped } }, spec.label),
         spec.date ? h('div', { style: { fontSize: 26, marginTop: 10, color: '#8892a0' } }, spec.date) : null,
         ...spec.extra.map((line) => h('div', { style: { fontSize: 26, marginTop: 10, color: '#8892a0' } }, line)),
-        opts.sparkDataUri ? h('img', { src: opts.sparkDataUri, width: 560, height: 110, style: { marginTop: 24 } }) : null,
+        opts.sparkDataUri ? h('img', { src: opts.sparkDataUri, width: SPARK_W, height: SPARK_H, style: { marginTop: 24 } }) : null,
       ),
       h(
         'div',

@@ -92,6 +92,8 @@ export default function ChainPicker(props: { chains: readonly PickerChain[]; val
         <div className="chain-pop">
           <input
             autoFocus
+            id={`${listId}-search`}
+            name="chain-search"
             role="combobox"
             aria-autocomplete="list"
             aria-expanded="true"

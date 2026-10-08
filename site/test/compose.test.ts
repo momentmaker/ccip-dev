@@ -19,7 +19,6 @@ const state = (endCard: boolean): ReplayFrameState => ({
   cumulativeMessages: 1_565_729,
   cumulativeUsd: 25_300_000_000,
   activeChains: 95,
-  captions: ['Base joins'],
   extent: 1,
   coins: [],
   arrivals: [],

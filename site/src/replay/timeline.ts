@@ -1,7 +1,6 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { linearWarp, type Warp } from './director/warp';
 import { daysBetween } from '../lib/days';
-import type { Milestone } from '../lib/records';
 import type { CometKind, FrameComet, SkyFrame } from '../sky/frame';
 import type { StarPoint } from '../sky/layout';
 import { coinSelectors } from '../sky/coins';
@@ -12,7 +11,6 @@ export const REPLAY_LENGTHS = [15, 30, 60] as const;
 export type ReplayLength = (typeof REPLAY_LENGTHS)[number];
 export const REPLAY_FPS = 30;
 export const REPLAY_COMET_S = 0.8;
-export const CAPTION_S = 2;
 export const IGNITE_S = 1;
 export const MAX_REPLAY_COMETS = 250;
 const COMET_FILL = 0.9;
@@ -21,7 +19,6 @@ export const MAX_ARRIVALS = 120;
 export const REPLAY_COINS = 12;
 export const COIN_FADE_S = 0.5;
 const STAR_WINDOW_DAYS = 30;
-const MAX_CAPTIONS = 2;
 
 const easeOutCubic = (x: number) => 1 - (1 - Math.min(1, Math.max(0, x))) ** 3;
 const smoothstep = (x: number) => x * x * (3 - 2 * x);
@@ -100,7 +97,6 @@ export interface ReplayFrameState {
   cumulativeMessages: number;
   cumulativeUsd: number;
   activeChains: number;
-  captions: string[];
   extent: number;
   coins: FrameCoin[];
   arrivals: FrameArrival[];
@@ -116,14 +112,12 @@ export class ReplayModel {
   private readonly cumulative: { messages: number; usd: number }[];
   private readonly starOfChain: number[];
   private readonly firstDayIndex: number[];
-  private readonly captions: { dayIndex: number; label: string }[];
   private readonly coinSets: number[][];
   private readonly spawnCache = new Map<number, Spawn[]>();
 
   constructor(
     private readonly replay: ReplayFile,
     history: readonly DayTotals[],
-    milestones: readonly Milestone[],
     private readonly stars: readonly StarPoint[],
     length: number,
     coinOptions: CoinOptions = { count: REPLAY_COINS, eligible: () => true },
@@ -152,10 +146,6 @@ export class ReplayModel {
     const firstDayBySelector = new Map(replay.chains.map((c) => [c.selector, c.first_day]));
     this.starOfChain = replay.chains.map((c) => starBySelector.get(c.selector) ?? -1);
     this.firstDayIndex = stars.map((s) => dayIndex.get(firstDayBySelector.get(s.selector) ?? '') ?? 0);
-    this.captions = milestones.flatMap((m) => {
-      const i = dayIndex.get(m.day);
-      return i === undefined ? [] : [{ dayIndex: i, label: m.label }];
-    });
     this.coinSets = this.dailyCoinSets(coinOptions);
   }
 
@@ -218,7 +208,7 @@ export class ReplayModel {
     const time = Math.max(this.warp.start, t);
     const empty: SkyFrame = { stars: [], lanes: [], comets: [], rings: [] };
     if (this.days.length === 0) {
-      return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, captions: [], extent: 1, coins: [], arrivals: [], sky: empty };
+      return { t: time, dayIndex: 0, day: '', endCard: true, cumulativeMessages: 0, cumulativeUsd: 0, activeChains: 0, extent: 1, coins: [], arrivals: [], sky: empty };
     }
     const dayIndex = Math.min(this.warp.dayAt(Math.min(time, this.warp.end - 1e-9)).index, this.days.length - 1);
     const day = this.days[dayIndex]!;
@@ -273,11 +263,6 @@ export class ReplayModel {
       }
     }
 
-    const captions = this.captions
-      .filter((c) => c.dayIndex <= dayIndex && time - this.dayStart(c.dayIndex) < CAPTION_S)
-      .slice(-MAX_CAPTIONS)
-      .map((c) => c.label);
-
     return {
       t: time,
       dayIndex,
@@ -286,7 +271,6 @@ export class ReplayModel {
       cumulativeMessages: this.cumulative[dayIndex]!.messages,
       cumulativeUsd: this.cumulative[dayIndex]!.usd,
       activeChains: this.firstDayIndex.filter((f) => f <= dayIndex).length,
-      captions,
       extent,
       coins: this.coinsAt(time),
       arrivals: arrivals.slice(-MAX_ARRIVALS),

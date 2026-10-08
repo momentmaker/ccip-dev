@@ -1,6 +1,5 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { computeMilestones } from '../src/lib/records';
 import { cometCount, daySpawns, mulberry32, REPLAY_COMET_S, ReplayModel } from '../src/replay/timeline';
 import { durationWarp } from '../src/replay/director/warp';
 import { buildLayout } from '../src/sky/layout';
@@ -16,7 +15,7 @@ const history: DayTotals[] = [
   day: day as string, messages: messages as number, token_messages: messages as number, usd_value: usd as number, fee_usd: null, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null,
 }));
 const stars = buildLayout(replay.chains);
-const model = () => new ReplayModel(replay, history, computeMilestones(history, replay.chains), stars, 60);
+const model = () => new ReplayModel(replay, history, stars, 60);
 
 describe('replay helpers', () => {
   it.each([[0, 0], [1, 1], [2, 2], [31, 20], [5000, 49]])('%s messages spawn %s comets', (messages, comets) => {
@@ -57,14 +56,12 @@ describe('ReplayModel', () => {
     expect(start.sky.stars.map((s) => s.radius > 0)).toEqual([true, true, false, false]);
     expect(start.sky.stars[0]!.flash).toBe(1);
     expect(start.sky.rings.map((r) => r.star)).toEqual([0, 1]);
-    expect(start.captions).toEqual(['Polygon joins', 'Ethereum joins']);
     expect(start.activeChains).toBe(2);
 
     const base = m.frameAt(30);
     expect(base.day).toBe('2023-07-08');
     expect(base.activeChains).toBe(3);
     expect(base.cumulativeMessages).toBe(52);
-    expect(base.captions).toEqual(['Base joins']);
   });
 
   it('shows the end card after the last day', () => {
@@ -110,7 +107,7 @@ describe('ReplayModel', () => {
 
 const POLYGON = '4051577828743386545';
 const ETHEREUM = '5009297550715157269';
-const coinModel = (eligible: (selector: string) => boolean = () => true) => new ReplayModel(replay, history, [], stars, 60, { count: 1, eligible });
+const coinModel = (eligible: (selector: string) => boolean = () => true) => new ReplayModel(replay, history, stars, 60, { count: 1, eligible });
 const coinsAt = (m: ReplayModel, t: number) => m.frameAt(t).coins.map((c) => [c.selector, Number(c.alpha.toFixed(3))]).sort();
 
 describe('replay coins', () => {
@@ -158,7 +155,7 @@ describe('replay coins', () => {
         { day: '2024-01-04', lanes: [[1, 1, 50]] },
       ],
     };
-    const m = new ReplayModel(flicker, [], [], buildLayout(flicker.chains), 1, { count: 1, eligible: () => true });
+    const m = new ReplayModel(flicker, [], buildLayout(flicker.chains), 1, { count: 1, eligible: () => true });
     expect(coinsAt(m, 0.75)).toEqual([['A', 0.5], ['B', 0.5]]);
   });
 });
@@ -179,7 +176,7 @@ describe('replay coins on the last day', () => {
       { day: '2024-01-04', lanes: [[1, 1, 500]] },
     ],
   };
-  const surgeModel = () => new ReplayModel(surge, [], [], buildLayout(surge.chains), 1, { count: 1, eligible: () => true });
+  const surgeModel = () => new ReplayModel(surge, [], buildLayout(surge.chains), 1, { count: 1, eligible: () => true });
 
   it('settles a chain that enters the set on the final day during the end card', () => {
     const m = surgeModel();
@@ -206,7 +203,7 @@ describe('replay coin window', () => {
       lanes: i === 0 ? [[0, 1, 1000]] : [[1, 1, 1]],
     })),
   };
-  const longModel = () => new ReplayModel(longReplay, [], [], buildLayout(longReplay.chains), 40, { count: 1, eligible: () => true });
+  const longModel = () => new ReplayModel(longReplay, [], buildLayout(longReplay.chains), 40, { count: 1, eligible: () => true });
 
   it('keeps a chain for 30 days then evicts it', () => {
     const m = longModel();
@@ -226,7 +223,7 @@ describe('replay coin window', () => {
 
 describe('ReplayModel with a warp', () => {
   const warp = durationWarp([1, 10, 1, 1], 2);
-  const warped = () => new ReplayModel(replay, history, [], stars, 60, { count: 1, eligible: () => true }, warp);
+  const warped = () => new ReplayModel(replay, history, stars, 60, { count: 1, eligible: () => true }, warp);
 
   it('maps time to days through the warp', () => {
     expect(warped().frameAt(2.5).dayIndex).toBe(0);
@@ -293,7 +290,7 @@ describe('comet density on busy days', () => {
     lanes: [[0, 1], [1, 2], [2, 0]],
     days: days.map((day) => ({ day, lanes: [[0, 3000, 1e6], [1, 1500, 1e5], [2, 500, 1e4]] })),
   } as ReplayFile;
-  const busyModel = () => new ReplayModel(busy, [], [], buildLayout(busy.chains), 30);
+  const busyModel = () => new ReplayModel(busy, [], buildLayout(busy.chains), 30);
   const frameStep = 1 / 30;
 
   it('keeps comets spread along their whole flight instead of only the newest launches', () => {
