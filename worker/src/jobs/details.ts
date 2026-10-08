@@ -6,6 +6,7 @@ import type { RunContext } from '../context';
 import * as store from '../store';
 import { fallbackLoader, priceFallback, type FallbackLoader } from '../price-fallback';
 import { alertPriceOutliers } from '../price-outliers';
+import { alertPriceJumps, guardPriceJumps } from './prices';
 
 const MINUTE = 60_000;
 const MAX_PRICE_AGE_MINUTES = 15;
@@ -102,8 +103,12 @@ async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, Pr
   if (missing.length > 0) {
     try {
       const fetched = await c.prices.latest(missing);
-      await store.upsertPrices(db, fetched, nowIso);
-      for (const [key, info] of fetched) prices.set(key, info);
+      const stored = await store.getPrices(db, [...fetched.keys()]);
+      const { accepted, jumps } = guardPriceJumps(fetched, stored);
+      await store.upsertPrices(db, accepted, nowIso);
+      for (const [key, info] of accepted) prices.set(key, info);
+      for (const { key } of jumps) prices.set(key, stored.get(key)!);
+      await alertPriceJumps(c, 'Detail price fetch', jumps);
     } catch (err) {
       await c.alert('prices-fetch', `Price fetch failed; ${missing.length} key(s) stay unpriced: ${err instanceof Error ? err.message : String(err)}`);
     }

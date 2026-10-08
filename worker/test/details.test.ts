@@ -57,6 +57,24 @@ describe('runDetails', () => {
     expect(await env.DB.prepare('SELECT usd, ts FROM prices_latest WHERE llama_key = ?').bind(TOKEN_KEY).first()).toEqual({ usd: 1, ts: NOW });
   });
 
+  it('rejects a re-fetched price that jumps over 20x from the stored one, values with the stored price and alerts', async () => {
+    const STALE = '2026-10-05T09:20:00.000Z';
+    await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 0.04, decimals: 18 }]]), STALE);
+    await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
+    const prices = fakePrices({ latest: { [TOKEN_KEY]: { price: 1, decimals: 18 }, [FEE_KEY]: { price: 2500, decimals: 18 } } });
+    const { c, alerts } = harness({ now: NOW, ccip: fakeCcip({ details: { [detailToken.messageId]: detailToken } }), prices });
+    await runDetails(c, { limit: 10 });
+    expect({
+      stored: await env.DB.prepare('SELECT usd, ts FROM prices_latest WHERE llama_key = ?').bind(TOKEN_KEY).first(),
+      usdValue: (await row(detailToken.messageId))!.usd_value,
+      alerts,
+    }).toEqual({
+      stored: { usd: 0.04, ts: STALE },
+      usdValue: expect.closeTo(24000.580226526876 * 0.04, 6),
+      alerts: [{ signature: 'price-jump', text: `Detail price fetch rejected 1 jump(s) over 20×: ${TOKEN_KEY} 0.04 → 1` }],
+    });
+  });
+
   it('uses a price stored within the last 15 minutes without fetching it', async () => {
     await store.upsertPrices(env.DB, new Map([[TOKEN_KEY, { price: 1, decimals: 18 }]]), '2026-10-05T11:10:00.000Z');
     await store.upsertListRows(env.DB, [due(detailToken.messageId)], []);
