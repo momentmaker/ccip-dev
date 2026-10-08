@@ -225,6 +225,7 @@ async function fetchAll(
 
 function settings(opts: FetchOptions) {
   const rate = opts.rate ?? new AdaptiveRate(opts.deps.now, opts.log);
+  const heartbeat: Heartbeat = { at: opts.deps.now(), lastOkId: null };
   return {
     dir: opts.dir,
     deps: opts.deps,
@@ -233,7 +234,7 @@ function settings(opts: FetchOptions) {
     maxAttempts: opts.maxAttempts ?? 6,
     stallMs: opts.stallMs ?? 15 * 60_000,
     rate,
-    heartbeat: { at: opts.deps.now(), lastOkId: null },
+    heartbeat,
     pacer: new Pacer(rate, { now: opts.deps.now, sleep: opts.deps.sleep }),
   };
 }
@@ -242,6 +243,18 @@ function settings(opts: FetchOptions) {
 const isRefetched = (r: DetailRecord) => r.kind === 'skip' && (r.reason.startsWith('failed ') || r.reason.startsWith('schema:'));
 const isUnusable = (r: DetailRecord) => isRefetched(r) || (r.kind === 'ok' && r.feeShapeUnknown);
 const unusableReason = (r: DetailRecord) => (r.kind === 'skip' ? r.reason : `unknown fee shape, version ${r.version ?? 'none'}`);
+
+/**
+ * A rerun after a ceiling stop fetches only the ids that kept failing, so nothing answers in that run. Without a known-good id the
+ * stall check has no canary, the ids never become skips, and neither the ceiling nor --accept-failures is ever reached.
+ */
+async function canarySeed(dir: string, earlier: DetailRecord[]): Promise<string | null> {
+  const okBefore = earlier.find((r) => r.kind === 'ok');
+  if (okBefore) return okBefore.id;
+  const [newestSealed] = await listSealedDays(dir);
+  if (newestSealed === undefined) return null;
+  return (await readSealedDay(dir, newestSealed)).find((r) => r.kind === 'ok')?.id ?? null;
+}
 
 function idsOf(raw: unknown[], day: string): string[] {
   return raw.map((m) => {
@@ -293,6 +306,7 @@ export async function runFetch(opts: FetchOptions): Promise<FetchState> {
     const skippedBefore = state.skipped;
     tally(earlier);
     const unusable = earlier.filter(isUnusable).map(unusableReason);
+    s.heartbeat.lastOkId ??= await canarySeed(opts.dir, earlier);
     await fetchAll(ids, s, async (records) => {
       tally(records);
       unusable.push(...records.filter(isUnusable).map(unusableReason));

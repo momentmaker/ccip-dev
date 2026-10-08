@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { USER_AGENT } from '@ccip-dev/core';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { fetchDetail, parseAcceptFailures, recordFromBody, runFetch, runProbe, type FetchDeps } from '../backfill/fees/fetch';
-import { listSealedDays, readSealedDay, sealDay } from '../backfill/fees/store';
+import { appendRecords, listSealedDays, readSealedDay, sealDay } from '../backfill/fees/store';
 
 type Reply = { status: number; body?: string; headers?: Record<string, string> };
 
@@ -484,5 +484,55 @@ describe('runFetch state file', () => {
 
     // #then
     await expect(run).rejects.toThrow(`${statePath}: `);
+  });
+});
+
+describe('runFetch rerun after a ceiling stop', () => {
+  const ids = Array.from({ length: 10 }, (_, i) => `0x${i}`);
+  const degradedReplies = () => Object.fromEntries(ids.map((id, i) => [id, i < 2 ? { status: 200, body: detail(id) } : { status: 502 }]));
+
+  async function stoppedAtCeiling(): Promise<string> {
+    const dir = await backfill({ '2026-10-04': ids });
+    await expect(runFetch({ dir, deps: fakeApi(degradedReplies()).deps, baseUrl: 'https://api.test' })).rejects.toThrow(/kept failing/);
+    return dir;
+  }
+
+  it('stops at the ceiling message again on a plain rerun, not the stall message', async () => {
+    // #given
+    const dir = await stoppedAtCeiling();
+
+    // #when
+    const rerun = runFetch({ dir, deps: fakeApi(degradedReplies()).deps, baseUrl: 'https://api.test' });
+
+    // #then
+    await expect(rerun).rejects.toThrow(/^2026-10-04: 8 of 10 messages kept failing \(failed \d+ times/);
+  });
+
+  it('seals the day on a rerun with acceptFailures, keeping the earlier ok records and the failed skips', async () => {
+    // #given
+    const dir = await stoppedAtCeiling();
+
+    // #when
+    const state = await runFetch({ dir, deps: fakeApi(degradedReplies()).deps, baseUrl: 'https://api.test', acceptFailures: ['2026-10-04'] });
+
+    // #then
+    const sealed = await readSealedDay(dir, '2026-10-04');
+    const kinds = Object.fromEntries(sealed.map((r) => [r.id, r.kind === 'skip' && r.reason.startsWith('failed ') ? 'failed' : r.kind]));
+    expect({ done: state.done, kinds }).toEqual({ done: ['2026-10-04'], kinds: Object.fromEntries(ids.map((id, i) => [id, i < 2 ? 'ok' : 'failed'])) });
+  });
+
+  it('uses an ok message of the newest sealed day as the canary when the day being fetched has none', async () => {
+    // #given
+    const failing = Array.from({ length: 6 }, (_, i) => `0xf${i}`);
+    const dir = await backfill({ '2026-10-04': ['0xa'], '2026-10-03': failing });
+    await appendRecords(dir, '2026-10-04', [recordFromBody('0xa', JSON.parse(detail('0xa')), 't').record]);
+    await sealDay(dir, '2026-10-04');
+    const { deps } = fakeApi({ '0xa': { status: 200, body: detail('0xa') }, ...Object.fromEntries(failing.map((id) => [id, { status: 502 }])) });
+
+    // #when
+    const state = await runFetch({ dir, deps, baseUrl: 'https://api.test', acceptFailures: ['2026-10-03'] });
+
+    // #then
+    expect([...state.done].sort()).toEqual(['2026-10-03', '2026-10-04']);
   });
 });
