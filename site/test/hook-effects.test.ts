@@ -191,6 +191,7 @@ describe('SkyCanvas stale comet wiring', () => {
     renderOnce(() => SkyCanvas({
       stars, chainValues: [], lanes: [], names: {}, queue: { current: queue }, reducedMotion: false, onLaunch: vi.fn(), onReady: vi.fn(),
     } as never));
+    // Hook slots follow call order, so slot 0 is SkyCanvas's first useRef (the wrap ref); a hook added before it moves this.
     (runtime.slots[0] as { current: unknown }).current = wrap;
     mount();
   });

@@ -277,6 +277,7 @@ describe('Show focus arrivals', () => {
 
   it('keeps every arrival that touches the focus chain and only a stable share of the rest', () => {
     let focusSeen = 0;
+    let keptElsewhere = 0;
     let droppedElsewhere = 0;
     for (let t = focused.warp.start + 1; t < focused.warp.end - 1; t += 0.1) {
       const raw = focused.model.frameAt(t).arrivals;
@@ -285,10 +286,11 @@ describe('Show focus arrivals', () => {
       expect(shown.filter(touchesFocus).map(key)).toEqual(rawFocus);
       expect(shown.map(key).every((k) => raw.map(key).includes(k))).toBe(true);
       focusSeen += rawFocus.length;
+      keptElsewhere += shown.length - rawFocus.length;
       droppedElsewhere += raw.length - shown.length;
     }
-    expect(focusSeen).toBeGreaterThan(0);
-    expect(droppedElsewhere).toBeGreaterThan(0);
+    expect({ focusSeen: focusSeen > 0, keptElsewhere: keptElsewhere > 0, droppedElsewhere: droppedElsewhere > 0 })
+      .toEqual({ focusSeen: true, keptElsewhere: true, droppedElsewhere: true });
   });
 });
 
