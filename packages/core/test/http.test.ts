@@ -85,6 +85,16 @@ describe('getJson', () => {
     await expect(getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 2 })).rejects.toThrow('GET /a returned HTTP 500');
   });
 
+  it('gives up on a 429 that never clears after maxRetries retries, with the status on the error and one sleep per retry', async () => {
+    const f = fakeFetch(() => jsonResponse({}, 429, { 'retry-after': '2' }));
+    const { deps: d, sleeps } = deps(f);
+    const error = await getJson(d, 'https://x/a', { endpoint: 'GET /a', maxRetries: 3 }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(UpstreamHttpError);
+    expect(error).toMatchObject({ endpoint: 'GET /a', status: 429, message: 'GET /a returned HTTP 429' });
+    expect(f.calls).toHaveLength(4);
+    expect(sleeps).toEqual([2000, 2000, 2000]);
+  });
+
   it('retries network errors', async () => {
     let n = 0;
     const { deps: d } = deps(fakeFetch(() => { if (n++ === 0) throw new TypeError('network down'); return jsonResponse({ ok: 1 }); }));
