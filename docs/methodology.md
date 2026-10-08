@@ -28,11 +28,10 @@
 - **Fees:** the message's fixed fee, in USD. Fees come from each message's detail. Live messages have them from
   2026-10-05, valued at the fee token's latest price; earlier days get them from the fee backfill, which values each
   fee at its send day's price. The site shows fees from the first day that has them.
-- **Fees paid in LINK:** the part of a day's fees whose fee token is in CCIP's LINK token group (LINK on the
-  chains where it moves through CCIP). LINK fees on 12 chains where LINK is a fee token but is not in that group
-  (OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia, Etherlink and
-  Nexon Henesys) are not counted yet, so `fee_link_share_pct` can understate LINK's share. Available for every day
-  that has fees.
+- **Fees paid in LINK:** the part of a day's fees whose fee token is LINK. That is LINK in CCIP's LINK token group
+  (LINK on the chains where it moves through CCIP), plus LINK on the 13 chains where LINK is a fee token but is not
+  in that group: OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia,
+  Hedera, Etherlink and Nexon Henesys. Available for every day that has fees.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage
