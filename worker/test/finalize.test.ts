@@ -4,7 +4,7 @@ import {
 } from '@ccip-dev/core';
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
@@ -294,6 +294,117 @@ describe('runFinalize', () => {
     const late = harness({ now: '2026-10-10T06:00:00.000Z', ccip: ccip(), prices: fakePrices({ latest }) });
     await runFinalize(late.c, 'late');
     expect(await finalizeOutput([...early.alerts, ...late.alerts])).toEqual(TWO_DAY_OUTPUT);
+  });
+
+  describe('a long catch-up', () => {
+    const finalizedDays = async () => (await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all<{ day: string }>()).results.map((r) => r.day);
+
+    it('finalizes at most three days a run, oldest first, and leaves the rest for the next run', async () => {
+      await store.setMeta(env.DB, 'live_start_day', '2026-10-04');
+      await store.setMeta(env.DB, 'last_finalize_day', '2026-10-04');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await runFinalize(harness({ now: NOW, ccip: api() }).c, 'early');
+      const warnings = warn.mock.calls.map((args) => String(args[0])).filter((w) => w.startsWith('finalize'));
+      warn.mockRestore();
+      expect({
+        finalized: await finalizedDays(),
+        pointer: await store.getMeta(env.DB, 'last_finalize_day'),
+        published: (await readPublic('history.json')).days.map((d: { day: string }) => d.day),
+        warnings,
+      }).toEqual({
+        finalized: ['2026-10-05', '2026-10-06', '2026-10-07'],
+        pointer: '2026-10-07',
+        published: ['2026-10-05', '2026-10-06', '2026-10-07'],
+        warnings: ['finalize took the oldest 3 of 5 days; the rest wait for the next run'],
+      });
+    });
+
+    it('collects each day just before finalizing it, so only one day of list pages is held at a time', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const ccip = api();
+      const listMessages = ccip.listMessages.bind(ccip);
+      const finalizedAtEachWalk: string[][] = [];
+      ccip.listMessages = async (opts) => {
+        if (!opts.cursor) finalizedAtEachWalk.push(await finalizedDays());
+        return listMessages(opts);
+      };
+      await runFinalize(harness({ now: NOW, ccip }).c, 'early');
+      expect(finalizedAtEachWalk).toEqual([[], ['2026-10-08']]);
+    });
+  });
+
+  describe('when one day fails', () => {
+    const DETAILS = { d8: { messageId: 'd8', status: 5 } };
+    const archiveFailing = (prefix: string) =>
+      new Proxy(env.ARCHIVE, {
+        get(target, prop) {
+          if (prop === 'put') {
+            return (key: string, ...rest: unknown[]) => {
+              if (key.startsWith(prefix)) throw new Error('R2 unavailable');
+              return (target.put as (...args: unknown[]) => unknown)(key, ...rest);
+            };
+          }
+          const value: unknown = Reflect.get(target, prop, target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+
+    /** 2026-10-08 holds d8, whose detail is invalid, so its fill writes to an archive whose unparsed/ prefix is down. */
+    async function runWithDay8Failing(mode: 'early' | 'late', now = NOW) {
+      const { c } = harness({ now, ccip: fakeCcip({ messages: MESSAGES, details: DETAILS }) });
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const outcome = await runFinalize({ ...c, env: { ...c.env, ARCHIVE: archiveFailing('unparsed/') } }, mode).then(
+        () => null,
+        (err: unknown) => String(err),
+      );
+      const errors = logged.mock.calls.map((args) => String(args[0]));
+      logged.mockRestore();
+      return { outcome, errors };
+    }
+
+    it('logs it, finalizes the days after it and publishes them, then fails the run naming the day', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const { outcome, errors } = await runWithDay8Failing('early');
+      expect({
+        outcome,
+        errors: errors.filter((e) => e.startsWith('finalize')),
+        totals: (await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all()).results,
+        published: (await readPublic('history.json')).days.map((d: { day: string }) => d.day),
+      }).toEqual({
+        outcome: 'Error: finalize failed for 1 day(s); the first: 2026-10-08: 1 detail fill(s) failed; the first: d8: R2 unavailable',
+        errors: ['finalize of 2026-10-08 failed: 1 detail fill(s) failed; the first: d8: R2 unavailable'],
+        totals: [{ day: '2026-10-09' }],
+        published: ['2026-10-09'],
+      });
+    });
+
+    it('keeps last_finalize_day before the failed day, so the next run retries it', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      await runWithDay8Failing('early');
+      expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-07');
+
+      await runFinalize(harness({ now: NOW, ccip: fakeCcip({ messages: MESSAGES, details: DETAILS }) }).c, 'early');
+      expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-09');
+      expect((await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all()).results).toEqual([
+        { day: '2026-10-08' }, { day: '2026-10-09' },
+      ]);
+    });
+
+    it('archives the later days but keeps last_archived_day before the failed day', async () => {
+      await seedMeta('2026-10-09', '2026-10-07');
+      await runWithDay8Failing('late');
+      expect({
+        archived: (await env.ARCHIVE.list({ prefix: 'messages/' })).objects.map((o) => o.key),
+        pointer: await store.getMeta(env.DB, 'last_archived_day'),
+      }).toEqual({ archived: ['messages/2026/10/09.jsonl.gz'], pointer: '2026-10-07' });
+    });
+
+    it('publishes nothing when no day was finalized', async () => {
+      await seedMeta('2026-10-07', '2026-10-07');
+      const { outcome } = await runWithDay8Failing('early', '2026-10-09T00:10:00.000Z');
+      expect(outcome).toContain('2026-10-08');
+      expect(await env.PUBLIC.get('v1/history.json')).toBeNull();
+    });
   });
 
   it('does nothing when every day is already finalized', async () => {
