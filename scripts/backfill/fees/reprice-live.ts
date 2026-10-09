@@ -41,6 +41,7 @@ export interface RepriceResult {
   byDay: Record<string, Subtotal>;
   byChain: Record<string, Subtotal>;
   totalUsd: number;
+  largest: Priced | null;
 }
 
 const COLUMNS = ['message_id', 'day', 'src_chain', 'chain_id', 'family', 'fee_token', 'fee_amount'] as const;
@@ -73,7 +74,7 @@ export async function repriceLive(opts: { from: string; rows: Candidate[]; price
     const alias = feePriceAlias({ selector: row.src_chain }, row.fee_token);
     return alias && row.day >= opts.from ? [{ row, alias }] : [];
   });
-  const result: RepriceResult = { sqlFile: null, priced: [], unpriced: [], byDay: {}, byChain: {}, totalUsd: 0 };
+  const result: RepriceResult = { sqlFile: null, priced: [], unpriced: [], byDay: {}, byChain: {}, totalUsd: 0, largest: null };
   if (aliased.length === 0) return result;
 
   const lastDay = aliased.map((a) => a.row.day).sort().at(-1)!;
@@ -88,7 +89,9 @@ export async function repriceLive(opts: { from: string; rows: Candidate[]; price
         result.unpriced.push({ id: row.message_id, day: row.day, reason: `no ${alias.key} price for ${row.day}` });
         continue;
       }
-      result.priced.push({ id: row.message_id, day: row.day, chain: row.src_chain, usd });
+      const entry = { id: row.message_id, day: row.day, chain: row.src_chain, usd };
+      result.priced.push(entry);
+      if (result.largest === null || usd > result.largest.usd) result.largest = entry;
       addTo(result.byDay, row.day, usd);
       addTo(result.byChain, row.src_chain, usd);
       result.totalUsd += usd;
@@ -114,6 +117,7 @@ function report(result: RepriceResult): string[] {
     ...Object.entries(result.byDay).sort().map(([day, t]) => `day ${day}: ${money(t)}`),
     ...Object.entries(result.byChain).sort().map(([chain, t]) => `chain ${chain}: ${money(t)}`),
     `total: ${result.priced.length} rows, $${result.totalUsd.toFixed(2)}`,
+    ...(result.largest ? [`largest: ${result.largest.id} (chain ${result.largest.chain}, ${result.largest.day}) $${result.largest.usd.toFixed(2)}`] : []),
     `unpriced: ${result.unpriced.length}`,
     ...result.unpriced.map((u) => `  ${u.id} (${u.day}): ${u.reason}`),
     result.sqlFile === null ? 'nothing to apply; no SQL file written' : `sql: ${result.sqlFile}`,

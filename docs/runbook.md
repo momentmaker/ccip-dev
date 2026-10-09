@@ -157,10 +157,10 @@ The Worker values a live message's fee once, at detail time, so live rows whose 
 4. **Owner applies it,** outside 23:55–00:30 and 05:50–06:20 UTC:
    `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --file=<absolute path to the sql>`
    Each statement only touches a row still unpriced with the same chain, token and amount, so a rerun is safe.
-5. **Owner rewinds `last_finalize_day`** to the day before `<from>`, as in "Re-finalize a day":
+5. **Owner rewinds `last_finalize_day`** to the day before `<from>`, outside the same finalize windows (a rewind issued during the 00:10 run is overwritten by that run's `setMeta`), as in "Re-finalize a day":
    `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE meta SET value = '<day before from>' WHERE key = 'last_finalize_day'"`
    Finalize redoes at most 3 days per run at 00:10, plus yesterday at 06:00, so catching up N days takes about N/2 days.
-6. **Verify:** rerun the export; it should list only rows with no price for their day.
+6. **Verify:** rerun the generator on a fresh export; it should price 0 rows. The export itself also lists unaliased rows (Canton, Mova), so judge by the generator.
 
 ### Accept a real price jump
 

@@ -38,9 +38,12 @@ function fakePrices(series: Record<string, Record<string, number>>): { client: P
   return { client, asked };
 }
 
+const ETH = { 'coingecko:ethereum': { '2026-10-05': 2000, '2026-10-06': 2000, '2026-10-07': 2000 } };
+const HEDERA = '3229138320728879060';
+const WHBAR = '0xb1f616b8134f602c3bb465fb5b5e6565ccad37ed';
 const BTC = { 'coingecko:bitcoin': { '2026-10-05': 60000, '2026-10-06': 62000, '2026-10-07': 64000 } };
 
-async function run(rows: Candidate[], series: Record<string, Record<string, number>> = BTC) {
+async function run(rows: Candidate[], series: Record<string, Record<string, number>> = { ...BTC, ...ETH }) {
   const outDir = await mkdtemp(path.join(tmpdir(), 'reprice-live-'));
   const { client, asked } = fakePrices(series);
   const result = await repriceLive({ from: '2026-10-05', rows, prices: client, outDir });
@@ -61,9 +64,11 @@ describe('repriceLive', () => {
     // #given
     const rows = [baseWeth, bitlayerRow('0xa')];
     // #when
-    const { result } = await run(rows);
+    const { result, outDir } = await run(rows);
     // #then
     expect(result.priced.map((p) => p.id)).toEqual(['0xa']);
+    expect(result.unpriced).toEqual([]);
+    expect(await readFile(path.join(outDir, 'reprice-live-2026-10-05.sql'), 'utf8')).not.toContain('0xbase');
   });
 
   it('lists a row whose day has no price and leaves it out of the SQL', async () => {
@@ -116,6 +121,73 @@ describe('repriceLive', () => {
     const { result } = await run(rows);
     // #then
     expect(result.sqlFile).toBeNull();
+    expect(result.unpriced).toEqual([]);
+  });
+
+  it('prices a gap day from the nearest neighbour within two days', async () => {
+    // #given
+    const series = { 'coingecko:bitcoin': { '2026-10-05': 60000, '2026-10-08': 70000 } };
+    // #when
+    const { result } = await run([bitlayerRow('0xa', '2026-10-06', '1000000000000000000')], series);
+    // #then
+    expect(result.priced[0]?.usd).toBe(60000);
+  });
+
+  it('leaves a day unpriced when the gap after it is wider than two days', async () => {
+    // #given
+    const series = { 'coingecko:bitcoin': { '2026-10-05': 60000, '2026-10-10': 70000 } };
+    // #when
+    const { result } = await run([bitlayerRow('0xa', '2026-10-07')], series);
+    // #then
+    expect(result.unpriced.map((u) => u.id)).toEqual(['0xa']);
+  });
+
+  it('skips a row dated before --from', async () => {
+    // #given
+    const rows = [bitlayerRow('0xold', '2026-10-04')];
+    // #when
+    const { result } = await run(rows);
+    // #then
+    expect({ priced: result.priced, unpriced: result.unpriced }).toEqual({ priced: [], unpriced: [] });
+  });
+
+  it('values an 8-decimals alias at 8 decimals', async () => {
+    // #given
+    const row = { ...bitlayerRow('0xh', DAY, '200000000'), src_chain: HEDERA, chain_id: '295', fee_token: WHBAR };
+    const series = { 'coingecko:hedera-hashgraph': { '2026-10-05': 0.25, '2026-10-06': 0.25, '2026-10-07': 0.25 } };
+    // #when
+    const { result } = await run([row], series);
+    // #then
+    expect(result.priced[0]?.usd).toBe(0.5);
+  });
+
+  it('escapes a quote in the message id', async () => {
+    // #given
+    const rows = [bitlayerRow("0x'a")];
+    // #when
+    const { outDir } = await run(rows);
+    // #then
+    expect(await readFile(path.join(outDir, 'reprice-live-2026-10-05.sql'), 'utf8')).toContain("message_id = '0x''a'");
+  });
+
+  it('guards on the token exactly as stored when it is mixed case', async () => {
+    // #given
+    const mixed = '0xFF204E2681a6fa0e2c3fade68a1b28fb90e4fc5f';
+    const rows = [{ ...bitlayerRow('0xa'), fee_token: mixed }];
+    // #when
+    const { result, outDir } = await run(rows);
+    // #then
+    expect(result.priced).toHaveLength(1);
+    expect(await readFile(path.join(outDir, 'reprice-live-2026-10-05.sql'), 'utf8')).toContain(`fee_token = '${mixed}'`);
+  });
+
+  it('reports the largest priced row', async () => {
+    // #given
+    const rows = [bitlayerRow('0xsmall', DAY, '1000000000000000000'), bitlayerRow('0xbig')];
+    // #when
+    const { result } = await run(rows);
+    // #then
+    expect(result.largest).toEqual({ id: '0xbig', day: DAY, chain: BITLAYER, usd: 124000 });
   });
 });
 
