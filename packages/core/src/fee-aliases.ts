@@ -66,6 +66,15 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '6180753054346818345:0x0bd7d308f8e1639fab988df18a8011f41eacad73': { key: 'coingecko:ethereum', decimals: 18 },
   // TON GRAM (CoinGecko's "Gram (prev. Toncoin)"), the native coin; decimals from the CCIP docs' tokens.json
   '16448340667252469081:EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAd99': { key: 'coingecko:the-open-network', decimals: 9 },
+  // The rest were read on chain on 2026-10-09 (symbol and decimals()). Each token's own DefiLlama key is missing or starts
+  // late: Monad's docs WMON has none, Astar's second WASTR starts 2026-03-04, MegaETH WETH 2026-02-06, Soneium WETH has gaps.
+  '8481857512324358265:0x3a704ad3e4784b935ae029171adcf57ee7988198': { key: 'coingecko:monad', decimals: 18 },
+  '6422105447186081193:0x37795fdd8c165cab4d6c05771d564d80439cd093': { key: 'coingecko:astar', decimals: 18 },
+  '6093540873831549674:0x4200000000000000000000000000000000000006': { key: 'coingecko:ethereum', decimals: 18 },
+  '12505351618335765396:0x4200000000000000000000000000000000000006': { key: 'coingecko:ethereum', decimals: 18 },
+  '6325494908023253251:0xbf10e3dd6d1303310d3bf4567595091758827bc5': { key: 'coingecko:ethereum', decimals: 18 },
+  // Sui reports its fee token as SUI's CoinMetadata object id; SUI has 9 decimals
+  '17529533435026248318:0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3': { key: 'coingecko:sui', decimals: 9 },
   // Mova WMOVA (WrappedMova); decimals from the CCIP docs' tokens.json
   '4215185756725900654:0x911fcc80f48340864f5f94ae9a73d6296d5c2115': { key: 'coingecko:mova-2', decimals: 18 },
   // Aptos APT (the AptosCoin fungible asset at 0xa); 0x1::fungible_asset::decimals and 0x1::coin::decimals on the fullnode

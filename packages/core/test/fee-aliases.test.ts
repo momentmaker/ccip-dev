@@ -44,6 +44,12 @@ describe('Canton, Mova and Pharos aliases', () => {
     ['Canton CC reported as the zero address', '2308837218439511688', '0x0000000000000000000000000000000000000000', 'coingecko:canton-network', 10],
     ['Robinhood WETH', '6180753054346818345', '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73', 'coingecko:ethereum', 18],
     ['TON GRAM, its case-sensitive native address kept as is', '16448340667252469081', 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAd99', 'coingecko:the-open-network', 9],
+    ['Monad WMON at the docs address', '8481857512324358265', '0x3A704ad3E4784b935AE029171AdCF57ee7988198', 'coingecko:monad', 18],
+    ['Astar WASTR at 0x3779', '6422105447186081193', '0x37795FDD8C165CaB4D6c05771D564d80439CD093', 'coingecko:astar', 18],
+    ['MegaETH WETH', '6093540873831549674', '0x4200000000000000000000000000000000000006', 'coingecko:ethereum', 18],
+    ['Soneium WETH', '12505351618335765396', '0x4200000000000000000000000000000000000006', 'coingecko:ethereum', 18],
+    ['Edge WETH', '6325494908023253251', '0xbf10e3dd6d1303310d3bf4567595091758827bc5', 'coingecko:ethereum', 18],
+    ['Sui SUI by its CoinMetadata object id', '17529533435026248318', '0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3', 'coingecko:sui', 9],
   ])('prices %s', (_label, selector, token, key, decimals) => {
     expect(feePriceAlias({ selector }, token)).toEqual({ key, decimals });
   });
