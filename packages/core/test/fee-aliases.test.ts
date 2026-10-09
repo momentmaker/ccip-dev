@@ -22,7 +22,7 @@ describe('feePriceAlias', () => {
   });
 });
 
-describe('Canton and Mova aliases', () => {
+describe('Canton, Mova and Pharos aliases', () => {
   it('prices Canton CC as canton-network at 10 decimals, leaving its 64-hex id as is', () => {
     // #given
     const cc = '0xd573c85e64a85bc81e99641d37b160febc1581c724255604ce45ef2f99f6628b';
@@ -32,6 +32,12 @@ describe('Canton and Mova aliases', () => {
 
   it('leaves the other Canton fee token unaliased', () => {
     expect(feePriceAlias({ selector: '2308837218439511688' }, '0xa218e95e')).toBeUndefined();
+  });
+
+  it('prices Pharos WPROS as the native PROS coin, whose history starts months before the wrapped listing', () => {
+    expect(feePriceAlias({ selector: '7801139999541420232' }, '0x52c48d4213107b20bc583832b0d951fb9ca8f0b0')).toEqual({
+      key: 'coingecko:pharos-network', decimals: 18,
+    });
   });
 
   it('prices Mova WMOVA as mova-2 at 18 decimals', () => {

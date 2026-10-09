@@ -23,8 +23,9 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '2135107236357186872:0x5f3b70e0c089a1e3020b1990823bc241a7bf3522': { key: 'coingecko:bittensor', decimals: 18 },
   // Arc CCIP_USDC (wrapped native USDC); decimals() on chain
   '6370580034781731079:0x8dfa585699cb46ca2a5fa649700f09839b4b8743': { key: 'coingecko:usd-coin', decimals: 18 },
-  // Pharos WPROS; decimals() on chain, matching the CCIP registry
-  '7801139999541420232:0x52c48d4213107b20bc583832b0d951fb9ca8f0b0': { key: 'coingecko:wrapped-pros-pharos', decimals: 18 },
+  // Pharos WPROS, priced as native PROS: the wrapped listing's history starts 2026-08-07, PROS's 2026-04-28, within 0.3%
+  // of each other since; decimals() on chain, matching the CCIP registry
+  '7801139999541420232:0x52c48d4213107b20bc583832b0d951fb9ca8f0b0': { key: 'coingecko:pharos-network', decimals: 18 },
   // Gravity wG; decimals() on chain
   '2988178761202034333:0xbb859e225ac8fb6be1c7e38d87b767e95fef0ebd': { key: 'coingecko:g-token', decimals: 18 },
   // Stable WUSDT0; decimals() on chain
