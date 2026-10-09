@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
+import { CostFileSchema, HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -28,6 +28,22 @@ const envelope = { schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', at
 const emptyStatus = { ...envelope, last_ingest_ok_at: null, lag_seconds: null, last_finalize_day: null, coverage_from: null };
 
 describe('public file schemas', () => {
+  it('parses cost.json with and without the LINK and gas-token split', () => {
+    // #given a route with the split and one without
+    const lane = { src: '1', dst: '2', messages: 25, median_usd: 13, p10_usd: 3, p90_usd: 23 };
+    const doc = {
+      ...envelope, from: '2026-09-08', to: '2026-10-07',
+      lanes: [{ ...lane, link: { messages: 20, median_usd: 10 }, gas: { messages: 5, median_usd: 23 } }, { ...lane, src: '3' }],
+    };
+    // #when
+    const parsed = CostFileSchema.parse(doc);
+    // #then
+    expect(parsed.lanes.map((l) => [l.link?.median_usd ?? null, l.gas?.median_usd ?? null])).toEqual([[10, 23], [null, null]]);
+  });
+
+  it('lists cost.json among the public files', () => {
+    expect(PUBLIC_SCHEMAS['cost.json']).toBe(CostFileSchema);
+  });
   it('parses top files with and without the fee ranking', () => {
     // #given one top file from after the fee rankings and one from before
     const entry = { key: '1>2', messages: 3, usd: 10, fee_usd: 1.5 };

@@ -1,11 +1,11 @@
-import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
-export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, chains: 3600, tokens: 3600 } as const;
+export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, cost: 300, chains: 3600, tokens: 3600 } as const;
 
 const LIVE_WINDOW_MINUTES = 15;
 
@@ -52,6 +52,37 @@ export function linkAmount(value: number | null): number | null {
 }
 
 const LARGEST_FEES_LIMIT = 10;
+
+export const COST_WINDOW_DAYS = 30;
+export const COST_MIN_MESSAGES = 5;
+export const COST_LINK_MIN_MESSAGES = 20;
+
+/** Typical fees on some routes are fractions of a cent, so cost.json keeps four decimals where other files keep cents. */
+export function costUsd(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
+}
+
+function costLane(r: store.FeeCostRow) {
+  const split = r.link_messages >= COST_LINK_MIN_MESSAGES;
+  return {
+    src: r.src,
+    dst: r.dst,
+    messages: r.messages,
+    median_usd: costUsd(r.median_usd),
+    p10_usd: costUsd(r.p10_usd),
+    p90_usd: costUsd(r.p90_usd),
+    ...(split && r.link_median_usd !== null ? { link: { messages: r.link_messages, median_usd: costUsd(r.link_median_usd) } } : {}),
+    ...(split && r.gas_median_usd !== null ? { gas: { messages: r.messages - r.link_messages, median_usd: costUsd(r.gas_median_usd) } } : {}),
+  };
+}
+
+async function publishCost(c: RunContext, now: Date, linkTokens: LinkFeeTokens): Promise<void> {
+  const today = dayOf(now);
+  const from = addDays(today, -COST_WINDOW_DAYS);
+  const to = addDays(today, -1);
+  const rows = await store.feeCosts(c.env.DB, from, to, linkTokens, COST_MIN_MESSAGES);
+  await putJson(c.env.PUBLIC, 'cost.json', { from, to, lanes: rows.map(costLane) }, TTL.cost, now);
+}
 
 function feeLinkShare(feeLinkUsd: number | null, feeUsd: number | null): number | null {
   return feeLinkUsd === null || feeUsd === null || feeUsd === 0 ? null : Math.round((feeLinkUsd / feeUsd) * 10_000) / 100;
@@ -247,7 +278,8 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const db = c.env.DB;
   const history = await store.dailyHistory(db);
   const groups = await store.feeGroupsByDay(db);
-  const classify = feeClassifier(await store.linkFeeTokens(db));
+  const linkTokens = await store.linkFeeTokens(db);
+  const classify = feeClassifier(linkTokens);
   const largest = await store.largestFees(db, history.at(-1)?.day ?? '', LARGEST_FEES_LIMIT);
   const since = (await store.getMeta(db, 'coverage_from')) ?? history[0]?.day ?? null;
   await putJson(
@@ -279,6 +311,12 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
     TTL.history,
     now,
   );
+
+  try {
+    await publishCost(c, now, linkTokens);
+  } catch (err) {
+    await c.alert('cost-publish', `cost.json was not published: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   const today = dayOf(now);
   const lastDay = addDays(today, -1);

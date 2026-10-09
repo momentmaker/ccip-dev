@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
-import { buildLabelIndex, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim } from '@ccip-dev/core';
+import { buildLabelIndex, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
@@ -347,6 +347,134 @@ describe('history.json fee groups and largest fees', () => {
     const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.LARGEST_FEES_SQL}`).bind(DAY, 10).all<{ detail: string }>();
     // #then
     expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX idx_messages_fee_usd');
+  });
+});
+
+describe('cost.json', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const DAY = '2026-10-07';
+  const ETH = NETWORKS.ethereum.chainSelector;
+  const BSC = NETWORKS.bsc.chainSelector;
+  const WETH_ETH = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  const WETH_BASE = '0x4200000000000000000000000000000000000006';
+  const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+  const LINK_BSC = '0x404460c6a5ede2d891e8297795264fde62adbb75';
+  const LINK_SOLANA = 'LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L';
+  const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  const fees = (prefix: string, usds: number[], token: string, route: { src?: NetworkInfo; dst?: NetworkInfo; day?: string } = {}) =>
+    usds.map((usd, i) =>
+      liveRow(
+        { id: `${prefix}${i}`, sendTs: `${route.day ?? DAY}T10:00:00.000Z`, src: route.src ?? NETWORKS.ethereum, dst: route.dst ?? NETWORKS.base },
+        { fee_token: token, fee_amount: '1', fee_usd: usd },
+      ),
+    );
+  const publishCost = async (rows: MessageRow[]) => {
+    await store.upsertListRows(env.DB, rows, []);
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    return readPublic('cost.json');
+  };
+
+  it("gives a route's median and 10th–90th percentile range by nearest rank, and its LINK and gas-token medians", async () => {
+    // #given 25 Ethereum → Base fees, stored largest first: 20 in checksummed Ethereum LINK at $1 to $20 and 5 in WETH at $21 to $25.
+    // Rank ceil(p × 25 / 100): p10 is rank 3 ($3), p50 rank 13 ($13) and p90 rank 23 ($23). The 20 LINK fees' median
+    // is rank 10 ($10); the 5 WETH fees' median is rank 3 of $21–$25 ($23).
+    const rows = [...fees('w', range(21, 25), WETH_ETH), ...fees('l', range(1, 20), LINK_TOKEN)].reverse();
+    // #when
+    const cost = await publishCost(rows);
+    // #then
+    expect(cost.lanes).toEqual([
+      { src: ETH, dst: BASE, messages: 25, median_usd: 13, p10_usd: 3, p90_usd: 23, link: { messages: 20, median_usd: 10 }, gas: { messages: 5, median_usd: 23 } },
+    ]);
+  });
+
+  it('covers the 30 complete days before today', async () => {
+    // #given priced fees on the first and last days of the window, on the day before it, and today
+    const rows = [
+      ...fees('first', [1, 1, 1], WETH_ETH, { day: '2026-09-08' }),
+      ...fees('last', [1, 1], WETH_ETH, { day: '2026-10-07' }),
+      ...fees('before', [9, 9, 9], WETH_ETH, { day: '2026-09-07' }),
+      ...fees('today', [9, 9, 9], WETH_ETH, { day: '2026-10-08' }),
+    ];
+    // #when
+    const cost = await publishCost(rows);
+    // #then
+    expect({ from: cost.from, to: cost.to, lanes: cost.lanes.map((l: { messages: number; p90_usd: number }) => [l.messages, l.p90_usd]) }).toEqual({
+      from: '2026-09-08',
+      to: '2026-10-07',
+      lanes: [[5, 1]],
+    });
+  });
+
+  it('leaves out a route with fewer than 5 priced fees', async () => {
+    // #given 5 priced fees on Ethereum → Base, and 4 on Base → BSC plus a fifth Base → BSC message with no USD price
+    const rows = [
+      ...fees('five', [1, 2, 3, 4, 5], WETH_ETH),
+      ...fees('four', [1, 2, 3, 4], WETH_BASE, { src: NETWORKS.base, dst: NETWORKS.bsc }),
+      liveRow({ id: 'unpriced', sendTs: `${DAY}T10:00:00.000Z` }, { fee_token: WETH_BASE, fee_amount: '1', fee_usd: null }),
+    ];
+    // #when
+    const cost = await publishCost(rows);
+    // #then
+    expect(cost.lanes.map((l: { src: string; dst: string }) => `${l.src}>${l.dst}`)).toEqual([`${ETH}>${BASE}`]);
+  });
+
+  it('splits LINK from gas tokens only from 20 LINK-paid fees', async () => {
+    // #given 19 Ethereum LINK fees and one WETH fee on Ethereum → Base, and 20 BSC LINK fees (an unlisted LINK) and one WBNB fee on BSC → Base
+    const rows = [
+      ...fees('a', range(1, 19), LINK_TOKEN),
+      ...fees('aw', [50], WETH_ETH),
+      ...fees('b', range(1, 20), LINK_BSC, { src: NETWORKS.bsc }),
+      ...fees('bw', [50], WBNB, { src: NETWORKS.bsc }),
+    ];
+    // #when
+    const cost = await publishCost(rows);
+    // #then
+    expect(cost.lanes.map((l: { src: string; link?: unknown; gas?: unknown }) => ({ src: l.src, link: l.link ?? null, gas: l.gas ?? null }))).toEqual([
+      { src: BSC, link: { messages: 20, median_usd: 10 }, gas: { messages: 1, median_usd: 50 } },
+      { src: ETH, link: null, gas: null },
+    ]);
+  });
+
+  it('counts LINK from the registry group, matching a Solana address case for case', async () => {
+    // #given Solana LINK in Ethereum LINK's registry group, and 20 Solana → Ethereum fees paid in it and nothing else
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.solana], [
+      { chainSelector: ETH, address: LINK_TOKEN, symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+      { chainSelector: NETWORKS.solana.chainSelector, address: LINK_SOLANA, symbol: 'LINK', name: 'Chainlink', decimals: 9, groupId: 'link' },
+    ]);
+    // #when
+    const cost = await publishCost(fees('s', range(1, 20), LINK_SOLANA, { src: NETWORKS.solana, dst: NETWORKS.ethereum }));
+    // #then the route has a LINK median and, with no other fee, no gas median
+    expect({ link: cost.lanes[0]?.link, gas: cost.lanes[0]?.gas ?? null }).toEqual({ link: { messages: 20, median_usd: 10 }, gas: null });
+  });
+
+  it('keeps four decimals for a route whose fees are fractions of a cent', async () => {
+    // #given five fees from $0.00011 to $0.009; the median is rank 3, $0.00123
+    const cost = await publishCost(fees('tiny', [0.009, 0.00011, 0.0045, 0.00123, 0.00012], WETH_ETH));
+    // #then
+    expect(cost.lanes[0]).toMatchObject({ median_usd: 0.0012, p10_usd: 0.0001, p90_usd: 0.009 });
+  });
+
+  it('reads the window through the messages_day index', async () => {
+    // #when
+    const sql = store.feeCostsSql(await store.linkFeeTokens(env.DB));
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind('2026-09-08', '2026-10-07', 5).all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX messages_day');
+  });
+
+  it('raises one cost-publish alert when the cost query fails, and still publishes the other history files', async () => {
+    // #given
+    vi.spyOn(store, 'feeCosts').mockRejectedValueOnce(new Error('D1 unavailable'));
+    const { c, alerts } = harness({ now: NOW });
+    // #when
+    await publishHistoryFiles(c);
+    // #then
+    expect({
+      cost: await env.PUBLIC.get('v1/cost.json'),
+      history: (await env.PUBLIC.get('v1/history.json')) !== null,
+      replay: (await env.PUBLIC.get('v1/replay.json')) !== null,
+      alerts,
+    }).toEqual({ cost: null, history: true, replay: true, alerts: [{ signature: 'cost-publish', text: 'cost.json was not published: D1 unavailable' }] });
   });
 });
 

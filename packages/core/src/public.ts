@@ -88,6 +88,21 @@ export const TopFileSchema = z.object({
   by_fees: TopWindowsSchema.optional(),
 });
 
+const CostSplitSchema = z.object({ messages: z.number(), median_usd: z.number() });
+
+export const CostLaneSchema = z.object({
+  src: z.string(),
+  dst: z.string(),
+  messages: z.number(),
+  median_usd: z.number(),
+  p10_usd: z.number(),
+  p90_usd: z.number(),
+  link: CostSplitSchema.optional(),
+  gas: CostSplitSchema.optional(),
+});
+
+export const CostFileSchema = z.object({ ...envelope, from: z.string(), to: z.string(), lanes: z.array(CostLaneSchema) });
+
 export const ChainSchema = z.object({
   selector: z.string(),
   name: z.string(),
@@ -194,6 +209,7 @@ export const PUBLIC_SCHEMAS = {
   'tokens.json': TokensFileSchema,
   'reserve.json': ReserveFileSchema,
   'replay.json': ReplayFileSchema,
+  'cost.json': CostFileSchema,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
@@ -215,3 +231,5 @@ export type TokensFile = z.infer<typeof TokensFileSchema>;
 export type TransferView = z.infer<typeof TransferViewSchema>;
 export type ReserveFile = z.infer<typeof ReserveFileSchema>;
 export type ReplayFile = z.infer<typeof ReplayFileSchema>;
+export type CostLane = z.infer<typeof CostLaneSchema>;
+export type CostFile = z.infer<typeof CostFileSchema>;

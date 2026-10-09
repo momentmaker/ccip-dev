@@ -1,5 +1,5 @@
 import {
-  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
+  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
@@ -685,6 +685,58 @@ export interface LargestFeeRow {
 
 export async function largestFees(db: D1Database, throughDay: string, limit: number): Promise<LargestFeeRow[]> {
   const { results } = await db.prepare(LARGEST_FEES_SQL).bind(throughDay, limit).all<LargestFeeRow>();
+  return results;
+}
+
+export interface FeeCostRow {
+  src: string;
+  dst: string;
+  messages: number;
+  link_messages: number;
+  p10_usd: number;
+  median_usd: number;
+  p90_usd: number;
+  link_median_usd: number | null;
+  gas_median_usd: number | null;
+}
+
+/** A fee token as normalizeAddress stores it: a 42-character 0x address lowercased, any other address as it is. */
+const NORMALIZED_FEE_TOKEN = "CASE WHEN fee_token LIKE '0x%' AND length(fee_token) = 42 THEN lower(fee_token) ELSE fee_token END";
+
+/**
+ * One row per route over days [?1, ?2] with at least ?3 priced fees: the nearest-rank 10th, 50th and 90th percentiles
+ * (rank ceil(p·n/100), written (p·n + 99) / 100 in integer arithmetic), and the medians of the LINK-paid and other fees.
+ * The LINK keys are inlined as literals because D1 caps a statement at 100 bound parameters.
+ */
+export function feeCostsSql(linkTokens: LinkFeeTokens): string {
+  const keys = [...linkTokens.keys()].map(sqlLiteral).join(', ');
+  return `WITH priced AS (
+      SELECT src_chain, dst_chain, fee_usd,
+        CASE WHEN (src_chain || ':' || ${NORMALIZED_FEE_TOKEN}) IN (${keys}) THEN 1 ELSE 0 END AS is_link
+      FROM messages WHERE day >= ?1 AND day <= ?2 AND fee_usd IS NOT NULL
+    ), ranked AS (
+      SELECT src_chain, dst_chain, fee_usd, is_link,
+        ROW_NUMBER() OVER (PARTITION BY src_chain, dst_chain ORDER BY fee_usd) AS rn,
+        COUNT(*) OVER (PARTITION BY src_chain, dst_chain) AS n,
+        ROW_NUMBER() OVER (PARTITION BY src_chain, dst_chain, is_link ORDER BY fee_usd) AS split_rn,
+        COUNT(*) OVER (PARTITION BY src_chain, dst_chain, is_link) AS split_n,
+        SUM(is_link) OVER (PARTITION BY src_chain, dst_chain) AS link_n
+      FROM priced
+    )
+    SELECT src_chain AS src, dst_chain AS dst, MAX(n) AS messages, MAX(link_n) AS link_messages,
+      MAX(CASE WHEN rn = (10 * n + 99) / 100 THEN fee_usd END) AS p10_usd,
+      MAX(CASE WHEN rn = (50 * n + 99) / 100 THEN fee_usd END) AS median_usd,
+      MAX(CASE WHEN rn = (90 * n + 99) / 100 THEN fee_usd END) AS p90_usd,
+      MAX(CASE WHEN is_link = 1 AND split_rn = (50 * split_n + 99) / 100 THEN fee_usd END) AS link_median_usd,
+      MAX(CASE WHEN is_link = 0 AND split_rn = (50 * split_n + 99) / 100 THEN fee_usd END) AS gas_median_usd
+    FROM ranked
+    WHERE n >= ?3
+    GROUP BY src_chain, dst_chain
+    ORDER BY messages DESC, src, dst`;
+}
+
+export async function feeCosts(db: D1Database, fromDay: string, toDay: string, linkTokens: LinkFeeTokens, minMessages: number): Promise<FeeCostRow[]> {
+  const { results } = await db.prepare(feeCostsSql(linkTokens)).bind(fromDay, toDay, minMessages).all<FeeCostRow>();
   return results;
 }
 
