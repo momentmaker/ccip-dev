@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatUsd, formatUtcDay } from '../lib/format';
-import { MIX_RANGES, weeksInRange, type BesideWeek, type MixRange, type MixWeek } from '../lib/fee-mix';
+import { FEE_MIX_SERIES, MIX_RANGES, weeksInRange, type BesideWeek, type MixRange, type MixWeek } from '../lib/fee-mix';
 import Segmented from './controls/Segmented';
 import WeeklyChart, { type ChartSeries } from './WeeklyChart';
 
@@ -11,15 +11,7 @@ export default function LinkDemandCharts({ mix, beside, mixFrom }: { mix: MixWee
   const [range, setRange] = useState<MixRange>('1y');
   const mixShown = useMemo(() => weeksInRange(mix, range), [mix, range]);
   const besideShown = useMemo(() => weeksInRange(beside, range), [beside, range]);
-  const mixSeries = useMemo<ChartSeries[]>(
-    () => [
-      { key: 'link', label: 'LINK', className: 'series-link', values: mixShown.map((w) => w.link) },
-      { key: 'native', label: 'Gas tokens', className: 'series-native', values: mixShown.map((w) => w.native) },
-      { key: 'stable', label: 'Stablecoins', className: 'series-stable', values: mixShown.map((w) => w.stable) },
-      { key: 'other', label: 'Other', className: 'series-other', values: mixShown.map((w) => w.other) },
-    ],
-    [mixShown],
-  );
+  const mixSeries = useMemo<ChartSeries[]>(() => FEE_MIX_SERIES.map((s) => ({ ...s, values: mixShown.map((w) => w[s.key]) })), [mixShown]);
   const feesSeries = useMemo<ChartSeries[]>(
     () => [{ key: 'fees', label: 'CCIP fees', className: 'series-fees', values: besideShown.map((w) => w.fees_usd) }],
     [besideShown],

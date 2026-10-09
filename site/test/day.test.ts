@@ -1,6 +1,6 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { dayHighlights, dayView } from '../src/lib/day';
+import { dayFeeLine, dayHighlights, dayView } from '../src/lib/day';
 
 const row = (day: string, messages: number, usd: number, senders: number): DayTotals => ({
   day, messages, token_messages: messages, usd_value: usd, fee_usd: null, unique_senders: senders, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: null,
@@ -42,5 +42,21 @@ describe('dayHighlights', () => {
         [{ kind: 'join', day: '2026-10-05', label: 'Base joins', threshold: null }],
       ),
     ).toEqual(['Busiest day ever: 2,487 messages', 'Base joins']);
+  });
+});
+
+describe('dayFeeLine', () => {
+  const fees = (fee: number | null, link: number | null): DayTotals => ({ ...row('2026-10-07', 2795, 58.6e6, 1), fee_usd: fee, fee_link_usd: link });
+
+  it('gives the fee per message and the share paid in LINK', () => {
+    expect(dayFeeLine(fees(1538.19, 5.97))).toBe('$0.55 per message · 0.4% paid in LINK');
+  });
+
+  it('leaves the LINK share out when the day has no LINK figure', () => {
+    expect(dayFeeLine(fees(1538.19, null))).toBe('$0.55 per message');
+  });
+
+  it('has no line for a day without fees', () => {
+    expect(dayFeeLine(fees(null, null))).toBeNull();
   });
 });

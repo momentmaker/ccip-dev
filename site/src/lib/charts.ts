@@ -4,7 +4,7 @@ import type { HistoryRange } from './card-paths';
 import { addDays } from './days';
 import { formatUtcDay } from './format';
 
-export type HistoryMetric = 'messages' | 'usd_value' | 'fee_usd' | 'unique_senders' | 'median_delivery_s';
+export type HistoryMetric = 'messages' | 'usd_value' | 'fee_usd' | 'take_rate_bps' | 'unique_senders' | 'median_delivery_s';
 
 export interface ChartPoint {
   day: string;
@@ -20,6 +20,16 @@ export interface ChartGeometry {
 }
 
 export const ADDITIVE: ReadonlySet<HistoryMetric> = new Set<HistoryMetric>(['messages', 'usd_value', 'fee_usd']);
+/** Charts that start where fee data starts, as the fees chart does. */
+export const FEE_METRICS: ReadonlySet<HistoryMetric> = new Set<HistoryMetric>(['fee_usd', 'take_rate_bps']);
+
+/** Fees as basis points of value moved; none for a day without fees or without value moved. */
+export function takeRateBps(d: Pick<DayTotals, 'fee_usd' | 'usd_value'>): number | null {
+  return d.fee_usd === null || d.fee_usd === 0 || d.usd_value === 0 ? null : (d.fee_usd * 10_000) / d.usd_value;
+}
+
+const metricValue = (d: DayTotals, metric: HistoryMetric): number | null => (metric === 'take_rate_bps' ? takeRateBps(d) : d[metric]);
+
 export const RANGE_DAYS: Record<HistoryRange, number | null> = { '30d': 30, '90d': 90, '1y': 365, all: null };
 export const CHART_W = 600;
 export const CHART_H = 160;
@@ -31,11 +41,11 @@ export function rangeRows(days: readonly DayTotals[], range: HistoryRange, lastD
 }
 
 export function chartSeries(rows: readonly DayTotals[], metric: HistoryMetric, cumulative: boolean): ChartPoint[] {
-  if (!cumulative || !ADDITIVE.has(metric)) return rows.map((d) => ({ day: d.day, value: d[metric] }));
+  if (!cumulative || !ADDITIVE.has(metric)) return rows.map((d) => ({ day: d.day, value: metricValue(d, metric) }));
   let sum = 0;
   let seen = false;
   return rows.map((d) => {
-    const v = d[metric];
+    const v = metricValue(d, metric);
     if (v !== null) {
       sum += v;
       seen = true;

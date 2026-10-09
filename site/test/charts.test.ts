@@ -1,6 +1,6 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, rangeRows, rangeTotals, stepIndex } from '../src/lib/charts';
+import { chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, rangeRows, rangeTotals, stepIndex, takeRateBps } from '../src/lib/charts';
 import { feeChartRows } from '../src/lib/records';
 
 const row = (day: string, messages: number, usd: number, fee: number | null): DayTotals => ({
@@ -127,5 +127,28 @@ describe('feeChartRows', () => {
 
   it('keeps the whole window when there is no fee data at all', () => {
     expect(feeChartRows(rows, null)).toEqual({ rows, from: null });
+  });
+});
+
+describe('take rate', () => {
+  it('gives fees as basis points of value moved', () => {
+    expect(takeRateBps({ fee_usd: 1538.19, usd_value: 58_552_726.35 })).toBeCloseTo(0.2627, 4);
+  });
+
+  it.each([
+    [null, 100],
+    [0, 100],
+    [5, 0],
+  ])('is null for fees of %s on a value of %s', (fee, value) => {
+    expect(takeRateBps({ fee_usd: fee, usd_value: value })).toBeNull();
+  });
+
+  it('charts daily basis points, with gaps on days without fees or without value, and never cumulates them', () => {
+    // #given a day without fees, a day with no value moved, and a day of $3 fees on $20,000
+    const days = [row('2026-10-04', 10, 100, null), row('2026-10-05', 20, 0, 2), row('2026-10-06', 30, 20_000, 3)];
+    // #when
+    const series = chartSeries(days, 'take_rate_bps', true);
+    // #then
+    expect(series.map((p) => p.value)).toEqual([null, null, 1.5]);
   });
 });

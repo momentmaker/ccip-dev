@@ -4,6 +4,7 @@ export const METRIC_ANCHORS = {
   fees: 'what-is-counted',
   fee_link: 'what-is-counted',
   typical_fee: 'what-is-counted',
+  take_rate: 'what-is-counted',
   delivery: 'what-is-counted',
   senders: 'what-is-counted',
   unpriced: 'what-is-counted',

@@ -28,6 +28,20 @@ export function formatFee(value: number | null | undefined): string {
   return value < 1000 ? `$${value.toFixed(2)}` : formatUsd(value);
 }
 
+/** A day's take rate is usually under 1 bps, so small values keep two decimals. */
+export function formatBps(value: number | null | undefined): string {
+  if (!usable(value)) return DASH;
+  if (value > 0 && value < 0.01) return '<0.01 bps';
+  return `${value.toFixed(value < 1 ? 2 : value < 10 ? 1 : 0)} bps`;
+}
+
+/** A part of a whole, unsigned; formatPct signs changes. */
+export function formatShare(pct: number | null | undefined): string {
+  if (!usable(pct)) return DASH;
+  if (pct > 0 && pct < 1) return '<1%';
+  return `${Math.round(pct)}%`;
+}
+
 export function formatUsdFull(value: number | null | undefined): string {
   if (!usable(value)) return DASH;
   return `${value < 0 ? MINUS : ''}$${Math.round(Math.abs(value)).toLocaleString('en-US')}`;

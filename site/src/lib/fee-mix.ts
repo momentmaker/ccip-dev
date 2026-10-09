@@ -8,6 +8,24 @@ export const MIX_RANGES: readonly MixRange[] = ['90d', '1y', 'all'];
 export const RANGE_WEEKS: Record<MixRange, number | null> = { '90d': 13, '1y': 52, all: null };
 const WINDOW_DAYS = 30;
 
+export type FeeMixKey = 'link' | 'native' | 'stable' | 'other';
+
+/** The fee groups' labels and colors, shared by Reserve's weekly mix and the day pages' mix bar. */
+export const FEE_MIX_SERIES: readonly { key: FeeMixKey; label: string; className: string }[] = [
+  { key: 'link', label: 'LINK', className: 'series-link' },
+  { key: 'native', label: 'Gas tokens', className: 'series-native' },
+  { key: 'stable', label: 'Stablecoins', className: 'series-stable' },
+  { key: 'other', label: 'Other', className: 'series-other' },
+];
+
+export interface DayMixPart {
+  key: FeeMixKey;
+  label: string;
+  className: string;
+  usd: number;
+  pct: number;
+}
+
 export interface FeeWeek {
   week: string;
   fee_usd: number;
@@ -65,6 +83,19 @@ export function weeklyFees(days: readonly DayTotals[]): FeeWeek[] {
 
 export function mixWeeks(weeks: readonly FeeWeek[]): MixWeek[] {
   return weeks.flatMap((w) => (w.mix ? [{ week: w.week, ...w.mix }] : []));
+}
+
+/** Shares are of the four groups' sum, so they total 100% even when the rounded groups exceed the fees. */
+export function dayFeeMix(d: DayTotals): DayMixPart[] | null {
+  if (!d.fee_usd || d.fee_link_usd === null || d.fee_native_usd == null || d.fee_stable_usd == null) return null;
+  const usd: Record<FeeMixKey, number> = {
+    link: d.fee_link_usd,
+    native: d.fee_native_usd,
+    stable: d.fee_stable_usd,
+    other: Math.max(0, d.fee_usd - d.fee_link_usd - d.fee_native_usd - d.fee_stable_usd),
+  };
+  const total = usd.link + usd.native + usd.stable + usd.other;
+  return FEE_MIX_SERIES.map((s) => ({ ...s, usd: usd[s.key], pct: (usd[s.key] * 100) / total }));
 }
 
 export function feesBesideDeposits(weeks: readonly FeeWeek[], deposits: ReserveFile['weekly']): BesideWeek[] {

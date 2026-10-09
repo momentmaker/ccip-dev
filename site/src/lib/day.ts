@@ -1,5 +1,6 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { addDays } from './days';
+import { formatFee, linkShareText } from './format';
 import type { DayRecord, Milestone } from './records';
 
 type Compared = 'messages' | 'usd_value' | 'unique_senders';
@@ -44,4 +45,11 @@ export function dayHighlights(day: string, records: readonly DayRecord[], milest
     ...records.filter((r) => r.day === day).map((r) => `${r.title} ever: ${r.display}`),
     ...milestones.filter((m) => m.day === day).map((m) => m.label),
   ];
+}
+
+/** The Fees tile's sub-line: the fee per message, then the share paid in LINK when the day has a LINK figure. */
+export function dayFeeLine(d: DayTotals): string | null {
+  if (d.fee_usd === null || d.messages === 0) return null;
+  const perMessage = `${formatFee(d.fee_usd / d.messages)} per message`;
+  return d.fee_link_usd === null || d.fee_usd === 0 ? perMessage : `${perMessage} · ${linkShareText((d.fee_link_usd / d.fee_usd) * 100)}`;
 }

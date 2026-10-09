@@ -1,7 +1,7 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { addDays } from '../src/lib/days';
-import { feesBesideDeposits, linkDemandTiles, mixCoverageNote, mixWeeks, weeklyFees, weeksInRange } from '../src/lib/fee-mix';
+import { dayFeeMix, feesBesideDeposits, linkDemandTiles, mixCoverageNote, mixWeeks, weeklyFees, weeksInRange } from '../src/lib/fee-mix';
 
 interface Groups { link: number; native: number; stable: number; amount: number }
 const day = (d: string, fee: number | null, groups: Groups | null = null): DayTotals => ({
@@ -97,5 +97,34 @@ describe('linkDemandTiles', () => {
 
   it('has no LINK figures before any day carries them', () => {
     expect(linkDemandTiles(week('2026-09-28', 8))).toMatchObject({ allTimeLink: null, linkSince: null, last30Link: null });
+  });
+});
+
+describe('dayFeeMix', () => {
+  it('splits a day into the four groups of the weekly mix, as shares of its fees', () => {
+    // #given $10 of fees: $2 in LINK, $5 in gas tokens and $1 in stablecoins, so $2 other
+    const mix = dayFeeMix(day('2026-10-07', 10, G));
+    // #then
+    expect(mix?.map((p) => [p.key, p.label, p.className, p.usd, p.pct])).toEqual([
+      ['link', 'LINK', 'series-link', 2, 20],
+      ['native', 'Gas tokens', 'series-native', 5, 50],
+      ['stable', 'Stablecoins', 'series-stable', 1, 10],
+      ['other', 'Other', 'series-other', 2, 20],
+    ]);
+  });
+
+  it('has no mix for a day without the group columns, as on days before them', () => {
+    expect(dayFeeMix(day('2026-09-01', 10))).toBeNull();
+  });
+
+  it('has no mix for a day without fees', () => {
+    expect(dayFeeMix(day('2026-09-01', null))).toBeNull();
+  });
+
+  it('keeps other at zero and the shares at 100% when the rounded groups add up to more than the fees', () => {
+    // #given a $1.00 day whose groups round to $1.01
+    const mix = dayFeeMix(day('2026-10-07', 1, { link: 0.34, native: 0.33, stable: 0.34, amount: 0 }))!;
+    // #then
+    expect({ other: mix[3]!.usd, total: Math.round(mix.reduce((sum, p) => sum + p.pct, 0)) }).toEqual({ other: 0, total: 100 });
   });
 });
