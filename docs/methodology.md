@@ -27,7 +27,8 @@
   `unpriced_messages`. Since 2023-07-06, 68,893 of 1,565,729 messages (4.4%) are unpriced.
 - **Fees:** the message's fixed fee, in USD. Fees come from each message's detail. Live messages have them from
   2026-10-05, valued at the fee token's latest price; earlier days get them from the fee backfill, which values each
-  fee at its send day's price. The site shows fees from the first day that has them.
+  fee at its send day's price. The site shows fees from the first day that has them. A live fee that couldn't be priced
+  when its detail was fetched is priced again, at the latest price, when its day is finalized.
   - Some fee tokens have no market price of their own. When such a token is a chain's wrapped gas token (WBTC on
     Bitlayer, WTAO on Bittensor EVM) or the same token as a priced one (LINK on BNB Chain and Polygon), its fee is
     valued at the coin it wraps or matches, through DefiLlama's `coingecko:<id>` price, at the token's own decimals.
