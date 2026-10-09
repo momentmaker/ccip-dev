@@ -81,3 +81,6 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Success Criteria**: Worker and backfill store identical fee-group totals; the site renders against an older `history.json`; coverage labels say "since" until fees start at 2023-07-06; home JS ≤ 150 KB, a11y ≥ 95, no 390 px overflow.
 **Tests**: group table and generator; `feeGroupTotals` parity with the Worker and the build; migration 0005; `history.json` fields and `largest_fees`; hero maths around midnight; fee records and milestones; weekly bucketing, rounding and partial weeks.
 **Status**: Complete 2026-10-09 (8 tasks, each task-reviewed, a final opus review and one fix wave; core 258, site 1029 + 5, worker 235, scripts 314; home JS 115.9 KB). Owner steps: after the crawl, the full fee rebuild and upload fill the new columns for history. Sub-projects 2 (who pays and what it costs) and 3 (broadcasts) follow.
+
+## Backlog
+- **Fee broadcasts (fee sub-project 3):** an auto-generated daily or weekly report card image (messages, fees, % paid in LINK), posted to the Telegram channel, with ready-to-paste X text; a fee counter in the replay video for a "CCIP's year in fees" cut. Best after the fee backfill completes.
