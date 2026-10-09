@@ -35,7 +35,7 @@ Four questions remain unanswered:
    - `/flow/<window>/?from=<chain>&to=<chain>` opens with that route selected.
    - A route without enough data says so.
 2. **Fee rankings:**
-   - `/top/{lane,token,sender,chain}/{7d,30d,all}/fees/` list the top 100 by fees, each with its own share card.
+   - `/top/{lane,sender,chain}/{7d,30d,all}/fees/` list the top 100 by fees, each with its own share card. Tokens have no fees ranking: a message's fee is not split across its tokens, so token rows never carry fees.
    - The value pages stay at their current addresses, and the Chains tab exists for both rankings.
 3. **Top lanes:** a "Typical fee (30d)" column.
 4. **Day pages:**
@@ -65,7 +65,7 @@ Four questions remain unanswered:
 - `store.topBetween` gains an `order: 'value' | 'fees'` argument.
   - **value:** today's `ORDER BY usd_value DESC, messages DESC`.
   - **fees:** `ORDER BY fee_usd DESC, usd_value DESC`, skipping keys whose `fee_usd` is null.
-- **Publishing:** each `top/{dim}.json` keeps `windows` (by value) and gains `by_fees: { '7d', '30d', all }`, top 100 each, with the same entry fields.
+- **Publishing:** each `top/{dim}.json` except `token` keeps `windows` (by value) and gains `by_fees: { '7d', '30d', all }`, top 100 each, with the same entry fields.
 - **Which files:** the dims published today are `src_chain`, `dst_chain`, `lane`, `token` and `sender`. The site uses `lane`, `token`, `sender`, and now `src_chain` for the Chains tab.
 - **Schema:** `TopFileSchema` gains `by_fees` as optional, so the site still builds against an older file. A fees page with no `by_fees` data renders its empty state.
 
@@ -81,11 +81,12 @@ Four questions remain unanswered:
   - `src` and `dst` are chain selectors.
   - The `link` and `gas` fields appear only when the route had at least 20 LINK-paid messages in the window. `gas` is every non-LINK fee.
 - **Thresholds:** routes with fewer than 5 priced fees are left out. Constants: `COST_WINDOW_DAYS = 30`, `COST_MIN_MESSAGES = 5`, `COST_LINK_MIN_MESSAGES = 20`.
-- **Schema:** a new `CostFileSchema` in `packages/core/src/public.ts`, and `cost.json` joins the public file names.
+- **Schema:** a new `CostFileSchema` in `packages/core/src/public.ts`, and `cost.json` joins the public file names. Each route comes back from SQL as one row. USD values keep four decimals, because typical fees are well under a dollar.
+- **Before the first publish:** `cost.json` is a new file, so the site build reads it with a helper that returns null on HTTP 404 only. The Top lanes column then shows "—" and the picker says the data isn't available yet.
 - **Cost of the query:** about 300k rows scanned twice a day, through the `messages_day` index. A failure alerts as `cost-publish` and doesn't stop the other history files, the same pattern as `replay.json`.
 
 ### 4.3 Computed in the browser
-- **Take rate:** a day's `fee_usd / usd_value × 10,000`, in basis points. It is null when either value is null or zero.
+- **Take rate:** a day's `fee_usd / usd_value × 10,000`, in basis points. It is null when either value is null or zero. Typical days are under 1 bps, so it shows two decimals below 1 bps. Fees under a cent show as "<$0.01".
 - **Fee per message:** `fee_usd / messages`.
 - **Day LINK share:** `fee_link_usd / fee_usd`.
 - **Day fee mix:** from the group columns in `history.json`. "Other" is clamped at 0, as on Reserve.
