@@ -25,7 +25,7 @@ const tiles = linkDemandTiles(history.days);
       <div class="tile">
         <span class="label">LINK paid, last 30 days</span>
         <p class="value">{formatLink(tiles.last30Link)}</p>
-        <span class="sub">{tiles.last30Note ?? 'complete days'}</span>
+        <span class="sub">{tiles.last30Link === null ? DASH : (tiles.last30Note ?? 'complete days')}</span>
       </div>
       <div class="tile">
         <span class="label">Share of fees, last 30 days</span>

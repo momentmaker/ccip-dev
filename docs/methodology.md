@@ -47,7 +47,7 @@
 - **Fee groups:** each fee counts in one of four groups, by its fee token.
   - **LINK:** the LINK tokens above.
   - **Gas tokens:** a chain's gas token or its wrapped form, such as WETH, WBNB, WPOL, WAVAX, wSOL, WHYPE, APT, CC and GRAM.
-  - **Stablecoins:** a USD stablecoin, including a chain's gas token when it is one: GHO, pathUSD, USDT0 and gUSDT on Stable, xDAI on Gnosis and USDC on Arc.
+  - **Stablecoins:** GHO, pathUSD and other USD stablecoins, plus gas tokens that are stablecoins: USDT0 and gUSDT on Stable, xDAI on Gnosis, GHO on Lens and USDC on Arc.
   - **Other:** every other fee token, such as those on Mind and Everclear. Other is a day's fees minus the three groups above.
 
   A token's group comes from the CCIP docs: each chain's listed fee tokens, grouped by symbol (a fixed list of stablecoin

@@ -1,4 +1,4 @@
-import { FEE_DATA_START, feesSince } from './records';
+import { feeCoverageStartsComplete, feesSince } from './records';
 
 export const RUN_RATE_DAYS = 30;
 
@@ -35,5 +35,5 @@ export function feeHistoryTotals(days: readonly FeeDay[]): FeeHistoryTotals | nu
 export function heroFees(totals: FeeHistoryTotals | null, live: readonly (FeeDay | null)[]): HeroFees | null {
   if (totals === null) return null;
   const extra = live.reduce((sum, d) => sum + (d !== null && d.day > totals.through ? d.fee_usd ?? 0 : 0), 0);
-  return { usd: totals.usd + extra, runRateUsd: totals.runRateUsd, since: totals.since > FEE_DATA_START ? totals.since : null };
+  return { usd: totals.usd + extra, runRateUsd: totals.runRateUsd, since: feeCoverageStartsComplete(totals.since) ? null : totals.since };
 }

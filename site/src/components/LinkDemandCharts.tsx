@@ -20,11 +20,12 @@ export default function LinkDemandCharts({ mix, beside, mixFrom }: { mix: MixWee
     ],
     [mixShown],
   );
-  const besideSeries = useMemo<ChartSeries[]>(
-    () => [
-      { key: 'fees', label: 'CCIP fees', className: 'series-fees', values: besideShown.map((w) => w.fees_usd) },
-      { key: 'deposits', label: 'Reserve deposits', className: 'series-deposits', values: besideShown.map((w) => w.deposits_usd) },
-    ],
+  const feesSeries = useMemo<ChartSeries[]>(
+    () => [{ key: 'fees', label: 'CCIP fees', className: 'series-fees', values: besideShown.map((w) => w.fees_usd) }],
+    [besideShown],
+  );
+  const depositsSeries = useMemo<ChartSeries[]>(
+    () => [{ key: 'deposits', label: 'Reserve deposits', className: 'series-deposits', values: besideShown.map((w) => w.deposits_usd) }],
     [besideShown],
   );
   return (
@@ -34,10 +35,10 @@ export default function LinkDemandCharts({ mix, beside, mixFrom }: { mix: MixWee
         <WeeklyChart title="Weekly fee mix (USD)" weeks={mixShown.map((w) => w.week)} series={mixSeries} stacked format={formatUsd}>
           {mixFrom && <p className="muted small">Fee mix from the week of {formatUtcDay(mixFrom)} onward.</p>}
         </WeeklyChart>
-        <WeeklyChart title="Weekly fees and Reserve deposits (USD)" weeks={besideShown.map((w) => w.week)} series={besideSeries} stacked={false} format={formatUsd}>
-          <p className="muted small">{DEPOSITS_CAPTION}</p>
-        </WeeklyChart>
+        <WeeklyChart title="Weekly CCIP fees (USD)" weeks={besideShown.map((w) => w.week)} series={feesSeries} stacked={false} format={formatUsd} />
+        <WeeklyChart title="Weekly Reserve deposits (USD)" weeks={besideShown.map((w) => w.week)} series={depositsSeries} stacked={false} format={formatUsd} />
       </div>
+      <p className="muted small">{DEPOSITS_CAPTION}</p>
     </div>
   );
 }

@@ -44,6 +44,13 @@ describe('heroFees', () => {
     expect(heroFees(totals, [{ day: '2026-09-30', fee_usd: 100 }, { day: '2026-10-01', fee_usd: 40 }])?.usd).toBe(3040);
   });
 
+  it('names no first fee day when fees start within a week of 2023-07-06', () => {
+    // #given
+    const early = feeHistoryTotals(run('2023-07-07', [100]));
+    // #when, #then
+    expect(heroFees(early, [])?.since).toBeNull();
+  });
+
   it('names the first fee day while it is after 2023-07-06', () => {
     expect(heroFees(totals, [])?.since).toBe('2026-09-01');
   });

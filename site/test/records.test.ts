@@ -164,6 +164,24 @@ describe('fee records', () => {
   });
 });
 
+describe('fee tile coverage notes', () => {
+  const names = new Map([['15971525489660198786', 'Base'], ['5009297550715157269', 'Ethereum']]);
+  const fee = (d: string, usd: number | null): FeeDayStats => ({ ...day(d, 150, 0, 1, usd, null), fee_link_usd: usd === null ? null : 300, fee_link_amount: usd === null ? null : 25 });
+  const largest = [{ message_id: '0xabc', day: '2026-10-06', src: '15971525489660198786', dst: '5009297550715157269', fee_usd: 812.4, symbol: 'WETH' }];
+  const subs = (days: FeeDayStats[]) => computeFeeRecords(days, largest, names).map((r) => r.sub);
+
+  it('carries the since note on every fee tile under partial coverage', () => {
+    // #given a day before fees began
+    const days = [fee('2026-10-04', null), fee('2026-10-05', 1000), fee('2026-10-06', 2000)];
+    // #when, #then
+    expect(subs(days).map((s) => s?.endsWith('since 2026-10-05'))).toEqual([true, true, true, true]);
+  });
+
+  it('carries no note under full coverage', () => {
+    expect(subs([fee('2026-10-05', 1000), fee('2026-10-06', 2000)]).some((s) => s?.includes('since'))).toBe(false);
+  });
+});
+
 describe('fee milestones', () => {
   const feeDay = (d: string, usd: number | null) => ({ day: d, fee_usd: usd });
 
@@ -189,6 +207,14 @@ describe('fee milestones', () => {
     const firsts = computeFeeMilestones(days).filter((m) => m.kind === 'fee_day').map((m) => [m.day, m.label]);
     // #then
     expect(firsts).toEqual([['2023-07-07', 'First $10K fee day'], ['2023-07-08', 'First $25K fee day']]);
+  });
+
+  it('counts a first fee day within a week of 2023-07-06 as complete coverage', () => {
+    expect(computeFeeMilestones([feeDay('2023-07-07', 2e6)]).length).toBeGreaterThan(0);
+  });
+
+  it('lists no fee milestones when the first fee day is 2023-07-20', () => {
+    expect(computeFeeMilestones([feeDay('2023-07-20', 2e6)])).toEqual([]);
   });
 
   it('lists no fee milestones while fee coverage starts after 2023-07-06', () => {

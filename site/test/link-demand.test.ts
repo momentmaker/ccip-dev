@@ -21,11 +21,11 @@ describe('LinkDemandCharts', () => {
 
   it('renders the weekly fees beside the Reserve deposits, with the caption', () => {
     const t = text(render({ mix, beside, mixFrom: null }));
-    expect(['Weekly fees and Reserve deposits (USD)', 'CCIP fees', 'Reserve deposits', DEPOSITS_CAPTION].filter((s) => !t.includes(s))).toEqual([]);
+    expect(['Weekly CCIP fees (USD)', 'Weekly Reserve deposits (USD)', 'CCIP fees', 'Reserve deposits', DEPOSITS_CAPTION].filter((s) => !t.includes(s))).toEqual([]);
   });
 
-  it('offers a data table for each chart', () => {
-    expect(render({ mix, beside, mixFrom: null }).match(/<table/g)?.length).toBe(2);
+  it('offers a data table for each of the three charts', () => {
+    expect(render({ mix, beside, mixFrom: null }).match(/<table/g)?.length).toBe(3);
   });
 
   it('describes the fee mix in text for screen readers', () => {
@@ -40,5 +40,26 @@ describe('LinkDemandCharts', () => {
 
   it('notes the week the mix starts', () => {
     expect(text(render({ mix, beside, mixFrom: '2026-10-05' }))).toContain('Fee mix from the week of Oct 5, 2026 onward.');
+  });
+
+  it('shows the deposits caption once, below both charts', () => {
+    // #given, #when
+    const html = render({ mix, beside, mixFrom: null });
+    // #then
+    expect(html.split(DEPOSITS_CAPTION).length - 1).toBe(1);
+  });
+
+  it('draws the fees on their own scale when deposits are 100 times larger', () => {
+    // #given weekly fees near $10K and deposits near $1M
+    const real = [
+      { week: '2026-09-28', fees_usd: 7500, deposits_usd: 1_030_000 },
+      { week: '2026-10-05', fees_usd: 12000, deposits_usd: 1_110_000 },
+    ];
+    // #when
+    const html = render({ mix, beside: real, mixFrom: null });
+    const feePath = /<path[^>]*class="series-fees weekly-line"[^>]*>/.exec(html)?.[0].match(/ d="([^"]+)"/)?.[1] ?? '';
+    const ys = [...feePath.matchAll(/,([\d.]+)/g)].map((m) => Number(m[1]));
+    // #then the largest week sits at the top of the fee panel, not at the baseline
+    expect(Math.min(...ys)).toBeLessThan(10);
   });
 });

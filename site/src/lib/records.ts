@@ -1,4 +1,5 @@
 import type { DayTotals, LargestFee } from '@ccip-dev/core/public';
+import { addDays } from './days';
 import { formatCount, formatDuration, formatLink, formatUsd, linkShareText } from './format';
 import { laneLabel, shortChainName, type ChainNames } from './names';
 
@@ -83,6 +84,17 @@ export function feesSince(days: readonly { day: string; fee_usd: number | null }
   return first;
 }
 
+const COVERAGE_GRACE_DAYS = 7;
+
+/** Fee data counts as complete when it starts within a week of FEE_DATA_START, so a few early messages without a fee do not hide the all-time views. */
+export function feeCoverageStartsComplete(since: string | null): boolean {
+  return since !== null && since >= FEE_DATA_START && since <= addDays(FEE_DATA_START, COVERAGE_GRACE_DAYS);
+}
+
+export function feeCoverageComplete(days: readonly { day: string; fee_usd: number | null }[]): boolean {
+  return feeCoverageStartsComplete(feesSince(days));
+}
+
 export function feesNote(days: readonly { day: string }[], since: string | null): string | null {
   if (since === null || days.length === 0) return null;
   const firstShown = days.reduce((min, d) => (d.day < min ? d.day : min), days[0]!.day);
@@ -122,8 +134,10 @@ export function computeRecords(days: readonly DayStats[]): DayRecord[] {
 export function computeFeeRecords(days: readonly FeeDayStats[], largest: readonly LargestFee[], names: ChainNames): FeeRecord[] {
   const sorted = [...days].sort(compareDay);
   const out: FeeRecord[] = [];
+  const note = feesNote(sorted, feesSince(sorted));
+  const withNote = (...parts: (string | null)[]) => parts.filter((p) => p !== null).join(' · ') || null;
   const most = bestDay(sorted, (d) => d.fee_usd);
-  if (most) out.push({ key: 'most_fees', title: 'Most fees in a day', day: most.day, display: formatUsd(most.value), sub: feesNote(sorted, feesSince(sorted)), explorerUrl: null });
+  if (most) out.push({ key: 'most_fees', title: 'Most fees in a day', day: most.day, display: formatUsd(most.value), sub: note, explorerUrl: null });
   const top = largest[0];
   if (top) {
     out.push({
@@ -131,18 +145,18 @@ export function computeFeeRecords(days: readonly FeeDayStats[], largest: readonl
       title: 'Largest single fee',
       day: top.day,
       display: formatUsd(top.fee_usd),
-      sub: `${laneLabel(names, `${top.src}>${top.dst}`)}${top.symbol ? ` · ${top.symbol}` : ''}`,
+      sub: withNote(`${laneLabel(names, `${top.src}>${top.dst}`)}${top.symbol ? ` · ${top.symbol}` : ''}`, note),
       explorerUrl: `${EXPLORER_MESSAGE_URL}${top.message_id}`,
     });
   }
   const link = bestDay(sorted, (d) => d.fee_link_usd);
   if (link) {
     const amount = sorted.find((d) => d.day === link.day)?.fee_link_amount;
-    out.push({ key: 'link_paid', title: 'Most paid in LINK in a day', day: link.day, display: formatUsd(link.value), sub: amount == null ? null : formatLink(amount), explorerUrl: null });
+    out.push({ key: 'link_paid', title: 'Most paid in LINK in a day', day: link.day, display: formatUsd(link.value), sub: withNote(amount == null ? null : formatLink(amount), note), explorerUrl: null });
   }
   const share = bestDay(sorted, (d) => (d.messages >= LINK_SHARE_MIN_MESSAGES && d.fee_usd && d.fee_link_usd !== null ? (d.fee_link_usd / d.fee_usd) * 100 : null));
   if (share) {
-    out.push({ key: 'link_share', title: 'Highest LINK share in a day', day: share.day, display: linkShareText(share.value), sub: `days with ${LINK_SHARE_MIN_MESSAGES}+ messages`, explorerUrl: null });
+    out.push({ key: 'link_share', title: 'Highest LINK share in a day', day: share.day, display: linkShareText(share.value), sub: withNote(`days with ${LINK_SHARE_MIN_MESSAGES}+ messages`, note), explorerUrl: null });
   }
   return out;
 }
@@ -222,7 +236,7 @@ export function computeMilestones(
 
 /** Empty until fee data starts at 2023-07-06: partial coverage would date a "first" too late, and the date would move as the backfill loads. */
 export function computeFeeMilestones(days: readonly Pick<DayStats, 'day' | 'fee_usd'>[]): Milestone[] {
-  if (feesSince(days) !== FEE_DATA_START) return [];
+  if (!feeCoverageComplete(days)) return [];
   const sorted = [...days].sort(compareDay);
   const fee = (d: Pick<DayStats, 'fee_usd'>) => d.fee_usd ?? 0;
   const total = sorted.reduce((sum, d) => sum + fee(d), 0);
