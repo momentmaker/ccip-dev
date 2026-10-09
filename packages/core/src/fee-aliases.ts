@@ -66,8 +66,6 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '6180753054346818345:0x0bd7d308f8e1639fab988df18a8011f41eacad73': { key: 'coingecko:ethereum', decimals: 18 },
   // TON GRAM (CoinGecko's "Gram (prev. Toncoin)"), the native coin; decimals from the CCIP docs' tokens.json
   '16448340667252469081:EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAd99': { key: 'coingecko:the-open-network', decimals: 9 },
-  // Tempo pathUSD; decimals from the CCIP docs' tokens.json
-  '7281642695469137430:0x20c0000000000000000000000000000000000000': { key: 'coingecko:pathusd', decimals: 6 },
   // Mova WMOVA (WrappedMova); decimals from the CCIP docs' tokens.json
   '4215185756725900654:0x911fcc80f48340864f5f94ae9a73d6296d5c2115': { key: 'coingecko:mova-2', decimals: 18 },
   // Aptos APT (the AptosCoin fungible asset at 0xa); 0x1::fungible_asset::decimals and 0x1::coin::decimals on the fullnode
