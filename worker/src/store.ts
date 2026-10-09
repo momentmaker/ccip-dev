@@ -1,6 +1,6 @@
 import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
-  type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
+  type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
@@ -647,8 +647,11 @@ export async function linkFeeTokens(db: D1Database): Promise<LinkFeeTokens> {
   return linkFeeKeys(results.map((r) => ({ chain: r.chain, address: r.address, groupId: r.group_id, decimals: r.decimals })));
 }
 
-export async function setFeeLinkUsd(db: D1Database, day: string, value: number | null): Promise<void> {
-  await db.prepare('UPDATE daily_totals SET fee_link_usd = ? WHERE day = ?').bind(value, day).run();
+export async function setFeeGroupTotals(db: D1Database, day: string, groups: FeeGroupTotals): Promise<void> {
+  await db
+    .prepare('UPDATE daily_totals SET fee_link_usd = ?, fee_native_usd = ?, fee_stable_usd = ?, fee_link_amount = ? WHERE day = ?')
+    .bind(groups.link_usd, groups.native_usd, groups.stable_usd, groups.link_amount, day)
+    .run();
 }
 
 export async function feeLinkByDay(db: D1Database): Promise<Map<string, number | null>> {

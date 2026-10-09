@@ -799,4 +799,33 @@ describe('fees paid in LINK', () => {
     const history = await readPublic('history.json');
     expect(history.days.find((d: { day: string }) => d.day === day)).toMatchObject({ fee_usd: 5, fee_link_usd: 2 });
   });
+
+  it("stores the day's fees by group and the LINK paid in LINK units", async () => {
+    // #given the fee backfill build test's day: 0.1 LINK worth $1, WETH worth $2 and GHO worth $3, all on Base
+    const day = '2026-10-09';
+    const linkBase = '0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196';
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.base], [
+      { chainSelector: NETWORKS.ethereum.chainSelector, address: '0x514910771AF9Ca656af840dff83E8264EcF986CA', symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+      { chainSelector: NETWORKS.base.chainSelector, address: linkBase, symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+    ]);
+    await store.setMeta(env.DB, 'live_start_day', day);
+    await store.setMeta(env.DB, 'last_finalize_day', '2026-10-08');
+    const fee = (id: string, hour: string, token: string, amount: string, usd: number) =>
+      liveRow(
+        { id, sendTs: `${day}T${hour}:00:00.000Z`, src: NETWORKS.base },
+        { fee_token: token, fee_amount: amount, fee_usd: usd, detail_fetched_at: `${day}T${hour}:01:00.000Z`, next_check_at: null },
+      );
+    await store.upsertListRows(env.DB, [
+      fee('l', '10', linkBase, '100000000000000000', 1),
+      fee('w', '11', '0x4200000000000000000000000000000000000006', '1000000000000000', 2),
+      fee('g', '12', '0x6Bb7a212910682DCFdbd5BCBb3e28FB4E8da10Ee', '3000000000000000000', 3),
+    ], []);
+
+    // #when
+    await runFinalize(harness({ now: '2026-10-10T00:10:00.000Z', ccip: fakeCcip({ messages: [] }) }).c, 'early');
+
+    // #then
+    const stored = await env.DB.prepare('SELECT fee_usd, fee_link_usd, fee_native_usd, fee_stable_usd, fee_link_amount FROM daily_totals WHERE day = ?').bind(day).first();
+    expect(stored).toEqual({ fee_usd: 6, fee_link_usd: 1, fee_native_usd: 2, fee_stable_usd: 3, fee_link_amount: 0.1 });
+  });
 });

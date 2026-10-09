@@ -1,6 +1,6 @@
 import {
-  addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, feePriceKeys, gzipText, linkFeeMatcher, linkFeeUsd, rollupDay,
-  toJsonl, valueFee, type LinkFeeMatcher, type ListMessage,
+  addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, feeClassifier, feeGroupTotals, feePriceKeys, gzipText, rollupDay,
+  toJsonl, valueFee, type FeeClassifier, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishHistoryFiles, retryPut } from '../publish';
@@ -30,7 +30,7 @@ interface DayBucket {
 
 interface RunShared {
   loader: FallbackLoader;
-  isLinkFee: LinkFeeMatcher;
+  classify: FeeClassifier;
   deadline: number;
 }
 
@@ -62,7 +62,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
 
   const shared: RunShared = {
     loader: fallbackLoader(c),
-    isLinkFee: linkFeeMatcher(await store.linkFeeTokens(db)),
+    classify: feeClassifier(await store.linkFeeTokens(db)),
     deadline: now.getTime() + DETAIL_BUDGET_MS,
   };
   const failures: string[] = [];
@@ -106,7 +106,7 @@ async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promi
   const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(db, day));
   await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
   await alertOnUsdAnomaly(c, day, totals.usd_value);
-  await store.setFeeLinkUsd(db, day, linkFeeUsd(messages, day, shared.isLinkFee));
+  await store.setFeeGroupTotals(db, day, feeGroupTotals(messages, day, shared.classify));
   return raw;
 }
 

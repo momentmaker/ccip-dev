@@ -234,3 +234,19 @@ describe('linkFeeTokens', () => {
     ]).toEqual([9, 18]);
   });
 });
+
+describe('migration 0005', () => {
+  it('adds the fee group columns to daily_totals', async () => {
+    // #when
+    const { results } = await env.DB.prepare('PRAGMA table_info(daily_totals)').all<{ name: string }>();
+    // #then
+    expect(results.map((c) => c.name)).toEqual(expect.arrayContaining(['fee_native_usd', 'fee_stable_usd', 'fee_link_amount']));
+  });
+
+  it('indexes the priced message fees', async () => {
+    // #when
+    const index = await env.DB.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_messages_fee_usd'").first<{ sql: string }>();
+    // #then
+    expect(index?.sql).toBe('CREATE INDEX idx_messages_fee_usd ON messages (fee_usd) WHERE fee_usd IS NOT NULL');
+  });
+});
