@@ -4,10 +4,10 @@ import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  buildRows, createPricesClient, FEE_PRICE_ALIASES, feePriceKeys, linkFeeKeys, linkFeeMatcher, linkFeeUsd, ListMessage, normalizeList, normalizeRegistryToken,
+  buildRows, createCoingeckoClient, createPricesClient, FEE_PRICE_ALIASES, feePriceKeys, linkFeeKeys, linkFeeMatcher, linkFeeUsd, ListMessage, normalizeList, normalizeRegistryToken,
   rollupDay, sqlLiteral, valueFee, type FeePriceAlias, type HttpDeps, type NormalizedMessage, type PricesClient, type RegistryToken,
 } from '@ccip-dev/core';
-import { PriceCache, SqlWriter } from '../build';
+import { PriceCache, SqlWriter, type PriceCacheOptions } from '../build';
 import { writeFileAtomic } from '../crawl';
 import { listArchiveDays, listSealedDays, readArchiveDay, readSealedDay, readStateFile, sealedFile, type DetailRecord } from './store';
 
@@ -63,7 +63,7 @@ async function lastBatchNumber(dir: string, recorded: number): Promise<number> {
   return Math.max(recorded, ...numbers);
 }
 
-export async function buildFees(opts: { dir: string; prices: PricesClient; chunkSize?: number; log?: (line: string) => void }): Promise<FeeBuildResult> {
+export async function buildFees(opts: { dir: string; prices: PricesClient; coingecko?: PriceCacheOptions['coinHistory']; chunkSize?: number; log?: (line: string) => void }): Promise<FeeBuildResult> {
   const log = opts.log ?? (() => {});
   const statePath = path.join(opts.dir, 'fees', 'build-state.json');
   const state = await readStateFile<BuildState>(statePath, { built: {}, batches: 0 });
@@ -81,7 +81,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; chunk
 
   const archiveDays = await listArchiveDays(opts.dir);
   if (archiveDays.length === 0) throw new Error(`no archive days under ${path.join(opts.dir, 'archive', 'messages')}`);
-  const prices = await PriceCache.openExisting(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), archiveDays.at(-1)!, archiveDays[0]!);
+  const prices = await PriceCache.openExisting(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), archiveDays.at(-1)!, archiveDays[0]!, { coinHistory: opts.coingecko, log });
   const registry = JSON.parse(await readFile(path.join(opts.dir, 'registry', 'tokens.json'), 'utf8')) as RegistryToken[];
   const isLinkFee = linkFeeMatcher(linkFeeKeys(registry.map(normalizeRegistryToken)));
   const batchNumber = (await lastBatchNumber(opts.dir, state.batches)) + 1;
@@ -191,7 +191,7 @@ async function main(): Promise<void> {
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     clock: () => Date.now(),
   };
-  const result = await buildFees({ dir: '.backfill', prices: createPricesClient(deps), log: (line) => console.log(line) });
+  const result = await buildFees({ dir: '.backfill', prices: createPricesClient(deps), coingecko: createCoingeckoClient(deps), log: (line) => console.log(line) });
   console.log(JSON.stringify({ ...result, days: result.days.length }, null, 2));
 }
 

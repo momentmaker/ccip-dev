@@ -12,7 +12,9 @@ export interface FeePriceAlias {
  * on chain on 2026-10-08: `decimals()` through the chain's public RPC from chainid.network, or for Aptos the mainnet
  * fullnode's view functions.
  *
- * Still unpriced, for want of a verified free price or verified decimals: Canton CC and Mova.
+ * Canton CC and Mova WMOVA take their decimals from the CCIP docs' tokens.json instead, cross-checked against real fee
+ * amounts (CC 33,999,999,999 is 3.4 CC; WMOVA fees are about 1.84 MOVA). DefiLlama has no history for `coingecko:mova-2`,
+ * so only the fee backfill prices WMOVA, from CoinGecko's daily history.
  */
 export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   // Bitlayer WBTC (wrapped native BTC); decimals() on chain
@@ -55,6 +57,10 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '7613811247471741961:0xb210d2120d57b758ee163cffb43e73728c471cf1': { key: 'coingecko:hashkey-ecopoints', decimals: 18 },
   // AB Core WAB (AB is the rebranded Newton token, not newton-protocol); decimals() on chain
   '4829375610284793157:0x51da03503fbba94b9d0d88c15690d840f02f15f4': { key: 'coingecko:newton-project', decimals: 18 },
+  // Canton CC (Canton Coin, Canton's only CCIP fee token); decimals from the CCIP docs' tokens.json
+  '2308837218439511688:0xd573c85e64a85bc81e99641d37b160febc1581c724255604ce45ef2f99f6628b': { key: 'coingecko:canton-network', decimals: 10 },
+  // Mova WMOVA (WrappedMova); decimals from the CCIP docs' tokens.json
+  '4215185756725900654:0x911fcc80f48340864f5f94ae9a73d6296d5c2115': { key: 'coingecko:mova-2', decimals: 18 },
   // Aptos APT (the AptosCoin fungible asset at 0xa); 0x1::fungible_asset::decimals and 0x1::coin::decimals on the fullnode
   '4741433654826277614:0x000000000000000000000000000000000000000000000000000000000000000a': { key: 'coingecko:aptos', decimals: 8 },
 };

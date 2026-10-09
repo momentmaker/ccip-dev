@@ -103,3 +103,51 @@ describe('createCoingeckoClient', () => {
     await expect(createCoingeckoClient(instantDeps(f), { minIntervalMs: 0 }).lists()).rejects.toBeInstanceOf(UpstreamSchemaError);
   });
 });
+
+describe('createCoingeckoClient dailyHistory', () => {
+  const DAY_MS = 86_400_000;
+  const midnight = Date.UTC(2026, 8, 6);
+  const body = (prices: [number, number][]) => jsonResponse({ prices, market_caps: [], total_volumes: [] });
+
+  it('asks for a year of daily USD prices keyless', async () => {
+    const f = fakeFetch(() => body([]));
+    await createCoingeckoClient(instantDeps(f), { minIntervalMs: 0 }).dailyHistory('mova-2');
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.coingecko.com/api/v3/coins/mova-2/market_chart?vs_currency=usd&days=365&interval=daily',
+    ]);
+    expect((f.calls[0]!.init?.headers as Record<string, string>)['user-agent']).toBe('curl/8.7.1');
+  });
+
+  it('keys each price by its UTC day', async () => {
+    const f = fakeFetch(() => body([[midnight, 0.11], [midnight + DAY_MS, 0.12]]));
+    const history = await createCoingeckoClient(instantDeps(f), { minIntervalMs: 0 }).dailyHistory('mova-2');
+    expect([...history]).toEqual([['2026-09-06', 0.11], ['2026-09-07', 0.12]]);
+  });
+
+  it('keeps the point nearest 00:00 UTC when a day has several', async () => {
+    const f = fakeFetch(() => body([[midnight + 3_600_000, 0.2], [midnight + 60_000, 0.1], [midnight + 20 * 3_600_000, 0.3]]));
+    const history = await createCoingeckoClient(instantDeps(f), { minIntervalMs: 0 }).dailyHistory('mova-2');
+    expect([...history]).toEqual([['2026-09-06', 0.1]]);
+  });
+
+  it('retries a 429, honouring Retry-After', async () => {
+    const slept: number[] = [];
+    let calls = 0;
+    const fetchFn = fakeFetch(() => (++calls === 1 ? jsonResponse({}, 429, { 'retry-after': '7' }) : body([[midnight, 0.11]])));
+    const deps = { fetch: fetchFn, sleep: async (ms: number) => { slept.push(ms); }, clock: () => 0 };
+    const history = await createCoingeckoClient(deps, { minIntervalMs: 0 }).dailyHistory('mova-2');
+    expect(slept).toEqual([7_000]);
+    expect(history.get('2026-09-06')).toBe(0.11);
+  });
+
+  it('gives up on a 429 after several attempts', async () => {
+    const f = fakeFetch(() => jsonResponse({}, 429));
+    await expect(createCoingeckoClient(instantDeps(f), { minIntervalMs: 0 }).dailyHistory('mova-2')).rejects.toThrow(/429/);
+    expect(f.calls.length).toBeGreaterThan(3);
+  });
+
+  it('rejects a response without a prices series', async () => {
+    const f = fakeFetch(() => jsonResponse({ error: 'nope' }));
+    await expect(createCoingeckoClient(instantDeps(f), { minIntervalMs: 0 }).dailyHistory('mova-2')).rejects.toBeInstanceOf(UpstreamSchemaError);
+  });
+});

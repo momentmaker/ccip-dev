@@ -562,6 +562,14 @@ interface PriceCacheFile {
   decimals: Record<string, number | null>;
 }
 
+/** Where a coin's daily history comes from when DefiLlama has none: CoinGecko's free public API, at most 365 days back. */
+export interface PriceCacheOptions {
+  coinHistory?: Pick<CoingeckoClient, 'dailyHistory'>;
+  log?: (line: string) => void;
+}
+
+const COINGECKO_KEY_PREFIX = 'coingecko:';
+
 export class PriceCache {
   /** Each key's series without its glitched points, filtered once, the first time it is read. */
   private readonly filtered = new Map<string, Record<string, number>>();
@@ -573,22 +581,23 @@ export class PriceCache {
     private readonly fromDay: string,
     private readonly toDay: string,
     private readonly data: PriceCacheFile,
+    private readonly options: PriceCacheOptions = {},
   ) {}
 
-  static async open(client: PricesClient, file: string, fromDay: string, toDay: string): Promise<PriceCache> {
+  static async open(client: PricesClient, file: string, fromDay: string, toDay: string, options?: PriceCacheOptions): Promise<PriceCache> {
     const range = `${fromDay}..${toDay}`;
     const cached = existsSync(file) ? await readPriceCache(file) : null;
     const data = cached?.range === range ? cached : { range, history: {}, decimals: {} };
-    return new PriceCache(client, file, fromDay, toDay, data);
+    return new PriceCache(client, file, fromDay, toDay, data, options);
   }
 
   /** Opens the original build's cache, refusing a missing file or another range: a silent fresh cache would refetch every series. */
-  static async openExisting(client: PricesClient, file: string, fromDay: string, toDay: string): Promise<PriceCache> {
+  static async openExisting(client: PricesClient, file: string, fromDay: string, toDay: string, options?: PriceCacheOptions): Promise<PriceCache> {
     if (!existsSync(file)) throw new Error(`${file} is missing: the fee build reuses the original backfill's price cache`);
     const cached = await readPriceCache(file);
     const range = `${fromDay}..${toDay}`;
     if (cached.range !== range) throw new Error(`${file} covers ${cached.range}, not ${range}; refusing to start a new cache`);
-    return new PriceCache(client, file, fromDay, toDay, cached);
+    return new PriceCache(client, file, fromDay, toDay, cached, options);
   }
 
   /** Fetches and caches the daily history of every key not cached yet, and the decimals of every llama key among them. */
@@ -603,13 +612,23 @@ export class PriceCache {
     }
     for (const k of unique) {
       if (k in this.data.history) continue;
-      this.data.history[k] = Object.fromEntries(await this.client.dailyHistory(k, this.fromDay, this.toDay));
+      this.data.history[k] = await this.history(k);
       changed = true;
     }
     if (changed) {
       await mkdir(path.dirname(this.file), { recursive: true });
       await writeFileAtomic(this.file, JSON.stringify(this.data));
     }
+  }
+
+  /** DefiLlama's series, or for a coin it has none for, the same days of CoinGecko's. Never CoinGecko when DefiLlama has data. */
+  private async history(key: string): Promise<Record<string, number>> {
+    const llama = Object.fromEntries(await this.client.dailyHistory(key, this.fromDay, this.toDay));
+    const { coinHistory, log } = this.options;
+    if (Object.keys(llama).length > 0 || coinHistory === undefined || !isCoingeckoKey(key)) return llama;
+    log?.(`price history for ${key} from CoinGecko (DefiLlama has none)`);
+    const points = await coinHistory.dailyHistory(key.slice(COINGECKO_KEY_PREFIX.length));
+    return Object.fromEntries([...points].filter(([day]) => day >= this.fromDay && day <= this.toDay));
   }
 
   /**

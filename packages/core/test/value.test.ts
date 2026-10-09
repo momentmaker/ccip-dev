@@ -181,3 +181,19 @@ describe('priceKeys', () => {
     expect(priceKeys(m)).toEqual([`base:${TOKEN}`, `base:${WETH}`]);
   });
 });
+
+describe('valueFee for Canton and Mova', () => {
+  const canton: ChainRef = { selector: '2308837218439511688', name: 'canton-mainnet', chainId: 'canton', family: 'CANTON' };
+  const mova: ChainRef = { selector: '4215185756725900654', name: 'mova-mainnet', chainId: '61900', family: 'EVM' };
+  const coins: PriceLookup = (key) =>
+    ({ 'coingecko:canton-network': { price: 0.1163, decimals: COIN_PRICE_DECIMALS }, 'coingecko:mova-2': { price: 0.05, decimals: COIN_PRICE_DECIMALS } })[key];
+
+  it('values Canton CC at 10 decimals', () => {
+    const cc = '0xd573c85e64a85bc81e99641d37b160febc1581c724255604ce45ef2f99f6628b';
+    expect(valueFee({ token: cc, amount: '33999999999' }, canton, coins)).toBeCloseTo(3.4 * 0.1163, 9);
+  });
+
+  it('values Mova WMOVA at 18 decimals', () => {
+    expect(valueFee({ token: '0x911fcc80f48340864f5f94ae9a73d6296d5c2115', amount: '1840000000000000000' }, mova, coins)).toBeCloseTo(1.84 * 0.05, 9);
+  });
+});

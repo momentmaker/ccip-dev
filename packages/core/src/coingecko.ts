@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { createThrottle, getJson, parseWith, type HttpDeps } from './http';
 import { normalizeAddress } from './normalize';
+import { dayOf, dayStartIso } from './time';
 import type { ChainRef } from './types';
 
 /**
- * CoinGecko's keyless API, used only for coin ids: which coin a token contract is. Prices never come from CoinGecko,
- * whose terms restrict storing them; a coin id is priced through DefiLlama's `coingecko:<id>` key.
+ * CoinGecko's keyless API, used for coin ids (which coin a token contract is) and, in the fee backfill only, for the
+ * daily price history of a coin DefiLlama has none for. Live prices never come from CoinGecko; a coin id is priced
+ * through DefiLlama's `coingecko:<id>` key.
  */
 export const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 
@@ -24,9 +26,17 @@ export interface CoingeckoLists {
   coins: CoingeckoCoin[];
 }
 
+/** The free public API serves at most 365 days of history; older days are not available without a paid plan. */
+const HISTORY_DAYS = 365;
+const HISTORY_MAX_RETRIES = 4;
+
+const MarketChart = z.object({ prices: z.array(z.tuple([z.number(), z.number()])) });
+
 export interface CoingeckoClient {
   /** Every asset platform with its EVM chain id, and every coin with its contract address per platform. */
   lists(): Promise<CoingeckoLists>;
+  /** A coin's USD price per UTC day over the last 365 days, the point nearest 00:00 UTC when a day has several. */
+  dailyHistory(coinId: string): Promise<Map<string, number>>;
 }
 
 /** A token's CoinGecko coin id, by its chain and normalized address. */
@@ -40,14 +50,27 @@ export function createCoingeckoClient(
   // Keyless CoinGecko allows only a few requests a minute.
   const throttle = createThrottle(deps, options.minIntervalMs ?? 5_000);
   const maxRetries = options.maxRetries ?? 2;
-  const get = async <S extends z.ZodType>(path: string, endpoint: string, schema: S): Promise<z.output<S>> =>
-    parseWith(schema, await getJson(deps, `${base}${path}`, { endpoint, maxRetries, throttle }), endpoint);
+  const get = async <S extends z.ZodType>(path: string, endpoint: string, schema: S, retries = maxRetries): Promise<z.output<S>> =>
+    parseWith(schema, await getJson(deps, `${base}${path}`, { endpoint, maxRetries: retries, throttle }), endpoint);
 
   return {
     async lists() {
       const platforms = await get('/asset_platforms', 'GET /asset_platforms', z.array(CoingeckoPlatform));
       const coins = await get('/coins/list?include_platform=true', 'GET /coins/list', z.array(CoingeckoCoin));
       return { platforms, coins };
+    },
+
+    async dailyHistory(coinId) {
+      const path = `/coins/${encodeURIComponent(coinId)}/market_chart?vs_currency=usd&days=${HISTORY_DAYS}&interval=daily`;
+      const chart = await get(path, 'GET /coins/{id}/market_chart', MarketChart, Math.max(maxRetries, HISTORY_MAX_RETRIES));
+      const nearest = new Map<string, { offset: number; price: number }>();
+      for (const [ms, price] of chart.prices) {
+        const day = dayOf(new Date(ms));
+        const offset = ms - Date.parse(dayStartIso(day));
+        const best = nearest.get(day);
+        if (best === undefined || offset < best.offset) nearest.set(day, { offset, price });
+      }
+      return new Map([...nearest].map(([day, { price }]) => [day, price]));
     },
   };
 }

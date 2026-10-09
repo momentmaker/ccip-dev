@@ -22,6 +22,25 @@ describe('feePriceAlias', () => {
   });
 });
 
+describe('Canton and Mova aliases', () => {
+  it('prices Canton CC as canton-network at 10 decimals, leaving its 64-hex id as is', () => {
+    // #given
+    const cc = '0xd573c85e64a85bc81e99641d37b160febc1581c724255604ce45ef2f99f6628b';
+    // #then
+    expect(feePriceAlias({ selector: '2308837218439511688' }, cc)).toEqual({ key: 'coingecko:canton-network', decimals: 10 });
+  });
+
+  it('leaves the other Canton fee token unaliased', () => {
+    expect(feePriceAlias({ selector: '2308837218439511688' }, '0xa218e95e')).toBeUndefined();
+  });
+
+  it('prices Mova WMOVA as mova-2 at 18 decimals', () => {
+    expect(feePriceAlias({ selector: '4215185756725900654' }, '0x911FCC80F48340864F5F94AE9A73D6296D5C2115')).toEqual({
+      key: 'coingecko:mova-2', decimals: 18,
+    });
+  });
+});
+
 describe('FEE_PRICE_ALIASES', () => {
   const entries = Object.entries(FEE_PRICE_ALIASES);
 

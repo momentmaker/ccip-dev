@@ -212,6 +212,9 @@ export function fakeCoingecko(lists: Partial<CoingeckoLists> = {}, options: { fa
       if (options.fail) throw options.fail;
       return { platforms: lists.platforms ?? [], coins: lists.coins ?? [] };
     },
+    async dailyHistory() {
+      return new Map();
+    },
   };
   return fake;
 }

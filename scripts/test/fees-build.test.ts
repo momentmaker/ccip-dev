@@ -257,6 +257,84 @@ describe('fee price aliases', () => {
   });
 });
 
+describe('fee prices from CoinGecko history', () => {
+  const MOVA: SourceChain = { chainSelector: '4215185756725900654', chainId: '61900' };
+  const WMOVA = '0x911fcc80f48340864f5f94ae9a73d6296d5c2115';
+  const movaRecords = [ok('0xlink', WMOVA, '2000000000000000000'), ok('0xweth', WMOVA, '2000000000000000000'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
+  const llamaHas = (series: Record<string, [string, number][]>) => ({
+    latest: async () => new Map(),
+    dailyHistory: async (key: string) => series[key] ?? [],
+  }) as unknown as PricesClient;
+  const coingeckoHistory = (points: [string, number][], asked: string[] = []) => ({
+    dailyHistory: async (id: string) => {
+      asked.push(id);
+      return new Map(points);
+    },
+  });
+
+  it('prices an aliased coin DefiLlama has no history for from CoinGecko, at the token decimals', async () => {
+    // #given
+    const dir = await backfill({ records: movaRecords, src: MOVA });
+    // #when
+    await buildFees({ dir, prices: llamaHas({}), coingecko: coingeckoHistory([[DAY, 0.5]]) });
+    // #then
+    expect(await sqlOf(dir)).toContain(`fee_usd = 1, detail_fetched_at = '2026-10-08T00:00:00.000Z' WHERE message_id = '0xlink'`);
+  });
+
+  it('stores the CoinGecko points by day in the price cache', async () => {
+    // #given
+    const dir = await backfill({ records: movaRecords, src: MOVA });
+    // #when
+    await buildFees({ dir, prices: llamaHas({}), coingecko: coingeckoHistory([[DAY, 0.5], ['2026-01-01', 9]]) });
+    // #then
+    const cache = JSON.parse(await readFile(path.join(dir, 'prices', 'cache.json'), 'utf8')) as { history: Record<string, unknown> };
+    expect(cache.history['coingecko:mova-2']).toEqual({ [DAY]: 0.5 });
+  });
+
+  it('asks CoinGecko once per coin and logs it', async () => {
+    // #given
+    const dir = await backfill({ records: movaRecords, src: MOVA });
+    const asked: string[] = [];
+    const lines: string[] = [];
+    // #when
+    await buildFees({ dir, prices: llamaHas({}), coingecko: coingeckoHistory([[DAY, 0.5]], asked), log: (l) => lines.push(l) });
+    // #then
+    expect(asked).toEqual(['mova-2']);
+    expect(lines).toContain('price history for coingecko:mova-2 from CoinGecko (DefiLlama has none)');
+  });
+
+  it('never asks CoinGecko for a coin DefiLlama has history for', async () => {
+    // #given
+    const dir = await backfill({ records: movaRecords, src: MOVA });
+    const asked: string[] = [];
+    // #when
+    await buildFees({ dir, prices: llamaHas({ 'coingecko:mova-2': [[DAY, 0.25]] }), coingecko: coingeckoHistory([[DAY, 0.5]], asked) });
+    // #then
+    expect(asked).toEqual([]);
+    expect(await sqlOf(dir)).toContain(`fee_usd = 0.5, detail_fetched_at`);
+  });
+
+  it('leaves the fee unpriced when neither source has the coin', async () => {
+    // #given
+    const dir = await backfill({ records: movaRecords, src: MOVA });
+    // #when
+    await buildFees({ dir, prices: llamaHas({}), coingecko: coingeckoHistory([]) });
+    // #then
+    expect(await sqlOf(dir)).toContain(`fee_usd = NULL, detail_fetched_at = '2026-10-08T00:00:00.000Z' WHERE message_id = '0xlink'`);
+  });
+
+  it('values Canton CC at 10 decimals through DefiLlama', async () => {
+    // #given
+    const cc = '0xd573c85e64a85bc81e99641d37b160febc1581c724255604ce45ef2f99f6628b';
+    const records = [ok('0xlink', cc, '40000000000'), ok('0xweth', cc, '40000000000'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
+    const dir = await backfill({ records, src: { chainSelector: '2308837218439511688', chainId: 'canton' } });
+    // #when
+    await buildFees({ dir, prices: llamaHas({ 'coingecko:canton-network': [[DAY, 0.25]] }) });
+    // #then
+    expect(await sqlOf(dir)).toContain(`fee_usd = 1, detail_fetched_at = '2026-10-08T00:00:00.000Z' WHERE message_id = '0xlink'`);
+  });
+});
+
 describe('unknown fee shapes', () => {
   const withUnknown = [ok('0xlink', LINK, '100000000000000000'), unknownShape('0xweth'), { id: '0xgone', kind: 'skip', fetchedAt: 't', status: 404, reason: 'HTTP 404' } as DetailRecord];
 
