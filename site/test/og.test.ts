@@ -115,7 +115,7 @@ describe('handleOg', () => {
     expect({
       fees: fees.status,
       token: token.status,
-      card: JSON.stringify(renderPng.mock.calls[0]![0]).includes('TOP CHAIN BY FEES'),
+      card: JSON.stringify(renderPng.mock.calls[0]![0]).includes('TOP SOURCE CHAIN BY FEES'),
       read: dataUrls.some((u) => u.endsWith('/top/src_chain.json')),
     }).toEqual({ fees: 200, token: 404, card: true, read: true });
   });

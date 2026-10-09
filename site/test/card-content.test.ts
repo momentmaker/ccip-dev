@@ -124,6 +124,13 @@ describe('card content', () => {
     });
   });
 
+  it('keeps cents on a fees card whose total is under a dollar', () => {
+    // #given
+    const feesTop: TopFile = { ...top, by_fees: { '7d': [{ key: `${BASE}>${ETH}`, messages: 4, usd: 2e6, fee_usd: 0.02 }], '30d': [], all: [] } };
+    // #when, #then
+    expect(topCard(feesTop, 'lane', '7d', 'fees', names)).toMatchObject({ label: '$0.02 in fees · 4 messages' });
+  });
+
   it('says there is no data yet on a fees card from a file without the fee ranking', () => {
     expect(topCard(top, 'lane', '7d', 'fees', names)).toMatchObject({ big: '—', label: 'No data yet' });
   });
@@ -132,7 +139,7 @@ describe('card content', () => {
     // #given
     const chainTop: TopFile = { ...top, dim: 'src_chain', windows: { '7d': [{ key: ETH, messages: 10, usd: 5e6 }], '30d': [], all: [] } };
     // #when, #then
-    expect(topCard(chainTop, 'chain', '7d', 'value', names)).toMatchObject({ eyebrow: 'TOP CHAIN · LAST 7 DAYS', big: 'Ethereum' });
+    expect(topCard(chainTop, 'chain', '7d', 'value', names)).toMatchObject({ eyebrow: 'TOP SOURCE CHAIN · LAST 7 DAYS', big: 'Ethereum' });
   });
 });
 

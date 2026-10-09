@@ -62,12 +62,14 @@ const leader = data.topLanes[0];
   :global(.cost-body) { display: grid; gap: 16px; grid-template-columns: minmax(0, 260px) 1fr; align-items: start; }
   :global(.cost-selects) { display: grid; gap: 10px; }
   :global(.cost-field) { display: grid; gap: 4px; }
-  :global(.cost-field select) { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); color: var(--fg); font: inherit; }
+  :global(.cost-field select) { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); color: var(--fg); font: inherit; font-size: 16px; }
+  :global(.cost-picker .small) { font-size: 12px; }
   :global(.cost-result p) { margin: 4px 0; }
   :global(.cost-route) { font-weight: 600; }
   :global(.cost-typical) { font: 700 clamp(32px, 6vw, 44px)/1.1 var(--font-mono); }
   :global(.cost-skeleton) { display: grid; gap: 10px; }
   :global(.cost-skeleton [aria-hidden]) { display: block; height: 18px; border-radius: 6px; background: var(--card-2); }
   :global(.cost-skeleton [aria-hidden]:nth-child(2)) { height: 44px; width: 40%; }
-  @media (max-width: 640px) { :global(.cost-body) { grid-template-columns: 1fr; } }
+  :global(.cost-skeleton) { min-height: 190px; }
+  @media (max-width: 640px) { :global(.cost-body) { grid-template-columns: 1fr; } :global(.cost-skeleton) { min-height: 350px; } }
 </style>

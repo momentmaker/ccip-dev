@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DASH, formatAgo, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatLink, formatPct, formatPrice, formatShare, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
+  DASH, formatAgo, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatPct, formatPrice, formatShare, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
 } from '../src/lib/format';
 
 describe('formatUsd', () => {
@@ -139,10 +139,23 @@ describe('formatBps', () => {
 describe('formatShare', () => {
   it.each([
     [20, '20%'],
-    [0.4, '<1%'],
+    [0.7, '0.7%'],
+    [9.96, '10%'],
+    [0.04, '<0.1%'],
     [0, '0%'],
     [null, '—'],
   ])('formats a share of %s as %s', (value, text) => {
     expect(formatShare(value)).toBe(text);
+  });
+});
+
+describe('formatFeeTotal', () => {
+  it.each([
+    [0.02, '$0.02'],
+    [0, '$0'],
+    [812.4, '$812'],
+    [null, '—'],
+  ])('formats a fee total of %s as %s', (value, text) => {
+    expect(formatFeeTotal(value)).toBe(text);
   });
 });

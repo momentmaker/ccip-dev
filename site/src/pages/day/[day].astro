@@ -44,6 +44,7 @@ const delta = (d: DayDelta) => [
   { text: d.vsAvg7 === null ? null : `${formatPct(d.vsAvg7)} vs 7-day avg`, tone: changeTone(d.vsAvg7) },
 ];
 const mix = dayFeeMix(view.row);
+const takeRate = takeRateBps(view.row);
 const tiles = [
   { title: 'Messages', metric: 'messages', value: formatCount(view.row.messages), deltas: delta(view.deltas.messages), sub: null },
   { title: 'Value transferred', metric: 'value', value: formatUsd(view.row.usd_value), deltas: delta(view.deltas.usd_value), sub: null },
@@ -51,7 +52,7 @@ const tiles = [
   { title: 'Token transfers', metric: 'messages', value: formatCount(view.row.token_messages), deltas: [], sub: null },
   { title: 'Median delivery', metric: 'delivery', value: formatDuration(view.row.median_delivery_s), deltas: [], sub: null },
   { title: 'Fees', metric: 'fees', value: formatUsd(view.row.fee_usd), deltas: [], sub: dayFeeLine(view.row) },
-  { title: 'Take rate', metric: 'take_rate', value: formatBps(takeRateBps(view.row)), deltas: [], sub: 'of value moved' },
+  { title: 'Take rate', metric: 'take_rate', value: formatBps(takeRate), deltas: [], sub: takeRate === null ? null : 'of value moved' },
 ] as const;
 ---
 <Base title={`${label} (UTC)`} description={`${formatCount(view.row.messages)} CCIP messages and ${formatUsd(view.row.usd_value)} moved on ${label} (UTC).`} cardPath={`day/${day}`}>

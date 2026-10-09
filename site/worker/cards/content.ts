@@ -2,7 +2,7 @@ import type { HistoryFile, ReserveFile, TodayFile, TopEntry, TopFile } from '@cc
 import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-paths';
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
-import { formatCount, formatLink, formatPct, formatUsd, formatUtcDay } from '../../src/lib/format';
+import { formatCount, formatFeeTotal, formatLink, formatPct, formatUsd, formatUtcDay } from '../../src/lib/format';
 import { chainName, laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
 import { topEntries } from '../../src/lib/top';
 import { computeRecords } from '../../src/lib/records';
@@ -28,7 +28,7 @@ export interface ReplayCardEntry {
 
 const RANGE_LABEL: Record<HistoryRange, string> = { '30d': 'LAST 30 DAYS', '90d': 'LAST 90 DAYS', '1y': 'LAST YEAR', all: 'ALL TIME' };
 const WINDOW_LABEL: Record<Window, string> = { '7d': 'LAST 7 DAYS', '30d': 'LAST 30 DAYS', all: 'ALL TIME' };
-const DIM_LABEL: Record<TopDim, string> = { lane: 'TOP LANE', token: 'TOP TOKEN', sender: 'TOP SENDER', chain: 'TOP CHAIN' };
+const DIM_LABEL: Record<TopDim, string> = { lane: 'TOP LANE', token: 'TOP TOKEN', sender: 'TOP SENDER', chain: 'TOP SOURCE CHAIN' };
 const SPARK_POINTS = 120;
 
 const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;
@@ -112,7 +112,7 @@ export function topCard(top: TopFile, dim: TopDim, window: Window, order: TopOrd
   const entries = topEntries(top, window, order);
   const first = entries[0];
   const byFees = order === 'fees';
-  const amount = (e: TopEntry) => formatUsd(byFees ? e.fee_usd : e.usd);
+  const amount = (e: TopEntry) => byFees ? formatFeeTotal(e.fee_usd) : formatUsd(e.usd);
   return {
     eyebrow: `${DIM_LABEL[dim]}${byFees ? ' BY FEES' : ''} · ${WINDOW_LABEL[window]}`,
     big: first ? entryLabel(first, dim, names) : '—',

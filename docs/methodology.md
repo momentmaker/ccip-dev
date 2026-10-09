@@ -67,11 +67,12 @@
   the range from the 10th to the 90th percentile. Percentiles use the nearest rank: of a route's n fees in ascending
   order, the p-th percentile is the fee at rank ⌈p × n / 100⌉. A route needs at least 5 priced fees in the window. When
   at least 20 of them were paid in LINK, the LINK fees and the other fees (gas tokens, plus the few paid in stablecoins
-  or other tokens) each get their own median. The figures come from `cost.json`, rebuilt at each daily finalize.
+  or other tokens) each get their own median. The figures come from `cost.json`, rebuilt at each finalize run (00:10 and 06:00 UTC).
 - **Take rate** (day pages and History): a day's fees as basis points of the value its messages moved,
   `fee_usd / usd_value × 10,000`; one basis point is 0.01%. A day without fee data, without fees or without value
   moved has none. It is not a profit margin: it compares what senders paid in fees with the value their messages carried.
-- **Fee per message** (day pages): a day's fees divided by its messages, data-only messages included.
+- **Fee per message** (day pages): a day's fees divided by its messages, data-only messages included. Messages whose fee has no price still count in the divisor, so
+  fee per message reads low on routes like Ronin.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage

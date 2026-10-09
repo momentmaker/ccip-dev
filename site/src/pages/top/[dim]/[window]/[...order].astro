@@ -5,7 +5,7 @@ import ShareButton from '../../../../components/ShareButton';
 import Base from '../../../../layouts/Base.astro';
 import { buildData, buildDataIfPublished } from '../../../../lib/build-data';
 import { TOP_DIMS, TOP_ORDERS, WINDOWS, topOrders, type TopDim, type TopOrder, type Window } from '../../../../lib/card-paths';
-import { formatCount, formatFee, formatPct, formatUsd } from '../../../../lib/format';
+import { formatCount, formatFee, formatFeeTotal, formatPct, formatUsd } from '../../../../lib/format';
 import { chainNameMap } from '../../../../lib/names';
 import { TOP_FILE, topEntries, topHref, topRows, typicalFeeMap } from '../../../../lib/top';
 
@@ -17,7 +17,7 @@ export function getStaticPaths() {
 
 const TITLE: Record<TopDim, string> = { lane: 'Top lanes', token: 'Top tokens', sender: 'Top senders', chain: 'Top chains' };
 const NOUN: Record<TopDim, string> = { lane: 'lane', token: 'token', sender: 'sender', chain: 'source chain' };
-const COLUMN: Record<TopDim, string> = { lane: 'Lane', token: 'Token', sender: 'Sender', chain: 'Chain' };
+const COLUMN: Record<TopDim, string> = { lane: 'Lane', token: 'Token', sender: 'Sender', chain: 'Source chain' };
 const WINDOW_LABEL: Record<Window, string> = { '7d': '7 days', '30d': '30 days', all: 'All time' };
 const ORDER_LABEL: Record<TopOrder, string> = { value: 'Value', fees: 'Fees' };
 const dim = Astro.params.dim as TopDim;
@@ -30,7 +30,7 @@ const cost = dim === 'lane' ? await buildDataIfPublished('cost.json') : null;
 const rows = topRows(topEntries(top, window, order), dim, names, { order, typicalFees: typicalFeeMap(cost) });
 const scope = window === 'all' ? `since ${top.since}` : `last ${WINDOW_LABEL[window]}`;
 const heading = `${TITLE[dim]}${byFees ? ' by fees' : ''}`;
-const description = byFees ? `The 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.` : `The 100 busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
+const description = byFees ? `Up to 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.` : `Up to 100 of the busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
 const cardPath = `top/${dim}/${window}${byFees ? '/fees' : ''}`;
 const leader = rows[0];
 const feesAfter = !byFees && rows.some((r) => r.fee !== null);
@@ -80,11 +80,11 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
                 <ChainIcons selectors={r.chains} />{r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}
                 {r.secondary && <span class="secondary">{r.secondary}</span>}
               </td>
-              {byFees && <td class="num">{formatUsd(r.fee)}</td>}
+              {byFees && <td class="num">{formatFeeTotal(r.fee)}</td>}
               <td class="num">{formatCount(r.messages)}</td>
               <td class="num">{formatUsd(r.usd)}</td>
               <td class="num muted">{r.sharePct === null ? '—' : formatPct(r.sharePct).replace('+', '')}</td>
-              {feesAfter && <td class="num">{formatUsd(r.fee)}</td>}
+              {feesAfter && <td class="num">{formatFeeTotal(r.fee)}</td>}
               {dim === 'lane' && <td class="num">{formatFee(r.typicalFee)}</td>}
             </tr>
           ))}
@@ -92,5 +92,5 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
       </table>
     </div>
   )}
-  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. Labels appear only for verified senders.{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
+  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. {dim === 'sender' && 'Labels appear only for verified senders.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
 </Base>

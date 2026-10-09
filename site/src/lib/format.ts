@@ -38,8 +38,14 @@ export function formatBps(value: number | null | undefined): string {
 /** A part of a whole, unsigned; formatPct signs changes. */
 export function formatShare(pct: number | null | undefined): string {
   if (!usable(pct)) return DASH;
-  if (pct > 0 && pct < 1) return '<1%';
-  return `${Math.round(pct)}%`;
+  if (pct === 0) return '0%';
+  if (pct < 0.1) return '<0.1%';
+  return pct < 9.95 ? `${pct.toFixed(1)}%` : `${Math.round(pct)}%`;
+}
+
+/** A total of fees: under a dollar keeps cents, where formatUsd would round to "$0". */
+export function formatFeeTotal(value: number | null | undefined): string {
+  return usable(value) && value > 0 && value < 1 ? formatFee(value) : formatUsd(value);
 }
 
 export function formatUsdFull(value: number | null | undefined): string {
