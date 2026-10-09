@@ -1,9 +1,20 @@
 import type { TodayFile } from '@ccip-dev/core/public';
-import { formatCount, formatUsd } from '../../lib/format';
+import type { HeroFees } from '../../lib/fee-revenue';
+import { formatCount, formatUsd, formatUtcDay } from '../../lib/format';
 import { useCountUp } from '../hooks';
 import InfoLink from '../InfoLink';
 
-export default function Headline({ today, yesterday, animate }: { today: TodayFile; yesterday: { messages: number; usd_value: number; fee_usd: number | null } | null; animate: boolean | null }) {
+export default function Headline({
+  today,
+  yesterday,
+  animate,
+  allTime = null,
+}: {
+  today: TodayFile;
+  yesterday: { messages: number; usd_value: number; fee_usd: number | null } | null;
+  animate: boolean | null;
+  allTime?: HeroFees | null;
+}) {
   const messages = useCountUp(today.totals.messages, animate);
   const usd = useCountUp(today.totals.usd_value, animate);
   const fees = useCountUp(today.totals.fee_usd ?? 0, animate);
@@ -30,6 +41,20 @@ export default function Headline({ today, yesterday, animate }: { today: TodayFi
         <p className="muted small">
           Yesterday: {formatCount(yesterday.messages)} messages · {formatUsd(yesterday.usd_value)}
           {yesterday.fee_usd !== null && ` · ${formatUsd(yesterday.fee_usd)} fees`}
+        </p>
+      )}
+      {allTime && (
+        <p className="muted small">
+          <a className="headline-fees" href="/records/#fees">
+            {allTime.since ? `Fees since ${formatUtcDay(allTime.since)}` : 'All-time fees'}: <span className="mono">{formatUsd(allTime.usd)}</span>
+            {allTime.runRateUsd !== null && (
+              <>
+                {' · '}
+                <span className="mono">{formatUsd(allTime.runRateUsd)}</span>/yr at the 30-day pace
+              </>
+            )}{' '}
+            <span aria-hidden="true">→</span>
+          </a>
         </p>
       )}
     </div>

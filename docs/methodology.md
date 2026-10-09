@@ -56,6 +56,9 @@
   changes total fees.
 - **LINK paid:** each LINK fee's amount, `amount / 10^decimals`, counted whether or not the fee has a USD price. The
   decimals come from the CCIP token registry, are 18 for Ethereum LINK, and were read on chain for the 13 chains above.
+- **All-time fees** (home page): every day in history plus today so far, from the first day with fees. Until fee data
+  reaches back to 2023-07-06, the line reads "Fees since <day>" instead of "All-time fees".
+- **Run-rate:** the fees of the last 30 complete days × 365 / 30. It is shown once all 30 of those days have fees.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage

@@ -6,6 +6,7 @@ import Base from '../layouts/Base.astro';
 import { buildData } from '../lib/build-data';
 import { newestFirst } from '../components/home/Feed';
 import { iconHref } from '../lib/chain-icons';
+import { feeHistoryTotals } from '../lib/fee-revenue';
 import { chainNameMap } from '../lib/names';
 import { computeRecords } from '../lib/records';
 import { COINS_WIDE } from '../sky/coins';
@@ -50,6 +51,7 @@ const next = reserve.pace?.next_expected_deposit ?? null;
     today={today}
     recentDays={history.days.slice(-3)}
     records={records}
+    feeTotals={feeHistoryTotals(history.days)}
   >
     <Fragment set:html={fallbackSvg} />
   </HomeLive>

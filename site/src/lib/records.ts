@@ -28,6 +28,9 @@ export interface RecordBreak {
   text: string;
 }
 
+/** The first CCIP mainnet message's day; fee figures name their first day until fee data reaches back to it. */
+export const FEE_DATA_START = '2023-07-06';
+
 export const FASTEST_MIN_MESSAGES = 100;
 const KIND_ORDER: MilestoneKind[] = ['messages', 'value', 'chains', 'join'];
 const CHAIN_STEP = 25;

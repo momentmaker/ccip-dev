@@ -1,6 +1,7 @@
 import type { DayTotals, LiveMessage, TodayFile } from '@ccip-dev/core/public';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { trackDataError, track } from '../../lib/analytics';
+import { heroFees, type FeeHistoryTotals } from '../../lib/fee-revenue';
 import { formatCount, formatUsd } from '../../lib/format';
 import { LiveScheduler, pruneStale, type Planned } from '../../lib/live-scheduler';
 import { laneLabel } from '../../lib/names';
@@ -28,6 +29,7 @@ export interface HomeLiveProps {
   today: TodayFile;
   recentDays: DayTotals[];
   records: DayRecord[];
+  feeTotals: FeeHistoryTotals | null;
   children?: ReactNode;
 }
 
@@ -143,6 +145,7 @@ export default function HomeLive(props: HomeLiveProps) {
     props.records,
   );
   const yesterday = yesterdayFor(props.recentDays, today.day) ?? (rolledOver && rolledOver.day === previousDay(today.day) ? rolledOver : null);
+  const allTime = heroFees(props.feeTotals, [yesterday, { day: today.day, fee_usd: today.totals.fee_usd }]);
   const headline = `${formatCount(today.totals.messages)} CCIP messages today`;
 
   return (
@@ -168,7 +171,7 @@ export default function HomeLive(props: HomeLiveProps) {
           ))}
         </div>
         <div className="hero-overlay">
-          <Headline today={today} yesterday={yesterday} animate={motion === null ? null : !motion} />
+          <Headline today={today} yesterday={yesterday} animate={motion === null ? null : !motion} allTime={allTime} />
         </div>
         <div className="hero-toolbar">
           <span className="arrived">

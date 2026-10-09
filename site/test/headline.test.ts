@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import Headline from '../src/components/home/Headline';
+import type { HeroFees } from '../src/lib/fee-revenue';
 import todayJson from './fixtures/today.json';
 
 const fixture = todayJson as unknown as TodayFile;
@@ -49,5 +50,39 @@ describe('Headline fees', () => {
 
     // #then
     expect(text(html)).toMatch(/Yesterday: 1,121 messages · \$9\.0M(?! · )/);
+  });
+});
+
+describe('Headline all-time fees', () => {
+  const allTime = (over: Partial<HeroFees> = {}): HeroFees => ({ usd: 2_345_678, runRateUsd: 1_234_567, since: null, ...over });
+  const yesterday = { messages: 2795, usd_value: 58.6e6, fee_usd: 1538.19 };
+
+  it('adds the all-time fees and the 30-day run-rate under the yesterday line', () => {
+    // #given
+    const html = render({ today: today(807.98), yesterday, animate: false, allTime: allTime() });
+    // #then
+    expect(text(html)).toMatch(/Yesterday: .*All-time fees: \$2\.3M · \$1\.2M\/yr at the 30-day pace →/);
+  });
+
+  it('links the line to the fee records', () => {
+    // #given
+    const html = render({ today: today(807.98), yesterday, animate: false, allTime: allTime() });
+    // #then
+    expect(html).toMatch(/<a[^>]*href="\/records\/#fees"[^>]*>All-time fees/);
+  });
+
+  it('reads "since" the first fee day while fee coverage starts after 2023-07-06', () => {
+    const html = render({ today: today(807.98), yesterday, animate: false, allTime: allTime({ since: '2026-10-05' }) });
+    expect(text(html)).toContain('Fees since Oct 5, 2026: $2.3M');
+  });
+
+  it('leaves the run-rate out while fewer than 30 days have fees', () => {
+    const html = render({ today: today(807.98), yesterday, animate: false, allTime: allTime({ runRateUsd: null }) });
+    expect(text(html)).toMatch(/All-time fees: \$2\.3M →(?!.*\/yr)/);
+  });
+
+  it('shows no all-time line without fee history', () => {
+    const html = render({ today: today(807.98), yesterday, animate: false, allTime: null });
+    expect(text(html)).not.toContain('All-time');
   });
 });
