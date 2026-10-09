@@ -40,6 +40,9 @@ export const DayTotalsSchema = z.object({
   median_delivery_s: z.number().nullable(),
   unpriced_messages: z.number(),
   fee_link_usd: z.number().nullable(),
+  fee_native_usd: z.number().nullable().optional(),
+  fee_stable_usd: z.number().nullable().optional(),
+  fee_link_amount: z.number().nullable().optional(),
 });
 
 export const TopEntrySchema = z.object({
@@ -59,7 +62,21 @@ export const TodayFileSchema = z.object({
   arrivals: z.array(z.object({ kind: z.string(), key: z.string(), first_seen: z.string() })),
 });
 
-export const HistoryFileSchema = z.object({ ...envelope, since: z.string().nullable(), days: z.array(DayTotalsSchema) });
+export const LargestFeeSchema = z.object({
+  message_id: z.string(),
+  day: z.string(),
+  src: z.string(),
+  dst: z.string(),
+  fee_usd: z.number(),
+  symbol: z.string().nullable(),
+});
+
+export const HistoryFileSchema = z.object({
+  ...envelope,
+  since: z.string().nullable(),
+  days: z.array(DayTotalsSchema),
+  largest_fees: z.array(LargestFeeSchema).optional(),
+});
 
 export const TopFileSchema = z.object({
   ...envelope,
@@ -183,6 +200,7 @@ export type StatusFile = z.infer<typeof StatusFileSchema>;
 export type LiveMessage = z.infer<typeof LiveMessageSchema>;
 export type LiveFile = z.infer<typeof LiveFileSchema>;
 export type DayTotals = z.infer<typeof DayTotalsSchema>;
+export type LargestFee = z.infer<typeof LargestFeeSchema>;
 export type TopEntry = z.infer<typeof TopEntrySchema>;
 export type TodayFile = z.infer<typeof TodayFileSchema>;
 export type HistoryFile = z.infer<typeof HistoryFileSchema>;

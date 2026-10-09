@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
-import { buildLabelIndex, LINK_PRICE_KEY, toChecksumAddress } from '@ccip-dev/core';
+import { buildLabelIndex, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
@@ -287,7 +287,66 @@ describe('history.json for a day without fee data', () => {
     );
     await publishHistoryFiles(harness({ now: '2026-10-08T12:00:00.000Z' }).c);
     const history = await readPublic('history.json');
-    expect(history.days.find((d: { day: string }) => d.day === '2026-09-01')).toMatchObject({ fee_usd: null, fee_link_usd: null });
+    expect(history.days.find((d: { day: string }) => d.day === '2026-09-01')).toMatchObject({ fee_usd: null, fee_link_usd: null, fee_native_usd: null, fee_stable_usd: null, fee_link_amount: null });
+  });
+});
+
+describe('history.json fee groups and largest fees', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const DAY = '2026-10-07';
+  const WETH = '0x4200000000000000000000000000000000000006';
+  const BSC = '11344663589394136015';
+  const totals = (fee: number | null) => ({ day: DAY, messages: 3, token_messages: 0, usd_value: 0, fee_usd: fee, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
+  const feeRow = (id: string, usd: number, extra: Parameters<typeof liveRow>[0] = { id, sendTs: `${DAY}T10:00:00.000Z` }, token = WETH) =>
+    liveRow({ ...extra, id }, { fee_token: token, fee_amount: '1', fee_usd: usd });
+
+  it("publishes each day's fees by group and its LINK paid in LINK", async () => {
+    // #given
+    await store.replaceDaily(env.DB, totals(6), [], NOW);
+    await store.setFeeGroupTotals(env.DB, DAY, { link_usd: 1, native_usd: 2, stable_usd: 3, link_amount: 0.123456 });
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const day = (await readPublic('history.json')).days.find((d: { day: string }) => d.day === DAY);
+    expect(day).toMatchObject({ fee_usd: 6, fee_link_usd: 1, fee_native_usd: 2, fee_stable_usd: 3, fee_link_amount: 0.12 });
+  });
+
+  it('lists the 10 largest single fees of the days history.json holds, largest first', async () => {
+    // #given twelve fees on DAY and a larger one today, which history.json does not hold yet
+    await store.replaceDaily(env.DB, totals(78), [], NOW);
+    await store.upsertListRows(env.DB, [
+      ...Array.from({ length: 12 }, (_, i) => feeRow(`f${i + 1}`, i + 1)),
+      feeRow('today', 99, { id: 'today', sendTs: '2026-10-08T10:00:00.000Z' }),
+    ], []);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('history.json')).largest_fees.map((f: { message_id: string }) => f.message_id)).toEqual(['f12', 'f11', 'f10', 'f9', 'f8', 'f7', 'f6', 'f5', 'f4', 'f3']);
+  });
+
+  it('gives each largest fee its route as chain selectors and its fee token symbol', async () => {
+    // #given a WETH fee on Base, an Ethereum LINK fee and a fee in an ungrouped token
+    await store.replaceDaily(env.DB, totals(60.456), [], NOW);
+    await store.upsertListRows(env.DB, [
+      feeRow('weth', 30.456),
+      feeRow('link', 20, { id: 'link', sendTs: `${DAY}T11:00:00.000Z`, src: NETWORKS.ethereum }, LINK_TOKEN),
+      feeRow('other', 10, { id: 'other', sendTs: `${DAY}T12:00:00.000Z` }, '0x1111111111111111111111111111111111111111'),
+    ], []);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('history.json')).largest_fees).toEqual([
+      { message_id: 'weth', day: DAY, src: BASE, dst: BSC, fee_usd: 30.46, symbol: 'WETH' },
+      { message_id: 'link', day: DAY, src: NETWORKS.ethereum.chainSelector, dst: BSC, fee_usd: 20, symbol: 'LINK' },
+      { message_id: 'other', day: DAY, src: BASE, dst: BSC, fee_usd: 10, symbol: null },
+    ]);
+  });
+
+  it('reads the largest fees through idx_messages_fee_usd', async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.LARGEST_FEES_SQL}`).bind(DAY, 10).all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX idx_messages_fee_usd');
   });
 });
 

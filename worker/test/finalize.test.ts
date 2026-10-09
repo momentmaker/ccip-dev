@@ -265,8 +265,8 @@ describe('runFinalize', () => {
       'messages/2026/10/09.jsonl.gz': ['d9b', 'd9a'],
     },
     history: [
-      { day: '2026-10-08', messages: 3, token_messages: 1, usd_value: 2, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null },
-      { day: '2026-10-09', messages: 2, token_messages: 1, usd_value: 24000.58, fee_usd: 0.27, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: 0 },
+      { day: '2026-10-08', messages: 3, token_messages: 1, usd_value: 2, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null, fee_native_usd: null, fee_stable_usd: null, fee_link_amount: null },
+      { day: '2026-10-09', messages: 2, token_messages: 1, usd_value: 24000.58, fee_usd: 0.27, unique_senders: 1, median_delivery_s: 60, unpriced_messages: 0, fee_link_usd: 0, fee_native_usd: 0.27, fee_stable_usd: 0, fee_link_amount: 0 },
     ],
     topLanes: {
       '7d': [{ key: '15971525489660198786>11344663589394136015', messages: 5, usd: 24002.58, fee_usd: 0.27 }],

@@ -1,4 +1,4 @@
-import { addDays, dayOf, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type PricedTransfer } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
@@ -46,6 +46,12 @@ export async function putJson(
 export function usd(value: number | null): number | null {
   return value === null ? null : Math.round(value * 100) / 100;
 }
+
+export function linkAmount(value: number | null): number | null {
+  return value === null ? null : Math.round(value * 100) / 100;
+}
+
+const LARGEST_FEES_LIMIT = 10;
 
 function feeLinkShare(feeLinkUsd: number | null, feeUsd: number | null): number | null {
   return feeLinkUsd === null || feeUsd === null || feeUsd === 0 ? null : Math.round((feeLinkUsd / feeUsd) * 10_000) / 100;
@@ -237,12 +243,36 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
   const db = c.env.DB;
   const history = await store.dailyHistory(db);
-  const feeLink = await store.feeLinkByDay(db);
+  const groups = await store.feeGroupsByDay(db);
+  const classify = feeClassifier(await store.linkFeeTokens(db));
+  const largest = await store.largestFees(db, history.at(-1)?.day ?? '', LARGEST_FEES_LIMIT);
   const since = (await store.getMeta(db, 'coverage_from')) ?? history[0]?.day ?? null;
   await putJson(
     c.env.PUBLIC,
     'history.json',
-    { since, days: history.map((d) => ({ ...d, usd_value: usd(d.usd_value), fee_usd: usd(d.fee_usd), fee_link_usd: usd(feeLink.get(d.day) ?? null) })) },
+    {
+      since,
+      days: history.map((d) => {
+        const g = groups.get(d.day);
+        return {
+          ...d,
+          usd_value: usd(d.usd_value),
+          fee_usd: usd(d.fee_usd),
+          fee_link_usd: usd(g?.link_usd ?? null),
+          fee_native_usd: usd(g?.native_usd ?? null),
+          fee_stable_usd: usd(g?.stable_usd ?? null),
+          fee_link_amount: linkAmount(g?.link_amount ?? null),
+        };
+      }),
+      largest_fees: largest.map((r) => ({
+        message_id: r.message_id,
+        day: r.day,
+        src: r.src_chain,
+        dst: r.dst_chain,
+        fee_usd: usd(r.fee_usd)!,
+        symbol: r.fee_token === null ? null : classify(r.src_chain, r.fee_token).symbol,
+      })),
+    },
     TTL.history,
     now,
   );

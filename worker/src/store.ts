@@ -654,9 +654,29 @@ export async function setFeeGroupTotals(db: D1Database, day: string, groups: Fee
     .run();
 }
 
-export async function feeLinkByDay(db: D1Database): Promise<Map<string, number | null>> {
-  const { results } = await db.prepare('SELECT day, fee_link_usd FROM daily_totals').all<{ day: string; fee_link_usd: number | null }>();
-  return new Map(results.map((r) => [r.day, r.fee_link_usd]));
+export async function feeGroupsByDay(db: D1Database): Promise<Map<string, FeeGroupTotals>> {
+  const { results } = await db
+    .prepare('SELECT day, fee_link_usd, fee_native_usd, fee_stable_usd, fee_link_amount FROM daily_totals')
+    .all<{ day: string; fee_link_usd: number | null; fee_native_usd: number | null; fee_stable_usd: number | null; fee_link_amount: number | null }>();
+  return new Map(results.map((r) => [r.day, { link_usd: r.fee_link_usd, native_usd: r.fee_native_usd, stable_usd: r.fee_stable_usd, link_amount: r.fee_link_amount }]));
+}
+
+/** ORDER BY fee_usd alone, so idx_messages_fee_usd yields the rows in order and LIMIT stops the scan. */
+export const LARGEST_FEES_SQL =
+  'SELECT message_id, day, src_chain, dst_chain, fee_token, fee_usd FROM messages WHERE fee_usd IS NOT NULL AND day <= ? ORDER BY fee_usd DESC LIMIT ?';
+
+export interface LargestFeeRow {
+  message_id: string;
+  day: string;
+  src_chain: string;
+  dst_chain: string;
+  fee_token: string | null;
+  fee_usd: number;
+}
+
+export async function largestFees(db: D1Database, throughDay: string, limit: number): Promise<LargestFeeRow[]> {
+  const { results } = await db.prepare(LARGEST_FEES_SQL).bind(throughDay, limit).all<LargestFeeRow>();
+  return results;
 }
 
 export async function laneHistory(db: D1Database): Promise<LaneDayRow[]> {

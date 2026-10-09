@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, type PublicFileName } from '../src/public';
+import { HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -28,6 +28,25 @@ const envelope = { schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', at
 const emptyStatus = { ...envelope, last_ingest_ok_at: null, lag_seconds: null, last_finalize_day: null, coverage_from: null };
 
 describe('public file schemas', () => {
+  it('parses history.json with and without fee groups and the largest fees', () => {
+    // #given one file from after the fee groups and one from before
+    const day = { day: '2026-10-07', messages: 3, token_messages: 0, usd_value: 0, fee_usd: 6, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: 1 };
+    const after = {
+      ...envelope, since: '2023-07-06',
+      days: [{ ...day, fee_native_usd: 2, fee_stable_usd: 3, fee_link_amount: 0.1 }],
+      largest_fees: [{ message_id: '0xabc', day: '2026-10-07', src: '1', dst: '2', fee_usd: 3, symbol: null }],
+    };
+    const before = { ...envelope, since: '2023-07-06', days: [day] };
+    // #when
+    const parsed = HistoryFileSchema.parse(after);
+    // #then the new fields survive parsing, and the older file still parses
+    expect({ largest: parsed.largest_fees?.length, linkAmount: parsed.days[0]?.fee_link_amount, before: HistoryFileSchema.safeParse(before).success }).toEqual({
+      largest: 1,
+      linkAmount: 0.1,
+      before: true,
+    });
+  });
+
   it.each(CAPTURED)('parse the captured production %s', (name, body) => {
     expect(PUBLIC_SCHEMAS[name].safeParse(body).error?.issues ?? []).toEqual([]);
   });
