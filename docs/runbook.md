@@ -146,6 +146,22 @@ Use `last_archived_day` in place of `last_finalize_day` for the second key.
   - The 06:00 run re-fills a day's missing details when it archives that day. For a day already archived, rewind `last_archived_day` too.
 - **A day that fails** (`job-failed:finalize` names it) holds its own run's pointer: `last_finalize_day` for the 00:10 run, `last_archived_day` for the 06:00 run. The later days in the same run still finalize and publish, and the next run of that kind retries it.
 
+### Re-price live fees after an alias change
+
+The Worker values a live message's fee once, at detail time, so live rows whose fee token was added to `FEE_PRICE_ALIASES` later keep `fee_usd` NULL. This recipe prices them from an exported list.
+
+1. **Deploy the Worker with the new table first.** The old Worker's `applyDetail` would reset `fee_usd` on a refill.
+2. **Export the candidates** (read-only), with `<from>` the first live day (2026-10-05 for the first run):
+   `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --json --command "SELECT m.message_id, m.day, m.src_chain, c.chain_id, c.family, m.fee_token, m.fee_amount FROM messages m JOIN chains c ON c.selector = m.src_chain WHERE m.source = 'live' AND m.day >= '<from>' AND m.fee_usd IS NULL AND m.fee_token IS NOT NULL AND m.detail_fetched_at IS NOT NULL" > candidates.json`
+3. **Generate the SQL:** `pnpm backfill:fees:reprice-live --from <from> --in candidates.json`. It keeps only rows whose chain and token together are in the table, prices each at its day's coin price, writes `.backfill/fees/reprice-live-<from>.sql` and prints per-day and per-chain counts and USD sums, the total, and the rows left unpriced with the reason. Read the totals.
+4. **Owner applies it,** outside 23:55–00:30 and 05:50–06:20 UTC:
+   `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --file=<absolute path to the sql>`
+   Each statement only touches a row still unpriced with the same chain, token and amount, so a rerun is safe.
+5. **Owner rewinds `last_finalize_day`** to the day before `<from>`, as in "Re-finalize a day":
+   `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE meta SET value = '<day before from>' WHERE key = 'last_finalize_day'"`
+   Finalize redoes at most 3 days per run at 00:10, plus yesterday at 06:00, so catching up N days takes about N/2 days.
+6. **Verify:** rerun the export; it should list only rows with no price for their day.
+
 ### Accept a real price jump
 
 A key whose price moved more than 20× keeps its stored price, and both the prices job and detail fills keep rejecting
@@ -243,9 +259,14 @@ Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one 
      - `check: <day> has <n> messages with an unknown fee shape; hold this batch and inspect .backfill/fees/unparsed/`: the build writes no fee for those messages, so their rows stay unfilled and can be filled later. The day's rollups count them with no fee, so its fees read low.
      - `largest fee: …`: the 10 largest fees.
    - **Fee price table:** a change to `FEE_PRICE_ALIASES` in `packages/core/src/fee-aliases.ts` makes the next build rebuild every sealed day into one new batch (`the fee price table changed since the last build; building every sealed day again`). That is expected, and its upload is safe: it fills the fees still NULL, leaves priced fees alone and recomputes the rollups.
+   - **Correcting a wrong alias entry** (for example wrong decimals): priced rows are never overwritten, so first reset the fee of the affected rows, scoped by chain and token, outside the finalize windows:
+     - backfill rows: `UPDATE messages SET fee_usd = NULL WHERE source = 'backfill' AND src_chain = '<sel>' AND fee_token = '<tok>';`
+     - live rows: the same with `source = 'live'`.
+
+     Then rebuild and upload the backfill, run "Re-price live fees after an alias change", and re-finalize.
    - **Read the checks before the next upload.** Upload applies every `B<NNNN>` folder that has a `BUILD` file, in order, with no per-batch choice. Don't upload a batch with an outlier, low-priced or unknown-shape day you can't explain.
    - **Hold back or redo a batch not uploaded yet:**
-     1. Delete its folder, `.backfill/fees/sql/B<NNNN>/`. Never set it aside to restore later. A message keeps the fee of the first batch that fills it, while a day's rollups take the last batch applied, so the upload refuses a batch numbered below one already uploaded.
+     1. Delete its folder, `.backfill/fees/sql/B<NNNN>/`. Never set it aside to restore later. A message keeps the fee of the first batch that prices it (a NULL fee is overwritten), while a day's rollups take the last batch applied, so the upload refuses a batch numbered below one already uploaded.
      2. Remove every day it holds from `built` in `.backfill/fees/build-state.json`. `.backfill/fees/checks/B<NNNN>.json` lists them. This command does it for `B0007`:
         `node -e 'const fs=require("fs"),f=".backfill/fees/build-state.json",s=JSON.parse(fs.readFileSync(f));for(const c of JSON.parse(fs.readFileSync(".backfill/fees/checks/"+process.argv[1]+".json")).checks)delete s.built[c.day];fs.writeFileSync(f,JSON.stringify(s))' B0007`
      3. Once the cause is fixed, build again. The days come out in a new, higher-numbered batch.

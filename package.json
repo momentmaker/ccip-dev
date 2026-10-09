@@ -12,6 +12,7 @@
     "backfill:build": "tsx scripts/backfill/build.ts",
     "backfill:upload": "tsx --env-file=.env scripts/backfill/upload.ts",
     "backfill:fees:build": "tsx scripts/backfill/fees/build.ts",
+    "backfill:fees:reprice-live": "tsx scripts/backfill/fees/reprice-live.ts",
     "backfill:fees:fetch": "tsx scripts/backfill/fees/fetch.ts",
     "backfill:fees:upload": "tsx --env-file=.env scripts/backfill/fees/upload.ts",
     "endpoints:refresh": "tsx scripts/refresh-endpoints.ts",
