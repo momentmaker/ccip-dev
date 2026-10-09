@@ -27,3 +27,12 @@ export function daysBetween(from: string, to: string): string[] {
   for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
   return days;
 }
+
+const DAY_MS = 86_400_000;
+
+/** The Monday (UTC) of the week holding `iso`, as YYYY-MM-DD; the Reserve's weekly deposits use the same weeks. */
+export function weekStart(iso: string): string {
+  const midnight = Date.parse(dayStartIso(dayOf(iso)));
+  const sinceMonday = (new Date(midnight).getUTCDay() + 6) % 7;
+  return dayOf(new Date(midnight - sinceMonday * DAY_MS));
+}

@@ -1,12 +1,40 @@
 ---
+import LinkDemandCharts from '../components/LinkDemandCharts';
 import ReserveView from '../components/ReserveView';
 import Base from '../layouts/Base.astro';
 import { buildData } from '../lib/build-data';
+import { feesBesideDeposits, linkDemandTiles, mixCoverageNote, mixWeeks, weeklyFees } from '../lib/fee-mix';
+import { DASH, formatLink, formatUtcDay, linkShareText } from '../lib/format';
+import '../styles/history.css';
 
-const reserve = await buildData('reserve.json');
+const [reserve, history] = await Promise.all([buildData('reserve.json'), buildData('history.json')]);
+const weeks = weeklyFees(history.days);
+const tiles = linkDemandTiles(history.days);
 ---
-<Base title="Chainlink Reserve" description="The Chainlink Reserve's LINK: cost basis vs value now, weekly deposit cadence, pace and every transfer." cardPath="reserve">
+<Base title="Chainlink Reserve" description="The Chainlink Reserve's LINK: cost basis vs value now, weekly deposit cadence, pace, every transfer, and the LINK paid in CCIP fees." cardPath="reserve">
   <ReserveView client:load initial={reserve} />
+  <section class="link-demand" aria-labelledby="link-demand">
+    <h2 id="link-demand">LINK demand</h2>
+    <p class="muted">CCIP fees paid in LINK, next to the fees paid in gas tokens and stablecoins, and beside the Reserve's deposits.</p>
+    <div class="tiles wrap-labels">
+      <div class="tile">
+        <span class="label">LINK paid in fees</span>
+        <p class="value">{formatLink(tiles.allTimeLink)}</p>
+        <span class="sub">{tiles.linkSince ? `all-time, since ${formatUtcDay(tiles.linkSince)}` : DASH}</span>
+      </div>
+      <div class="tile">
+        <span class="label">LINK paid, last 30 days</span>
+        <p class="value">{formatLink(tiles.last30Link)}</p>
+        <span class="sub">{tiles.last30Note ?? 'complete days'}</span>
+      </div>
+      <div class="tile">
+        <span class="label">Share of fees, last 30 days</span>
+        <p class="value">{tiles.last30SharePct === null ? DASH : linkShareText(tiles.last30SharePct)}</p>
+        <span class="sub">USD paid in LINK over all fees</span>
+      </div>
+    </div>
+    <LinkDemandCharts client:visible mix={mixWeeks(weeks)} beside={feesBesideDeposits(weeks, reserve.weekly)} mixFrom={mixCoverageNote(history.days, weeks)} />
+  </section>
 </Base>
 
 <style>
@@ -20,5 +48,7 @@ const reserve = await buildData('reserve.json');
   :global(.coin) { fill: #c9d6f5; opacity: 0; animation: coin-drop 1.1s var(--ease) both; animation-delay: calc(var(--i) * 80ms); }
   @keyframes coin-drop { from { transform: translateY(-260px); opacity: 0; } 30% { opacity: 1; } 80% { opacity: 1; } to { transform: translateY(0); opacity: 0; } }
   :global(.countdown-overdue) { color: var(--warn); }
+  .link-demand { margin-top: 32px; }
+  .link-demand .tiles { margin: 12px 0 16px; }
   @media (max-width: 640px) { :global(.reserve-grid) { grid-template-columns: 1fr; } }
 </style>

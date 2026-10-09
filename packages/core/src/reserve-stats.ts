@@ -1,4 +1,4 @@
-import { dayOf } from './time';
+import { dayOf, weekStart } from './time';
 import { toUnits } from './value';
 
 export const DEPOSIT_MIN_LINK = 1_000;
@@ -87,12 +87,6 @@ const round = (value: number, digits: number) => {
 const roundOrNull = (value: number | null, digits: number) => (value === null ? null : round(value, digits));
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 const mondayMs = (iso: string) => Date.parse(`${weekStart(iso)}T00:00:00.000Z`);
-
-export function weekStart(iso: string): string {
-  const midnight = Date.parse(`${dayOf(iso)}T00:00:00.000Z`);
-  const sinceMonday = (new Date(midnight).getUTCDay() + 6) % 7;
-  return dayOf(new Date(midnight - sinceMonday * DAY_MS));
-}
 
 function weeks(deposits: Row[], now: Date): WeekView[] {
   if (deposits.length === 0) return [];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { reserveStats, weekStart, type PricedTransfer } from '../src/reserve-stats';
+import { reserveStats, type PricedTransfer } from '../src/reserve-stats';
+import { weekStart } from '../src/time';
 
 const raw = (link: number) => (BigInt(Math.round(link * 100)) * 10n ** 16n).toString();
 const D = '0x5680681ed3767b96914ce741a308155c7fb9171d';

@@ -132,6 +132,10 @@ All data sources are free:
   to 7 LINK) count toward the balance and the cost basis, but not toward pace, weekly deposits or performance.
 - **Weekly:** UTC weeks starting Monday. The weekly USD is the deposit-time value of the LINK deposited, not
   Chainlink's revenue.
+- **LINK demand:** LINK paid in fees is the LINK amount of each day's LINK fees (see Fees). The weekly fee mix, and the
+  weekly fees beside the Reserve's deposits, use the same Monday UTC weeks as the weekly deposits, and leave out any week
+  that fee data covers only in part. Fees and deposits are shown side by side only: the Reserve does not publish which
+  revenue each deposit came from.
 - **Pace:** the 4-week figures average the last four complete weeks. The milestone date assumes that pace continues.
 - **Cadence:** the average gap between deposits; the next deposit is expected at the last deposit plus the median gap, and is flagged overdue 24 hours after that; the streak counts consecutive deposits no more than 8 days apart.
 
