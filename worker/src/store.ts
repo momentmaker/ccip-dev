@@ -563,18 +563,27 @@ export async function trailingUsdMedian(db: D1Database, day: string, days: numbe
   return values.length % 2 === 1 ? values[mid]! : (values[mid - 1]! + values[mid]!) / 2;
 }
 
+export type TopOrder = 'value' | 'fees';
+
+/** By fees, a key with no fee data in the window has nothing to rank by, so it is left out. */
+const TOP_ORDER_SQL: Record<TopOrder, string> = {
+  value: 'ORDER BY usd_value DESC, messages DESC',
+  fees: 'HAVING SUM(fee_usd) IS NOT NULL ORDER BY fee_usd DESC, usd_value DESC',
+};
+
 export async function topBetween(
   db: D1Database,
   dim: Dim,
   fromDay: string | null,
   toDay: string,
   limit: number,
+  order: TopOrder,
 ): Promise<{ key: string; messages: number; usd_value: number; fee_usd: number | null }[]> {
   const { results } = await db
     .prepare(
       `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
        FROM daily_breakdown WHERE dim = ? AND day >= ? AND day <= ?
-       GROUP BY key ORDER BY usd_value DESC, messages DESC LIMIT ?`,
+       GROUP BY key ${TOP_ORDER_SQL[order]} LIMIT ?`,
     )
     .bind(dim, fromDay ?? '0000-00-00', toDay, limit)
     .all<{ key: string; messages: number; usd_value: number; fee_usd: number | null }>();

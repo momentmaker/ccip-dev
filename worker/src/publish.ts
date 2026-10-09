@@ -239,6 +239,9 @@ export async function publishRegistryFiles(c: RunContext): Promise<void> {
 
 const DIMS: Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender'];
 
+/** Token rows carry no fees: a message's fee is not split across its tokens, so there is nothing to rank them by. */
+const FEE_DIMS: ReadonlySet<Dim> = new Set<Dim>(['src_chain', 'dst_chain', 'lane', 'sender']);
+
 export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
   const db = c.env.DB;
@@ -281,11 +284,13 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const lastDay = addDays(today, -1);
   const names = await store.chainNames(db);
   for (const dim of DIMS) {
-    const windows = {
-      '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100),
-      '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100),
-      all: await store.topBetween(db, dim, null, lastDay, 100),
-    };
+    const ranked = async (order: store.TopOrder) => ({
+      '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
+      '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100, order),
+      all: await store.topBetween(db, dim, null, lastDay, 100, order),
+    });
+    const windows = await ranked('value');
+    const byFees = FEE_DIMS.has(dim) ? await ranked('fees') : null;
     const symbols =
       dim === 'token'
         ? await store.tokenSymbols(db, Object.values(windows).flatMap((rows) => rows.map((r) => splitTokenKey(r.key))))
@@ -299,10 +304,11 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
         ...(dim === 'token' ? { symbol: symbolOf(symbols, r.key) } : {}),
         ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
       }));
+    const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
     await putJson(
       c.env.PUBLIC,
       `top/${dim}.json`,
-      { dim, since, windows: { '7d': entries(windows['7d']), '30d': entries(windows['30d']), all: entries(windows.all) } },
+      { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}) },
       TTL.top,
       now,
     );

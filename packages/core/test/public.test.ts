@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, type PublicFileName } from '../src/public';
+import { HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -28,6 +28,16 @@ const envelope = { schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', at
 const emptyStatus = { ...envelope, last_ingest_ok_at: null, lag_seconds: null, last_finalize_day: null, coverage_from: null };
 
 describe('public file schemas', () => {
+  it('parses top files with and without the fee ranking', () => {
+    // #given one top file from after the fee rankings and one from before
+    const entry = { key: '1>2', messages: 3, usd: 10, fee_usd: 1.5 };
+    const before = { ...envelope, dim: 'lane', since: '2023-07-06', windows: { '7d': [entry], '30d': [entry], all: [entry] } };
+    const after = { ...before, by_fees: { '7d': [entry], '30d': [], all: [entry] } };
+    // #when
+    const parsed = TopFileSchema.parse(after);
+    // #then the fee ranking survives parsing, and the older file still parses
+    expect({ fees7d: parsed.by_fees?.['7d'], before: TopFileSchema.safeParse(before).success }).toEqual({ fees7d: [entry], before: true });
+  });
   it('parses history.json with and without fee groups and the largest fees', () => {
     // #given one file from after the fee groups and one from before
     const day = { day: '2026-10-07', messages: 3, token_messages: 0, usd_value: 0, fee_usd: 6, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: 1 };

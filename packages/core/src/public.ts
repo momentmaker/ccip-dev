@@ -78,11 +78,14 @@ export const HistoryFileSchema = z.object({
   largest_fees: z.array(LargestFeeSchema).optional(),
 });
 
+const TopWindowsSchema = z.object({ '7d': z.array(TopEntrySchema), '30d': z.array(TopEntrySchema), all: z.array(TopEntrySchema) });
+
 export const TopFileSchema = z.object({
   ...envelope,
   dim: z.enum(['src_chain', 'dst_chain', 'lane', 'token', 'sender']),
   since: z.string().nullable(),
-  windows: z.object({ '7d': z.array(TopEntrySchema), '30d': z.array(TopEntrySchema), all: z.array(TopEntrySchema) }),
+  windows: TopWindowsSchema,
+  by_fees: TopWindowsSchema.optional(),
 });
 
 export const ChainSchema = z.object({

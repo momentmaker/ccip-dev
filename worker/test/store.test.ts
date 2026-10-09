@@ -250,3 +250,40 @@ describe('migration 0005', () => {
     expect(index?.sql).toBe('CREATE INDEX idx_messages_fee_usd ON messages (fee_usd) WHERE fee_usd IS NOT NULL');
   });
 });
+
+describe('topBetween', () => {
+  const DAY = '2026-10-07';
+  const totals = { day: DAY, messages: 6, token_messages: 0, usd_value: 600, fee_usd: 9, unique_senders: 3, median_delivery_s: null, unpriced_messages: 0 };
+  const lane = (key: string, usd_value: number, fee_usd: number | null) => ({ day: DAY, dim: 'lane' as const, key, messages: 2, usd_value, fee_usd });
+
+  beforeEach(async () => {
+    // #given lane a moved the most value, lane b paid the most fees, and lane c has no fee data
+    await store.replaceDaily(env.DB, totals, [lane('a', 500, 1), lane('b', 80, 8), lane('c', 20, null)], '2026-10-08T00:10:00.000Z');
+  });
+
+  it('ranks by value as before', async () => {
+    // #when
+    const rows = await store.topBetween(env.DB, 'lane', null, DAY, 10, 'value');
+    // #then
+    expect(rows.map((r) => r.key)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('ranks by fees and leaves out keys with no fee data', async () => {
+    // #when
+    const rows = await store.topBetween(env.DB, 'lane', null, DAY, 10, 'fees');
+    // #then
+    expect(rows).toEqual([
+      { key: 'b', messages: 2, usd_value: 80, fee_usd: 8 },
+      { key: 'a', messages: 2, usd_value: 500, fee_usd: 1 },
+    ]);
+  });
+
+  it('breaks a tie in fees by value', async () => {
+    // #given lane d paid as much as lane b and moved more value
+    await store.replaceDaily(env.DB, totals, [lane('b', 80, 8), lane('d', 90, 8)], '2026-10-08T00:10:00.000Z');
+    // #when
+    const rows = await store.topBetween(env.DB, 'lane', null, DAY, 10, 'fees');
+    // #then
+    expect(rows.map((r) => r.key)).toEqual(['d', 'b']);
+  });
+});

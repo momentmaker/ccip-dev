@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
-import { buildLabelIndex, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress } from '@ccip-dev/core';
+import { buildLabelIndex, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
@@ -347,6 +347,48 @@ describe('history.json fee groups and largest fees', () => {
     const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.LARGEST_FEES_SQL}`).bind(DAY, 10).all<{ detail: string }>();
     // #then
     expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX idx_messages_fee_usd');
+  });
+});
+
+describe('top files ranked by fees', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const DAY = '2026-10-07';
+  const totals = { day: DAY, messages: 8, token_messages: 1, usd_value: 600, fee_usd: 9, unique_senders: 2, median_delivery_s: null, unpriced_messages: 0 };
+  const row = (dim: Dim, key: string, usd_value: number, fee_usd: number | null) => ({ day: DAY, dim, key, messages: 2, usd_value, fee_usd });
+
+  beforeEach(async () => {
+    // #given lane a>b moved the most value, lane c>d paid the most fees, and the token row carries no fee
+    await store.replaceDaily(env.DB, totals, [
+      row('lane', 'a>b', 500, 1),
+      row('lane', 'c>d', 100, 8),
+      row('src_chain', BASE, 600, 9),
+      row('token', `${BASE}:0xtok`, 600, null),
+    ], NOW);
+  });
+
+  it('adds the fee ranking of each window to top/lane.json and keeps the value ranking', async () => {
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const top = await readPublic('top/lane.json');
+    expect({ value: top.windows['7d'], fees: top.by_fees['7d'] }).toEqual({
+      value: [{ key: 'a>b', messages: 2, usd: 500, fee_usd: 1 }, { key: 'c>d', messages: 2, usd: 100, fee_usd: 8 }],
+      fees: [{ key: 'c>d', messages: 2, usd: 100, fee_usd: 8 }, { key: 'a>b', messages: 2, usd: 500, fee_usd: 1 }],
+    });
+  });
+
+  it('ranks source chains by fees in top/src_chain.json, for the Chains tab', async () => {
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('top/src_chain.json')).by_fees.all).toEqual([{ key: BASE, messages: 2, usd: 600, fee_usd: 9 }]);
+  });
+
+  it('gives tokens no fee ranking, because their rows carry no fees', async () => {
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect(await readPublic('top/token.json')).not.toHaveProperty('by_fees');
   });
 });
 
