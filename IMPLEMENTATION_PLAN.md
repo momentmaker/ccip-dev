@@ -82,5 +82,11 @@ Execution order: Tasks 1–8, 17, 9–16, 18, 19.
 **Tests**: group table and generator; `feeGroupTotals` parity with the Worker and the build; migration 0005; `history.json` fields and `largest_fees`; hero maths around midnight; fee records and milestones; weekly bucketing, rounding and partial weeks.
 **Status**: Complete 2026-10-09 (8 tasks, each task-reviewed, a final opus review and one fix wave; core 258, site 1029 + 5, worker 235, scripts 314; home JS 115.9 KB). Owner steps: after the crawl, the full fee rebuild and upload fill the new columns for history. Sub-projects 2 (who pays and what it costs) and 3 (broadcasts) follow.
 
+## Stage 14: Who pays and what it costs (fee features, sub-project 2 of 3)
+**Goal**: Fee rankings (Top pages "Value | Fees", a Chains tab ranking source chains), a cost-to-send picker on Flow from `cost.json` (30-day median, 10th–90th range, LINK vs gas tokens from 20 LINK-paid messages), a typical-fee column on Top lanes, fee per message, take rate and fee mix on day pages, and a take-rate chart in History. Spec: `docs/superpowers/specs/2026-10-09-fee-costs-design.md`.
+**Success Criteria**: Shareable fee rankings and routes; the site builds before the first publish of `by_fees` and `cost.json`; home JS ≤ 150 KB; no migration.
+**Tests**: nearest-rank percentiles and LINK split in D1; `by_fees` ordering; card-path round trips; picker URL handling; 404-only build reads; take-rate gaps; day-page null handling.
+**Status**: Complete 2026-10-09 (5 tasks, each task-reviewed, a final opus review and one fix wave; core 267, site 1109 + 5, worker 249; home JS 116.4 KB). The owner checks it at 390 px on a phone after deploy (the browser tool was unavailable).
+
 ## Backlog
 - **Fee broadcasts (fee sub-project 3):** an auto-generated daily or weekly report card image (messages, fees, % paid in LINK), posted to the Telegram channel, with ready-to-paste X text; a fee counter in the replay video for a "CCIP's year in fees" cut. Best after the fee backfill completes.
