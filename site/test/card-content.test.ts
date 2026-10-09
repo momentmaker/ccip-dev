@@ -41,7 +41,7 @@ describe('card content', () => {
   });
 
   it('names the leader and the next two in a top list, with plain-text arrows', () => {
-    expect(topCard(top, 'lane', '7d', names)).toEqual({
+    expect(topCard(top, 'lane', '7d', 'value', names)).toEqual({
       eyebrow: 'TOP LANE · LAST 7 DAYS',
       big: 'Ethereum to Base',
       label: '$5.0M · 10 messages',
@@ -49,7 +49,7 @@ describe('card content', () => {
       extra: ['#2 Base to Ethereum · $2.0M', '#3 Base to Base · $1'],
       spark: null,
     });
-    expect(topCard(top, 'lane', '30d', names)).toMatchObject({ big: '—', label: 'No data yet' });
+    expect(topCard(top, 'lane', '30d', 'value', names)).toMatchObject({ big: '—', label: 'No data yet' });
     expect(flowCard(top, '7d', names)).toMatchObject({ eyebrow: 'BIGGEST LANE · LAST 7 DAYS', big: 'Ethereum to Base', label: '$5.0M moved' });
     expect(cardText('A → B')).toBe('A to B');
   });
@@ -106,6 +106,34 @@ describe('card content', () => {
     expect(render('data:image/svg+xml;base64,AA').split(capped)).toHaveLength(3);
     expect(render(null).split(capped)).toHaveLength(1);
   });
+
+  it('names the leader by fees on a fees card', () => {
+    // #given
+    const feesTop: TopFile = {
+      ...top,
+      by_fees: { '7d': [{ key: `${BASE}>${ETH}`, messages: 4, usd: 2e6, fee_usd: 812.4 }, { key: `${ETH}>${BASE}`, messages: 10, usd: 5e6, fee_usd: 99 }], '30d': [], all: [] },
+    };
+    // #when, #then
+    expect(topCard(feesTop, 'lane', '7d', 'fees', names)).toEqual({
+      eyebrow: 'TOP LANE BY FEES · LAST 7 DAYS',
+      big: 'Base to Ethereum',
+      label: '$812 in fees · 4 messages',
+      date: '',
+      extra: ['#2 Ethereum to Base · $99'],
+      spark: null,
+    });
+  });
+
+  it('says there is no data yet on a fees card from a file without the fee ranking', () => {
+    expect(topCard(top, 'lane', '7d', 'fees', names)).toMatchObject({ big: '—', label: 'No data yet' });
+  });
+
+  it('names a chain on a Chains card', () => {
+    // #given
+    const chainTop: TopFile = { ...top, dim: 'src_chain', windows: { '7d': [{ key: ETH, messages: 10, usd: 5e6 }], '30d': [], all: [] } };
+    // #when, #then
+    expect(topCard(chainTop, 'chain', '7d', 'value', names)).toMatchObject({ eyebrow: 'TOP CHAIN · LAST 7 DAYS', big: 'Ethereum' });
+  });
 });
 
 describe('sparkline placement', () => {
@@ -137,7 +165,7 @@ describe('cardMaxAge', () => {
     [{ kind: 'day', day: '2026-10-05' }, '2026-10-06', 600],
     [{ kind: 'day', day: '2026-10-04' }, null, 600],
     [{ kind: 'reserve' }, null, 900],
-    [{ kind: 'top', dim: 'token', window: '7d' }, null, 1800],
+    [{ kind: 'top', dim: 'token', window: '7d', order: 'value' }, null, 1800],
   ] as const)('%j → %s s', (route, last, seconds) => {
     expect(cardMaxAge(route, last)).toBe(seconds);
   });

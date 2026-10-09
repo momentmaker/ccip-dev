@@ -1,9 +1,10 @@
 import type { HistoryFile, ReserveFile, TodayFile, TopEntry, TopFile } from '@ccip-dev/core/public';
-import type { HistoryRange, TopDim, Window } from '../../src/lib/card-paths';
+import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-paths';
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
 import { formatCount, formatLink, formatPct, formatUsd, formatUtcDay } from '../../src/lib/format';
-import { laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
+import { chainName, laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
+import { topEntries } from '../../src/lib/top';
 import { computeRecords } from '../../src/lib/records';
 
 export interface CardSpec {
@@ -27,7 +28,7 @@ export interface ReplayCardEntry {
 
 const RANGE_LABEL: Record<HistoryRange, string> = { '30d': 'LAST 30 DAYS', '90d': 'LAST 90 DAYS', '1y': 'LAST YEAR', all: 'ALL TIME' };
 const WINDOW_LABEL: Record<Window, string> = { '7d': 'LAST 7 DAYS', '30d': 'LAST 30 DAYS', all: 'ALL TIME' };
-const DIM_LABEL: Record<TopDim, string> = { lane: 'TOP LANE', token: 'TOP TOKEN', sender: 'TOP SENDER' };
+const DIM_LABEL: Record<TopDim, string> = { lane: 'TOP LANE', token: 'TOP TOKEN', sender: 'TOP SENDER', chain: 'TOP CHAIN' };
 const SPARK_POINTS = 120;
 
 const chainCount = (n: number) => `${n} ${n === 1 ? 'chain' : 'chains'}`;
@@ -102,19 +103,22 @@ export function historyCard(history: HistoryFile, range: HistoryRange): CardSpec
 
 function entryLabel(e: TopEntry, dim: TopDim, names: ChainNames): string {
   if (dim === 'lane') return cardText(laneLabel(names, e.key));
+  if (dim === 'chain') return chainName(names, e.key);
   if (dim === 'token') return tokenLabel(names, e.key, e.symbol).primary;
   return senderLabel(names, e.key, e.label).primary;
 }
 
-export function topCard(top: TopFile, dim: TopDim, window: Window, names: ChainNames): CardSpec {
-  const entries = top.windows[window];
+export function topCard(top: TopFile, dim: TopDim, window: Window, order: TopOrder, names: ChainNames): CardSpec {
+  const entries = topEntries(top, window, order);
   const first = entries[0];
+  const byFees = order === 'fees';
+  const amount = (e: TopEntry) => formatUsd(byFees ? e.fee_usd : e.usd);
   return {
-    eyebrow: `${DIM_LABEL[dim]} · ${WINDOW_LABEL[window]}`,
+    eyebrow: `${DIM_LABEL[dim]}${byFees ? ' BY FEES' : ''} · ${WINDOW_LABEL[window]}`,
     big: first ? entryLabel(first, dim, names) : '—',
-    label: first ? `${formatUsd(first.usd)} · ${formatCount(first.messages)} messages` : 'No data yet',
+    label: first ? `${amount(first)}${byFees ? ' in fees' : ''} · ${formatCount(first.messages)} messages` : 'No data yet',
     date: window === 'all' ? `since ${top.since}` : '',
-    extra: entries.slice(1, 3).map((e, i) => `#${i + 2} ${entryLabel(e, dim, names)} · ${formatUsd(e.usd)}`),
+    extra: entries.slice(1, 3).map((e, i) => `#${i + 2} ${entryLabel(e, dim, names)} · ${amount(e)}`),
     spark: null,
   };
 }

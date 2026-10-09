@@ -1,0 +1,93 @@
+---
+import ChainIcons from '../../../../components/ChainIcons.astro';
+import InfoLink from '../../../../components/InfoLink';
+import ShareButton from '../../../../components/ShareButton';
+import Base from '../../../../layouts/Base.astro';
+import { buildData } from '../../../../lib/build-data';
+import { TOP_DIMS, TOP_ORDERS, WINDOWS, topOrders, type TopDim, type TopOrder, type Window } from '../../../../lib/card-paths';
+import { formatCount, formatPct, formatUsd } from '../../../../lib/format';
+import { chainNameMap } from '../../../../lib/names';
+import { TOP_FILE, topEntries, topHref, topRows } from '../../../../lib/top';
+
+export function getStaticPaths() {
+  return TOP_DIMS.flatMap((dim) =>
+    WINDOWS.flatMap((window) => topOrders(dim).map((order) => ({ params: { dim, window, order: order === 'fees' ? 'fees' : undefined } }))),
+  );
+}
+
+const TITLE: Record<TopDim, string> = { lane: 'Top lanes', token: 'Top tokens', sender: 'Top senders', chain: 'Top chains' };
+const NOUN: Record<TopDim, string> = { lane: 'lane', token: 'token', sender: 'sender', chain: 'source chain' };
+const COLUMN: Record<TopDim, string> = { lane: 'Lane', token: 'Token', sender: 'Sender', chain: 'Chain' };
+const WINDOW_LABEL: Record<Window, string> = { '7d': '7 days', '30d': '30 days', all: 'All time' };
+const ORDER_LABEL: Record<TopOrder, string> = { value: 'Value', fees: 'Fees' };
+const dim = Astro.params.dim as TopDim;
+const window = Astro.params.window as Window;
+const order: TopOrder = Astro.params.order === 'fees' ? 'fees' : 'value';
+const byFees = order === 'fees';
+const [top, chains] = await Promise.all([buildData(TOP_FILE[dim]), buildData('chains.json')]);
+const names = chainNameMap(chains.chains);
+const rows = topRows(topEntries(top, window, order), dim, names, { order });
+const scope = window === 'all' ? `since ${top.since}` : `last ${WINDOW_LABEL[window]}`;
+const heading = `${TITLE[dim]}${byFees ? ' by fees' : ''}`;
+const description = byFees ? `The 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.` : `The 100 busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
+const cardPath = `top/${dim}/${window}${byFees ? '/fees' : ''}`;
+const leader = rows[0];
+const feesAfter = !byFees && rows.some((r) => r.fee !== null);
+const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order : 'value');
+---
+<Base title={`${heading} · ${WINDOW_LABEL[window]}`} description={description} cardPath={cardPath}>
+  <div class="page-head">
+    <div>
+      <p class="label">{scope} · by {byFees ? 'fees' : 'value'}</p>
+      <h1>{TITLE[dim]}</h1>
+    </div>
+    <ShareButton client:load view={cardPath} headline={leader ? `${heading} on CCIP, ${scope}: #1 ${leader.primary}` : `${heading} on CCIP`} url={`https://ccip.dev${topHref(dim, window, order)}`} cardUrl={`/og/${cardPath}.png`} />
+  </div>
+  <nav class="tabs" aria-label="Dimension">
+    {TOP_DIMS.map((d) => <a href={topHref(d, window, tabOrder(d))} aria-current={d === dim ? 'page' : undefined}>{TITLE[d].replace('Top ', '')}</a>)}
+  </nav>
+  <nav class="tabs" aria-label="Window">
+    {WINDOWS.map((w) => <a href={topHref(dim, w, order)} aria-current={w === window ? 'page' : undefined}>{WINDOW_LABEL[w]}</a>)}
+  </nav>
+  {topOrders(dim).length > 1 && (
+    <nav class="tabs" aria-label="Ranking">
+      {TOP_ORDERS.map((o) => <a href={topHref(dim, window, o)} aria-current={o === order ? 'page' : undefined}>{ORDER_LABEL[o]}</a>)}
+    </nav>
+  )}
+  {rows.length === 0 ? (
+    <p class="card muted">{byFees ? 'No fee ranking yet. It appears after the next daily update.' : 'Nothing to rank in this window yet.'}</p>
+  ) : (
+    <div class="table-wrap card">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>{COLUMN[dim]}{dim === 'sender' && <InfoLink metric="labels" label="sender labels" />}</th>
+            {byFees && <th class="num">Fees<InfoLink metric="fees" label="fees" /></th>}
+            <th class="num">Messages<InfoLink metric="messages" label="messages" /></th>
+            <th class="num">Value<InfoLink metric="value" label="value transferred" /></th>
+            <th class="num">Share</th>
+            {feesAfter && <th class="num">Fees<InfoLink metric="fees" label="fees" /></th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr>
+              <td class="num muted">{r.rank}</td>
+              <td>
+                <ChainIcons selectors={r.chains} />{r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}
+                {r.secondary && <span class="secondary">{r.secondary}</span>}
+              </td>
+              {byFees && <td class="num">{formatUsd(r.fee)}</td>}
+              <td class="num">{formatCount(r.messages)}</td>
+              <td class="num">{formatUsd(r.usd)}</td>
+              <td class="num muted">{r.sharePct === null ? '—' : formatPct(r.sharePct).replace('+', '')}</td>
+              {feesAfter && <td class="num">{formatUsd(r.fee)}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. Labels appear only for verified senders.</p>
+</Base>

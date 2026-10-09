@@ -3,6 +3,7 @@ import sponsor from '../sponsor.json';
 import { parseCardPath, type CardRoute } from '../src/lib/card-paths';
 import { fetchPublic } from '../src/lib/data';
 import { chainNameMap } from '../src/lib/names';
+import { TOP_FILE } from '../src/lib/top';
 import { sponsorView } from '../src/lib/sponsor';
 import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
@@ -107,8 +108,8 @@ async function build(route: CardRoute, deps: OgDeps, env: OgEnv, origin: string)
     case 'history':
       return { spec: historyCard(await load('history.json'), route.range), maxAge: cardMaxAge(route, null) };
     case 'top': {
-      const [top, chains] = await Promise.all([load(`top/${route.dim}.json`), load('chains.json')]);
-      return { spec: topCard(top, route.dim, route.window, chainNameMap(chains.chains)), maxAge: cardMaxAge(route, null) };
+      const [top, chains] = await Promise.all([load(TOP_FILE[route.dim]), load('chains.json')]);
+      return { spec: topCard(top, route.dim, route.window, route.order, chainNameMap(chains.chains)), maxAge: cardMaxAge(route, null) };
     }
     case 'flow': {
       const [top, chains] = await Promise.all([load('top/lane.json'), load('chains.json')]);

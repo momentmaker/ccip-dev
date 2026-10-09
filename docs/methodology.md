@@ -59,6 +59,10 @@
 - **All-time fees** (home page): every day in history plus today so far, from the first day with fees. Until fee data
   reaches back to 2023-07-06, the line reads "Fees since <day>" instead of "All-time fees".
 - **Run-rate:** the fees of the last 30 complete days × 365 / 30. It is shown once all 30 of those days have fees.
+- **Fee rankings** (Top pages, "Fees"): lanes, senders and source chains ranked by the fees their messages paid in the
+  window, largest first, with value moved breaking ties. One with no fee data in the window is left out. Tokens have no
+  fee ranking: a fee is paid per message and is not split across a message's tokens. On a fee ranking, Share is of the
+  fees of the top 100.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage

@@ -103,9 +103,26 @@ describe('handleOg', () => {
     expect(JSON.stringify(renderPng.mock.calls[0]![0])).toContain('CCIP TODAY');
   });
 
+  it('renders a Chains fees card from top/src_chain.json and answers 404 for a token fees card', async () => {
+    // #given a source-chain file with a fee ranking
+    const entry = { key: '5009297550715157269', messages: 9, usd: 100, fee_usd: 12.5 };
+    const srcChain = { ...topToken, dim: 'src_chain', windows: { '7d': [entry], '30d': [], all: [] }, by_fees: { '7d': [entry], '30d': [], all: [] } };
+    const { get, renderPng, dataUrls } = setup({}, [], { ...DATA, 'top/src_chain.json': srcChain });
+    // #when
+    const fees = await get('/og/top/chain/7d/fees.png');
+    const token = await get('/og/top/token/7d/fees.png');
+    // #then
+    expect({
+      fees: fees.status,
+      token: token.status,
+      card: JSON.stringify(renderPng.mock.calls[0]![0]).includes('TOP CHAIN BY FEES'),
+      read: dataUrls.some((u) => u.endsWith('/top/src_chain.json')),
+    }).toEqual({ fees: 200, token: 404, card: true, read: true });
+  });
+
   it('answers 404 without rendering for an unknown pattern or a day with no data', async () => {
     const { get, renderPng, dataUrls } = setup();
-    expect((await get('/og/top/chain/7d.png')).status).toBe(404);
+    expect((await get('/og/top/route/7d.png')).status).toBe(404);
     expect(dataUrls).toEqual([]);
     expect((await get('/og/day/2026-01-01.png')).status).toBe(404);
     expect(renderPng).not.toHaveBeenCalled();
