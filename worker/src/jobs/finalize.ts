@@ -1,12 +1,12 @@
 import {
-  addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, gzipText, linkFeeMatcher, linkFeeUsd, rollupDay, toJsonl,
-  type LinkFeeMatcher, type ListMessage,
+  addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, feePriceKeys, gzipText, linkFeeMatcher, linkFeeUsd, rollupDay,
+  toJsonl, valueFee, type LinkFeeMatcher, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishHistoryFiles, retryPut } from '../publish';
 import * as store from '../store';
 import { fallbackLoader, type FallbackLoader } from '../price-fallback';
-import { DetailFillError, runDetails } from './details';
+import { DetailFillError, ensureKeys, runDetails } from './details';
 import { storeListMessages } from './ingest';
 
 const PAGE_SIZE = 1000;
@@ -14,11 +14,12 @@ const MAX_PAGES = 200;
 const MAX_DAYS_PER_RUN = 3;
 const DETAIL_BUDGET_MS = 5 * 60_000;
 /**
- * A day's last message reaches pushBack's 48-hour cut-off 72 hours after the day starts; until then an hourly retry can
- * still fill it. A retry pushed back just before the cut-off lands up to an hour later, which the D+3 06:00 late run still
- * re-fills. It cannot be longer: a day held past D+3 00:10 would push yesterday out of the MAX_DAYS_PER_RUN window.
+ * How long a failing day is held for a retry to succeed. A day's last message reaches pushBack's 48-hour cut-off 72 hours
+ * after the day starts; until then an hourly retry can still fill it. A retry pushed back just before the cut-off lands up
+ * to an hour later, which the D+3 06:00 late run still re-fills. It cannot be longer: a day held past D+3 00:10 would push
+ * yesterday out of the MAX_DAYS_PER_RUN window. The list sweep of a day follows the same window.
  */
-const DETAIL_RETRY_WINDOW_MS = 72 * 3_600_000;
+const RETRY_WINDOW_MS = 72 * 3_600_000;
 const ANOMALY_FACTOR = 10;
 const ANOMALY_WINDOW_DAYS = 30;
 
@@ -69,7 +70,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
     try {
       const raw = await finalizeDay(c, day, shared);
       const archive = mode === 'late' && day > lastArchived;
-      if (archive) await writeArchive(c, day, raw);
+      if (archive && raw !== null) await writeArchive(c, day, raw);
       // A failed day is retried by the next run, so neither pointer may move past it.
       if (failures.length > 0) continue;
       if (mode === 'early') await store.setMeta(db, 'last_finalize_day', day);
@@ -92,31 +93,72 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   if (failures.length > 0) throw new Error(summary);
 }
 
-/** Collects one day's list messages, stores them, fills details and rolls the day up; returns its raw list objects. */
-async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promise<unknown[]> {
+/**
+ * Collects one day's list messages, stores them, fills details, re-prices unpriced fees and rolls the day up. Returns the
+ * day's raw list objects, or null when the list sweep was given up on and the day was rolled up from D1 alone.
+ */
+async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promise<unknown[] | null> {
   const db = c.env.DB;
-  const bucket = await collectDay(c, day);
-  await storeListMessages(c, bucket.messages, shared.loader);
+  const raw = await collectAndStore(c, day, shared);
   await fillDetails(c, day, shared);
+  await repriceUnpricedFees(c, day);
   const messages = await store.messagesForDay(db, day);
   const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(db, day));
   await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
   await alertOnUsdAnomaly(c, day, totals.usd_value);
   await store.setFeeLinkUsd(db, day, linkFeeUsd(messages, day, shared.isLinkFee));
-  return bucket.raw;
+  return raw;
+}
+
+const retriesMaySucceed = (c: RunContext, day: string) => c.deps.now().getTime() < Date.parse(dayStartIso(day)) + RETRY_WINDOW_MS;
+
+/**
+ * Sweeps the list for the day and stores its messages. A failure fails the day while retries may succeed (RETRY_WINDOW_MS
+ * from the day's start); after that the day is rolled up from what D1 holds, without an archive, and an alert names it.
+ */
+async function collectAndStore(c: RunContext, day: string, shared: RunShared): Promise<unknown[] | null> {
+  try {
+    const bucket = await collectDay(c, day);
+    await storeListMessages(c, bucket.messages, shared.loader);
+    return bucket.raw;
+  } catch (err) {
+    if (retriesMaySucceed(c, day)) throw err;
+    const reason = err instanceof Error ? err.message : String(err);
+    await c.alert(
+      `finalize-collect:${day}`,
+      `${day} was rolled up from the messages already stored in D1, without the list sweep, and its archive was skipped; the sweep failed: ${reason}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Prices the day's live fees that are still unpriced, at the latest prices: the fee was unpriceable when its detail was
+ * filled (a failed price fetch, or a token added to FEE_PRICE_ALIASES since). A priced fee is never touched.
+ */
+async function repriceUnpricedFees(c: RunContext, day: string): Promise<void> {
+  const unpriced = await store.unpricedLiveFees(c.env.DB, day);
+  if (unpriced.length === 0) return;
+  const prices = await ensureKeys(c, [...new Set(unpriced.flatMap(({ fee, chain }) => feePriceKeys(fee, chain)))]);
+  const lookup = (key: string) => prices.get(key);
+  const priced = unpriced.flatMap((row) => {
+    const feeUsd = valueFee(row.fee, row.chain, lookup);
+    return feeUsd === null ? [] : [{ messageId: row.messageId, fee: row.fee, feeUsd }];
+  });
+  await store.setUnpricedFeeUsd(c.env.DB, priced);
+  if (priced.length > 0) console.log(`finalize priced ${priced.length} of ${unpriced.length} unpriced live fee(s) for ${day}`);
 }
 
 /**
  * Fills the day's missing details. A failed fill fails the day, so its pointer holds and later runs retry it, while the
- * hourly retries can still succeed (DETAIL_RETRY_WINDOW_MS from the day's start). After that the day is rolled up with
+ * hourly retries can still succeed (RETRY_WINDOW_MS from the day's start). After that the day is rolled up with
  * those messages' list values, so a fill that can never succeed stops blocking finalize, and an alert names the day.
  */
 async function fillDetails(c: RunContext, day: string, shared: RunShared): Promise<void> {
   try {
     await runDetails(c, { day }, { deadline: shared.deadline, fallback: shared.loader });
   } catch (err) {
-    const retriesMaySucceed = c.deps.now().getTime() < Date.parse(dayStartIso(day)) + DETAIL_RETRY_WINDOW_MS;
-    if (!(err instanceof DetailFillError) || retriesMaySucceed) throw err;
+    if (!(err instanceof DetailFillError) || retriesMaySucceed(c, day)) throw err;
     await c.alert(
       `detail-fill:${day}`,
       `${day} was rolled up without ${err.failures.length} message detail(s) that failed to fill; the first: ${err.failures[0]}`,

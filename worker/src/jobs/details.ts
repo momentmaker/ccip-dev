@@ -136,7 +136,7 @@ export async function ensurePrices(
   return { lookup: (key) => prices.get(key), fallback };
 }
 
-async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, PriceInfo>> {
+export async function ensureKeys(c: RunContext, keys: string[]): Promise<Map<string, PriceInfo>> {
   const db = c.env.DB;
   const nowIso = c.deps.now().toISOString();
   const freshSince = new Date(c.deps.now().getTime() - MAX_PRICE_AGE_MINUTES * MINUTE).toISOString();

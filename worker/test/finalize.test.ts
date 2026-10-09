@@ -647,6 +647,136 @@ describe('runFinalize', () => {
   });
 });
 
+describe('finalize fee re-pricing', () => {
+  const WETH_BASE = 'base:0x4200000000000000000000000000000000000006';
+  const FEE_TOKEN = '0x4200000000000000000000000000000000000006';
+  const BITLAYER = {
+    name: 'bitlayer-mainnet', displayName: null, chainSelector: '7937294810946806131', chainId: '200901', chainFamily: 'EVM', environment: 'mainnet',
+  } as const;
+  const WBTC_BITLAYER = '0xff204e2681a6fa0e2c3fade68a1b28fb90e4fc5f';
+  const ONE_ETHER = '1000000000000000000';
+
+  const feeRow = (id: string, extras: Parameters<typeof liveRow>[1] = {}, src = NETWORKS.base) =>
+    liveRow(
+      { id, sendTs: '2026-10-09T08:00:00.000Z', src },
+      { fee_token: FEE_TOKEN, fee_amount: ONE_ETHER, fee_usd: null, unpriced: 0, detail_fetched_at: '2026-10-09T08:01:00.000Z', next_check_at: null, ...extras },
+    );
+  const feeOf = async (id: string) =>
+    (await env.DB.prepare('SELECT fee_usd FROM messages WHERE message_id = ?').bind(id).first<{ fee_usd: number | null }>())!.fee_usd;
+  const dayFee = async () =>
+    (await env.DB.prepare('SELECT fee_usd FROM daily_totals WHERE day = ?').bind('2026-10-09').first<{ fee_usd: number | null }>())?.fee_usd;
+  const finalizeWith = async (rows: ReturnType<typeof liveRow>[], prices = fakePrices(), chains: (typeof NETWORKS)[keyof typeof NETWORKS][] = [NETWORKS.base]) => {
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedRegistry(chains as never, []);
+    await store.upsertListRows(env.DB, rows, []);
+    const h = harness({ now: NOW, ccip: fakeCcip({ messages: [] }), prices });
+    await runFinalize(h.c, 'early');
+    return h;
+  };
+
+  it('prices an unpriced live fee whose price is now available, and rolls it into the day', async () => {
+    await finalizeWith([feeRow('d9a')], fakePrices({ latest: { [WETH_BASE]: { price: 2500, decimals: 18 } } }));
+    expect(await feeOf('d9a')).toBeCloseTo(2500, 6);
+    expect(await dayFee()).toBeCloseTo(2500, 6);
+  });
+
+  it('leaves a fee NULL when no price is available, and still finalizes the day', async () => {
+    await finalizeWith([feeRow('d9a')]);
+    expect(await feeOf('d9a')).toBeNull();
+    expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-09');
+  });
+
+  it('does not change an already priced fee, even if the latest price differs', async () => {
+    await finalizeWith([feeRow('d9a', { fee_usd: 1 })], fakePrices({ latest: { [WETH_BASE]: { price: 2500, decimals: 18 } } }));
+    expect(await feeOf('d9a')).toBe(1);
+  });
+
+  it('finalizes the day when the price fetch fails', async () => {
+    const prices = { ...fakePrices(), latest: async () => { throw new Error('llama down'); } };
+    const h = await finalizeWith([feeRow('d9a')], prices);
+    expect(await feeOf('d9a')).toBeNull();
+    expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-09');
+    expect(h.alerts.map((a) => a.signature)).toContain('prices-fetch');
+  });
+
+  it('prices an alias-only fee token through its alias coin', async () => {
+    const row = feeRow('d9a', { fee_token: WBTC_BITLAYER }, BITLAYER as never);
+    await finalizeWith([row], fakePrices({ latest: { 'coingecko:bitcoin': { price: 60000, decimals: 8 } } }), [BITLAYER as never]);
+    expect(await feeOf('d9a')).toBeCloseTo(60000, 6);
+  });
+});
+
+describe('finalize when the day cannot be collected', () => {
+  const DAY = '2026-10-09';
+  const PAST_WINDOW = '2026-10-12T00:10:00.000Z';
+
+  /** MESSAGES, except that the first list walk fails, as for the oldest due day. */
+  function apiFailingFirstWalk() {
+    const ccip = api();
+    const listMessages = ccip.listMessages.bind(ccip);
+    let walks = 0;
+    ccip.listMessages = async (opts) => {
+      if (!opts.cursor && ++walks === 1) throw new Error('CCIP list down');
+      return listMessages(opts);
+    };
+    return ccip;
+  }
+  const run = async (mode: 'early' | 'late', now: string, db?: D1Database) => {
+    const h = harness({ now, ccip: apiFailingFirstWalk(), db });
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const outcome = await runFinalize(h.c, mode).then(() => null, (err: unknown) => String(err));
+    logged.mockRestore();
+    return { outcome, alerts: h.alerts };
+  };
+  const seedStoredDay = () => store.upsertListRows(env.DB, [liveRow({ id: 'd9a', sendTs: '2026-10-09T08:00:00.000Z' })], []);
+  const totalsDays = async () => (await env.DB.prepare('SELECT day FROM daily_totals ORDER BY day').all()).results.map((r) => r.day);
+
+  it('fails the day and holds last_finalize_day inside the retry window', async () => {
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedStoredDay();
+    const { outcome, alerts } = await run('early', NOW);
+    expect({ outcome, alerts, days: await totalsDays(), pointer: await store.getMeta(env.DB, 'last_finalize_day') }).toEqual({
+      outcome: `Error: finalize failed for 1 day(s); the first: ${DAY}: CCIP list down`,
+      alerts: [],
+      days: [],
+      pointer: '2026-10-08',
+    });
+  });
+
+  it('rolls the day up from stored rows past the window, alerts, and advances last_finalize_day', async () => {
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedStoredDay();
+    const { outcome, alerts } = await run('early', PAST_WINDOW);
+    expect(outcome).toBeNull();
+    expect(alerts.map((a) => a.signature)).toEqual([`finalize-collect:${DAY}`]);
+    expect(alerts[0]!.text).toContain('CCIP list down');
+    expect(alerts[0]!.text).toContain(DAY);
+    expect(await totalsDays()).toContain(DAY);
+    expect(await store.getMeta(env.DB, 'last_finalize_day')).toBe('2026-10-11');
+  });
+
+  it('skips the archive for that day in a late run, and still advances last_archived_day', async () => {
+    await seedMeta('2026-10-11', '2026-10-08');
+    await seedStoredDay();
+    const { outcome } = await run('late', '2026-10-12T06:00:00.000Z');
+    const archived = (await env.ARCHIVE.list({ prefix: 'messages/' })).objects.map((o) => o.key);
+    expect(outcome).toBeNull();
+    expect(archived.some((k) => k.includes('2026/10/09'))).toBe(false);
+    expect(await store.getMeta(env.DB, 'last_archived_day')).toBe('2026-10-11');
+  });
+
+  it('still fails the day when the rollup errors', async () => {
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedStoredDay();
+    const { db } = watchedDb(/INTO daily_totals/, { fail: true });
+    const { outcome } = await run('early', PAST_WINDOW, db);
+    expect({ outcome, pointer: await store.getMeta(env.DB, 'last_finalize_day') }).toEqual({
+      outcome: expect.stringContaining('no such table'),
+      pointer: '2026-10-08',
+    });
+  });
+});
+
 describe('fees paid in LINK', () => {
   it('stores the USD value of the day\'s fees paid in LINK and publishes it in history.json', async () => {
     const day = '2026-10-09';

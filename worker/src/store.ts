@@ -1,5 +1,5 @@
 import {
-  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, UNLISTED_LINK_FEE_TOKENS, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup,
+  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, UNLISTED_LINK_FEE_TOKENS, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type LaneDayRow, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
@@ -241,6 +241,41 @@ export async function tokenSymbols(db: D1Database, tokens: { chain: string; addr
 export async function messagesForDay(db: D1Database, day: string): Promise<MessageRow[]> {
   const { results } = await db.prepare('SELECT * FROM messages WHERE day = ?').bind(day).all<MessageRow>();
   return results;
+}
+
+export interface UnpricedLiveFee {
+  messageId: string;
+  fee: Fee;
+  chain: ChainRef;
+}
+
+/** The day's detailed live messages that carry a fee with no USD value, with the source chain their price keys need. */
+export async function unpricedLiveFees(db: D1Database, day: string): Promise<UnpricedLiveFee[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT m.message_id, m.fee_token, m.fee_amount, c.selector, c.name, c.chain_id, c.family
+       FROM messages m JOIN chains c ON c.selector = m.src_chain
+       WHERE m.day = ? AND m.source = 'live' AND m.fee_token IS NOT NULL AND m.fee_usd IS NULL AND m.detail_fetched_at IS NOT NULL`,
+    )
+    .bind(day)
+    .all<{ message_id: string; fee_token: string; fee_amount: string; selector: string; name: string; chain_id: string; family: string }>();
+  return results.map((r) => ({
+    messageId: r.message_id,
+    fee: { token: r.fee_token, amount: r.fee_amount },
+    chain: { selector: r.selector, name: r.name, chainId: r.chain_id, family: r.family },
+  }));
+}
+
+/** Sets a fee's USD value only on a row still unpriced with the same fee, so a priced or refilled row is never overwritten. */
+export async function setUnpricedFeeUsd(db: D1Database, fees: { messageId: string; fee: Fee; feeUsd: number }[]): Promise<void> {
+  await runBatch(
+    db,
+    fees.map(({ messageId, fee, feeUsd }) =>
+      db
+        .prepare('UPDATE messages SET fee_usd = ? WHERE message_id = ? AND fee_usd IS NULL AND fee_token = ? AND fee_amount = ?')
+        .bind(feeUsd, messageId, fee.token, fee.amount),
+    ),
+  );
 }
 
 export async function tokensForDay(db: D1Database, day: string): Promise<TokenRow[]> {
