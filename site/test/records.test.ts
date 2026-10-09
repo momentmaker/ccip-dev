@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  computeMilestones, computeRecords, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, valueThresholds, type DayStats,
+  computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, feeThresholds, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, valueThresholds, type DayStats, type FeeDayStats,
 } from '../src/lib/records';
 
 const day = (d: string, messages: number, usd: number, senders: number, fee: number | null, median: number | null): DayStats => ({
@@ -121,5 +121,77 @@ describe('fee coverage', () => {
     const complete = computeRecords([full(4, '2026-10-04'), full(5, '2026-10-05')]).find((r) => r.key === 'fees');
     // #then only the partial one carries a note
     expect([partial?.note, complete?.note]).toEqual(['since 2026-10-05', null]);
+  });
+});
+
+describe('fee records', () => {
+  const names = new Map([['15971525489660198786', 'Base'], ['5009297550715157269', 'Ethereum']]);
+  const fee = (d: string, messages: number, usd: number | null, link: number | null, amount: number | null = null): FeeDayStats => ({
+    ...day(d, messages, 0, 1, usd, null), fee_link_usd: link, fee_link_amount: amount,
+  });
+  const DAYS_F = [fee('2026-10-05', 150, 1000, 300, 25), fee('2026-10-06', 99, 50, 45, 3), fee('2026-10-07', 400, 2500, 500, 41.5)];
+  const largest = [{ message_id: '0xabc', day: '2026-10-06', src: '15971525489660198786', dst: '5009297550715157269', fee_usd: 812.4, symbol: 'WETH' }];
+
+  it('finds the four fee records', () => {
+    expect(computeFeeRecords(DAYS_F, largest, names)).toEqual([
+      { key: 'most_fees', title: 'Most fees in a day', day: '2026-10-07', display: '$2.5K', sub: null, explorerUrl: null },
+      { key: 'largest_fee', title: 'Largest single fee', day: '2026-10-06', display: '$812', sub: 'Base → Ethereum · WETH', explorerUrl: 'https://ccip.chain.link/msg/0xabc' },
+      { key: 'link_paid', title: 'Most paid in LINK in a day', day: '2026-10-07', display: '$500', sub: '42 LINK', explorerUrl: null },
+      { key: 'link_share', title: 'Highest LINK share in a day', day: '2026-10-05', display: '30% paid in LINK', sub: 'days with 100+ messages', explorerUrl: null },
+    ]);
+  });
+
+  it('counts a day for the LINK share from exactly 100 messages', () => {
+    // #given the 90% day at 100 messages instead of 99
+    const days = [DAYS_F[0]!, fee('2026-10-06', 100, 50, 45, 3), DAYS_F[2]!];
+    // #when, #then
+    expect(computeFeeRecords(days, largest, names).find((r) => r.key === 'link_share')?.day).toBe('2026-10-06');
+  });
+
+  it('leaves the largest fee out when history.json has no largest_fees', () => {
+    expect(computeFeeRecords(DAYS_F, [], names).map((r) => r.key)).toEqual(['most_fees', 'link_paid', 'link_share']);
+  });
+
+  it('leaves the LINK records out while no day has LINK data', () => {
+    expect(computeFeeRecords([fee('2026-10-05', 150, 1000, null)], [], names).map((r) => r.key)).toEqual(['most_fees']);
+  });
+
+  it('notes the first fee day on the most-fees record while coverage is partial', () => {
+    // #given a day before fees began
+    const days = [fee('2026-10-04', 150, null, null), ...DAYS_F];
+    // #when, #then
+    expect(computeFeeRecords(days, [], names)[0]?.sub).toBe('since 2026-10-05');
+  });
+});
+
+describe('fee milestones', () => {
+  const feeDay = (d: string, usd: number | null) => ({ day: d, fee_usd: usd });
+
+  it('steps fee thresholds by 1, 2.5 and 5 from where they start, up to the total', () => {
+    expect([feeThresholds(12e6, 1e6), feeThresholds(60e3, 1e4)]).toEqual([[1e6, 2.5e6, 5e6, 1e7], [1e4, 2.5e4, 5e4]]);
+  });
+
+  it('formats thresholds in K, M, B and T', () => {
+    expect([1e4, 2.5e4, 1e6, 2.5e6, 1e9].map(formatThresholdUsd)).toEqual(['$10K', '$25K', '$1M', '$2.5M', '$1B']);
+  });
+
+  it('dates each all-time fee total by the first day the running total reaches it', () => {
+    // #given fees from 2023-07-06 that pass $1M on the third day
+    const days = [feeDay('2023-07-06', 400e3), feeDay('2023-07-07', 500e3), feeDay('2023-07-08', 200e3)];
+    // #when, #then
+    expect(computeFeeMilestones(days).filter((m) => m.kind === 'fees')).toEqual([{ kind: 'fees', day: '2023-07-08', label: '$1M in fees', threshold: 1e6 }]);
+  });
+
+  it('dates each fee-day threshold by the first day over it', () => {
+    // #given
+    const days = [feeDay('2023-07-06', 8e3), feeDay('2023-07-07', 12e3), feeDay('2023-07-08', 30e3), feeDay('2023-07-09', 11e3)];
+    // #when
+    const firsts = computeFeeMilestones(days).filter((m) => m.kind === 'fee_day').map((m) => [m.day, m.label]);
+    // #then
+    expect(firsts).toEqual([['2023-07-07', 'First $10K fee day'], ['2023-07-08', 'First $25K fee day']]);
+  });
+
+  it('lists no fee milestones while fee coverage starts after 2023-07-06', () => {
+    expect(computeFeeMilestones([feeDay('2026-10-05', 2e6), feeDay('2026-10-06', 50e3)])).toEqual([]);
   });
 });

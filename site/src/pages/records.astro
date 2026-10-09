@@ -3,11 +3,16 @@ import ShareButton from '../components/ShareButton';
 import Base from '../layouts/Base.astro';
 import { buildData } from '../lib/build-data';
 import { formatUtcDay } from '../lib/format';
-import { computeMilestones, computeRecords } from '../lib/records';
+import { chainNameMap } from '../lib/names';
+import { computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, sortMilestones } from '../lib/records';
 
-const [history, replay] = await Promise.all([buildData('history.json'), buildData('replay.json')]);
-const records = computeRecords(history.days);
-const milestones = computeMilestones(history.days, replay.chains).filter((m) => m.kind !== 'join').reverse();
+const [history, replay, chains] = await Promise.all([buildData('history.json'), buildData('replay.json'), buildData('chains.json')]);
+const names = chainNameMap([...replay.chains, ...chains.chains]);
+const records = computeRecords(history.days).filter((r) => r.key !== 'fees');
+const feeRecords = computeFeeRecords(history.days, history.largest_fees ?? [], names);
+const milestones = sortMilestones([...computeMilestones(history.days, replay.chains), ...computeFeeMilestones(history.days)])
+  .filter((m) => m.kind !== 'join')
+  .reverse();
 ---
 <Base title="Records" description="CCIP's all-time records and milestones since 2023-07-06." cardPath="records">
   <div class="page-head">
@@ -26,6 +31,30 @@ const milestones = computeMilestones(history.days, replay.chains).filter((m) => 
       </a>
     ))}
   </section>
+  {feeRecords.length > 0 && (
+    <>
+      <h2 id="fees">Fees</h2>
+      <section class="tiles wrap-labels">
+        {feeRecords.map((r) =>
+          r.explorerUrl ? (
+            <div class="tile">
+              <span class="label">{r.title}</span>
+              <p class="value">{r.display}</p>
+              <span class="sub">
+                {r.sub ? `${r.sub} · ` : ''}<a href={`/day/${r.day}/`}>{formatUtcDay(r.day)}</a> · <a href={r.explorerUrl} rel="noopener">View on CCIP Explorer</a>
+              </span>
+            </div>
+          ) : (
+            <a class="tile lift" href={`/day/${r.day}/`}>
+              <span class="label">{r.title}</span>
+              <p class="value">{r.display}</p>
+              <span class="sub">{formatUtcDay(r.day)}{r.sub ? ` · ${r.sub}` : ''}</span>
+            </a>
+          ),
+        )}
+      </section>
+    </>
+  )}
   <h2>Milestones</h2>
   <ol class="timeline">
     {milestones.map((m) => (
