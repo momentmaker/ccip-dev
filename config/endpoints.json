@@ -64,8 +64,8 @@
     "plasma-mainnet": "https://rpc.plasma.to",
     "plume-mainnet": "https://rpc.plume.org",
     "polkadot-mainnet-astar": "https://evm.astar.network",
-    "polkadot-mainnet-moonbeam": "https://public.1rpc.io/glmr",
-    "polygon-mainnet": "https://public.1rpc.io/matic",
+    "polkadot-mainnet-moonbeam": "https://moonbeam.drpc.org",
+    "polygon-mainnet": "https://public.blazingnode.com",
     "polygon-mainnet-katana": "https://katana.drpc.org",
     "robinhood-mainnet": "https://rpc.mainnet.chain.robinhood.com",
     "ronin-mainnet": "https://api.roninchain.com/rpc",
@@ -107,7 +107,6 @@
   "ethereumLogs": [
     "https://eth.api.pocket.network",
     "https://rpc-eth.blockmachine.io",
-    "https://xrpc.cl/eth",
     "https://ethereum-json-rpc.stakely.io"
   ]
 }
