@@ -32,7 +32,12 @@
     Bitlayer, WTAO on Bittensor EVM) or the same token as a priced one (LINK on BNB Chain and Polygon), its fee is
     valued at the coin it wraps or matches, through DefiLlama's `coingecko:<id>` price, at the token's own decimals.
     Each such token's decimals were read on chain.
-  - A few chains' fee tokens still have no free price source; their fees are left out of the fee totals.
+  - Canton's fees are valued as CC (Canton Coin), its only CCIP fee token with a known identity, at CC's 10 decimals.
+  - For a coin DefiLlama has no history for, the fee backfill uses CoinGecko's free public daily history (at most 365
+    days back; credit: CoinGecko). Today that applies to Mova's MOVA, whose price data ends 2026-09-07 when it was
+    delisted; later Mova fees stay unpriced. The live Worker uses DefiLlama only.
+  - A few fee tokens still have no free price source (Mova after 2026-09-07, one rarely used Canton token); their fees
+    are left out of the fee totals.
 - **Fees paid in LINK:** the part of a day's fees whose fee token is LINK. That is LINK in CCIP's LINK token group
   (LINK on the chains where it moves through CCIP), plus LINK on the 13 chains where LINK is a fee token but is not
   in that group: OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia,
@@ -90,7 +95,7 @@ the stored ids one for one.
 All data sources are free:
 - **CCIP API** (`api.ccip.chain.link/v2`): messages, chains and the token registry.
 - **DefiLlama coins API**: latest and daily token prices, with no API key.
-- **CoinGecko public API**: coin-id mapping only, with no API key.
+- **CoinGecko public API**: coin-id mapping, and the fee backfill's daily price history for a coin DefiLlama has none for (MOVA), with no API key.
 - **Public Ethereum RPC endpoints** (keyless, e.g. rpc.mevblocker.io and 0xrpc.io): the Reserve's LINK balance and
   transfer logs.
 - **Chainlist** (`chainlist.org/rpcs.json`, from DefiLlama/chainlist): the source of the keyless RPC and Blockscout
