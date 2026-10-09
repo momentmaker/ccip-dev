@@ -63,6 +63,11 @@
   window, largest first, with value moved breaking ties. One with no fee data in the window is left out. Tokens have no
   fee ranking: a fee is paid per message and is not split across a message's tokens. On a fee ranking, Share is of the
   fees of the top 100.
+- **Typical fee** (Flow and Top lanes): the median of a route's priced fees over the last 30 complete UTC days, with
+  the range from the 10th to the 90th percentile. Percentiles use the nearest rank: of a route's n fees in ascending
+  order, the p-th percentile is the fee at rank ⌈p × n / 100⌉. A route needs at least 5 priced fees in the window. When
+  at least 20 of them were paid in LINK, the LINK fees and the other fees (gas tokens, plus the few paid in stablecoins
+  or other tokens) each get their own median. The figures come from `cost.json`, rebuilt at each daily finalize.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage

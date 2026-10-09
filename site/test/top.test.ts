@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chainNameMap } from '../src/lib/names';
-import { TOP_FILE, topEntries, topHref, topRows } from '../src/lib/top';
+import { TOP_FILE, topEntries, topHref, topRows, typicalFeeMap } from '../src/lib/top';
 
 const ETH = '5009297550715157269';
 const BASE = '15971525489660198786';
@@ -12,8 +12,8 @@ const names = chainNameMap([
 describe('topRows', () => {
   it('ranks lanes with readable names and their share of the list', () => {
     expect(topRows([{ key: `${ETH}>${BASE}`, messages: 3, usd: 75, fee_usd: 1.5 }, { key: `${BASE}>${ETH}`, messages: 1, usd: 25, fee_usd: null }], 'lane', names)).toEqual([
-      { rank: 1, primary: 'Ethereum → Base', secondary: null, verified: false, chains: [ETH, BASE], messages: 3, usd: 75, fee: 1.5, sharePct: 75 },
-      { rank: 2, primary: 'Base → Ethereum', secondary: null, verified: false, chains: [BASE, ETH], messages: 1, usd: 25, fee: null, sharePct: 25 },
+      { rank: 1, primary: 'Ethereum → Base', secondary: null, verified: false, chains: [ETH, BASE], messages: 3, usd: 75, fee: 1.5, typicalFee: null, sharePct: 75 },
+      { rank: 2, primary: 'Base → Ethereum', secondary: null, verified: false, chains: [BASE, ETH], messages: 1, usd: 25, fee: null, typicalFee: null, sharePct: 25 },
     ]);
   });
 
@@ -64,5 +64,23 @@ describe('chains and fee rankings', () => {
 
   it('reads the Chains tab from the source-chain file', () => {
     expect(TOP_FILE.chain).toBe('top/src_chain.json');
+  });
+});
+
+describe('typical fees', () => {
+  it('gives each lane its typical fee from cost.json, and none for a lane it does not list', () => {
+    // #given cost.json listing Ethereum → Base only
+    const typicalFees = typicalFeeMap({
+      schema_version: 1, updated_at: 'x', attribution: 'y', from: '2026-09-08', to: '2026-10-07',
+      lanes: [{ src: ETH, dst: BASE, messages: 9, median_usd: 0.42, p10_usd: 0.1, p90_usd: 2 }],
+    });
+    // #when
+    const rows = topRows([{ key: `${ETH}>${BASE}`, messages: 3, usd: 75 }, { key: `${BASE}>${ETH}`, messages: 1, usd: 25 }], 'lane', names, { typicalFees });
+    // #then
+    expect(rows.map((r) => r.typicalFee)).toEqual([0.42, null]);
+  });
+
+  it('has no typical fees before the first cost.json', () => {
+    expect(typicalFeeMap(null).size).toBe(0);
   });
 });

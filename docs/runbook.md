@@ -218,6 +218,7 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
 - **First deploy:** until the owner's first `wrangler deploy` attaches `ccip.dev` as a custom domain (or the token gains Zone · Workers Routes · Edit), the `site` workflow's deploy step fails and the previous deploy, if any, stays live.
 - **Build failures:**
   - The build fetches every public file and fails when one is missing or has the wrong shape.
+  - `cost.json` is the one exception: before the Worker first publishes it (at the next finalize after a deploy), the build passes, the Top lanes "Typical fee (30d)" column shows "—", and the Flow picker says the data is not available.
   - The previous deploy stays live. Check the data Worker first (`curl -s https://data.ccip.dev/v1/status.json`), then re-run the workflow.
 - **Budgets:**
   - `pnpm --filter @ccip-dev/site build` fails when the home page's JavaScript goes over 150 KB gzipped, or the replay page's over 200 KB.

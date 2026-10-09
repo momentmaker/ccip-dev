@@ -29,6 +29,24 @@ describe('buildData', { timeout: COLD_IMPORT_TIMEOUT_MS }, () => {
     await expect(buildData('status.json')).rejects.toThrow('status.json: HTTP 500');
   });
 
+  it('returns null while the Worker has not published the file yet', async () => {
+    // #given
+    vi.stubGlobal('fetch', async () => new Response('missing', { status: 404 }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { buildDataIfPublished } = await import('../src/lib/build-data');
+    // #when
+    const cost = await buildDataIfPublished('cost.json');
+    warn.mockRestore();
+    // #then
+    expect(cost).toBeNull();
+  });
+
+  it('still fails the build when an optional file fails another way', async () => {
+    vi.stubGlobal('fetch', async () => new Response('down', { status: 500 }));
+    const { buildDataIfPublished } = await import('../src/lib/build-data');
+    await expect(buildDataIfPublished('cost.json')).rejects.toThrow('cost.json: HTTP 500');
+  });
+
   it('fails the build fast when the data host never answers', async () => {
     vi.stubEnv('CCIP_DATA_TIMEOUT_MS', '20');
     vi.stubGlobal(

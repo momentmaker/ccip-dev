@@ -1,5 +1,5 @@
 import type { PublicFile, PublicFileName } from '@ccip-dev/core/public';
-import { DATA_BASE, fetchPublic } from './data';
+import { DATA_BASE, DataError, fetchPublic } from './data';
 
 const loaded = new Map<PublicFileName, Promise<unknown>>();
 
@@ -17,4 +17,15 @@ export function buildData<N extends PublicFileName>(name: N): Promise<PublicFile
     loaded.set(name, pending);
   }
   return pending as Promise<PublicFile<N>>;
+}
+
+/** For a new file the Worker publishes only from its next finalize: null on HTTP 404, and any other failure still fails the build. */
+export async function buildDataIfPublished<N extends PublicFileName>(name: N): Promise<PublicFile<N> | null> {
+  try {
+    return await buildData(name);
+  } catch (err) {
+    if (!(err instanceof DataError) || err.status !== 404) throw err;
+    console.warn(`${name} is not published yet; building without it`);
+    return null;
+  }
 }

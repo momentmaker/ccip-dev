@@ -1,4 +1,4 @@
-import type { TopEntry, TopFile } from '@ccip-dev/core/public';
+import type { CostFile, TopEntry, TopFile } from '@ccip-dev/core/public';
 import type { TopDim, TopOrder, Window } from './card-paths';
 import { chainName, keyChains, laneLabel, senderLabel, tokenLabel, type ChainNames } from './names';
 
@@ -21,11 +21,13 @@ export interface TopRow {
   messages: number;
   usd: number | null;
   fee: number | null;
+  typicalFee: number | null;
   sharePct: number | null;
 }
 
 export interface TopRowOptions {
   order?: TopOrder;
+  typicalFees?: ReadonlyMap<string, number>;
 }
 
 export function topHref(dim: TopDim, window: Window, order: TopOrder): string {
@@ -35,6 +37,11 @@ export function topHref(dim: TopDim, window: Window, order: TopOrder): string {
 /** A file published before the fee rankings has no by_fees, so its fees pages show their empty state. */
 export function topEntries(top: TopFile, window: Window, order: TopOrder): TopEntry[] {
   return order === 'fees' ? (top.by_fees?.[window] ?? []) : top.windows[window];
+}
+
+/** Each listed route's typical fee by lane key (`src>dst`, as daily_breakdown keys lanes); empty before the first cost.json. */
+export function typicalFeeMap(cost: CostFile | null): Map<string, number> {
+  return new Map((cost?.lanes ?? []).map((l) => [`${l.src}>${l.dst}`, l.median_usd]));
 }
 
 function rowLabel(e: TopEntry, dim: TopDim, names: ChainNames): { primary: string; secondary: string | null; verified: boolean } {
@@ -56,6 +63,7 @@ export function topRows(entries: readonly TopEntry[], dim: TopDim, names: ChainN
       messages: e.messages,
       usd: e.usd,
       fee: e.fee_usd ?? null,
+      typicalFee: opts.typicalFees?.get(e.key) ?? null,
       sharePct: total > 0 && m !== null ? (m / total) * 100 : null,
     };
   });

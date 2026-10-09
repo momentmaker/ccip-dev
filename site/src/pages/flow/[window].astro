@@ -1,13 +1,15 @@
 ---
 import ChainIcons from '../../components/ChainIcons.astro';
+import CostPicker from '../../components/CostPicker';
 import FlowChord from '../../components/FlowChord';
 import ShareButton from '../../components/ShareButton';
 import Base from '../../layouts/Base.astro';
 import { buildData } from '../../lib/build-data';
 import { WINDOWS, type Window } from '../../lib/card-paths';
+import { slugMap } from '../../lib/chain-slug';
 import { flowData } from '../../lib/flow';
 import { formatCount, formatUsd } from '../../lib/format';
-import { chainNameMap } from '../../lib/names';
+import { chainName, chainNameMap } from '../../lib/names';
 
 export function getStaticPaths() {
   return WINDOWS.map((window) => ({ params: { window } }));
@@ -16,7 +18,10 @@ export function getStaticPaths() {
 const LABEL: Record<Window, string> = { '7d': '7 days', '30d': '30 days', all: 'All time' };
 const window = Astro.params.window as Window;
 const [replay, chains] = await Promise.all([buildData('replay.json'), buildData('chains.json')]);
-const data = flowData(replay, window, chainNameMap([...replay.chains, ...chains.chains]));
+const names = chainNameMap([...replay.chains, ...chains.chains]);
+const data = flowData(replay, window, names);
+const slugs = slugMap(replay.chains);
+const costChains = replay.chains.map((c) => ({ selector: c.selector, name: chainName(names, c.selector), slug: slugs.get(c.selector) ?? c.selector }));
 const scope = window === 'all' ? `since ${replay.since}` : `last ${LABEL[window]}`;
 const leader = data.topLanes[0];
 ---
@@ -28,6 +33,7 @@ const leader = data.topLanes[0];
     </div>
     <ShareButton client:load view={`flow/${window}`} headline={leader ? `Biggest CCIP lane, ${scope}: ${leader.label} (${formatUsd(leader.usd)})` : 'CCIP lane flow'} url={`https://ccip.dev/flow/${window}/`} cardUrl={`/og/flow/${window}.png`} />
   </div>
+  <CostPicker client:load chains={costChains} />
   <nav class="tabs" aria-label="Window">
     {WINDOWS.map((w) => <a href={`/flow/${w}/`} aria-current={w === window ? 'page' : undefined}>{LABEL[w]}</a>)}
   </nav>
@@ -51,4 +57,17 @@ const leader = data.topLanes[0];
   .flow-card :global(.flow-label) { fill: var(--muted); font-size: 12px; }
   .flow-card :global(.tabs button) { padding: 6px 12px; border-radius: 999px; border: 0; background: none; color: var(--muted); font: 600 13px var(--font-sans); cursor: pointer; }
   .flow-card :global(.tabs button.active) { background: #13244d; color: var(--fg); box-shadow: inset 0 0 0 1px var(--blue-2); }
+  :global(.cost-picker) { margin: 12px 0 16px; }
+  :global(.cost-picker h2) { margin: 0 0 12px; }
+  :global(.cost-body) { display: grid; gap: 16px; grid-template-columns: minmax(0, 260px) 1fr; align-items: start; }
+  :global(.cost-selects) { display: grid; gap: 10px; }
+  :global(.cost-field) { display: grid; gap: 4px; }
+  :global(.cost-field select) { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); color: var(--fg); font: inherit; }
+  :global(.cost-result p) { margin: 4px 0; }
+  :global(.cost-route) { font-weight: 600; }
+  :global(.cost-typical) { font: 700 clamp(32px, 6vw, 44px)/1.1 var(--font-mono); }
+  :global(.cost-skeleton) { display: grid; gap: 10px; }
+  :global(.cost-skeleton [aria-hidden]) { display: block; height: 18px; border-radius: 6px; background: var(--card-2); }
+  :global(.cost-skeleton [aria-hidden]:nth-child(2)) { height: 44px; width: 40%; }
+  @media (max-width: 640px) { :global(.cost-body) { grid-template-columns: 1fr; } }
 </style>

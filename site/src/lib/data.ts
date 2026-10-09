@@ -7,6 +7,7 @@ export class DataError extends Error {
   constructor(
     readonly file: PublicFileName,
     reason: string,
+    readonly status: number | null = null,
   ) {
     super(`${file}: ${reason}`);
     this.name = 'DataError';
@@ -24,7 +25,7 @@ export async function fetchPublic<N extends PublicFileName>(
   } catch (err) {
     throw new DataError(name, `request failed (${err instanceof Error ? err.message : String(err)})`);
   }
-  if (!res.ok) throw new DataError(name, `HTTP ${res.status}`);
+  if (!res.ok) throw new DataError(name, `HTTP ${res.status}`, res.status);
   let body: unknown;
   try {
     body = await res.json();

@@ -3,11 +3,11 @@ import ChainIcons from '../../../../components/ChainIcons.astro';
 import InfoLink from '../../../../components/InfoLink';
 import ShareButton from '../../../../components/ShareButton';
 import Base from '../../../../layouts/Base.astro';
-import { buildData } from '../../../../lib/build-data';
+import { buildData, buildDataIfPublished } from '../../../../lib/build-data';
 import { TOP_DIMS, TOP_ORDERS, WINDOWS, topOrders, type TopDim, type TopOrder, type Window } from '../../../../lib/card-paths';
-import { formatCount, formatPct, formatUsd } from '../../../../lib/format';
+import { formatCount, formatFee, formatPct, formatUsd } from '../../../../lib/format';
 import { chainNameMap } from '../../../../lib/names';
-import { TOP_FILE, topEntries, topHref, topRows } from '../../../../lib/top';
+import { TOP_FILE, topEntries, topHref, topRows, typicalFeeMap } from '../../../../lib/top';
 
 export function getStaticPaths() {
   return TOP_DIMS.flatMap((dim) =>
@@ -26,7 +26,8 @@ const order: TopOrder = Astro.params.order === 'fees' ? 'fees' : 'value';
 const byFees = order === 'fees';
 const [top, chains] = await Promise.all([buildData(TOP_FILE[dim]), buildData('chains.json')]);
 const names = chainNameMap(chains.chains);
-const rows = topRows(topEntries(top, window, order), dim, names, { order });
+const cost = dim === 'lane' ? await buildDataIfPublished('cost.json') : null;
+const rows = topRows(topEntries(top, window, order), dim, names, { order, typicalFees: typicalFeeMap(cost) });
 const scope = window === 'all' ? `since ${top.since}` : `last ${WINDOW_LABEL[window]}`;
 const heading = `${TITLE[dim]}${byFees ? ' by fees' : ''}`;
 const description = byFees ? `The 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.` : `The 100 busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
@@ -68,6 +69,7 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
             <th class="num">Value<InfoLink metric="value" label="value transferred" /></th>
             <th class="num">Share</th>
             {feesAfter && <th class="num">Fees<InfoLink metric="fees" label="fees" /></th>}
+            {dim === 'lane' && <th class="num">Typical fee (30d)<InfoLink metric="typical_fee" label="the typical fee" /></th>}
           </tr>
         </thead>
         <tbody>
@@ -83,11 +85,12 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
               <td class="num">{formatUsd(r.usd)}</td>
               <td class="num muted">{r.sharePct === null ? '—' : formatPct(r.sharePct).replace('+', '')}</td>
               {feesAfter && <td class="num">{formatUsd(r.fee)}</td>}
+              {dim === 'lane' && <td class="num">{formatFee(r.typicalFee)}</td>}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   )}
-  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. Labels appear only for verified senders.</p>
+  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. Labels appear only for verified senders.{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
 </Base>

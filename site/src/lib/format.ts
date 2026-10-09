@@ -21,6 +21,13 @@ export function formatUsd(value: number | null | undefined): string {
   return `${value < 0 ? MINUS : ''}$${compact(Math.abs(value))}`;
 }
 
+/** A single message's fee in cents below $1,000, where formatUsd would round $0.42 to $0. */
+export function formatFee(value: number | null | undefined): string {
+  if (!usable(value)) return DASH;
+  if (value > 0 && value < 0.01) return '<$0.01';
+  return value < 1000 ? `$${value.toFixed(2)}` : formatUsd(value);
+}
+
 export function formatUsdFull(value: number | null | undefined): string {
   if (!usable(value)) return DASH;
   return `${value < 0 ? MINUS : ''}$${Math.round(Math.abs(value)).toLocaleString('en-US')}`;

@@ -3,6 +3,7 @@ export const METRIC_ANCHORS = {
   value: 'what-is-counted',
   fees: 'what-is-counted',
   fee_link: 'what-is-counted',
+  typical_fee: 'what-is-counted',
   delivery: 'what-is-counted',
   senders: 'what-is-counted',
   unpriced: 'what-is-counted',
