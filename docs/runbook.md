@@ -295,3 +295,22 @@ Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one 
 Suggested rhythm: probe, then the full fetch under `caffeinate -ims`. After about 5 hours the last 30 days are done, so run build then upload. Repeat as more days finish.
 
 The original `pnpm backfill:upload` refuses to apply SQL once a fee upload has started ("The fee backfill has been uploaded, and this SQL would reset daily fee totals and breakdowns to NULL"). To run it anyway, in this order: run it with `--allow-fee-wipe`, then delete `.backfill/fees/upload-state.json`, then rerun `pnpm backfill:fees:upload`.
+
+## Fee groups
+
+`FEE_TOKEN_GROUPS` (`packages/core/src/fee-groups.ts`) puts each non-LINK fee token in `native` (gas tokens) or `stable`. Any other token counts as other. The table merges the generated `packages/core/src/fee-groups-docs.ts` with the hand-added entries in `fee-groups.ts`.
+
+### Regenerate the table
+
+Do this when CCIP adds a chain or a fee token.
+
+1. Run `pnpm fee-groups:generate`. It reads the CCIP docs' mainnet `chains.json` and `tokens.json` from GitHub and rewrites `fee-groups-docs.ts`. It prints each symbol with its group and chains, then any `left out` symbols, `skipped LINK on <n> chains`, and any `missing …` line.
+2. Read every line.
+   - A symbol that is neither a gas token (or its wrapped form) nor a USD stablecoin goes in `UNGROUPED_SYMBOLS` in `scripts/fee-groups/generate.ts`.
+   - A new stablecoin symbol goes in `STABLE_SYMBOLS`.
+   - Regenerate after either change.
+3. Hand-add a fee token to `HAND_ADDED` in `fee-groups.ts` when it shows in a `missing <symbol> on <chain>` line, or when the fee build's no-group check names it (Fee backfill, Build) and it is a gas token or a stablecoin.
+   - Read `symbol()` on chain through the chain's keyless RPC in `config/endpoints.json`.
+   - Write a one-line comment saying what the token is and why the docs miss it.
+4. Run `git diff packages/core/src/fee-groups-docs.ts`, then `pnpm --filter @ccip-dev/core test`, and commit.
+5. A table change makes the next fee build rebuild every sealed day (Fee backfill, Build). The Worker uses the new table for the days it finalizes after its next deploy. To regroup earlier live days, rewind `last_finalize_day` as in "Re-finalize a day".

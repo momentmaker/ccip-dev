@@ -1,6 +1,6 @@
 import {
-  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, llamaKey, UNLISTED_LINK_FEE_TOKENS, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
-  type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type LaneDayRow, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
+  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
+  type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 
@@ -636,19 +636,15 @@ export async function setReserveTransferPrices(
   await runBatch(db, prices.map((p) => update.bind(p.linkUsd, p.txHash, p.logIndex)));
 }
 
-export async function linkFeeTokens(db: D1Database): Promise<Set<string>> {
+export async function linkFeeTokens(db: D1Database): Promise<LinkFeeTokens> {
   const { results } = await db
     .prepare(
-      `SELECT chain, address FROM tokens
+      `SELECT chain, address, group_id, decimals FROM tokens
        WHERE group_id IS NOT NULL AND group_id = (SELECT group_id FROM tokens WHERE chain = ? AND lower(address) = lower(?))`,
     )
     .bind(LINK_TOKEN_CHAIN_SELECTOR, LINK_TOKEN)
-    .all<{ chain: string; address: string }>();
-  return new Set([
-    `${LINK_TOKEN_CHAIN_SELECTOR}:${normalizeAddress(LINK_TOKEN)}`,
-    ...Object.entries(UNLISTED_LINK_FEE_TOKENS).map(([chain, address]) => `${chain}:${normalizeAddress(address)}`),
-    ...results.map((r) => `${r.chain}:${normalizeAddress(r.address)}`),
-  ]);
+    .all<{ chain: string; address: string; group_id: string; decimals: number }>();
+  return linkFeeKeys(results.map((r) => ({ chain: r.chain, address: r.address, groupId: r.group_id, decimals: r.decimals })));
 }
 
 export async function setFeeLinkUsd(db: D1Database, day: string, value: number | null): Promise<void> {

@@ -216,4 +216,21 @@ describe('linkFeeTokens', () => {
     // #then
     expect(tokens.has(`${chain}:${address}`)).toBe(true);
   });
+
+  it("gives each LINK token its decimals: the registry's, or the unlisted table's", async () => {
+    // #given Ethereum LINK and Solana LINK (9 decimals) in one registry group
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.solana], [
+      { chainSelector: NETWORKS.ethereum.chainSelector, address: '0x514910771AF9Ca656af840dff83E8264EcF986CA', symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'link' },
+      { chainSelector: NETWORKS.solana.chainSelector, address: 'LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L', symbol: 'LINK', name: 'Chainlink', decimals: 9, groupId: 'link' },
+    ]);
+
+    // #when
+    const tokens = await store.linkFeeTokens(env.DB);
+
+    // #then
+    expect([
+      tokens.get(`${NETWORKS.solana.chainSelector}:LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L`),
+      tokens.get('4949039107694359620:0xf97f4df75117a78c1a5a0dbb814af92458539fb4'),
+    ]).toEqual([9, 18]);
+  });
 });

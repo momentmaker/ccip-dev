@@ -1,5 +1,5 @@
 import { normalizeAddress } from './normalize';
-import { LINK_TOKEN, LINK_TOKEN_CHAIN_SELECTOR, UNLISTED_LINK_FEE_TOKENS } from './reserve';
+import { LINK_TOKEN, LINK_TOKEN_CHAIN_SELECTOR, LINK_TOKEN_DECIMALS, UNLISTED_LINK_FEE_TOKENS } from './reserve';
 import type { DailyBreakdown, DailyTotals, Dim, MessageRow, TokenRow } from './types';
 
 export interface DayRollup {
@@ -95,18 +95,21 @@ function sum(values: number[]): number {
 
 export type LinkFeeMatcher = (chain: string, feeToken: string) => boolean;
 
-export function linkFeeMatcher(keys: ReadonlySet<string>): LinkFeeMatcher {
+/** LINK fee tokens by `chain:normalizedAddress`, each with the decimals that turn its fee amount into LINK. */
+export type LinkFeeTokens = ReadonlyMap<string, number>;
+
+export function linkFeeMatcher(keys: { has(key: string): boolean }): LinkFeeMatcher {
   return (chain, feeToken) => keys.has(`${chain}:${normalizeAddress(feeToken)}`);
 }
 
-/** The LINK fee tokens as `chain:address` keys; the same set the Worker's `store.linkFeeTokens` reads from D1. */
-export function linkFeeKeys(tokens: readonly { chain: string; address: string; groupId: string | null }[]): Set<string> {
+/** The LINK fee tokens with their decimals; the Worker's `store.linkFeeTokens` builds the same map from D1. */
+export function linkFeeKeys(tokens: readonly { chain: string; address: string; groupId: string | null; decimals: number }[]): Map<string, number> {
   const ethLink = normalizeAddress(LINK_TOKEN);
   const group = tokens.find((t) => t.chain === LINK_TOKEN_CHAIN_SELECTOR && normalizeAddress(t.address) === ethLink)?.groupId ?? null;
-  return new Set([
-    `${LINK_TOKEN_CHAIN_SELECTOR}:${ethLink}`,
-    ...Object.entries(UNLISTED_LINK_FEE_TOKENS).map(([chain, address]) => `${chain}:${normalizeAddress(address)}`),
-    ...(group === null ? [] : tokens.filter((t) => t.groupId === group).map((t) => `${t.chain}:${normalizeAddress(t.address)}`)),
+  return new Map<string, number>([
+    [`${LINK_TOKEN_CHAIN_SELECTOR}:${ethLink}`, LINK_TOKEN_DECIMALS],
+    ...Object.entries(UNLISTED_LINK_FEE_TOKENS).map(([chain, t]): [string, number] => [`${chain}:${normalizeAddress(t.address)}`, t.decimals]),
+    ...(group === null ? [] : tokens.filter((t) => t.groupId === group).map((t): [string, number] => [`${t.chain}:${normalizeAddress(t.address)}`, t.decimals])),
   ]);
 }
 

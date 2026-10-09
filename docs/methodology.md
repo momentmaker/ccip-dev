@@ -44,6 +44,18 @@
   (LINK on the chains where it moves through CCIP), plus LINK on the 13 chains where LINK is a fee token but is not
   in that group: OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia,
   Hedera, Etherlink and Nexon Henesys. Available for every day that has fees.
+- **Fee groups:** each fee counts in one of four groups, by its fee token.
+  - **LINK:** the LINK tokens above.
+  - **Gas tokens:** a chain's gas token or its wrapped form, such as WETH, WBNB, WPOL, WAVAX, wSOL, WHYPE, APT, CC and GRAM.
+  - **Stablecoins:** a USD stablecoin, including a chain's gas token when it is one: GHO, pathUSD, USDT0 and gUSDT on Stable, xDAI on Gnosis and USDC on Arc.
+  - **Other:** every other fee token, such as those on Mind and Everclear. Other is a day's fees minus the three groups above.
+
+  A token's group comes from the CCIP docs: each chain's listed fee tokens, grouped by symbol (a fixed list of stablecoin
+  symbols; every other symbol is a gas token). Fee tokens the API reports that the docs list under another address, or not
+  at all, were checked on chain and added by hand. A token in the wrong group would move USD between groups, but never
+  changes total fees.
+- **LINK paid:** each LINK fee's amount, `amount / 10^decimals`, counted whether or not the fee has a USD price. The
+  decimals come from the CCIP token registry, are 18 for Ethereum LINK, and were read on chain for the 13 chains above.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
 ## Coverage

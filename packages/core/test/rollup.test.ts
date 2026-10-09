@@ -111,9 +111,9 @@ describe('linkFeeUsd', () => {
 });
 
 describe('linkFeeKeys', () => {
-  const ethLink = { chain: '5009297550715157269', address: '0x514910771af9ca656af840dff83e8264ecf986ca', groupId: 'link-group' };
-  const baseLink = { chain: '15971525489660198786', address: '0x88fb150bdc53a65fe94dea0c9ba0a6daf8c6e196', groupId: 'link-group' };
-  const baseWeth = { chain: '15971525489660198786', address: '0x4200000000000000000000000000000000000006', groupId: 'weth-group' };
+  const ethLink = { chain: '5009297550715157269', address: '0x514910771af9ca656af840dff83e8264ecf986ca', groupId: 'link-group', decimals: 18 };
+  const baseLink = { chain: '15971525489660198786', address: '0x88fb150bdc53a65fe94dea0c9ba0a6daf8c6e196', groupId: 'link-group', decimals: 18 };
+  const baseWeth = { chain: '15971525489660198786', address: '0x4200000000000000000000000000000000000006', groupId: 'weth-group', decimals: 18 };
 
   it("includes every registry token in Ethereum LINK's group", () => {
     // #given / #when
@@ -130,5 +130,18 @@ describe('linkFeeKeys', () => {
   it('includes Ethereum LINK and the unlisted LINK fee tokens even with an empty registry', () => {
     const keys = linkFeeKeys([]);
     expect([keys.has('5009297550715157269:0x514910771af9ca656af840dff83e8264ecf986ca'), keys.has('4949039107694359620:0xf97f4df75117a78c1a5a0dbb814af92458539fb4')]).toEqual([true, true]);
+  });
+
+  it('gives Ethereum LINK 18 decimals, an unlisted LINK its own, and a registry LINK the registry decimals', () => {
+    // #given Solana LINK with 9 decimals in Ethereum LINK's group
+    const solLink = { chain: '124615329519749607', address: 'LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L', groupId: 'link-group', decimals: 9 };
+    // #when
+    const keys = linkFeeKeys([ethLink, solLink]);
+    // #then
+    expect([
+      keys.get(`${ethLink.chain}:${ethLink.address}`),
+      keys.get('6433500567565415381:0x5947bb275c521040051d82396192181b413227a3'),
+      keys.get(`${solLink.chain}:${solLink.address}`),
+    ]).toEqual([18, 18, 9]);
   });
 });
