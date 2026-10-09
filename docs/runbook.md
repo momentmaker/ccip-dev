@@ -258,8 +258,22 @@ Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one 
      - `check: <day> has fees per message more than 5x away from its neighbours' median`: an outlier day, above or below, compared with the days within a week across all batches. A day with fewer than 3 neighbours in that week is never flagged, so the first and last days of the range go unchecked.
      - `check: <day> has fee tokens without a price on more than 10% of its fee messages`: a gap in price history.
      - `check: <day> has <n> messages with an unknown fee shape; hold this batch and inspect .backfill/fees/unparsed/`: the build writes no fee for those messages, so their rows stay unfilled and can be filled later. The day's rollups count them with no fee, so its fees read low.
+     - `check: <n> fee messages on <token> (<chain>) have no fee group`: across the batch, a fee token in neither `FEE_TOKEN_GROUPS` nor the LINK set. Its fees count as other. Expected:
+       - Everclear `0x2e31…835f` and Mind `0x3902…2d0b` (both chains are shut down);
+       - Base zunETH `0x24cb…91de`;
+       - Botanix `0x0d24…0c56`, Corn `0xda5d…dfb2` and Memento `0x0869…d7bd` (no reachable RPC to check them);
+       - zero-amount fee tokens on Pharos, Tempo and TON.
+
+       Check any other token as in "Fee groups, Regenerate the table", step 3.
      - `largest fee: …`: the 10 largest fees.
-   - **Fee price table:** a change to `FEE_PRICE_ALIASES` in `packages/core/src/fee-aliases.ts` makes the next build rebuild every sealed day into one new batch (`the fee price table changed since the last build; building every sealed day again`). That is expected, and its upload is safe: it fills the fees still NULL, leaves priced fees alone and recomputes the rollups. The build also asks CoinGecko's free public API for the daily history of a coin DefiLlama has none for (today MOVA, once), and that API can rate-limit (HTTP 429): rerun the build if it stops on one.
+   - **Fee price table, fee groups and build format:** the next build rebuilds every sealed day into one new batch after a change to any of:
+     - `FEE_PRICE_ALIASES` (`packages/core/src/fee-aliases.ts`);
+     - `FEE_TOKEN_GROUPS` (`packages/core/src/fee-groups.ts` and the generated `fee-groups-docs.ts`);
+     - the decimals in `UNLISTED_LINK_FEE_TOKENS`;
+     - `FEE_BUILD_FORMAT` (`scripts/backfill/fees/build.ts`).
+
+     It logs `the fee price table, fee groups or build format changed since the last build; building every sealed day again`. That is expected, and its upload is safe: it fills the fees still NULL, leaves priced fees alone and recomputes the rollups. The build also asks CoinGecko's free public API for the daily history of a coin DefiLlama has none for (today MOVA, once), and that API can rate-limit (HTTP 429): rerun the build if it stops on one.
+   - **Fee groups in the SQL:** each day's `daily_totals` UPDATE also writes `fee_native_usd`, `fee_stable_usd` and `fee_link_amount`. Upload such a batch only once migration 0005 is on the remote database (Fee groups, Rollout).
    - **Correcting a wrong alias entry** (for example wrong decimals): priced rows are never overwritten, so first reset the fee of the affected rows, scoped by chain and token, outside the finalize windows:
      - backfill rows: `UPDATE messages SET fee_usd = NULL WHERE source = 'backfill' AND src_chain = '<sel>' AND fee_token = '<tok>';`
      - live rows: the same with `source = 'live'`.

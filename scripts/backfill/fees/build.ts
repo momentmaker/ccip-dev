@@ -4,8 +4,9 @@ import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  buildRows, createCoingeckoClient, createPricesClient, FEE_PRICE_ALIASES, feePriceKeys, linkFeeKeys, linkFeeMatcher, linkFeeUsd, ListMessage, normalizeList, normalizeRegistryToken,
-  rollupDay, sqlLiteral, valueFee, type FeePriceAlias, type HttpDeps, type NormalizedMessage, type PricesClient, type RegistryToken,
+  buildRows, createCoingeckoClient, createPricesClient, FEE_PRICE_ALIASES, FEE_TOKEN_GROUPS, feeClassifier, feeGroupTotals, feePriceKeys, linkFeeKeys, ListMessage,
+  normalizeList, normalizeRegistryToken, rollupDay, sqlLiteral, UNLISTED_LINK_FEE_TOKENS, valueFee, type FeePriceAlias, type FeeTokenGroup, type HttpDeps,
+  type NormalizedMessage, type PricesClient, type RegistryToken,
 } from '@ccip-dev/core';
 import { PriceCache, SqlWriter, type PriceCacheOptions } from '../build';
 import { writeFileAtomic } from '../crawl';
@@ -23,6 +24,13 @@ export interface FeeDayCheck {
   unknownShapes: number;
 }
 
+export interface UngroupedFeeToken {
+  chain: string;
+  name: string;
+  token: string;
+  messages: number;
+}
+
 export interface FeeBuildResult {
   batch: string | null;
   days: string[];
@@ -32,6 +40,7 @@ export interface FeeBuildResult {
   lowPricedDays: string[];
   unknownShapeDays: string[];
   largest: { id: string; day: string; usd: number; token: string }[];
+  ungrouped: UngroupedFeeToken[];
 }
 
 interface BuildState {
@@ -41,9 +50,33 @@ interface BuildState {
   pricing?: string;
 }
 
-/** The fee price table prices fees on every day, so a change to it makes every built day stale. */
-export function feePricingHash(aliases: Readonly<Record<string, FeePriceAlias>>): string {
-  const canonical = Object.fromEntries(Object.keys(aliases).sort().map((k) => [k, { decimals: aliases[k]!.decimals, key: aliases[k]!.key }]));
+/** Bump when the SQL a build writes changes, so the next build rewrites every sealed day. */
+export const FEE_BUILD_FORMAT = 1;
+
+export interface FeePricingInputs {
+  aliases: Readonly<Record<string, FeePriceAlias>>;
+  groups: Readonly<Record<string, FeeTokenGroup>>;
+  unlistedLink: Readonly<Record<string, { address: string; decimals: number }>>;
+  format: number;
+}
+
+export const CURRENT_FEE_PRICING: FeePricingInputs = {
+  aliases: FEE_PRICE_ALIASES,
+  groups: FEE_TOKEN_GROUPS,
+  unlistedLink: UNLISTED_LINK_FEE_TOKENS,
+  format: FEE_BUILD_FORMAT,
+};
+
+const sortedEntries = <T>(table: Readonly<Record<string, T>>) => Object.keys(table).sort().map((k) => [k, table[k]!] as const);
+
+/** Prices, groups and LINK decimals apply to every day, so a change to any of them, or to the SQL format, makes every built day stale. */
+export function feePricingHash(inputs: FeePricingInputs = CURRENT_FEE_PRICING): string {
+  const canonical = {
+    aliases: sortedEntries(inputs.aliases).map(([k, a]) => [k, a.key, a.decimals]),
+    groups: sortedEntries(inputs.groups).map(([k, g]) => [k, g.group, g.symbol]),
+    unlistedLink: sortedEntries(inputs.unlistedLink).map(([k, t]) => [k, t.address.toLowerCase(), t.decimals]),
+    format: inputs.format,
+  };
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
 
@@ -67,7 +100,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
   const log = opts.log ?? (() => {});
   const statePath = path.join(opts.dir, 'fees', 'build-state.json');
   const state = await readStateFile<BuildState>(statePath, { built: {}, batches: 0 });
-  const pricing = feePricingHash(FEE_PRICE_ALIASES);
+  const pricing = feePricingHash();
   const repriced = state.pricing !== pricing;
   const hashes = new Map<string, string>();
   for (const day of await listSealedDays(opts.dir)) {
@@ -75,15 +108,16 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
     if (repriced || state.built[day] !== hash) hashes.set(day, hash);
   }
   const days = [...hashes.keys()];
-  const result: FeeBuildResult = { batch: null, days: [], messagesUpdated: 0, sqlFiles: 0, outlierDays: [], lowPricedDays: [], unknownShapeDays: [], largest: [] };
+  const result: FeeBuildResult = { batch: null, days: [], messagesUpdated: 0, sqlFiles: 0, outlierDays: [], lowPricedDays: [], unknownShapeDays: [], largest: [], ungrouped: [] };
   if (days.length === 0) return result;
-  if (repriced && Object.keys(state.built).length > 0) log('the fee price table changed since the last build; building every sealed day again');
+  if (repriced && Object.keys(state.built).length > 0) log('the fee price table, fee groups or build format changed since the last build; building every sealed day again');
 
   const archiveDays = await listArchiveDays(opts.dir);
   if (archiveDays.length === 0) throw new Error(`no archive days under ${path.join(opts.dir, 'archive', 'messages')}`);
   const prices = await PriceCache.openExisting(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), archiveDays.at(-1)!, archiveDays[0]!, { coinHistory: opts.coingecko, log });
   const registry = JSON.parse(await readFile(path.join(opts.dir, 'registry', 'tokens.json'), 'utf8')) as RegistryToken[];
-  const isLinkFee = linkFeeMatcher(linkFeeKeys(registry.map(normalizeRegistryToken)));
+  const classify = feeClassifier(linkFeeKeys(registry.map(normalizeRegistryToken)));
+  const ungrouped = new Map<string, UngroupedFeeToken>();
   const batchNumber = (await lastBatchNumber(opts.dir, state.batches)) + 1;
   const batch = `B${String(batchNumber).padStart(4, '0')}`;
   const batchDir = path.join(opts.dir, 'fees', 'sql', batch);
@@ -94,6 +128,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
   for (const day of days) {
     const byId = new Map<string, DetailRecord>((await readSealedDay(opts.dir, day)).map((r) => [r.id, r]));
     const archived = (await readArchiveDay(opts.dir, day)).map((raw) => normalizeList(ListMessage.parse(raw)));
+    const chainNames = new Map(archived.map((m) => [m.src.selector, m.src.name]));
     const missing = archived.filter((m) => !byId.has(m.messageId)).length;
     if (missing > 0) throw new Error(`fee build: ${day} has ${missing} archived messages with no detail record; its sealed file is incomplete`);
     const messages: NormalizedMessage[] = archived.map((m) => {
@@ -113,7 +148,12 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
         `detail_fetched_at = ${sqlLiteral(r.detail_fetched_at)} WHERE message_id = ${sqlLiteral(r.message_id)} AND source = 'backfill' AND (detail_fetched_at IS NULL OR fee_usd IS NULL);`,
     );
     const { totals, breakdown } = rollupDay(day, rows, []);
-    statements.push(`UPDATE daily_totals SET fee_usd = ${sqlLiteral(totals.fee_usd)}, fee_link_usd = ${sqlLiteral(linkFeeUsd(rows, day, isLinkFee))} WHERE day = ${sqlLiteral(day)};`);
+    const groups = feeGroupTotals(rows, day, classify);
+    statements.push(
+      `UPDATE daily_totals SET fee_usd = ${sqlLiteral(totals.fee_usd)}, fee_link_usd = ${sqlLiteral(groups.link_usd)}, ` +
+        `fee_native_usd = ${sqlLiteral(groups.native_usd)}, fee_stable_usd = ${sqlLiteral(groups.stable_usd)}, ` +
+        `fee_link_amount = ${sqlLiteral(groups.link_amount)} WHERE day = ${sqlLiteral(day)};`,
+    );
     for (const b of breakdown) {
       if (!FEE_DIMS.has(b.dim)) continue;
       statements.push(`UPDATE daily_breakdown SET fee_usd = ${sqlLiteral(b.fee_usd)} WHERE day = ${sqlLiteral(day)} AND dim = ${sqlLiteral(b.dim)} AND key = ${sqlLiteral(b.key)};`);
@@ -121,6 +161,13 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
     await writer.add(statements);
 
     const withFee = rows.filter((r) => r.fee_token !== null);
+    for (const r of withFee) {
+      if (classify(r.src_chain, r.fee_token!).group !== 'other') continue;
+      const key = `${r.src_chain}:${r.fee_token}`;
+      const entry = ungrouped.get(key) ?? { chain: r.src_chain, name: chainNames.get(r.src_chain) ?? r.src_chain, token: r.fee_token!, messages: 0 };
+      entry.messages += 1;
+      ungrouped.set(key, entry);
+    }
     checks.push({
       day,
       messages: rows.length,
@@ -146,15 +193,17 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
   result.outlierDays = flagFeeOutliers([...(await earlierChecks(opts.dir, batch)).filter((c) => !result.days.includes(c.day)), ...checks]).filter((d) => result.days.includes(d));
   result.lowPricedDays = checks.filter((c) => c.withFee > 0 && c.priced / c.withFee < 0.9).map((c) => c.day);
   result.unknownShapeDays = checks.filter((c) => c.unknownShapes > 0).map((c) => c.day);
+  result.ungrouped = [...ungrouped.values()].sort((a, b) => b.messages - a.messages || (a.token < b.token ? -1 : 1));
   for (const day of result.days) state.built[day] = hashes.get(day)!;
   state.batches = batchNumber;
   state.pricing = pricing;
   await mkdir(path.join(opts.dir, 'fees', 'checks'), { recursive: true });
-  await writeFileAtomic(path.join(opts.dir, 'fees', 'checks', `${batch}.json`), `${JSON.stringify({ checks, outlierDays: result.outlierDays, lowPricedDays: result.lowPricedDays, unknownShapeDays: result.unknownShapeDays, largest: result.largest }, null, 2)}\n`);
+  await writeFileAtomic(path.join(opts.dir, 'fees', 'checks', `${batch}.json`), `${JSON.stringify({ checks, outlierDays: result.outlierDays, lowPricedDays: result.lowPricedDays, unknownShapeDays: result.unknownShapeDays, largest: result.largest, ungrouped: result.ungrouped }, null, 2)}\n`);
   await writeFileAtomic(statePath, JSON.stringify(state));
   for (const day of result.outlierDays) log(`check: ${day} has fees per message more than 5x away from its neighbours' median`);
   for (const day of result.lowPricedDays) log(`check: ${day} has fee tokens without a price on more than 10% of its fee messages`);
   for (const c of checks) if (c.unknownShapes > 0) log(`check: ${c.day} has ${c.unknownShapes} messages with an unknown fee shape; hold this batch and inspect .backfill/fees/unparsed/`);
+  for (const u of result.ungrouped) log(`check: ${u.messages} fee messages on ${u.token} (${u.name}) have no fee group`);
   for (const l of result.largest) log(`largest fee: ${l.day} ${l.id} $${l.usd.toFixed(2)} (${l.token})`);
   return result;
 }

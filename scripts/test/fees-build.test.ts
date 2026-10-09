@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { gzipSync } from 'node:zlib';
-import { FEE_PRICE_ALIASES, type PricesClient } from '@ccip-dev/core';
+import type { PricesClient } from '@ccip-dev/core';
 import { describe, expect, it } from 'vitest';
 import listPage from '../../packages/core/test/fixtures/list-page.json';
-import { buildFees, feePricingHash, flagFeeOutliers } from '../backfill/fees/build';
+import { buildFees, CURRENT_FEE_PRICING, FEE_BUILD_FORMAT, feePricingHash, flagFeeOutliers } from '../backfill/fees/build';
 import { appendRecords, readSealedDay, sealDay, type DetailRecord } from '../backfill/fees/store';
 
 const DAY = '2026-10-04';
@@ -78,6 +78,17 @@ describe('buildFees', () => {
     );
   });
 
+  it('writes the fees paid in gas tokens and stablecoins, and the LINK paid in LINK units', async () => {
+    // #given the Worker's finalize test day: 0.1 LINK worth $1, WETH worth $2 and GHO worth $3
+    const GHO = '0x6bb7a212910682dcfdbd5bcbb3e28fb4e8da10ee';
+    const dir = await backfill({ records: [ok('0xlink', LINK, '100000000000000000'), ok('0xweth', WETH, '1000000000000000'), ok('0xgone', GHO, '3000000000000000000')] });
+    const prices = { latest: async () => new Map([[`base:${GHO}`, { price: 1, decimals: 18 }]]), dailyHistory: async () => [[DAY, 1]] } as unknown as PricesClient;
+    // #when
+    await buildFees({ dir, prices });
+    // #then
+    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = 6, fee_link_usd = 1, fee_native_usd = 2, fee_stable_usd = 3, fee_link_amount = 0.1 WHERE day = '${DAY}';`);
+  });
+
   it('fills the fee of a row an earlier batch filled without a price, and leaves a priced row alone', async () => {
     // #given
     const dir = await backfill({ records });
@@ -114,7 +125,7 @@ describe('buildFees', () => {
     // #when
     await buildFees({ dir, prices: noPrices });
     // #then
-    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = 3, fee_link_usd = 1 WHERE day = '${DAY}';`);
+    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = 3, fee_link_usd = 1, fee_native_usd = 2, fee_stable_usd = 0, fee_link_amount = 0.1 WHERE day = '${DAY}';`);
   });
 
   it('writes the fee of each source chain, destination chain, lane and sender group', async () => {
@@ -136,7 +147,7 @@ describe('buildFees', () => {
     // #when
     await buildFees({ dir, prices: noPrices });
     // #then
-    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = NULL, fee_link_usd = NULL WHERE day = '${DAY}';`);
+    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = NULL, fee_link_usd = NULL, fee_native_usd = NULL, fee_stable_usd = NULL, fee_link_amount = NULL WHERE day = '${DAY}';`);
   });
 
   it('refuses a price cache built for another range', async () => {
@@ -353,7 +364,7 @@ describe('unknown fee shapes', () => {
     // #when
     await buildFees({ dir, prices: noPrices });
     // #then
-    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = 1, fee_link_usd = 1 WHERE day = '${DAY}';`);
+    expect(await sqlOf(dir)).toContain(`UPDATE daily_totals SET fee_usd = 1, fee_link_usd = 1, fee_native_usd = 0, fee_stable_usd = 0, fee_link_amount = 0.1 WHERE day = '${DAY}';`);
   });
 
   it('reports the days with unknown fee shapes', async () => {
@@ -410,7 +421,7 @@ describe('buildFees state', () => {
     await buildFees({ dir, prices: noPrices });
     // #then
     const state = JSON.parse(await readFile(path.join(dir, 'fees', 'build-state.json'), 'utf8')) as { pricing?: string };
-    expect(state.pricing).toBe(feePricingHash(FEE_PRICE_ALIASES));
+    expect(state.pricing).toBe(feePricingHash());
   });
 
   it('builds every built day again when the fee price table changed', async () => {
@@ -444,7 +455,7 @@ describe('buildFees state', () => {
     // #when
     await buildFees({ dir, prices: noPrices, log: (l) => lines.push(l) });
     // #then
-    expect(lines).toContain('the fee price table changed since the last build; building every sealed day again');
+    expect(lines).toContain('the fee price table, fee groups or build format changed since the last build; building every sealed day again');
   });
 
   it('numbers a new batch after every earlier one when build-state.json is gone', async () => {
@@ -460,20 +471,69 @@ describe('buildFees state', () => {
 });
 
 describe('feePricingHash', () => {
-  const table = { '1:0xa': { key: 'coingecko:a', decimals: 18 }, '2:0xb': { key: 'coingecko:b', decimals: 8 } };
+  const aliases = { '1:0xa': { key: 'coingecko:a', decimals: 18 }, '2:0xb': { key: 'coingecko:b', decimals: 8 } };
+  const base = { ...CURRENT_FEE_PRICING, aliases };
 
-  it('changes when an entry changes', () => {
-    // #when
-    const changed = feePricingHash({ ...table, '2:0xb': { key: 'coingecko:b', decimals: 18 } });
-    // #then
-    expect(changed).not.toBe(feePricingHash(table));
+  it('changes when an alias changes', () => {
+    expect(feePricingHash({ ...base, aliases: { ...aliases, '2:0xb': { key: 'coingecko:b', decimals: 18 } } })).not.toBe(feePricingHash(base));
   });
 
   it('does not depend on the order of the entries', () => {
+    expect(feePricingHash({ ...base, aliases: { '2:0xb': { decimals: 8, key: 'coingecko:b' }, '1:0xa': { key: 'coingecko:a', decimals: 18 } } })).toBe(feePricingHash(base));
+  });
+
+  it('changes when a fee token changes group', () => {
+    // #given the Base WETH entry moved to stable
+    const groups = { ...CURRENT_FEE_PRICING.groups, '15971525489660198786:0x4200000000000000000000000000000000000006': { group: 'stable' as const, symbol: 'WETH' } };
+    // #when, #then
+    expect(feePricingHash({ ...base, groups })).not.toBe(feePricingHash(base));
+  });
+
+  it('changes when FEE_BUILD_FORMAT changes', () => {
+    expect(feePricingHash({ ...base, format: FEE_BUILD_FORMAT + 1 })).not.toBe(feePricingHash(base));
+  });
+
+  it("changes when an unlisted LINK's decimals change", () => {
+    // #given
+    const unlistedLink = { ...CURRENT_FEE_PRICING.unlistedLink, '4949039107694359620': { address: '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4', decimals: 8 } };
+    // #when, #then
+    expect(feePricingHash({ ...base, unlistedLink })).not.toBe(feePricingHash(base));
+  });
+});
+
+describe('fee tokens with no group', () => {
+  const NEW = '0x1111111111111111111111111111111111111111';
+  const withNew = [ok('0xlink', LINK, '100000000000000000'), ok('0xweth', NEW, '1000000000000000'), ok('0xgone', NEW, '5')];
+
+  it('logs a check line per fee token with no group, with its message count', async () => {
+    // #given
+    const dir = await backfill({ records: withNew });
+    const lines: string[] = [];
     // #when
-    const reordered = feePricingHash({ '2:0xb': { decimals: 8, key: 'coingecko:b' }, '1:0xa': { key: 'coingecko:a', decimals: 18 } });
+    await buildFees({ dir, prices: noPrices, log: (l) => lines.push(l) });
     // #then
-    expect(reordered).toBe(feePricingHash(table));
+    expect(lines).toContain(`check: 2 fee messages on ${NEW} (ethereum-mainnet-base-1) have no fee group`);
+  });
+
+  it('returns and saves the ungrouped fee tokens of the batch', async () => {
+    // #given
+    const dir = await backfill({ records: withNew });
+    // #when
+    const result = await buildFees({ dir, prices: noPrices });
+    // #then
+    const saved = JSON.parse(await readFile(path.join(dir, 'fees', 'checks', 'B0001.json'), 'utf8')) as { ungrouped: unknown };
+    const expected = [{ chain: BASE, name: 'ethereum-mainnet-base-1', token: NEW, messages: 2 }];
+    expect({ result: result.ungrouped, saved: saved.ungrouped }).toEqual({ result: expected, saved: expected });
+  });
+
+  it('logs nothing when every fee token has a group', async () => {
+    // #given
+    const dir = await backfill({ records });
+    const lines: string[] = [];
+    // #when
+    await buildFees({ dir, prices: noPrices, log: (l) => lines.push(l) });
+    // #then
+    expect(lines.filter((l) => l.includes('no fee group'))).toEqual([]);
   });
 });
 
