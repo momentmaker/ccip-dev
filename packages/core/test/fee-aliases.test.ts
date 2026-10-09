@@ -40,6 +40,15 @@ describe('Canton, Mova and Pharos aliases', () => {
     });
   });
 
+  it.each([
+    ['Canton CC reported as the zero address', '2308837218439511688', '0x0000000000000000000000000000000000000000', 'coingecko:canton-network', 10],
+    ['Robinhood WETH', '6180753054346818345', '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73', 'coingecko:ethereum', 18],
+    ['TON GRAM, its case-sensitive native address kept as is', '16448340667252469081', 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAd99', 'coingecko:the-open-network', 9],
+    ['Tempo pathUSD', '7281642695469137430', '0x20C0000000000000000000000000000000000000', 'coingecko:pathusd', 6],
+  ])('prices %s', (_label, selector, token, key, decimals) => {
+    expect(feePriceAlias({ selector }, token)).toEqual({ key, decimals });
+  });
+
   it('prices Mova WMOVA as mova-2 at 18 decimals', () => {
     expect(feePriceAlias({ selector: '4215185756725900654' }, '0x911FCC80F48340864F5F94AE9A73D6296D5C2115')).toEqual({
       key: 'coingecko:mova-2', decimals: 18,

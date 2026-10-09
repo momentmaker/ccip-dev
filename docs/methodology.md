@@ -36,8 +36,9 @@
   - For a coin DefiLlama has no history for, the fee backfill uses CoinGecko's free public daily history (at most 365
     days back; credit: CoinGecko). Today that applies to Mova's MOVA, whose price data ends 2026-09-07 when it was
     delisted; later Mova fees stay unpriced. The live Worker uses DefiLlama only.
-  - A few fee tokens still have no free price source (Mova after 2026-09-07, one rarely used Canton token); their fees
-    are left out of the fee totals.
+  - A few fees still have no free price: Pharos fees before PROS began trading (2026-04-29), Mova fees after
+    2026-09-07, fees on Mind and Everclear (both chains shut down, so their fee tokens can no longer be checked) and one
+    rarely used Canton token. They are left out of the fee totals.
 - **Fees paid in LINK:** the part of a day's fees whose fee token is LINK. That is LINK in CCIP's LINK token group
   (LINK on the chains where it moves through CCIP), plus LINK on the 13 chains where LINK is a fee token but is not
   in that group: OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia,
