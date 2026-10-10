@@ -47,7 +47,7 @@ Normal use sits far below that: pages poll each file every 30 s, a site build fe
 
 Check it from a shell: `for i in $(seq 1 60); do curl -s -o /dev/null -w "%{http_code} " https://data.ccip.dev/v1/status.json; done; echo`. The last few should be `429`, and requests work again after 10 seconds.
 
-**Browser access stays open** (`worker/r2-cors.json` allows `*`). Do not restrict it to ccip.dev. That was tried on 2026-10-10 and broke the site: Cloudflare cache keys ignore `Origin`, so a request from another site (or any request without an allowed `Origin`) stored a copy with no CORS header, and ccip.dev's own browser requests were then served that copy and refused, for up to each file's cache time. Under `*`, requests with an `Origin` header are not served from that cache. If the policy ever changes, reapply with `pnpm --filter @ccip-dev/worker exec wrangler r2 bucket cors set ccip-dev-public --file r2-cors.json`.
+**Browser access stays open** (`worker/r2-cors.json` allows `*`), by choice: the rate limit does the real work, and the data is meant to be reused with credit. Restricting origins would be safe, because Cloudflare keeps a separate cached copy per `Origin` (the response carries `Vary: Origin`). Copies cached under the old policy keep their old header until they expire (up to an hour for `chains.json`), so after any CORS change purge the `data.ccip.dev` hostname (Caching → Configuration → Purge Cache → Custom Purge) or wait. Apply a policy with `pnpm --filter @ccip-dev/worker exec wrangler r2 bucket cors set ccip-dev-public --file r2-cors.json`, and when checking with curl pass the header as its own argument: `-H "Origin: https://example.com"`.
 
 ## GitHub (public repo)
 
