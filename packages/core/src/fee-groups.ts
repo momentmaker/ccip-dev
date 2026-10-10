@@ -57,6 +57,14 @@ const HAND_ADDED: Readonly<Record<string, FeeTokenGroup>> = {
   '17529533435026248318:0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3': { group: 'native', symbol: 'SUI' },
   // TAC WTAC; TAC is not in the docs
   '5936861837188149645:0xb63b9f0eb4a6e6f191529d71d4d88cc8900df2c9': { group: 'native', symbol: 'WTAC' },
+  // Gas tokens on chains or contracts the docs no longer list; WETH, wzkCRO and WHBAR read on chain on 2026-10-10
+  '4348158687435793198:0x4f9a0e7fd2bf6067db6994cf12e4495df938e6e9': { group: 'native', symbol: 'WETH' },
+  '470401360549526817:0x4200000000000000000000000000000000000006': { group: 'native', symbol: 'WETH' },
+  '1804312132722180201:0x4200000000000000000000000000000000000006': { group: 'native', symbol: 'WETH' },
+  '17164792800244661392:0x4200000000000000000000000000000000000006': { group: 'native', symbol: 'WETH' },
+  // Kroma's WETH predeploy sits at 0x4200…0001, not the OP Stack's 0x4200…0006; DefiLlama prices it as WETH
+  '3719320017875267166:0x4200000000000000000000000000000000000001': { group: 'native', symbol: 'WETH' },
+  '3229138320728879060:0xfba3d32cc317cbe0c44027b11b8f791961ed2f5c': { group: 'native', symbol: 'WHBAR' },
 };
 
 /** Keyed `chainSelector:normalizedAddress`, as FEE_PRICE_ALIASES is. LINK is never here: it has its own matcher. */

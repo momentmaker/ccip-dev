@@ -42,6 +42,17 @@ describe('feeTokenGroup', () => {
     expect(feeTokenGroup('8481857512324358265', '0x3bd359c1119da7da1d913d1c4d2b7c461115433a', isLinkFee)).toBe('native');
   });
 
+  it.each([
+    ['Polygon zkEVM WETH', '4348158687435793198', '0x4f9a0e7fd2bf6067db6994cf12e4495df938e6e9'],
+    ['Superseed WETH', '470401360549526817', '0x4200000000000000000000000000000000000006'],
+    ['Hemi WETH', '1804312132722180201', '0x4200000000000000000000000000000000000006'],
+    ['Mint WETH', '17164792800244661392', '0x4200000000000000000000000000000000000006'],
+    ['Kroma WETH at its 0x4200…0001 predeploy', '3719320017875267166', '0x4200000000000000000000000000000000000001'],
+    ['Hedera older WHBAR', '3229138320728879060', '0xfba3d32cc317cbe0c44027b11b8f791961ed2f5c'],
+  ])('groups %s, which the docs no longer list, as native', (_, chain, token) => {
+    expect(feeTokenGroup(chain, token, isLinkFee)).toBe('native');
+  });
+
   it('keeps LINK out of the table', () => {
     expect(Object.keys(FEE_TOKEN_GROUPS).filter((key) => linkFeeKeys([]).has(key))).toEqual([]);
   });

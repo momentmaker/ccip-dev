@@ -50,6 +50,15 @@ describe('Canton, Mova and Pharos aliases', () => {
     ['Soneium WETH', '12505351618335765396', '0x4200000000000000000000000000000000000006', 'coingecko:ethereum', 18],
     ['Edge WETH', '6325494908023253251', '0xbf10e3dd6d1303310d3bf4567595091758827bc5', 'coingecko:ethereum', 18],
     ['Sui SUI by its CoinMetadata object id', '17529533435026248318', '0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3', 'coingecko:sui', 9],
+    ['Arbitrum WETH, whose own history starts 2024-08-16', '4949039107694359620', '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', 'coingecko:ethereum', 18],
+    ['OP WETH, whose own history starts 2024-08-16', '3734403246176062136', '0x4200000000000000000000000000000000000006', 'coingecko:ethereum', 18],
+    ['WEMIX WWEMIX as the native WEMIX coin', '5142893604156789321', '0x7D72b22a74A216Af4a002a1095C8C707d6eC1C5f', 'coingecko:wemix-token', 18],
+    ['Polygon zkEVM WETH', '4348158687435793198', '0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9', 'coingecko:ethereum', 18],
+    ['Superseed WETH', '470401360549526817', '0x4200000000000000000000000000000000000006', 'coingecko:ethereum', 18],
+    ['Hemi WETH', '1804312132722180201', '0x4200000000000000000000000000000000000006', 'coingecko:ethereum', 18],
+    ['Cronos zkEVM wzkCRO', '8788096068760390840', '0xc1bf55ee54e16229d9b369a5502bfe5fc9f20b6d', 'coingecko:wrapped-zkcro', 18],
+    ['Hedera older WHBAR at 8 decimals', '3229138320728879060', '0xfba3d32cc317cbe0c44027b11b8f791961ed2f5c', 'coingecko:hedera-hashgraph', 8],
+    ['Plume WPLUME', '17912061998839310979', '0xea237441c92cae6fc17caaf9a7acb3f953be4bd1', 'coingecko:plume', 18],
   ])('prices %s', (_label, selector, token, key, decimals) => {
     expect(feePriceAlias({ selector }, token)).toEqual({ key, decimals });
   });

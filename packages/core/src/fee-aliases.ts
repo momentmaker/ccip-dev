@@ -48,8 +48,8 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '5936861837188149645:0xb63b9f0eb4a6e6f191529d71d4d88cc8900df2c9': { key: 'coingecko:tac', decimals: 18 },
   // Nexon Henesys WNXPC; decimals() on chain
   '12657445206920369324:0x150869eac5c58d3655f860c4316107fb626244d0': { key: 'coingecko:nexpace', decimals: 18 },
-  // WEMIX WWEMIX; decimals() on chain
-  '5142893604156789321:0x7d72b22a74a216af4a002a1095c8c707d6ec1c5f': { key: 'coingecko:wwemix', decimals: 18 },
+  // WEMIX WWEMIX, priced as the native WEMIX coin: the wrapped listing's history has gaps through 2024-09; decimals() on chain
+  '5142893604156789321:0x7d72b22a74a216af4a002a1095c8c707d6ec1c5f': { key: 'coingecko:wemix-token', decimals: 18 },
   // BSC LINK (CCIP fee token); decimals() on chain
   '11344663589394136015:0x404460c6a5ede2d891e8297795264fde62adbb75': { key: 'coingecko:chainlink', decimals: 18 },
   // Polygon LINK (CCIP fee token); decimals() on chain
@@ -75,6 +75,16 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '6325494908023253251:0xbf10e3dd6d1303310d3bf4567595091758827bc5': { key: 'coingecko:ethereum', decimals: 18 },
   // Sui reports its fee token as SUI's CoinMetadata object id; SUI has 9 decimals
   '17529533435026248318:0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3': { key: 'coingecko:sui', decimals: 9 },
+  // Read on chain on 2026-10-10 (symbol and decimals()), each with no usable DefiLlama history of its own for the days its fees
+  // need: Arbitrum and OP WETH start 2024-08-16; the others have none.
+  '4949039107694359620:0x82af49447d8a07e3bd95bd0d56f35241523fbab1': { key: 'coingecko:ethereum', decimals: 18 },
+  '3734403246176062136:0x4200000000000000000000000000000000000006': { key: 'coingecko:ethereum', decimals: 18 },
+  '4348158687435793198:0x4f9a0e7fd2bf6067db6994cf12e4495df938e6e9': { key: 'coingecko:ethereum', decimals: 18 },
+  '470401360549526817:0x4200000000000000000000000000000000000006': { key: 'coingecko:ethereum', decimals: 18 },
+  '1804312132722180201:0x4200000000000000000000000000000000000006': { key: 'coingecko:ethereum', decimals: 18 },
+  '8788096068760390840:0xc1bf55ee54e16229d9b369a5502bfe5fc9f20b6d': { key: 'coingecko:wrapped-zkcro', decimals: 18 },
+  '3229138320728879060:0xfba3d32cc317cbe0c44027b11b8f791961ed2f5c': { key: 'coingecko:hedera-hashgraph', decimals: 8 },
+  '17912061998839310979:0xea237441c92cae6fc17caaf9a7acb3f953be4bd1': { key: 'coingecko:plume', decimals: 18 },
   // Mova WMOVA (WrappedMova); decimals from the CCIP docs' tokens.json
   '4215185756725900654:0x911fcc80f48340864f5f94ae9a73d6296d5c2115': { key: 'coingecko:mova-2', decimals: 18 },
   // Aptos APT (the AptosCoin fungible asset at 0xa); 0x1::fungible_asset::decimals and 0x1::coin::decimals on the fullnode
