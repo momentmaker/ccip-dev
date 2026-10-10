@@ -107,6 +107,7 @@
   "ethereumLogs": [
     "https://eth.api.pocket.network",
     "https://rpc-eth.blockmachine.io",
-    "https://ethereum-json-rpc.stakely.io"
+    "https://ethereum-json-rpc.stakely.io",
+    "https://xrpc.cl/eth"
   ]
 }
