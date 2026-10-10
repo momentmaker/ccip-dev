@@ -132,6 +132,11 @@ All data sources are free:
 - **Chainlist** (`chainlist.org/rpcs.json`, from DefiLlama/chainlist): the source of the keyless RPC and Blockscout
   endpoint lists in `config/endpoints.json`. Only the data is used. Every entry is checked live before it is written.
 
+### Using this data
+The numbers on ccip.dev, and the JSON files behind them at `https://data.ccip.dev/v1/`, are free to use with credit: "Source: ccip.dev".
+- **Freshness:** the files update every few minutes, so fetch each at most once a minute.
+- **Limits:** requests to `/v1/` are rate-limited per IP, and browsers can read the files only from ccip.dev pages. Server-side use is fine.
+
 ## Chainlink Reserve
 - **Balance:** read every hour with `balanceOf` on the LINK token for the Reserve, `0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6`.
 - **Transfers:** every LINK `Transfer` into or out of the Reserve since its first transfer (block 23,039,541,

@@ -32,6 +32,27 @@ Never paste tokens into chat or commit them.
 9. Schema: `… wrangler d1 migrations apply ccip-dev --remote`.
 10. Deploy: `… wrangler deploy`.
 
+## Protect data.ccip.dev
+
+The data is open to reuse with credit, so these settings limit abuse, not access. Both are owner steps in Cloudflare.
+
+**Rate limit** (dashboard: ccip.dev → Security → WAF → Rate limiting rules → Create rule):
+- Name: `data.ccip.dev rate limit`.
+- When incoming requests match: URI Path starts with `/v1/`. The Free plan matches on path only, not hostname; nothing on ccip.dev itself is under `/v1/`.
+- Characteristics: IP (fixed on Free).
+- When rate exceeds: 50 requests per 10 seconds.
+- Then: Block, for 10 seconds.
+
+Normal use sits far below that: pages poll each file every 30 s, a site build fetches each file once (about 20), and a share card reads one to three files.
+
+Check it from a shell: `for i in $(seq 1 60); do curl -s -o /dev/null -w "%{http_code} " https://data.ccip.dev/v1/status.json; done; echo`. The last few should be `429`, and requests work again after 10 seconds.
+
+**Browser access** (CORS): `worker/r2-cors.json` allows `https://ccip.dev`, `https://www.ccip.dev` and `http://localhost:4321` (`astro dev`). Apply it with `pnpm --filter @ccip-dev/worker exec wrangler r2 bucket cors set ccip-dev-public --file r2-cors.json`.
+- Check: `curl -sI -H "Origin: https://ccip.dev" https://data.ccip.dev/v1/chains.json | grep -i access-control` shows `https://ccip.dev`. The same with `Origin: https://example.com` shows no `access-control` header.
+- Then load ccip.dev and confirm the live counter moves and the Flow picker shows a fee.
+- Requests that carry an `Origin` header are not served from cache (`Vary: Origin`), so the change needs no cache purge.
+- **Roll back:** set `"origins": ["*"]` in the file and run the same command.
+
 ## GitHub (public repo)
 
 The repo is public. That keeps Actions minutes unlimited (the `*/15` watchdog is about 2,880 minutes a month), and environments with branch rules and secret scanning are free. Turn on secret scanning and push protection before anything is pushed.
