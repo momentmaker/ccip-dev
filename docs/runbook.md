@@ -47,11 +47,7 @@ Normal use sits far below that: pages poll each file every 30 s, a site build fe
 
 Check it from a shell: `for i in $(seq 1 60); do curl -s -o /dev/null -w "%{http_code} " https://data.ccip.dev/v1/status.json; done; echo`. The last few should be `429`, and requests work again after 10 seconds.
 
-**Browser access** (CORS): `worker/r2-cors.json` allows `https://ccip.dev`, `https://www.ccip.dev` and `http://localhost:4321` (`astro dev`). Apply it with `pnpm --filter @ccip-dev/worker exec wrangler r2 bucket cors set ccip-dev-public --file r2-cors.json`.
-- Check: `curl -sI -H "Origin: https://ccip.dev" https://data.ccip.dev/v1/chains.json | grep -i access-control` shows `https://ccip.dev`. The same with `Origin: https://example.com` shows no `access-control` header.
-- Then load ccip.dev and confirm the live counter moves and the Flow picker shows a fee.
-- Requests that carry an `Origin` header are not served from cache (`Vary: Origin`), so the change needs no cache purge.
-- **Roll back:** set `"origins": ["*"]` in the file and run the same command.
+**Browser access stays open** (`worker/r2-cors.json` allows `*`). Do not restrict it to ccip.dev. That was tried on 2026-10-10 and broke the site: Cloudflare cache keys ignore `Origin`, so a request from another site (or any request without an allowed `Origin`) stored a copy with no CORS header, and ccip.dev's own browser requests were then served that copy and refused, for up to each file's cache time. Under `*`, requests with an `Origin` header are not served from that cache. If the policy ever changes, reapply with `pnpm --filter @ccip-dev/worker exec wrangler r2 bucket cors set ccip-dev-public --file r2-cors.json`.
 
 ## GitHub (public repo)
 

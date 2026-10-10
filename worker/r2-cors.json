@@ -1,7 +1,7 @@
 {
   "rules": [
     {
-      "allowed": { "origins": ["https://ccip.dev", "https://www.ccip.dev", "http://localhost:4321"], "methods": ["GET", "HEAD"] },
+      "allowed": { "origins": ["*"], "methods": ["GET", "HEAD"] },
       "maxAgeSeconds": 3600
     }
   ]

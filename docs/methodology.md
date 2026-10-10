@@ -135,7 +135,7 @@ All data sources are free:
 ### Using this data
 The numbers on ccip.dev, and the JSON files behind them at `https://data.ccip.dev/v1/`, are free to use with credit: "Source: ccip.dev".
 - **Freshness:** the files update every few minutes, so fetch each at most once a minute.
-- **Limits:** requests to `/v1/` are rate-limited per IP, and browsers can read the files only from ccip.dev pages. Server-side use is fine.
+- **Limits:** requests to `/v1/` are rate-limited per IP.
 
 ## Chainlink Reserve
 - **Balance:** read every hour with `balanceOf` on the LINK token for the Reserve, `0x9A709B7B69EA42D5eeb1ceBC48674C69E1569eC6`.
