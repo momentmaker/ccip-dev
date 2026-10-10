@@ -1,9 +1,10 @@
 import type { DayTotals } from '@ccip-dev/core/public';
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ADDITIVE, CHART_H, CHART_W, chartGeometry, chartSeries, chartSummary, FEE_METRICS, linkShare, nearestIndex, pointX, stepIndex, type HistoryMetric } from '../lib/charts';
 import { formatBps, formatCount, formatDuration, formatUsd, formatUtcDay, linkShareText } from '../lib/format';
 import { feeChartRows } from '../lib/records';
 import type { MetricKey } from '../lib/metric-anchors';
+import Segmented from './controls/Segmented';
 import InfoLink from './InfoLink';
 
 interface MetricSpec {
@@ -77,14 +78,32 @@ function Chart({ rows, spec, cumulative, since }: { rows: DayTotals[]; spec: Met
   );
 }
 
-export default function HistoryCharts({ rows, feesSince }: { rows: DayTotals[]; feesSince: string | null }) {
-  const [cumulative, setCumulative] = useState(false);
-  const cumulativeId = useId();
+const CHART_VALUES = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'cumulative', label: 'Cumulative' },
+] as const;
+
+export function HistoryChartsView({
+  rows,
+  feesSince,
+  cumulative,
+  onCumulativeChange,
+}: {
+  rows: DayTotals[];
+  feesSince: string | null;
+  cumulative: boolean;
+  onCumulativeChange: (cumulative: boolean) => void;
+}) {
   return (
     <div>
-      <label className="toggle">
-        <input id={cumulativeId} name="cumulative" type="checkbox" checked={cumulative} onChange={(e) => setCumulative(e.target.checked)} /> Cumulative
-      </label>
+      <div className="chart-toolbar">
+        <Segmented
+          label="Chart values"
+          options={CHART_VALUES}
+          value={cumulative ? 'cumulative' : 'daily'}
+          onChange={(v) => onCumulativeChange(v === 'cumulative')}
+        />
+      </div>
       <div className="charts">
         {METRICS.map((spec) => (
           <Chart key={spec.key} rows={rows} spec={spec} cumulative={cumulative && ADDITIVE.has(spec.key)} since={feesSince} />
@@ -92,4 +111,9 @@ export default function HistoryCharts({ rows, feesSince }: { rows: DayTotals[]; 
       </div>
     </div>
   );
+}
+
+export default function HistoryCharts({ rows, feesSince }: { rows: DayTotals[]; feesSince: string | null }) {
+  const [cumulative, setCumulative] = useState(false);
+  return <HistoryChartsView rows={rows} feesSince={feesSince} cumulative={cumulative} onCumulativeChange={setCumulative} />;
 }

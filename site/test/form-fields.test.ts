@@ -8,10 +8,9 @@ const scrubber = () =>
   renderToString(createElement(Scrubber, { length: 10, time: 1, onScrub: () => {}, marks: [], ticks: [], valueText: '0:01' }));
 
 describe('form fields carry a name and an id', () => {
-  it('history cumulative toggle', () => {
+  it('history charts switch daily and cumulative with buttons, so they have no bare input', () => {
     const out = renderToString(createElement(HistoryCharts, { rows: [], feesSince: null }));
-    expect(out).toMatch(/<input[^>]*name="cumulative"/);
-    expect(out).toMatch(/<input[^>]*id="[^"]+"/);
+    expect(out).not.toMatch(/<input/);
   });
 
   it('scrubber range', () => {
