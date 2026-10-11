@@ -69,7 +69,8 @@ const HAND_ADDED: Readonly<Record<string, FeeTokenGroup>> = {
   '11690709103138290329:0x3902228d6a3d2dc44731fd9d45fee6a61c722d0b': { group: 'native', symbol: 'WETH' },
   '9723842205701363942:0x2e31ebd2eb114943630db6ba8c7f7687bda5835f': { group: 'native', symbol: 'WETH' },
   '6473245816409426016:0x086917568f9317b68595b7552842de816698d7bd': { group: 'native', symbol: 'WETH' },
-  '9813823125703490621:0x465db775fb91b3b81e0419f0f62c6b482c87852c': { group: 'native', symbol: 'WETH' },
+  // Kaia's WETH9-named wrapper of native KAIA (see FEE_PRICE_ALIASES)
+  '9813823125703490621:0x465db775fb91b3b81e0419f0f62c6b482c87852c': { group: 'native', symbol: 'WKAIA' },
   // BTC-backed gas tokens, valued as BTC
   '9043146809313071210:0xda5ddd7270381a7c2717ad10d1c0ecb19e3cdfb2': { group: 'native', symbol: 'WBTCN' },
   '4560701533377838164:0x0d2437f93fed6ea64ef01ccde385fb1263910c56': { group: 'native', symbol: 'PBTC' },

@@ -106,8 +106,9 @@ export const FEE_PRICE_ALIASES: Readonly<Record<string, FeePriceAlias>> = {
   '6473245816409426016:0x086917568f9317b68595b7552842de816698d7bd': { key: 'coingecko:ethereum', decimals: 18 },
   // Katana WETH, the Vault Bridge ETH (docs)
   '2459028469735686113:0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62': { key: 'coingecko:ethereum', decimals: 18 },
-  // Kaia WETH (on chain)
-  '9813823125703490621:0x465db775fb91b3b81e0419f0f62c6b482c87852c': { key: 'coingecko:ethereum', decimals: 18 },
+  // Kaia: a WETH9 contract named "Wrapped Ether" that wraps Kaia's native KAIA, not ETH. On 2026-10-11 it held 720.44
+  // native KAIA against a 720 token supply. Its fees (about 23 to 58 per message) are KAIA amounts.
+  '9813823125703490621:0x465db775fb91b3b81e0419f0f62c6b482c87852c': { key: 'coingecko:kaia', decimals: 18 },
   // Mode WETH, an OP Stack predeploy; its own DefiLlama history starts 2024-08-16
   '7264351850409363825:0x4200000000000000000000000000000000000006': { key: 'coingecko:ethereum', decimals: 18 },
   // Mint WETH, an OP Stack predeploy
