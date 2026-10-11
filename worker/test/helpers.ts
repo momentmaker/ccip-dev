@@ -1,3 +1,4 @@
+import type { Env } from '../src/env';
 import {
   firstCheckAt, LINK_RESERVE, RESERVE_FIRST_BLOCK, normalizeList, normalizeRegistryToken, toMessageRow, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
 } from '@ccip-dev/core';
@@ -37,6 +38,7 @@ export function harness(opts: {
   labels?: LabelIndex;
   fetch?: typeof fetch;
   db?: D1Database;
+  env?: Partial<Env>;
 }): Harness {
   let now = new Date(opts.now);
   const alerts: { signature: string; text: string }[] = [];
@@ -49,7 +51,7 @@ export function harness(opts: {
     clock: () => 0,
     now: () => now,
   };
-  const c = createRunContext(opts.db ? { ...env, DB: opts.db } : env, deps, {
+  const c = createRunContext({ ...env, ...(opts.db ? { DB: opts.db } : {}), ...opts.env }, deps, {
     ccip: opts.ccip ?? fakeCcip(),
     prices: opts.prices ?? fakePrices(),
     coingecko: opts.coingecko ?? fakeCoingecko(),

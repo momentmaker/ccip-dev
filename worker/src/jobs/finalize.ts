@@ -4,6 +4,7 @@ import {
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishHistoryFiles, retryPut } from '../publish';
+import { triggerSiteBuild } from '../site-build';
 import * as store from '../store';
 import { fallbackLoader, type FallbackLoader } from '../price-fallback';
 import { DetailFillError, ensureKeys, runDetails } from './details';
@@ -89,6 +90,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
       if (failures.length > 0) console.error(`history publish failed after ${summary}`);
       throw err;
     }
+    await triggerSiteBuild(c);
   }
   if (failures.length > 0) throw new Error(summary);
 }

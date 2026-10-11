@@ -29,6 +29,7 @@ Never paste tokens into chat or commit them.
    - `… wrangler secret put TELEGRAM_BOT_TOKEN`
    - `… wrangler secret put TELEGRAM_ALERT_CHAT_ID`
    - Optional: `… wrangler secret put RPC_ETHEREUM` and `RPC_FALLBACKS` (comma-separated). Use them only for keyed RPC URLs; without them, a built-in list of keyless public endpoints is used.
+   - Optional but recommended: `… wrangler secret put GITHUB_DISPATCH_TOKEN`, a fine-grained GitHub token for this repo with only **Actions: Read and write**. After each history publish the Worker dispatches `site.yml`, so pages refresh about 15 minutes after finalize; GitHub's scheduled runs of that workflow arrive hours late and remain the fallback. Without the secret, nothing is dispatched.
 9. Schema: `… wrangler d1 migrations apply ccip-dev --remote`.
 10. Deploy: `… wrangler deploy`.
 
@@ -133,6 +134,7 @@ Alerts arrive in the Telegram chat.
 | `detail-schema:<path>` | A detail response failed validation. The raw copy is in `unparsed/<id>.json` in the archive bucket. |
 | `detail-fill:<day>` | Some of the day's detail fills kept failing: an infrastructure error while filling, or a detail request that failed in a way a later retry could fix: HTTP 429, a 5xx or a network error, after the client's retries (a 404 or another 4xx does not count; that message keeps its list values). For 72 hours after the day starts, finalize holds the day (`job-failed:finalize` names it) while the hourly retries can still fill those messages, then rolls it up as they stand and sends this alert. A message never filled counts with its list values (no fee, first token only); one filled earlier but still unpriced keeps its detail values. Read the first failure in the alert and the Worker logs. If those fills succeed later, the day's totals stay stale until you re-finalize it by rewinding `last_finalize_day` (see "Re-finalize a day"). Messages whose `next_check_at` is NULL (final ones) get no hourly retry; only finalize runs retry them. |
 | `finalize-collect:<day>` | The day's list sweep kept failing for 72 hours after the day started, so finalize rolled it up from the messages already in D1 and skipped its R2 archive. Usually nothing to do: the day's totals are complete if ingest saw every message, and only the archive is missing. Read the reason in the alert; if the list API recovered and you want the archive, rewind `last_archived_day` (see "Re-finalize a day"). |
+| `site-dispatch` | The Worker could not start the site build after a history publish (the message gives the HTTP status or error). Pages still refresh at the next scheduled build. A 401 or 403 usually means `GITHUB_DISPATCH_TOKEN` expired or lacks Actions: Read and write; create a new one and `wrangler secret put` it. |
 | `fee-version:<v>` | A message uses a CCIP version whose fee format is unknown. Add support for it. |
 | `archive-count:<day>` | The day's archive and D1 disagree on the message count. Re-finalize the day (below). |
 | `coingecko-ids` | CoinGecko ids could not be refreshed. Retried hourly. |
