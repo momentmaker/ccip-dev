@@ -116,6 +116,25 @@ describe('valueFee', () => {
   });
 });
 
+describe('valueFee for zero fees and test tokens', () => {
+  const ethereum: ChainRef = { selector: '5009297550715157269', name: 'ethereum-mainnet', chainId: '1', family: 'EVM' };
+  const TEST_LINK = '0x8aa217dcb84faada02583a7922408b1d623b97c9';
+
+  it('values a zero amount at $0 even for a token nothing prices', () => {
+    // #when
+    const usd = valueFee({ token: '0xdeadbeef', amount: '0' }, metal, () => undefined);
+    // #then
+    expect(usd).toBe(0);
+  });
+
+  it('values a zero-value test token at $0 without a price', () => {
+    // #when
+    const usd = valueFee({ token: TEST_LINK, amount: '123456789' }, ethereum, () => undefined);
+    // #then
+    expect(usd).toBe(0);
+  });
+});
+
 describe('valueFee through a fee price alias', () => {
   const bitlayer: ChainRef = { selector: '7937294810946806131', name: 'bitcoin-mainnet-bitlayer-1', chainId: '200901', family: 'EVM' };
   const hedera: ChainRef = { selector: '3229138320728879060', name: 'hedera-mainnet', chainId: '295', family: 'EVM' };
@@ -148,6 +167,20 @@ describe('valueFee through a fee price alias', () => {
     const usd = valueFee({ token: WBTC, amount: '1000000000000000000' }, bitlayer, both);
     // #then
     expect(usd).toBe(1);
+  });
+
+  it.each([
+    ['Mind WETH as ETH', '11690709103138290329', '0x3902228d6a3d2dc44731fd9d45fee6a61c722d0b', 'coingecko:ethereum', '1000000000000000000', 2500],
+    ['Aptos LINK at 8 decimals', '4741433654826277614', '0x8c764993820ea735719f1ff7f1a0f80c022b18e7b5daefa35adf60a3a6556566', 'coingecko:chainlink', '250000000', 25],
+    ['Corn WBTCN as BTC', '9043146809313071210', '0xda5ddd7270381a7c2717ad10d1c0ecb19e3cdfb2', 'coingecko:bitcoin', '1000000000000000', 80],
+  ])('prices %s through its alias', (_label, selector, token, key, amount, expected) => {
+    // #given
+    const chain = { selector, name: 'x', chainId: '1', family: 'EVM' } as ChainRef;
+    const coinPrices: Record<string, PriceInfo> = { 'coingecko:ethereum': { price: 2500, decimals: COIN_PRICE_DECIMALS }, 'coingecko:chainlink': { price: 10, decimals: COIN_PRICE_DECIMALS }, 'coingecko:bitcoin': { price: 80_000, decimals: COIN_PRICE_DECIMALS } };
+    // #when
+    const usd = valueFee({ token, amount }, chain, (k) => coinPrices[k]);
+    // #then
+    expect(usd).toBeCloseTo(expected, 10);
   });
 
   it('returns null when neither the token nor its coin is priced', () => {

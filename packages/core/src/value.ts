@@ -1,5 +1,5 @@
 import { llamaKey } from './chain-map';
-import { feePriceAlias } from './fee-aliases';
+import { feePriceAlias, isZeroValueFeeToken } from './fee-aliases';
 import type { ChainRef, Fee, NormalizedMessage, PriceFallback, PriceLookup, TokenAmount } from './types';
 
 /**
@@ -53,9 +53,13 @@ export function valueTokens(tokens: TokenAmount[], lookup: PriceLookup, fallback
   return { usdValue, unpriced, tokenUsd, outliers };
 }
 
-/** The token's own price wins; a fee token without one is valued as the coin its alias names, at the alias decimals. */
+/**
+ * A zero fee and a zero-value test token are worth $0 without a price. Otherwise the token's own price wins; a fee token
+ * without one is valued as the coin its alias names, at the alias decimals.
+ */
 export function valueFee(fee: Fee | null, chain: ChainRef, lookup: PriceLookup): number | null {
   if (!fee) return null;
+  if (BigInt(fee.amount) === 0n || isZeroValueFeeToken(chain, fee.token)) return 0;
   const key = llamaKey(chain, fee.token);
   const own = key ? lookup(key) : undefined;
   if (own) return toUnits(fee.amount, own.decimals) * own.price;

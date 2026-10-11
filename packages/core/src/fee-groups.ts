@@ -65,6 +65,15 @@ const HAND_ADDED: Readonly<Record<string, FeeTokenGroup>> = {
   // Kroma's WETH predeploy sits at 0x4200…0001, not the OP Stack's 0x4200…0006; DefiLlama prices it as WETH
   '3719320017875267166:0x4200000000000000000000000000000000000001': { group: 'native', symbol: 'WETH' },
   '3229138320728879060:0xfba3d32cc317cbe0c44027b11b8f791961ed2f5c': { group: 'native', symbol: 'WHBAR' },
+  // Fee tokens on chains that have left the docs, identified from the docs' git history or on chain on 2026-10-11 (see FEE_PRICE_ALIASES)
+  '11690709103138290329:0x3902228d6a3d2dc44731fd9d45fee6a61c722d0b': { group: 'native', symbol: 'WETH' },
+  '9723842205701363942:0x2e31ebd2eb114943630db6ba8c7f7687bda5835f': { group: 'native', symbol: 'WETH' },
+  '6473245816409426016:0x086917568f9317b68595b7552842de816698d7bd': { group: 'native', symbol: 'WETH' },
+  '9813823125703490621:0x465db775fb91b3b81e0419f0f62c6b482c87852c': { group: 'native', symbol: 'WETH' },
+  // BTC-backed gas tokens, valued as BTC
+  '9043146809313071210:0xda5ddd7270381a7c2717ad10d1c0ecb19e3cdfb2': { group: 'native', symbol: 'WBTCN' },
+  '4560701533377838164:0x0d2437f93fed6ea64ef01ccde385fb1263910c56': { group: 'native', symbol: 'PBTC' },
+  '5214452172935136222:0x263d8f36bb8d0d9526255e205868c26690b04b88': { group: 'native', symbol: 'WMAGIC' },
 };
 
 /** Keyed `chainSelector:normalizedAddress`, as FEE_PRICE_ALIASES is. LINK is never here: it has its own matcher. */

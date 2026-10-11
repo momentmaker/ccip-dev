@@ -53,6 +53,30 @@ describe('feeTokenGroup', () => {
     expect(feeTokenGroup(chain, token, isLinkFee)).toBe('native');
   });
 
+  it.each([
+    ['Mind WETH', '11690709103138290329', '0x3902228d6a3d2dc44731fd9d45fee6a61c722d0b'],
+    ['Everclear WETH', '9723842205701363942', '0x2e31ebd2eb114943630db6ba8c7f7687bda5835f'],
+    ['Memento WETH', '6473245816409426016', '0x086917568f9317b68595b7552842de816698d7bd'],
+    ['Kaia WETH', '9813823125703490621', '0x465db775fb91b3b81e0419f0f62c6b482c87852c'],
+    ['Katana WETH', '2459028469735686113', '0xee7d8bcfb72bc1880d0cf19822eb0a2e6577ab62'],
+    ['Mode WETH', '7264351850409363825', '0x4200000000000000000000000000000000000006'],
+    ['Blast WETH', '4411394078118774322', '0x4300000000000000000000000000000000000004'],
+    ['zkSync WETH', '1562403441176082196', '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91'],
+    ['Corn WBTCN', '9043146809313071210', '0xda5ddd7270381a7c2717ad10d1c0ecb19e3cdfb2'],
+    ['Botanix PBTC', '4560701533377838164', '0x0d2437f93fed6ea64ef01ccde385fb1263910c56'],
+    ['Treasure WMAGIC', '5214452172935136222', '0x263d8f36bb8d0d9526255e205868c26690b04b88'],
+  ])('groups %s as native', (_, chain, token) => {
+    expect(feeTokenGroup(chain, token, isLinkFee)).toBe('native');
+  });
+
+  it('groups Lens WGHO as stable', () => {
+    expect(feeTokenGroup('5608378062013572713', '0x6bdc36e20d267ff0dd6097799f82e78907105e2f', isLinkFee)).toBe('stable');
+  });
+
+  it('leaves the test LINK tokens in other', () => {
+    expect(feeTokenGroup('5009297550715157269', '0x8aa217dcb84faada02583a7922408b1d623b97c9', isLinkFee)).toBe('other');
+  });
+
   it('keeps LINK out of the table', () => {
     expect(Object.keys(FEE_TOKEN_GROUPS).filter((key) => linkFeeKeys([]).has(key))).toEqual([]);
   });
@@ -74,7 +98,11 @@ describe('feeClassifier', () => {
 
 describe('UNLISTED_LINK_FEE_TOKENS', () => {
   it('gives every unlisted LINK the 18 decimals read on chain on 2026-10-09', () => {
-    expect(Object.values(UNLISTED_LINK_FEE_TOKENS).map((t) => t.decimals)).toEqual(Array(13).fill(18));
+    expect(Object.values(UNLISTED_LINK_FEE_TOKENS).map((t) => t.decimals)).toEqual(Array(14).fill(18));
+  });
+
+  it('counts Memento LINK, which the registry leaves out, as LINK', () => {
+    expect(isLinkFee('6473245816409426016', '0x76a443768A5e3B8d1AED0105FC250877841Deb40')).toBe(true);
   });
 });
 

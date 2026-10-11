@@ -22,6 +22,7 @@ export const UNLISTED_LINK_FEE_TOKENS: Readonly<Record<string, { address: string
   '2135107236357186872': { address: '0xf09AFe78d3c7d359b334d7cB88995751F7eC5E13', decimals: 18 }, // Bittensor
   '8788096068760390840': { address: '0x61170ca9fB9cF98d4c7d684e07be6D969D59667E', decimals: 18 }, // Cronos zkEVM
   '12657445206920369324': { address: '0x76a443768A5e3B8d1AED0105FC250877841Deb40', decimals: 18 }, // Nexon Henesys
+  '6473245816409426016': { address: '0x76a443768A5e3B8d1AED0105FC250877841Deb40', decimals: 18 }, // Memento (CCIP docs; decimals as FEE_PRICE_ALIASES has it)
 };
 export const LINK_TOKEN_DECIMALS = 18;
 export const LINK_PRICE_KEY = `ethereum:${LINK_TOKEN}`;
