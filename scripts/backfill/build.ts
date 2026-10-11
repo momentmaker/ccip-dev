@@ -565,6 +565,8 @@ interface PriceCacheFile {
 /** Where a coin's daily history comes from when DefiLlama has none: CoinGecko's free public API, at most 365 days back. */
 export interface PriceCacheOptions {
   coinHistory?: Pick<CoingeckoClient, 'dailyHistory'>;
+  /** Coins whose fees were paid before they traded; see FeePriceAlias.beforeTrading. Applied only to days before a key's series starts. */
+  beforeTrading?: ReadonlyMap<string, { predecessor?: string }>;
   log?: (line: string) => void;
 }
 
@@ -638,12 +640,22 @@ export class PriceCache {
   lookupOn(day: string): PriceLookup {
     const days = nearDays(day);
     return (key) => {
-      const price = nearDayPrice(this.series(key), days);
+      const price = nearDayPrice(this.series(key), days) ?? this.beforeTradingPrice(key, days);
       if (price === undefined) return undefined;
       if (isCoingeckoKey(key)) return { price, decimals: COIN_PRICE_DECIMALS };
       const decimals = this.decimalsOf(key);
       return decimals === undefined ? undefined : { price, decimals };
     };
+  }
+
+  /** The first price of a key whose rule says so, or its predecessor's price, on a day before the key's series starts; never after. */
+  private beforeTradingPrice(key: string, days: NearDays): number | undefined {
+    const rule = this.options.beforeTrading?.get(key);
+    const series = this.series(key);
+    if (rule === undefined || series === undefined) return undefined;
+    const firstDay = Object.keys(series).sort()[0];
+    if (firstDay === undefined || days.day >= firstDay) return undefined;
+    return rule.predecessor === undefined ? series[firstDay] : nearDayPrice(this.series(rule.predecessor), days);
   }
 
   /** How many glitched points were dropped from each key's series read so far; keys with none are left out. */

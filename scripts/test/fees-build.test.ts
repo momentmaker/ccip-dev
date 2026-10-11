@@ -493,11 +493,64 @@ describe('feePricingHash', () => {
     expect(feePricingHash({ ...base, format: FEE_BUILD_FORMAT + 1 })).not.toBe(feePricingHash(base));
   });
 
+  it('changes when an alias gains a beforeTrading rule', () => {
+    expect(feePricingHash({ ...base, aliases: { ...aliases, '2:0xb': { key: 'coingecko:b', decimals: 8, beforeTrading: {} } } })).not.toBe(feePricingHash(base));
+  });
+
+  it("changes when a beforeTrading predecessor changes", () => {
+    const with_ = (predecessor: string) => ({ ...base, aliases: { ...aliases, '2:0xb': { key: 'coingecko:b', decimals: 8, beforeTrading: { predecessor } } } });
+    expect(feePricingHash(with_('coingecko:x'))).not.toBe(feePricingHash(with_('coingecko:y')));
+  });
+
+  it('changes when a zero-value fee token is added', () => {
+    expect(feePricingHash({ ...base, zeroValueTokens: new Set([...CURRENT_FEE_PRICING.zeroValueTokens, '1:0xc']) })).not.toBe(feePricingHash(base));
+  });
+
   it("changes when an unlisted LINK's decimals change", () => {
     // #given
     const unlistedLink = { ...CURRENT_FEE_PRICING.unlistedLink, '4949039107694359620': { address: '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4', decimals: 8 } };
     // #when, #then
     expect(feePricingHash({ ...base, unlistedLink })).not.toBe(feePricingHash(base));
+  });
+});
+
+describe('fees paid before the fee token traded', () => {
+  const MIND = '11690709103138290329';
+  const W0G = '0x1cd0690ff9a693f5ef2dd976660a8dafc81a109c';
+  const ZERO_G = '4426351306075016396';
+
+  it("values a fee paid before the token's first price at that first price", async () => {
+    // #given a W0G fee on 2026-10-04 and a coingecko:zero-gravity series that starts on 10-06 at $3
+    const dir = await backfill({ records: [ok('0xlink', LINK, '100000000000000000'), ok('0xweth', W0G, '2000000000000000000'), ok('0xgone', WETH, '0')], src: { chainSelector: ZERO_G, chainId: '16661' } });
+    const cacheFile = path.join(dir, 'prices', 'cache.json');
+    const cache = JSON.parse(await readFile(cacheFile, 'utf8')) as { history: Record<string, Record<string, number>> };
+    cache.history['coingecko:zero-gravity'] = { '2026-10-06': 3, '2026-10-07': 3 };
+    await writeFile(cacheFile, JSON.stringify(cache));
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(await sqlOf(dir)).toContain(`fee_token = '${W0G}', fee_amount = '2000000000000000000', fee_usd = 6,`);
+  });
+
+  it("fetches a predecessor coin's history for a fee of the coin that has one", async () => {
+    // #given a Sonic wS fee
+    const WS = '0x039e2fb66102314ce7b64ce5ce3e5183bc94ad38';
+    const dir = await backfill({ records: [ok('0xlink', LINK, '1'), ok('0xweth', WS, '1000000000000000000'), ok('0xgone', WS, '0')], src: { chainSelector: '1673871237479749969', chainId: '146' } });
+    const asked: string[] = [];
+    const prices = { latest: async () => new Map(), dailyHistory: async (key: string) => { asked.push(key); return []; } } as unknown as PricesClient;
+    // #when
+    await buildFees({ dir, prices });
+    // #then
+    expect(asked).toContain('coingecko:fantom');
+  });
+
+  it('values a zero fee at $0 on a chain nothing prices', async () => {
+    // #given
+    const dir = await backfill({ records: [ok('0xlink', LINK, '0'), ok('0xweth', WETH, '0'), ok('0xgone', WETH, '0')], src: { chainSelector: MIND, chainId: '1' } });
+    // #when
+    await buildFees({ dir, prices: noPrices });
+    // #then
+    expect(await sqlOf(dir)).toContain(`fee_token = '${WETH}', fee_amount = '0', fee_usd = 0,`);
   });
 });
 

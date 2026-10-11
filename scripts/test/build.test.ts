@@ -9,7 +9,7 @@ import {
 } from '@ccip-dev/core';
 import { fakeCcip, fakeCoingecko, fakePrices, listMessage, NETWORKS, type FakePrices } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
-import { build, DaySpool, SqlWriter } from '../backfill/build';
+import { build, DaySpool, PriceCache, SqlWriter } from '../backfill/build';
 
 const TOKEN = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const KEY = `base:${TOKEN}`;
@@ -765,5 +765,58 @@ describe('SqlWriter', () => {
     const writer = new SqlWriter(dir, 20_000);
     await writer.add(Array.from({ length: 200_000 }, () => 'SELECT 1;'));
     expect(await writer.finish()).toMatchObject({ files: 10 });
+  });
+});
+
+describe('PriceCache beforeTrading', () => {
+  const COIN = 'coingecko:newcoin';
+  const OLD = 'coingecko:oldcoin';
+  const OTHER = 'coingecko:othercoin';
+  const history = {
+    [COIN]: { '2026-10-04': 4, '2026-10-05': 5, '2026-10-06': 6, '2026-10-11': 10, '2026-10-12': 10 },
+    [OLD]: { '2026-10-01': 1.1, '2026-10-02': 1.2, '2026-10-03': 1.3 },
+    [OTHER]: { '2026-10-04': 4 },
+  };
+
+  async function lookupOf(beforeTrading: Map<string, { predecessor?: string }>, day: string) {
+    const dir = await mkdtemp(path.join(tmpdir(), 'price-cache-'));
+    const cache = await PriceCache.open(fakePrices({ history }), path.join(dir, 'cache.json'), '2026-10-01', '2026-10-12', { beforeTrading });
+    await cache.ensure([COIN, OLD, OTHER]);
+    return cache.lookupOn(day);
+  }
+
+  it('values a day before the series starts at its first price', async () => {
+    // #given, #when
+    const lookup = await lookupOf(new Map([[COIN, {}]]), '2026-10-02');
+    // #then
+    expect(lookup(COIN)).toEqual({ price: 4, decimals: COIN_PRICE_DECIMALS });
+  });
+
+  it('values a day before the series starts at the predecessor\'s price that day', async () => {
+    // #given, #when
+    const lookup = await lookupOf(new Map([[COIN, { predecessor: OLD }]]), '2026-10-02');
+    // #then
+    expect(lookup(COIN)).toEqual({ price: 1.2, decimals: COIN_PRICE_DECIMALS });
+  });
+
+  it('leaves a gap after the series has started unpriced', async () => {
+    // #given, #when
+    const lookup = await lookupOf(new Map([[COIN, {}]]), '2026-10-08');
+    // #then
+    expect(lookup(COIN)).toBeUndefined();
+  });
+
+  it('leaves a key without a rule unpriced before its series starts', async () => {
+    // #given, #when
+    const lookup = await lookupOf(new Map([[COIN, {}]]), '2026-10-02');
+    // #then
+    expect(lookup(OTHER)).toBeUndefined();
+  });
+
+  it('prefers the normal price on a day the series has one', async () => {
+    // #given, #when
+    const lookup = await lookupOf(new Map([[COIN, {}]]), '2026-10-05');
+    // #then
+    expect(lookup(COIN)?.price).toBe(5);
   });
 });

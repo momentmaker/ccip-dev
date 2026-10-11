@@ -4,8 +4,8 @@ import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  buildRows, createCoingeckoClient, createPricesClient, FEE_PRICE_ALIASES, FEE_TOKEN_GROUPS, feeClassifier, feeGroupTotals, feePriceKeys, linkFeeKeys, ListMessage,
-  normalizeList, normalizeRegistryToken, rollupDay, sqlLiteral, UNLISTED_LINK_FEE_TOKENS, valueFee, type FeePriceAlias, type FeeTokenGroup, type HttpDeps,
+  buildRows, createCoingeckoClient, createPricesClient, FEE_PRICE_ALIASES, FEE_TOKEN_GROUPS, feeClassifier, feeGroupTotals, feePriceAlias, feePriceKeys, linkFeeKeys, ListMessage,
+  normalizeList, normalizeRegistryToken, rollupDay, sqlLiteral, UNLISTED_LINK_FEE_TOKENS, valueFee, ZERO_VALUE_FEE_TOKENS, type ChainRef, type Fee, type FeePriceAlias, type FeeTokenGroup, type HttpDeps,
   type NormalizedMessage, type PricesClient, type RegistryToken,
 } from '@ccip-dev/core';
 import { PriceCache, SqlWriter, type PriceCacheOptions } from '../build';
@@ -57,6 +57,7 @@ export interface FeePricingInputs {
   aliases: Readonly<Record<string, FeePriceAlias>>;
   groups: Readonly<Record<string, FeeTokenGroup>>;
   unlistedLink: Readonly<Record<string, { address: string; decimals: number }>>;
+  zeroValueTokens: ReadonlySet<string>;
   format: number;
 }
 
@@ -64,6 +65,7 @@ export const CURRENT_FEE_PRICING: FeePricingInputs = {
   aliases: FEE_PRICE_ALIASES,
   groups: FEE_TOKEN_GROUPS,
   unlistedLink: UNLISTED_LINK_FEE_TOKENS,
+  zeroValueTokens: ZERO_VALUE_FEE_TOKENS,
   format: FEE_BUILD_FORMAT,
 };
 
@@ -72,9 +74,10 @@ const sortedEntries = <T>(table: Readonly<Record<string, T>>) => Object.keys(tab
 /** Prices, groups and LINK decimals apply to every day, so a change to any of them, or to the SQL format, makes every built day stale. */
 export function feePricingHash(inputs: FeePricingInputs = CURRENT_FEE_PRICING): string {
   const canonical = {
-    aliases: sortedEntries(inputs.aliases).map(([k, a]) => [k, a.key, a.decimals]),
+    aliases: sortedEntries(inputs.aliases).map(([k, a]) => [k, a.key, a.decimals, a.beforeTrading?.predecessor ?? null, a.beforeTrading !== undefined]),
     groups: sortedEntries(inputs.groups).map(([k, g]) => [k, g.group, g.symbol]),
     unlistedLink: sortedEntries(inputs.unlistedLink).map(([k, t]) => [k, t.address.toLowerCase(), t.decimals]),
+    zeroValueTokens: [...inputs.zeroValueTokens].sort(),
     format: inputs.format,
   };
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
@@ -96,6 +99,16 @@ async function lastBatchNumber(dir: string, recorded: number): Promise<number> {
   return Math.max(recorded, ...numbers);
 }
 
+/** The coins whose fees may be valued before their price history starts, from the alias table. */
+function beforeTradingRules(aliases: Readonly<Record<string, FeePriceAlias>>): Map<string, { predecessor?: string }> {
+  return new Map(Object.values(aliases).flatMap((a) => (a.beforeTrading ? [[a.key, a.beforeTrading] as const] : [])));
+}
+
+const predecessorKeys = (fee: Fee, chain: ChainRef): string[] => {
+  const predecessor = feePriceAlias(chain, fee.token)?.beforeTrading?.predecessor;
+  return predecessor ? [predecessor] : [];
+};
+
 export async function buildFees(opts: { dir: string; prices: PricesClient; coingecko?: PriceCacheOptions['coinHistory']; chunkSize?: number; log?: (line: string) => void }): Promise<FeeBuildResult> {
   const log = opts.log ?? (() => {});
   const statePath = path.join(opts.dir, 'fees', 'build-state.json');
@@ -114,7 +127,8 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
 
   const archiveDays = await listArchiveDays(opts.dir);
   if (archiveDays.length === 0) throw new Error(`no archive days under ${path.join(opts.dir, 'archive', 'messages')}`);
-  const prices = await PriceCache.openExisting(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), archiveDays.at(-1)!, archiveDays[0]!, { coinHistory: opts.coingecko, log });
+  const beforeTrading = beforeTradingRules(CURRENT_FEE_PRICING.aliases);
+  const prices = await PriceCache.openExisting(opts.prices, path.join(opts.dir, 'prices', 'cache.json'), archiveDays.at(-1)!, archiveDays[0]!, { coinHistory: opts.coingecko, beforeTrading, log });
   const registry = JSON.parse(await readFile(path.join(opts.dir, 'registry', 'tokens.json'), 'utf8')) as RegistryToken[];
   const classify = feeClassifier(linkFeeKeys(registry.map(normalizeRegistryToken)));
   const ungrouped = new Map<string, UngroupedFeeToken>();
@@ -135,7 +149,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
       const rec = byId.get(m.messageId);
       return rec?.kind === 'ok' ? { ...m, fee: rec.fee } : m;
     });
-    await prices.ensure(messages.flatMap((m) => (m.fee ? feePriceKeys(m.fee, m.src) : [])));
+    await prices.ensure(messages.flatMap((m) => (m.fee ? [...feePriceKeys(m.fee, m.src), ...predecessorKeys(m.fee, m.src)] : [])));
     const lookup = prices.lookupOn(day);
     const { rows } = buildRows(messages, lookup, (m) => {
       const rec = byId.get(m.messageId);
