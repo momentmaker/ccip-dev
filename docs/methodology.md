@@ -37,18 +37,25 @@
   - For a coin DefiLlama has no history for, the fee backfill uses CoinGecko's free public daily history (at most 365
     days back; credit: CoinGecko). Today that applies to Mova's MOVA, whose price data ends 2026-09-07 when it was
     delisted; later Mova fees stay unpriced. The live Worker uses DefiLlama only.
-  - A few fees still have no free price: Pharos fees before PROS began trading (2026-04-29), Mova fees after
-    2026-09-07, fees on Mind and Everclear (both chains shut down, so their fee tokens can no longer be checked) and one
-    rarely used Canton token. They are left out of the fee totals.
+  - A fee of 0 and a fee paid in one of four test "LINK" tokens (total supply 100, not LINK; two on Ethereum and two
+    on Morph) count as $0.
+  - A fee paid before its token first traded is valued at the token's first market price: Pharos, Monad, 0G and
+    Plasma. Sonic uses FTM's price on that day instead, since FTM converted 1:1 into S. Fees after a token's first price
+    are never filled this way.
+  - BTC-backed gas tokens (WBTCN on Corn, PBTC on Botanix) are valued as BTC.
+  - Fee tokens of chains that have left the CCIP docs (such as Mind and Everclear) were identified from the docs' git
+    history, and their decimals read on chain where the chain still answers.
+  - A few fees still have no free price: Mova fees after 2026-09-07 and about 8 fees whose token can't be identified
+    (one on Tron, Base zunETH and one rarely used Canton token). They are left out of the fee totals.
 - **Fees paid in LINK:** the part of a day's fees whose fee token is LINK. That is LINK in CCIP's LINK token group
-  (LINK on the chains where it moves through CCIP), plus LINK on the 13 chains where LINK is a fee token but is not
+  (LINK on the chains where it moves through CCIP), plus LINK on the 14 chains where LINK is a fee token but is not
   in that group: OP, BNB Chain, Gnosis, Polygon, Arbitrum, Avalanche, Cronos zkEVM, Bittensor EVM, HyperEVM, Kaia,
-  Hedera, Etherlink and Nexon Henesys. Available for every day that has fees.
+  Hedera, Etherlink, Nexon Henesys and Memento. Available for every day that has fees.
 - **Fee groups:** each fee counts in one of four groups, by its fee token.
   - **LINK:** the LINK tokens above.
   - **Gas tokens:** a chain's gas token or its wrapped form, such as WETH, WBNB, WPOL, WAVAX, wSOL, WHYPE, APT, CC and GRAM.
   - **Stablecoins:** GHO, pathUSD and other USD stablecoins, plus gas tokens that are stablecoins: USDT0 and gUSDT on Stable, xDAI on Gnosis, GHO on Lens and USDC on Arc.
-  - **Other:** every other fee token, such as those on Mind and Everclear. Other is a day's fees minus the three groups above.
+  - **Other:** every other fee token, such as the test tokens above and the few tokens that can't be identified. Other is a day's fees minus the three groups above.
 
   A token's group comes from the CCIP docs: each chain's listed fee tokens, grouped by symbol (a fixed list of stablecoin
   symbols; every other symbol is a gas token). Fee tokens the API reports that the docs list under another address, or not
