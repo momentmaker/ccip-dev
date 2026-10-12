@@ -1,0 +1,10 @@
+name = "Huma Finance"
+x = "humafinance"
+url = "https://huma.finance"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "solana-mainnet"
+address = "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw"
+source = "https://docs.huma.finance/ecosystem-resources/smart-contracts"

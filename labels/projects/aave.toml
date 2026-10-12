@@ -14,3 +14,8 @@ note = "Stable-vault CcipAdapter (aave-dao/stable-vault deployments/prod)"
 chain = "ethereum-mainnet"
 address = "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072"
 note = "Stable-vault CcipAdapter, same CREATE2 address (aave-dao/stable-vault deployments/prod)"
+
+[[tokens]]
+chain = "plasma-mainnet"
+address = "0xb77E872A68C62CfC0dFb02C067Ecc3DA23B4bbf3"
+source = "https://aave.com/docs/ecosystem/gho"

@@ -1,0 +1,10 @@
+name = "Saturn"
+x = "saturn_credit"
+url = "https://saturn.credit"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x23238f20b894f29041f48D88eE91131C395Aaa71"
+source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
