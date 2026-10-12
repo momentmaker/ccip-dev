@@ -1,0 +1,57 @@
+import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
+import { describe, expect, it, vi } from 'vitest';
+import { sendTelegramPhoto } from '../src/telegram';
+
+const CONFIG = { token: 'secret-token', chatId: '@ccipdev' };
+const PHOTO = { photo: 'https://ccip.dev/og/broadcast/daily/2026-10-10.png?v=1', caption: '<b>hi</b>', parseMode: 'HTML' as const };
+
+describe('sendTelegramPhoto', () => {
+  it('posts the card by URL with its caption and parse mode', async () => {
+    // #given
+    const fetch = fakeFetch(() => jsonResponse({ ok: true, result: {} }));
+    // #when
+    const failure = await sendTelegramPhoto({ fetch, sleep: async () => {} }, CONFIG, PHOTO);
+    // #then
+    expect({ failure, url: fetch.calls[0]?.url, body: JSON.parse(String(fetch.calls[0]?.init?.body)) }).toEqual({
+      failure: null,
+      url: 'https://api.telegram.org/botsecret-token/sendPhoto',
+      body: { chat_id: '@ccipdev', photo: PHOTO.photo, caption: '<b>hi</b>', parse_mode: 'HTML' },
+    });
+  });
+
+  it("waits Telegram's retry_after after a 429 and tries once more", async () => {
+    // #given
+    let calls = 0;
+    const fetch = fakeFetch(() => (++calls === 1 ? jsonResponse({ ok: false, error_code: 429, parameters: { retry_after: 5 } }, 429) : jsonResponse({ ok: true, result: {} })));
+    const sleep = vi.fn(async () => {});
+    // #when
+    const failure = await sendTelegramPhoto({ fetch, sleep }, CONFIG, PHOTO);
+    // #then
+    expect({ failure, calls, waits: sleep.mock.calls }).toEqual({ failure: null, calls: 2, waits: [[5000]] });
+  });
+
+  it('caps the wait at 30 s and gives up after the one retry, naming the error but not the token', async () => {
+    // #given
+    const fetch = fakeFetch(() => jsonResponse({ ok: false, description: 'Too Many Requests: retry after 120', parameters: { retry_after: 120 } }, 429));
+    const sleep = vi.fn(async () => {});
+    // #when
+    const failure = await sendTelegramPhoto({ fetch, sleep }, CONFIG, PHOTO);
+    // #then
+    expect({ failure, calls: fetch.calls.length, waits: sleep.mock.calls }).toEqual({
+      failure: 'Telegram returned HTTP 429: Too Many Requests: retry after 120',
+      calls: 2,
+      waits: [[30_000]],
+    });
+  });
+
+  it('reports a failed request without the token', async () => {
+    // #given
+    const fetch = fakeFetch(async () => {
+      throw new TypeError('network down for secret-token');
+    });
+    // #when
+    const failure = await sendTelegramPhoto({ fetch, sleep: async () => {} }, CONFIG, PHOTO);
+    // #then
+    expect(failure).toBe('Telegram request failed (TypeError)');
+  });
+});

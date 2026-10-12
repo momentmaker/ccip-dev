@@ -59,6 +59,12 @@ export async function releaseMeta(db: D1Database, key: string, value: string): P
   await db.prepare('DELETE FROM meta WHERE key = ? AND value = ?').bind(key, value).run();
 }
 
+/** Writes `value` under each key that has none yet. */
+export async function markMeta(db: D1Database, keys: string[], value: string): Promise<void> {
+  const insert = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING');
+  await runBatch(db, keys.map((key) => insert.bind(key, value)));
+}
+
 export async function knownIds(db: D1Database, ids: string[]): Promise<Set<string>> {
   const known = new Set<string>();
   for (const chunk of chunks(ids, PARAM_CHUNK)) {

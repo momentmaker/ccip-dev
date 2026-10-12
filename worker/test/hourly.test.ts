@@ -1,5 +1,5 @@
-import { UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
-import { fakeCcip, fakeCoingecko, NETWORKS } from '@ccip-dev/core/testing';
+import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
+import { fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runHourly } from '../src/jobs/hourly';
@@ -84,6 +84,63 @@ describe('runHourly', () => {
     expect(await store.countRows(env.DB, 'chains')).toBe(0);
     expect(await store.countRows(env.DB, 'tokens')).toBe(0);
     expect((await store.reserveSeries(env.DB, '2026-01-01T00:00:00.000Z')).length).toBe(1);
+  });
+
+  it('posts a new priced Reserve deposit once, after publishing reserve.json', async () => {
+    // #given two priced deposits, the scan caught up, and the watermark at the first
+    const D = '0x5680681ed3767b96914ce741a308155c7fb9171d';
+    const TX1 = `0x${'01'.repeat(32)}`;
+    const TX2 = `0x${'02'.repeat(32)}`;
+    const raw = (link: bigint) => (link * 10n ** 18n).toString();
+    await store.insertReserveTransfers(env.DB, [
+      { txHash: TX1, logIndex: 0, blockNumber: 1, ts: '2026-10-01T09:35:00.000Z', direction: 'in', counterparty: D, amount: raw(100_000n) },
+      { txHash: TX2, logIndex: 0, blockNumber: 2, ts: '2026-10-08T09:35:00.000Z', direction: 'in', counterparty: D, amount: raw(82_480n) },
+    ]);
+    await store.setReserveTransferPrices(env.DB, [{ txHash: TX1, logIndex: 0, linkUsd: 12 }, { txHash: TX2, logIndex: 0, linkUsd: 12.5 }]);
+    await store.setMeta(env.DB, 'reserve_scan_caught_up', '1');
+    await store.setMeta(env.DB, 'reserve_scan_block', String(RESERVE_FIRST_BLOCK));
+    await store.setMeta(env.DB, 'broadcast:reserve:since', '2026-10-01T09:35:00.000Z');
+    const rpc = rpcFake({ balanceLink: 182_480n, balanceAt: () => 182_480n * 10n ** 18n });
+    const f = fakeFetch(
+      (url) => {
+        if (url.startsWith('https://ccip.dev/og/')) return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } });
+        if (url.startsWith('https://api.telegram.org/')) return jsonResponse({ ok: true, result: {} });
+        return undefined;
+      },
+      (url, init) => rpc(url, init),
+    );
+    const env_ = { BROADCASTS: 'on', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42' };
+    const prices = fakePrices({ latest: { [LINK_PRICE_KEY]: { price: 13, decimals: 18 } } });
+    const run = () => runHourly(harness({ now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: f, prices, env: env_ }).c);
+    // #when two hourly runs
+    await run();
+    await run();
+    // #then one broadcast, to the channel and the drafts chat
+    const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)).photo.split('?')[0]);
+    expect(photos).toEqual([`https://ccip.dev/og/broadcast/reserve/${TX2}.png`, `https://ccip.dev/og/broadcast/reserve/${TX2}.png`]);
+  });
+
+  it("posts yesterday's daily from the hourly run when the 00:07 attempt could not", async () => {
+    // #given yesterday is finalized, but its daily was never sent
+    for (const day of ['2026-10-05', '2026-10-06', '2026-10-07']) {
+      await store.replaceDaily(env.DB, { day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: 1, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 }, [], NOW);
+    }
+    await store.setMeta(env.DB, 'live_start_day', '2026-10-05');
+    await store.setMeta(env.DB, 'last_finalize_day', '2026-10-07');
+    const f = fakeFetch(
+      (url) => {
+        if (url.startsWith('https://ccip.dev/og/')) return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } });
+        if (url.startsWith('https://api.telegram.org/')) return jsonResponse({ ok: true, result: {} });
+        return undefined;
+      },
+      (url, init) => rpcFake({ balanceLink: 1n })(url, init),
+    );
+    const env_ = { BROADCASTS: 'drafts', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_ALERT_CHAT_ID: '42' };
+    // #when
+    await runHourly(harness({ now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: f, env: env_ }).c);
+    // #then
+    const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)).photo.split('?')[0]);
+    expect(photos).toEqual(['https://ccip.dev/og/broadcast/daily/2026-10-07.png']);
   });
 });
 

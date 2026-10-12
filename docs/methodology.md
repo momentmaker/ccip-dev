@@ -82,6 +82,13 @@
   fee per message reads low on routes like Ronin.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
+## Broadcasts
+
+- **What is posted:** a daily report after each day is finalized, a weekly report on Mondays (Monday–Sunday, UTC), a post for each record or milestone a newly finalized day sets, and one for each Reserve deposit. They go to the Telegram channel @ccipdev and to X.
+- **Same numbers as the site:** posts and their cards use the site's data and number formats. A daily change is against the mean of the 7 days before; a weekly change is against the week before.
+- **Records** follow the Records page's rules: a tie keeps the earlier day, and the LINK share counts days with 100 or more messages. Milestones are the all-time message, value and fee thresholds the Records page lists.
+- **Tags:** a project or chain is tagged only with an X handle its own website or docs link to; otherwise it is named.
+
 ## Coverage
 History starts on **2023-07-06**. This is the first CCIP mainnet message (2023-07-06 22:34:59 UTC). All-time
 figures are labeled "since 2023-07-06".

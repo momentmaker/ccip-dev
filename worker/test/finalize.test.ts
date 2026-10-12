@@ -2,11 +2,12 @@ import {
   buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS, coingeckoKey, groupFallback, gunzipText, normalizeList,
   normalizeRegistryToken, rollupDay, tokenGroupEntry, UpstreamHttpError, type CoingeckoIdLookup,
 } from '@ccip-dev/core';
-import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
+import { fakeCcip, fakeFetch, fakePrices, jsonResponse, listMessage, NETWORKS, type FakeFetch } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import detailMultiToken from '../../packages/core/test/fixtures/detail-multi-token.json';
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
+import { runBroadcasts } from '../src/broadcasts/run';
 import { runDetails } from '../src/jobs/details';
 import { runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
@@ -827,5 +828,43 @@ describe('fees paid in LINK', () => {
     // #then
     const stored = await env.DB.prepare('SELECT fee_usd, fee_link_usd, fee_native_usd, fee_stable_usd, fee_link_amount FROM daily_totals WHERE day = ?').bind(day).first();
     expect(stored).toEqual({ fee_usd: 6, fee_link_usd: 1, fee_native_usd: 2, fee_stable_usd: 3, fee_link_amount: 0.1 });
+  });
+});
+
+describe('broadcasts after finalize', () => {
+  const ENV = { BROADCASTS: 'on', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42' };
+  const net = () =>
+    fakeFetch((url) => {
+      if (url.startsWith('https://ccip.dev/og/')) return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } });
+      if (url.startsWith('https://api.telegram.org/')) return jsonResponse({ ok: true, result: {} });
+      return undefined;
+    });
+  const photos = (f: FakeFetch) =>
+    f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)) as { chat_id: string; photo: string; caption: string; parse_mode?: string });
+
+  it("posts yesterday's daily to the channel and as an X draft once, after the early run publishes", async () => {
+    // #given
+    await seedMeta('2026-10-08', '2026-10-08');
+    const f = net();
+    const h = harness({ now: NOW, ccip: api(), fetch: f, env: ENV });
+    // #when the early run finalizes the 9th, then the broadcasts run again
+    await runFinalize(h.c, 'early');
+    await runBroadcasts(h.c, { kind: 'finalize', days: ['2026-10-09'] });
+    // #then
+    const sent = photos(f);
+    expect({
+      chats: sent.map((p) => p.chat_id),
+      photo: sent.every((p) => /^https:\/\/ccip\.dev\/og\/broadcast\/daily\/2026-10-09\.png\?v=\d+$/.test(p.photo)),
+      channel: sent[0]?.caption.startsWith('<b>CCIP daily report · Fri, Oct 9, 2026</b>') && sent[0]?.parse_mode === 'HTML',
+      draft: sent[1]?.caption.startsWith('#CCIP · Fri, Oct 9') && sent[1]?.parse_mode === undefined,
+      history: (await readPublic('history.json')).days.at(-1).day,
+    }).toEqual({ chats: ['@ccipdev', '42'], photo: true, channel: true, draft: true, history: '2026-10-09' });
+  });
+
+  it('never broadcasts from the 06:00 run', async () => {
+    await seedMeta('2026-10-09', '2026-10-08');
+    const f = net();
+    await runFinalize(harness({ now: '2026-10-10T06:00:00.000Z', ccip: api(), fetch: f, env: ENV }).c, 'late');
+    expect(photos(f)).toEqual([]);
   });
 });

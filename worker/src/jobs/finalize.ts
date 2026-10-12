@@ -3,6 +3,7 @@ import {
   toJsonl, valueFee, type FeeClassifier, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
+import { broadcastSafely } from '../broadcasts/run';
 import { publishHistoryFiles, retryPut } from '../publish';
 import { triggerSiteBuild } from '../site-build';
 import * as store from '../store';
@@ -67,9 +68,11 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
     deadline: now.getTime() + DETAIL_BUDGET_MS,
   };
   const failures: string[] = [];
+  const finalized: string[] = [];
   for (const day of days) {
     try {
       const raw = await finalizeDay(c, day, shared);
+      finalized.push(day);
       const archive = mode === 'late' && day > lastArchived;
       if (archive && raw !== null) await writeArchive(c, day, raw);
       // A failed day is retried by the next run, so neither pointer may move past it.
@@ -91,6 +94,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
       throw err;
     }
     await triggerSiteBuild(c);
+    if (mode === 'early') await broadcastSafely(c, { kind: 'finalize', days: finalized });
   }
   if (failures.length > 0) throw new Error(summary);
 }

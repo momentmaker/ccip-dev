@@ -1,0 +1,157 @@
+import { addDays, dayOf, weekStart } from '@ccip-dev/core';
+import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarget } from '@ccip-dev/core/broadcasts';
+import { milestonesOn, RECORD_KINDS, recordsSetOn, recordValue, trackedMilestones } from '@ccip-dev/core/records';
+import type { RunContext } from '../context';
+import type { ReserveBody } from '../publish';
+import * as store from '../store';
+import { composeCopy, type Copy } from './copy';
+import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts, weeklyFacts, type BroadcastFacts, type FactsSource } from './facts';
+import { broadcastMode, selectOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
+
+export const SITE_ORIGIN = 'https://ccip.dev';
+export const IMAGE_TIMEOUT_MS = 20_000;
+const CLAIM_STALE_MS = 3_600_000;
+/** finalize's catch-up window; an older finalized day comes from a rewind and never posts a record. */
+export const RECORD_DAYS = 3;
+export const RECORDS_SEED_KEY = 'broadcast:records:seeded';
+export const RESERVE_SINCE_KEY = 'broadcast:reserve:since';
+
+export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | { kind: 'reserve'; reserve: ReserveBody };
+
+interface Planned {
+  target: BroadcastTarget;
+  facts: BroadcastFacts;
+}
+
+export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = telegramOutputs(c)): Promise<void> {
+  const mode = broadcastMode(c.env);
+  if (mode === 'off') return;
+  const enabled = selectOutputs(outputs, mode);
+  if (enabled.length === 0) {
+    console.warn(`[broadcast] BROADCASTS is ${mode} but no output is configured`);
+    return;
+  }
+  const planned = request.kind === 'finalize' ? await planFinalize(c, request.days) : await planReserve(c, request.reserve);
+  for (const p of planned) await deliver(c, p, enabled);
+}
+
+/** Broadcasts never fail the job that runs them: a failure alerts, and the hourly run retries what was not sent. */
+export async function broadcastSafely(c: RunContext, request: BroadcastRequest): Promise<void> {
+  try {
+    await runBroadcasts(c, request);
+  } catch (err) {
+    await c.alert('broadcast-run', `Broadcasts failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** New Reserve deposits, then yesterday's finalize broadcasts again: the ones already sent hold their keys, so only the rest go out. */
+export async function broadcastHourly(c: RunContext, reserve: ReserveBody): Promise<void> {
+  await broadcastSafely(c, { kind: 'reserve', reserve });
+  const yesterday = addDays(dayOf(c.deps.now()), -1);
+  if ((await store.getMeta(c.env.DB, 'last_finalize_day')) === yesterday) await broadcastSafely(c, { kind: 'finalize', days: [yesterday] });
+}
+
+async function planFinalize(c: RunContext, days: readonly string[]): Promise<Planned[]> {
+  const liveStart = await store.getMeta(c.env.DB, 'live_start_day');
+  const yesterday = addDays(dayOf(c.deps.now()), -1);
+  const daily = days.includes(yesterday) ? yesterday : null;
+  const monday = daily !== null && weekStart(daily) === addDays(daily, -6) ? addDays(daily, -6) : null;
+  const oldest = addDays(yesterday, -(RECORD_DAYS - 1));
+  const recordDays = [...new Set(days)].filter((d) => liveStart !== null && d >= liveStart && d >= oldest && d <= yesterday).sort();
+  const wanted = [...new Set([...(daily === null ? [] : [daily]), ...recordDays])];
+  if (wanted.length === 0) return [];
+  const src = await loadFactsSource(c, { days: wanted, monday });
+  const planned: Planned[] = [];
+  const day = daily === null ? null : dailyFacts(src, daily);
+  if (daily !== null && day !== null) planned.push({ target: { kind: 'daily', day: daily }, facts: day });
+  const week = monday === null ? null : weeklyFacts(src, monday);
+  if (monday !== null && week !== null) planned.push({ target: { kind: 'weekly', monday }, facts: week });
+  if (await seedRecords(c, src)) return planned;
+  for (const d of recordDays) {
+    for (const record of recordsSetOn(src.history, src.largest, d)) {
+      planned.push({ target: { kind: 'record', record: record.kind, day: d }, facts: recordFacts(src, record) });
+    }
+    for (const m of milestonesOn(src.history, d)) {
+      planned.push({ target: { kind: 'milestone', metric: m.metric, threshold: m.threshold }, facts: milestoneFacts(src, m) });
+    }
+  }
+  return planned;
+}
+
+/** The first run marks every current record and passed milestone as announced, so switching broadcasts on posts no old ones. */
+async function seedRecords(c: RunContext, src: FactsSource): Promise<boolean> {
+  const db = c.env.DB;
+  if ((await store.getMeta(db, RECORDS_SEED_KEY)) !== null) return false;
+  const value = `seeded:${c.deps.now().toISOString()}`;
+  const records = RECORD_KINDS.flatMap((kind) => {
+    const best = recordValue(kind, src.history, src.largest);
+    return best === null ? [] : [broadcastKey({ kind: 'record', record: kind, day: best.day })];
+  });
+  const milestones = trackedMilestones(src.history).map((m) => broadcastKey({ kind: 'milestone', metric: m.metric, threshold: m.threshold }));
+  await store.markMeta(db, [...records, ...milestones], value);
+  await store.setMeta(db, RECORDS_SEED_KEY, value);
+  return true;
+}
+
+async function planReserve(c: RunContext, reserve: ReserveBody): Promise<Planned[]> {
+  // Before the scan catches up, reserve.json lists no transfers; a watermark set then would make every old deposit look new.
+  if (reserve.cost_basis === null) return [];
+  const db = c.env.DB;
+  const deposits = reserve.transfers.filter(isDepositTransfer).sort((a, b) => a.ts.localeCompare(b.ts));
+  const since = await store.getMeta(db, RESERVE_SINCE_KEY);
+  if (since === null) {
+    await store.setMeta(db, RESERVE_SINCE_KEY, deposits.at(-1)?.ts ?? '');
+    return [];
+  }
+  return deposits
+    .filter((d) => d.ts > since && d.price_usd !== null)
+    .flatMap((d) => {
+      const facts = reserveFacts(reserve, d.tx);
+      return facts === null ? [] : [{ target: { kind: 'reserve' as const, tx: d.tx }, facts }];
+    });
+}
+
+async function checkImage(c: RunContext, url: string): Promise<string | null> {
+  try {
+    const res = await c.deps.fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
+    if (!res.ok) return `answered HTTP ${res.status}`;
+    if (!(res.headers.get('content-type') ?? '').startsWith('image/png')) return 'did not answer with a PNG';
+    await res.arrayBuffer();
+    return null;
+  } catch (err) {
+    return `did not answer (${err instanceof Error ? err.name : 'error'})`;
+  }
+}
+
+/** Claims the key, checks the card, then sends to every output; the claim is kept once one output succeeds. */
+async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOutput[]): Promise<void> {
+  const db = c.env.DB;
+  const key = broadcastKey(p.target);
+  let copy: Copy;
+  try {
+    copy = composeCopy(p.facts);
+  } catch (err) {
+    await c.alert(`broadcast-copy:${key}`, `${key} was not posted: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+  const now = c.deps.now();
+  const claim = `pending:${now.toISOString()}`;
+  if (!(await store.claimMeta(db, key, claim, `pending:${new Date(now.getTime() - CLAIM_STALE_MS).toISOString()}`))) return;
+  const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(p.target)}.png`;
+  const imageProblem = await checkImage(c, cardUrl);
+  if (imageProblem !== null) {
+    await c.alert(`broadcast-image:${key}`, `${key} was not posted: its card ${cardUrl} ${imageProblem}`);
+    await store.releaseMeta(db, key, claim);
+    return;
+  }
+  // The query makes Telegram fetch the card afresh after a re-post; the card Worker ignores it.
+  const broadcast: Broadcast = { key, kind: p.target.kind, imageUrl: `${cardUrl}?v=${now.getTime()}`, facts: p.facts, ...copy };
+  let sent = 0;
+  for (const output of outputs) {
+    const result = await output.send(broadcast).catch(() => 'failed' as const);
+    if (result === 'sent') sent++;
+    else await c.alert(`broadcast-${output.name}:${key}`, `${key} was not sent to ${output.name}; the Worker logs say why`);
+  }
+  if (sent > 0) await store.setMeta(db, key, `sent:${now.toISOString()}`);
+  else await store.releaseMeta(db, key, claim);
+}

@@ -1,6 +1,7 @@
 import {
   addDays, buildCoingeckoIdIndex, dayOf, listAllTokens, normalizeRegistryToken, readLinkBalance,
 } from '@ccip-dev/core';
+import { broadcastHourly } from '../broadcasts/run';
 import type { RunContext } from '../context';
 import { publishRegistryFiles } from '../publish';
 import { balanceRpcUrls } from '../rpc';
@@ -18,7 +19,8 @@ export async function runHourly(c: RunContext): Promise<void> {
   } catch (err) {
     registryError = err;
   }
-  await publishRegistryFiles(c);
+  const reserve = await publishRegistryFiles(c);
+  await broadcastHourly(c, reserve);
   await refreshCoingeckoIds(c);
   if (registryError !== null) throw registryError;
 }

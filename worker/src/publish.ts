@@ -1,8 +1,10 @@
 import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, weekStart, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
-import type { DayLeaders, DayTotals, LargestFee, Leader } from '@ccip-dev/core/public';
+import type { DayLeaders, DayTotals, LargestFee, Leader, ReserveFile } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
+
+export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'attribution'>;
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
@@ -297,7 +299,7 @@ function pricedTransfer(r: store.ReserveTransferRow): PricedTransfer {
   return { ts: r.ts, tx: r.tx_hash, direction: r.direction, counterparty: r.counterparty, amount: r.amount, linkUsd: r.link_usd };
 }
 
-export async function publishRegistryFiles(c: RunContext): Promise<void> {
+export async function publishRegistryFiles(c: RunContext): Promise<ReserveBody> {
   const now = c.deps.now();
   const db = c.env.DB;
   const series = await store.reserveSeries(db, new Date(now.getTime() - 90 * DAY_MS).toISOString());
@@ -305,27 +307,23 @@ export async function publishRegistryFiles(c: RunContext): Promise<void> {
   const linkPriceUsd = await latestLinkPrice(c);
   const caughtUp = (await store.getMeta(db, 'reserve_scan_caught_up')) === '1';
   const stats = caughtUp ? reserveStats({ transfers: (await store.reserveTransfers(db)).map(pricedTransfer), linkPriceUsd, now }) : null;
-  await putJson(
-    c.env.PUBLIC,
-    'reserve.json',
-    {
-      token: LINK_TOKEN,
-      reserve: LINK_RESERVE,
-      latest: latest ? { ts: latest.ts, link: linkUnits(latest.link_balance) } : null,
-      series: series.map((s) => ({ ts: s.ts, link: linkUnits(s.link_balance) })),
-      link_price_usd: linkPriceUsd === null ? null : Math.round(linkPriceUsd * 10_000) / 10_000,
-      cost_basis: stats?.cost_basis ?? null,
-      pace: stats?.pace ?? null,
-      weekly: stats?.weekly ?? [],
-      performance: stats?.performance ?? null,
-      transfers: stats?.transfers ?? [],
-      latest_transfer: stats?.latest_transfer ?? null,
-    },
-    TTL.reserve,
-    now,
-  );
+  const reserve: ReserveBody = {
+    token: LINK_TOKEN,
+    reserve: LINK_RESERVE,
+    latest: latest ? { ts: latest.ts, link: linkUnits(latest.link_balance) } : null,
+    series: series.map((s) => ({ ts: s.ts, link: linkUnits(s.link_balance) })),
+    link_price_usd: linkPriceUsd === null ? null : Math.round(linkPriceUsd * 10_000) / 10_000,
+    cost_basis: stats?.cost_basis ?? null,
+    pace: stats?.pace ?? null,
+    weekly: stats?.weekly ?? [],
+    performance: stats?.performance ?? null,
+    transfers: stats?.transfers ?? [],
+    latest_transfer: stats?.latest_transfer ?? null,
+  };
+  await putJson(c.env.PUBLIC, 'reserve.json', reserve, TTL.reserve, now);
   await putJson(c.env.PUBLIC, 'chains.json', { chains: await store.registryChains(db) }, TTL.chains, now);
   await putJson(c.env.PUBLIC, 'tokens.json', { tokens: await store.registryTokens(db) }, TTL.tokens, now);
+  return reserve;
 }
 
 const DIMS: Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender'];
