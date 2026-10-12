@@ -44,8 +44,8 @@ export function noLinks(name: string): string {
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const xName = (p: Player) => (p.x ? `@${p.x}` : noLinks(p.name));
-const tgName = (p: Player) => escapeHtml(noLinks(p.name));
-const tgText = (s: string) => escapeHtml(noLinks(s));
+export const tgName = (p: Player) => escapeHtml(noLinks(p.name));
+export const tgText = (s: string) => escapeHtml(noLinks(s));
 
 const utc = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...options });
 const WEEKDAY = utc({ weekday: 'short', month: 'short', day: 'numeric' });
@@ -53,19 +53,19 @@ const WEEKDAY_YEAR = utc({ weekday: 'short', month: 'short', day: 'numeric', yea
 const MONTH_DAY = utc({ month: 'short', day: 'numeric' });
 const date = (day: string) => new Date(`${day.slice(0, 10)}T00:00:00.000Z`);
 export const postDay = (day: string) => WEEKDAY.format(date(day));
-const longDay = (day: string) => WEEKDAY_YEAR.format(date(day));
-const shortDay = (day: string) => MONTH_DAY.format(date(day));
+export const longDay = (day: string) => WEEKDAY_YEAR.format(date(day));
+export const shortDay = (day: string) => MONTH_DAY.format(date(day));
 
 export function weekRange(monday: string): string {
   const sunday = addDays(monday, 6);
   return monday.slice(0, 7) === sunday.slice(0, 7) ? `${shortDay(monday)}–${Number(sunday.slice(8))}` : `${shortDay(monday)} – ${shortDay(sunday)}`;
 }
 
-const arrow = (pct: number | null) => (pct === null ? null : `${pct >= 0 ? '▲' : '▼'} ${formatShare(Math.abs(pct))}`);
+export const arrow = (pct: number | null) => (pct === null ? null : `${pct >= 0 ? '▲' : '▼'} ${formatShare(Math.abs(pct))}`);
 const words = (...parts: (string | null)[]) => parts.filter((p): p is string => p !== null && p !== '').join(' ');
 const paren = (s: string | null) => (s === null ? '' : ` (${s})`);
-const bold = (s: string) => `<b>${s}</b>`;
-const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+export const bold = (s: string) => `<b>${s}</b>`;
+export const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
 const millions = (link: number) => `${formatCount(link / 1_000_000)}M`;
 const present = (parts: (string | null)[]) => parts.filter((s): s is string => s !== null);
 
