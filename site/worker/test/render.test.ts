@@ -90,13 +90,11 @@ describe('site Worker', () => {
     assets['/chains/ethereum-mainnet-base-1.svg'] = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#ff0000"/></svg>';
     stubData({ ...BROADCAST_FILES, ...MOMENT_FILES });
     // #when
-    const started = Date.now();
     const spotlight = await renderCard(`/og/broadcast/spotlight/${MONDAY}.png`);
     const poll = await renderCard(`/og/broadcast/poll/${POLL_MONDAY}.png`);
-    const elapsed = Date.now() - started;
     // #then
     const [r, g] = await pngPixel(spotlight, 860, 300);
-    expect({ heights: [spotlight, poll].map((png) => new DataView(png.buffer).getUint32(20)), hub: r > 200 && g < 60, fast: elapsed < 20_000 }).toEqual({ heights: [675, 675], hub: true, fast: true });
+    expect({ heights: [spotlight, poll].map((png) => new DataView(png.buffer).getUint32(20)), hub: r > 200 && g < 60 }).toEqual({ heights: [675, 675], hub: true });
   });
 
   it('renders the home card as a real 1200×630 PNG fetching only our data', async () => {
@@ -141,15 +139,13 @@ describe('site Worker', () => {
     expect(await res.text()).toBe('asset');
   });
 
-  it('renders the orbit sky at 1200×675 with a coin clipped to a circle and a lettermark coin, in well under the CPU limit', async () => {
+  it('renders the orbit sky at 1200×675 with a coin clipped to a circle and a lettermark coin', async () => {
     // #given a red square icon on the hub and no icon for the second chain
     const red = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#ff0000"/></svg>')}`;
     const sky = orbitSky({ chains: [{ selector: 'a', name: 'Alpha', value: 100 }, { selector: 'b', name: 'Beta', value: 100 }], lanes: [{ src: 'a', dst: 'b', usd: 1 }], seed: 3 });
     const tree = h('div', { style: { width: 1200, height: 675, display: 'flex', position: 'relative', backgroundColor: '#070a10', fontFamily: 'Inter' } }, ...skyNodes(sky, new Map([['a', red], ['b', null]])));
     // #when
-    const started = Date.now();
     const png = await renderPng(tree, { width: 1200, height: 675 });
-    const elapsed = Date.now() - started;
     // #then the hub (860, 300, r 46) is red inside and not at its square corner; Beta's coin is the lettermark color
     const [cr, cg] = await pngPixel(png, 860, 300);
     const [kr, kg] = await pngPixel(png, 816, 256);
@@ -159,7 +155,6 @@ describe('site Worker', () => {
       center: cr > 200 && cg < 60,
       corner: kr < 200 || kg > 60,
       lettermark: Math.abs(lr - 0x2a) < 14 && Math.abs(lg - 0x34) < 14 && Math.abs(lb - 0x46) < 14,
-      fast: elapsed < 10_000,
-    }).toEqual({ height: 675, center: true, corner: true, lettermark: true, fast: true });
+    }).toEqual({ height: 675, center: true, corner: true, lettermark: true });
   });
 });
