@@ -10,27 +10,15 @@ import { xLength } from './x-length';
 
 /** When a moment post is too long, its detail line (climbers, partners) goes first, then its closing line. */
 export const MOMENT_DROP = { detail: 1, closing: 2 } as const;
-export const MAX_HANDLES = 5;
 export const ROUNDUP_SHOWN = 5;
 
 type Name = (p: Player) => string;
 
 /**
- * Writes players as @handles in the order the post names them, until the post holds 5 handles counting `reserved` fixed
- * ones (such as a closing @chainlink); later players are plain names. Naming a handle a second time costs nothing.
+ * The one account a moment's X post tags: the player the post is about, by its verified handle. X's automation rules ban
+ * unsolicited @mentions, so every other player is a plain name (owner decision, 2026-10-12).
  */
-export function handleWriter(reserved: number): Name {
-  const used = new Set<string>();
-  return (p) => {
-    const handle = p.x?.toLowerCase();
-    if (p.x && handle && (used.has(handle) || used.size + reserved < MAX_HANDLES)) {
-      used.add(handle);
-      return `@${p.x}`;
-    }
-    return noLinks(p.name);
-  };
-}
-
+const subject: Name = (p) => (p.x ? `@${p.x}` : noLinks(p.name));
 const plain: Name = (p) => noLinks(p.name);
 const fitsX = (text: string) => xLength(text) <= X_MAX;
 const fitsTelegram = (text: string) => text.length <= TELEGRAM_CAPTION_MAX;
@@ -51,14 +39,12 @@ function dayRange(from: string, to: string): string {
 }
 
 function welcomeX(f: WelcomeFacts): Line[] {
-  const name = handleWriter(1);
-  const chain = name(f.chain);
-  const partner = f.partners[0] ? `, with ${name(f.partners[0])}` : '';
+  const partner = f.partners[0] ? `, with ${plain(f.partners[0])}` : '';
   return [
-    { text: `🎉 Welcome to #CCIP, ${chain}` },
+    { text: `🎉 Welcome to #CCIP, ${subject(f.chain)}` },
     { text: `Chain #${f.number} on CCIP: first message on ${shortDay(f.day)}${partner}` },
     { text: `First day: ${plural(f.messages, 'message')} · ${formatUsd(f.usd)} moved` },
-    { text: '@chainlink', drop: MOMENT_DROP.closing },
+    { text: '#Chainlink', drop: MOMENT_DROP.closing },
   ];
 }
 
@@ -93,7 +79,7 @@ function countdownX({ countdown: c }: CountdownFacts): Line[] {
   return [
     { text: `⏳ ${COUNTDOWN_X[c.metric](c.threshold)} is about ${plural(c.days_left, 'day')} away` },
     { text: `${amount(c, c.total)} now, adding about ${amount(c, c.per_day)} a day` },
-    { text: '@chainlink', drop: MOMENT_DROP.closing },
+    { text: '#Chainlink', drop: MOMENT_DROP.closing },
   ];
 }
 
@@ -122,11 +108,13 @@ function climb(m: Mover, name: string): string {
   return m.gain === null ? `${name} new at #${m.rank} ${BY[m.board]}` : `${name} ▲${m.gain} to #${m.rank} ${BY[m.board]}`;
 }
 
-function moversLines(f: MoversFacts, chain: Name, text: (s: string) => string, tg: boolean): Line[] {
+/** `headlineChain` writes the headline's chain, the post's subject; `chain` writes every other chain. */
+function moversLines(f: MoversFacts, headlineChain: Name, chain: Name, text: (s: string) => string, tg: boolean): Line[] {
   const name = (n: MoverName) => moverName(n, chain, text);
+  const leader = moverName(f.headline.name, headlineChain, text);
   const headline = f.newLeader
-    ? `${name(f.headline.name)} ${VERB[f.headline.board]} last week (${tg ? bold(boardValue(f.headline)) : boardValue(f.headline)})${f.dethroned ? `, taking the top spot from ${name(f.dethroned)}` : ''}`
-    : climb(f.headline, name(f.headline.name));
+    ? `${leader} ${VERB[f.headline.board]} last week (${tg ? bold(boardValue(f.headline)) : boardValue(f.headline)})${f.dethroned ? `, taking the top spot from ${name(f.dethroned)}` : ''}`
+    : climb(f.headline, leader);
   const climbers = f.climbers.map((m) => climb(m, name(m.name))).join(' · ');
   const lead = f.newLeader ? 'Climbers' : 'Also climbing';
   if (tg) {
@@ -148,7 +136,6 @@ function moversLines(f: MoversFacts, chain: Name, text: (s: string) => string, t
 const pctOf = (now: number, before: number | null) => (before === null || before === 0 ? null : ((now - before) / before) * 100);
 
 function spotlightX(f: SpotlightFacts): Line[] {
-  const name = handleWriter(0);
   const s = f.spotlight;
   const change = arrow(pctOf(s.messages, s.previous_messages));
   const figures = [
@@ -157,9 +144,9 @@ function spotlightX(f: SpotlightFacts): Line[] {
     ...(s.fee_usd === null ? [] : [`${formatFeeTotal(s.fee_usd)} in fees`]),
   ];
   return [
-    { text: `Chain spotlight: ${name(f.chain)} is the fastest-growing chain on #CCIP this week` },
+    { text: `Chain spotlight: ${subject(f.chain)} is the fastest-growing chain on #CCIP this week` },
     { text: figures.join(' · ') },
-    ...(f.partners.length > 0 ? [{ text: `Top partners: ${f.partners.map(name).join(' · ')}`, drop: MOMENT_DROP.detail }] : []),
+    ...(f.partners.length > 0 ? [{ text: `Top partners: ${f.partners.map(plain).join(' · ')}`, drop: MOMENT_DROP.detail }] : []),
     { text: '#Chainlink $LINK', drop: MOMENT_DROP.closing },
   ];
 }
@@ -188,9 +175,8 @@ function spotlightTg(f: SpotlightFacts): Line[] {
 }
 
 function roundupX(f: RoundupFacts, shown: number): Line[] {
-  const name = handleWriter(0);
   const lanes = shownList(f.lanes, shown, (l) => `${plain(l.src)} → ${plain(l.dst)}`);
-  const tokens = shownList(f.tokens, shown, (t) => `${noLinks(t.symbol)} on ${plain(t.chain)}${t.project ? ` (${name(t.project)})` : ''}`);
+  const tokens = shownList(f.tokens, shown, (t) => `${noLinks(t.symbol)} on ${plain(t.chain)}${t.project ? ` (${plain(t.project)})` : ''}`);
   return [
     { text: 'New on #CCIP this week' },
     ...(lanes ? [{ text: `Lanes: ${lanes}` }] : []),
@@ -263,7 +249,7 @@ function momentX(f: Exclude<MomentFacts, PollFacts | RoundupFacts>): Line[] {
     case 'countdown':
       return countdownX(f);
     case 'movers':
-      return moversLines(f, handleWriter(0), noLinks, false);
+      return moversLines(f, subject, plain, noLinks, false);
     case 'spotlight':
       return spotlightX(f);
   }
@@ -276,7 +262,7 @@ function momentTelegram(f: MomentFacts): Line[] {
     case 'countdown':
       return countdownTg(f);
     case 'movers':
-      return moversLines(f, tgName, tgText, true);
+      return moversLines(f, tgName, tgName, tgText, true);
     case 'spotlight':
       return spotlightTg(f);
     case 'roundup':

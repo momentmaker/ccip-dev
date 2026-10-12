@@ -8,7 +8,7 @@ The design was approved in conversation on 2026-10-12. The chosen card mockups, 
 
 ## 1. Goal
 
-Give people more reasons to follow @ccipdev and to reshare its posts. Each moment is about a chain, a token or the community, and it tags the chains and projects involved with their verified @handles, so they have a reason to repost.
+Give people more reasons to follow @ccipdev and to reshare its posts. Each moment is about a chain, a token or the community, and on X it tags the chain it is about with its verified @handle, so that chain has a reason to repost.
 
 **Owner decisions (2026-10-12):**
 - **Approach:** the data Worker computes the moments after each finalize and publishes them as one public file, `moments.json`. The broadcast pipeline plans posts from it, and the card Worker draws each card from it, so a card and its caption cannot disagree (the `day-leaders.json` pattern from 3a).
@@ -22,7 +22,7 @@ Give people more reasons to follow @ccipdev and to reshare its posts. Each momen
 ## 2. Success criteria
 
 - Each moment posts at most once, with its card, on the right day, and only when its data holds.
-- No post contains a link. Every @handle comes from the verified handle tables, and a post carries at most 5 @handles.
+- No post contains a link. Every @handle comes from the verified handle tables, and an X post tags only the chain it is about (§5.3).
 - The six cards match the approved mockups.
 - A moment failure never stops the data run, the 3a posts or the other moments.
 - The first run after deploy does not flood the channel with old moments.
@@ -169,8 +169,9 @@ Moments are computed from D1 through the same functions that write `history.json
 ### 5.3 Copy
 
 As in 3a: no links, X counted the way X counts, @handles only when verified, plain names otherwise. New:
-- **At most 5 @handles per post.** Past 5, players are written as plain names, in the order they appear.
-- `@chainlink` goes on welcome and countdown posts; `#Chainlink $LINK` on movers and spotlight; New on CCIP carries `#CCIP` only.
+- **An X post tags only its subject.** A welcome tags the welcomed chain; movers tag the headline (the new #1, or the top climber when there's no new #1) when it is a chain; a spotlight tags the spotlighted chain. A subject without a verified handle is a plain name. Everyone else is a plain name: partners, the dethroned leader, the other climbers, lanes, token symbols and token projects. Countdowns and New on CCIP tag no one, and the poll has no X text.
+- Why: X's automation rules ban unsolicited @mentions (owner decision, 2026-10-12, replacing the earlier cap of 5 @handles a post).
+- `#Chainlink` closes welcome and countdown posts; `#Chainlink $LINK` closes movers and spotlight; New on CCIP carries `#CCIP` only.
 - The Telegram captions say the same in fuller sentences, with bold numbers and plain names, like 3a's.
 - Drop order when too long: the climbers or partners line first, then the closing hashtag line.
 
@@ -178,34 +179,34 @@ As in 3a: no links, X counted the way X counts, @handles only when verified, pla
 
 ```
 🎉 Welcome to #CCIP, @<chain>
-Chain #93 on CCIP: first message on Oct 11, to @ethereum
+Chain #93 on CCIP: first message on Oct 11, to Ethereum
 First day: 38 messages · $412.5K moved
-@chainlink
+#Chainlink
 ```
 
 ```
-New #1 on #CCIP: @base paid the most fees last week ($1.8K), taking the top spot from @BNBCHAIN
-Climbers: @arbitrum ▲6 to #3 by fees · syrupUSDT ▲9 to #7 by value · Ink → Ethereum ▲14 to #9
+New #1 on #CCIP: @base paid the most fees last week ($1.8K), taking the top spot from BNB Chain
+Climbers: Arbitrum ▲6 to #3 by fees · syrupUSDT ▲9 to #7 by value · Ink → Ethereum ▲14 to #9
 #Chainlink $LINK
 ```
 
 ```
 ⏳ $2.5M in all-time #CCIP fees is about 6 days away
 $2.43M now, adding about $11.6K a day
-@chainlink
+#Chainlink
 ```
 
 ```
 Chain spotlight: @base is the fastest-growing chain on #CCIP this week
 3,412 messages (▲ 85% vs last week) · $96.4M moved · $1.8K in fees
-Top partners: @ethereum · @arbitrum · @BNBCHAIN
+Top partners: Ethereum · Arbitrum · BNB Chain
 #Chainlink $LINK
 ```
 
 ```
 New on #CCIP this week
 Lanes: Ethereum → Tempo · Base → Monad · Plasma → Arc
-Tokens: USDat on Ethereum (@saturn) · PST on Base (@humafinance)
+Tokens: USDat on Ethereum (Saturn) · PST on Base (Huma Finance)
 CCIP now runs 933 lanes between 93 chains
 ```
 
@@ -278,7 +279,7 @@ Every ▲ ▼ ★ → is drawn as a glyph, as in 3a.
   - first-run seeding;
   - `MOMENTS` off/drafts/on combined with `BROADCASTS`;
   - the poll flow: close, answer, card, `sendPoll` and the saved id; a failed close; a poll retried alone.
-- **Copy:** each kind within 280 for X and 1,024 for Telegram, the drop order, the 5-handle cap, no URL, and escaping.
+- **Copy:** each kind within 280 for X and 1,024 for Telegram, the drop order, the subject-only tag rule, no URL, and escaping.
 - **Cards:** each kind renders, 404s without its data, never needs a missing glyph, and matches its mockup.
 
 ## 10. Rollout
@@ -289,6 +290,6 @@ Every ▲ ▼ ★ → is drawn as a glyph, as in 3a.
 
 ## 10a. Risks
 
-- **A wrong @handle is public.** Only verified handles are used, and the 5-handle cap limits the spread.
+- **A wrong @handle is public.** Only verified handles are used, and an X post tags only its subject, which limits the spread.
 - **Poll votes are only as good as Telegram's answer.** If `stopPoll` fails, the result posts without vote shares.
 - **Quiet weeks.** Movers, spotlight and New on CCIP skip themselves when there's nothing to say, so some weeks will have fewer posts. That's by design.

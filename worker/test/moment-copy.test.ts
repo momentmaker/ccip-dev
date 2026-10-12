@@ -1,7 +1,7 @@
 import type { Poll } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { TELEGRAM_CAPTION_MAX, X_MAX } from '../src/broadcasts/copy';
-import { composeMomentCopy, handleWriter } from '../src/broadcasts/moment-copy';
+import { composeMomentCopy } from '../src/broadcasts/moment-copy';
 import type { CountdownFacts, MoversFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from '../src/broadcasts/moment-facts';
 import { xLength } from '../src/broadcasts/x-length';
 
@@ -75,13 +75,13 @@ describe('moment X posts', () => {
     const texts = facts.map((f) => composeMomentCopy(f).xText);
     // #then
     expect(texts).toEqual([
-      '🎉 Welcome to #CCIP, @tempo\nChain #93 on CCIP: first message on Oct 11, with @ethereum\nFirst day: 38 messages · $412.5K moved\n@chainlink',
-      '⏳ $2.5M in all-time #CCIP fees is about 7 days away\n$2.4M now, adding about $11.6K a day\n@chainlink',
-      'New #1 on #CCIP: @base paid the most fees last week ($1.8K), taking the top spot from @BNBCHAIN\n' +
-        'Climbers: @arbitrum ▲6 to #3 by fees · syrupUSDT ▲9 to #7 by value · Ink → Ethereum new at #9 by value\n#Chainlink $LINK',
+      '🎉 Welcome to #CCIP, @tempo\nChain #93 on CCIP: first message on Oct 11, with Ethereum\nFirst day: 38 messages · $412.5K moved\n#Chainlink',
+      '⏳ $2.5M in all-time #CCIP fees is about 7 days away\n$2.4M now, adding about $11.6K a day\n#Chainlink',
+      'New #1 on #CCIP: @base paid the most fees last week ($1.8K), taking the top spot from BNB Chain\n' +
+        'Climbers: Arbitrum ▲6 to #3 by fees · syrupUSDT ▲9 to #7 by value · Ink → Ethereum new at #9 by value\n#Chainlink $LINK',
       'Chain spotlight: @base is the fastest-growing chain on #CCIP this week\n3,412 messages (▲ 85% vs last week) · $96.4M moved · $1.8K in fees\n' +
-        'Top partners: @ethereum · @arbitrum · @BNBCHAIN\n#Chainlink $LINK',
-      'New on #CCIP this week\nLanes: Ethereum → Tempo · Base → Monad · Plasma → Arc\nTokens: USDat on Ethereum (@saturn) · PST on Base (@humafinance)\n' +
+        'Top partners: Ethereum · Arbitrum · BNB Chain\n#Chainlink $LINK',
+      'New on #CCIP this week\nLanes: Ethereum → Tempo · Base → Monad · Plasma → Arc\nTokens: USDat on Ethereum (Saturn) · PST on Base (Huma Finance)\n' +
         'CCIP now runs 933 lanes between 93 chains',
     ]);
   });
@@ -92,7 +92,7 @@ describe('moment X posts', () => {
     // #when
     const text = composeMomentCopy(climber).xText;
     // #then
-    expect(text).toBe('Top climber on #CCIP last week: Ink → Ethereum new at #9 by value\nAlso climbing: @arbitrum ▲6 to #3 by fees\n#Chainlink $LINK');
+    expect(text).toBe('Top climber on #CCIP last week: Ink → Ethereum new at #9 by value\nAlso climbing: Arbitrum ▲6 to #3 by fees\n#Chainlink $LINK');
   });
 
   it('gives the poll no X text, since it has no X draft', () => {
@@ -158,26 +158,43 @@ describe('moment Telegram captions', () => {
   });
 });
 
-describe('moment handles', () => {
-  it('writes at most 5 handles, in the order players appear, counting the fixed ones; a repeated handle is free', () => {
-    // #given one fixed @chainlink
-    const name = handleWriter(1);
+describe('moment tags', () => {
+  const tags = (f: Parameters<typeof composeMomentCopy>[0]) => composeMomentCopy(f).xText.match(/@\w+/g) ?? [];
+
+  it("tags only each post's subject on X: the welcomed chain, the new #1 and the spotlighted chain, and nothing in a countdown or New on CCIP", () => {
+    // #given every moment, each naming several players with verified handles
+    const facts = [WELCOME, COUNTDOWN, MOVERS, SPOTLIGHT, ROUNDUP, POLL];
     // #when
-    const written = ['base', 'BNBCHAIN', 'base', 'arbitrum', 'ethereum', 'optimism'].map((x) => name(p(x.toUpperCase(), x)));
+    const tagged = facts.map(tags);
     // #then
-    expect(written).toEqual(['@base', '@BNBCHAIN', '@base', '@arbitrum', '@ethereum', 'OPTIMISM']);
+    expect(tagged).toEqual([['@tempo'], [], ['@base'], ['@base'], [], []]);
   });
 
-  it('names the projects past the fifth handle in New on CCIP by their names', () => {
-    // #given six new tokens whose projects all have handles, and a lane
-    const tokens = Array.from({ length: 6 }, (_, i) => ({ key: `t${i}`, symbol: `T${i}`, chain: p('Base', 'base'), project: p(`Project ${i}`, `project${i}`) }));
+  it('tags the top climber when no board has a new #1, if it is a chain with a verified handle', () => {
+    // #given a quiet week led by a verified chain's climb, with a verified chain among the other climbers
+    const climber: MoversFacts = { ...MOVERS, newLeader: false, dethroned: null, headline: MOVERS.climbers[0]!, climbers: [{ ...MOVERS.climbers[0]!, name: { kind: 'chain', player: p('Base', 'base') } }] };
     // #when
-    const text = composeMomentCopy({ ...ROUNDUP, tokens }).xText;
-    // #then five tokens are named, then "+1 more"
-    expect({ handles: text.match(/@\w+/g), more: text.includes('· +1 more') }).toEqual({ handles: ['@project0', '@project1', '@project2', '@project3', '@project4'], more: true });
+    const text = composeMomentCopy(climber).xText;
+    // #then
+    expect({ tags: tags(climber), also: text.includes('Also climbing: Base ▲6') }).toEqual({ tags: ['@arbitrum'], also: true });
   });
-  it('caps a movers post at 5 handles across the headline, the dethroned leader and the climbers', () => {
-    // #given six verified chains named once each, and one repeated
+
+  it('writes an unverified subject as its plain name, so the post tags no one', () => {
+    // #given subjects with no verified handle beside verified partners, a verified dethroned leader and verified climbers
+    const unverified = p('Tempo');
+    const facts = [
+      { ...WELCOME, chain: unverified },
+      { ...MOVERS, headline: { ...MOVERS.headline, name: { kind: 'chain' as const, player: unverified } } },
+      { ...SPOTLIGHT, chain: unverified },
+    ];
+    // #when
+    const tagged = facts.map(tags);
+    // #then
+    expect(tagged).toEqual([[], [], []]);
+  });
+
+  it('names the dethroned leader and every climber plainly, even the subject named again', () => {
+    // #given six verified chains, the new #1 named again among the climbers
     const chain = (x: string) => ({ kind: 'chain' as const, player: p(x.toUpperCase(), x) });
     const climber = (x: string, rank: number) => ({ board: 'fee_chains' as const, name: chain(x), rank, gain: 1, value: 1 });
     const movers: MoversFacts = {
@@ -188,10 +205,17 @@ describe('moment handles', () => {
     };
     // #when
     const text = composeMomentCopy(movers).xText;
-    // #then the first five are handles, the sixth is a plain name, and the repeat of the first stays a handle
-    expect({ handles: [...new Set(text.match(/@\w+/g))], plainSix: text.includes('SIX ▲1'), repeat: text.includes('@one ▲1 to #6') }).toEqual({
-      handles: ['@one', '@two', '@three', '@four', '@five'], plainSix: true, repeat: true,
-    });
+    // #then
+    expect({ tags: tags(movers), dethroned: text.includes('from TWO'), repeat: text.includes('ONE ▲1 to #6') }).toEqual({ tags: ['@one'], dethroned: true, repeat: true });
+  });
+
+  it('names every token project in New on CCIP by its name, in brackets', () => {
+    // #given six new tokens whose projects all have handles
+    const tokens = Array.from({ length: 6 }, (_, i) => ({ key: `t${i}`, symbol: `T${i}`, chain: p('Base', 'base'), project: p(`Project ${i}`, `project${i}`) }));
+    // #when
+    const text = composeMomentCopy({ ...ROUNDUP, tokens }).xText;
+    // #then five tokens are named, then "+1 more"
+    expect({ tags: tags({ ...ROUNDUP, tokens }), named: text.includes('T0 on Base (Project 0)'), more: text.includes('· +1 more') }).toEqual({ tags: [], named: true, more: true });
   });
 });
 
