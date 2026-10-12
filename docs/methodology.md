@@ -99,7 +99,7 @@ Besides the daily and weekly reports, @ccipdev posts moments: short posts about 
 - **The spotlight** is the chain whose messages (sent and received) grew the most against the week before, among chains with at least 100 messages last week and 50 the week before, and whose first message came no later than the first day of the week before, so a partial first week cannot inflate its rise. A chain is not spotlighted again within 4 weeks.
 - **New on CCIP** lists the lanes and tokens whose first message came Monday to Friday. A token is counted by its registry group, so a token's new chain is not a new token. A lane of a newly welcomed chain is left out.
 - **The poll** asks, in turn by week, which chain will pay the most fees, whether fees will beat last week's total (by more than 10%, within 10%, or less), or which lane will move the most value. The answer is taken from our data once the week is complete.
-- **Tags:** an X post tags only the chain it is about (the welcomed chain, the spotlighted chain, or the chain that leads the movers), and only with a verified handle. Everyone else is named in plain text.
+- **Tags:** an X post tags only the chain it is about (the welcomed chain, the spotlighted chain, or the headline chain of the movers, when the headline is a chain; a token or lane headline tags no one), and only with a verified handle. Everyone else is named in plain text.
 
 ## Coverage
 History starts on **2023-07-06**. This is the first CCIP mainnet message (2023-07-06 22:34:59 UTC). All-time
