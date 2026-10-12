@@ -10,7 +10,8 @@
     "./format": "./src/format.ts",
     "./names": "./src/names.ts",
     "./records": "./src/records.ts",
-    "./broadcasts": "./src/broadcasts.ts"
+    "./broadcasts": "./src/broadcasts.ts",
+    "./moments": "./src/moments.ts"
   },
   "scripts": {
     "test": "vitest run",

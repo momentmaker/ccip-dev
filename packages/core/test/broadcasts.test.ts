@@ -17,6 +17,12 @@ describe('broadcast keys and card paths', () => {
     [{ kind: 'record', record: 'fees', day: '2026-07-09' }, 'broadcast:record:fees:2026-07-09', 'broadcast/record/fees/2026-07-09'],
     [{ kind: 'milestone', metric: 'value', threshold: 2_500_000_000 }, 'broadcast:milestone:value:2500000000', 'broadcast/milestone/value/2500000000'],
     [{ kind: 'reserve', tx: TX }, `broadcast:reserve:${TX}`, `broadcast/reserve/${TX}`],
+    [{ kind: 'welcome', selector: '7281642695469137430' }, 'broadcast:welcome:7281642695469137430', 'broadcast/welcome/7281642695469137430'],
+    [{ kind: 'countdown', metric: 'fees', threshold: 2_500_000 }, 'broadcast:countdown:fees:2500000', 'broadcast/countdown/fees/2500000'],
+    [{ kind: 'poll', monday: '2026-10-12' }, 'broadcast:poll:2026-10-12', 'broadcast/poll/2026-10-12'],
+    [{ kind: 'movers', monday: '2026-10-05' }, 'broadcast:movers:2026-10-05', 'broadcast/movers/2026-10-05'],
+    [{ kind: 'spotlight', monday: '2026-10-05' }, 'broadcast:spotlight:2026-10-05', 'broadcast/spotlight/2026-10-05'],
+    [{ kind: 'roundup', monday: '2026-10-05' }, 'broadcast:roundup:2026-10-05', 'broadcast/roundup/2026-10-05'],
   ];
 
   it.each(targets)('keys, prints and parses back %o', (target, key, path) => {
@@ -29,6 +35,8 @@ describe('broadcast keys and card paths', () => {
   it.each([
     'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/daily/2026-02-30', 'broadcast/record/busiest/2026-07-09',
     'broadcast/record/fees/2026-07-09/x', 'broadcast/milestone/fees/0', 'broadcast/milestone/fees/1e6', 'broadcast/reserve/0xABC', 'daily/2026-10-10',
+    'broadcast/welcome/0123', 'broadcast/welcome/base', 'broadcast/countdown/link_share/100', 'broadcast/countdown/fees/0', 'broadcast/movers/2026-10-06',
+    'broadcast/poll/2026-10-12/x', 'broadcast/roundup/2026-02-30',
   ])('rejects %s', (path) => {
     expect(parseBroadcastPath(path.split('/'))).toBeNull();
   });

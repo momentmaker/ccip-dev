@@ -9,7 +9,18 @@ export type BroadcastTarget =
   | { kind: 'weekly'; monday: string }
   | { kind: 'record'; record: RecordKind; day: string }
   | { kind: 'milestone'; metric: MilestoneMetric; threshold: number }
-  | { kind: 'reserve'; tx: string };
+  | { kind: 'reserve'; tx: string }
+  | { kind: 'welcome'; selector: string }
+  | { kind: 'countdown'; metric: MilestoneMetric; threshold: number }
+  | { kind: 'poll'; monday: string }
+  | { kind: 'movers'; monday: string }
+  | { kind: 'spotlight'; monday: string }
+  | { kind: 'roundup'; monday: string };
+
+/** The moments the daily budget counts, in the order they take its places. The poll is not among them: it always posts. */
+export const BUDGETED_MOMENTS = ['welcome', 'countdown', 'movers', 'spotlight', 'roundup'] as const;
+export type BudgetedMoment = (typeof BUDGETED_MOMENTS)[number];
+export type MomentTarget = Extract<BroadcastTarget, { kind: BudgetedMoment | 'poll' }>;
 
 export function broadcastKey(t: BroadcastTarget): string {
   switch (t.kind) {
@@ -23,6 +34,15 @@ export function broadcastKey(t: BroadcastTarget): string {
       return `broadcast:milestone:${t.metric}:${t.threshold}`;
     case 'reserve':
       return `broadcast:reserve:${t.tx}`;
+    case 'welcome':
+      return `broadcast:welcome:${t.selector}`;
+    case 'countdown':
+      return `broadcast:countdown:${t.metric}:${t.threshold}`;
+    case 'poll':
+    case 'movers':
+    case 'spotlight':
+    case 'roundup':
+      return `broadcast:${t.kind}:${t.monday}`;
   }
 }
 
@@ -39,11 +59,22 @@ export function broadcastCardPath(t: BroadcastTarget): string {
       return `broadcast/milestone/${t.metric}/${t.threshold}`;
     case 'reserve':
       return `broadcast/reserve/${t.tx}`;
+    case 'welcome':
+      return `broadcast/welcome/${t.selector}`;
+    case 'countdown':
+      return `broadcast/countdown/${t.metric}/${t.threshold}`;
+    case 'poll':
+    case 'movers':
+    case 'spotlight':
+    case 'roundup':
+      return `broadcast/${t.kind}/${t.monday}`;
   }
 }
 
 const TX_RE = /^0x[0-9a-f]{64}$/;
 const THRESHOLD_RE = /^[1-9]\d{0,15}$/;
+const SELECTOR_RE = /^[1-9]\d{0,19}$/;
+const WEEKLY_MOMENTS = ['poll', 'movers', 'spotlight', 'roundup'] as const;
 const oneOf = <T extends string>(list: readonly T[], value: string | undefined): value is T => value !== undefined && (list as readonly string[]).includes(value);
 
 /** `parts` is a card path split on "/", starting with "broadcast". */
@@ -55,6 +86,9 @@ export function parseBroadcastPath(parts: readonly string[]): BroadcastTarget | 
   if (kind === 'record' && oneOf(RECORD_KINDS, a) && b !== undefined && isDay(b)) return { kind: 'record', record: a, day: b };
   if (kind === 'milestone' && oneOf(MILESTONE_METRICS, a) && b !== undefined && THRESHOLD_RE.test(b)) return { kind: 'milestone', metric: a, threshold: Number(b) };
   if (kind === 'reserve' && b === undefined && TX_RE.test(a)) return { kind: 'reserve', tx: a };
+  if (kind === 'welcome' && b === undefined && SELECTOR_RE.test(a)) return { kind: 'welcome', selector: a };
+  if (kind === 'countdown' && oneOf(MILESTONE_METRICS, a) && b !== undefined && THRESHOLD_RE.test(b)) return { kind: 'countdown', metric: a, threshold: Number(b) };
+  if (oneOf(WEEKLY_MOMENTS, kind) && b === undefined && isDay(a) && weekStart(a) === a) return { kind, monday: a };
   return null;
 }
 

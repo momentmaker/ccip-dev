@@ -257,5 +257,12 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return milestoneTree(target.metric, target.threshold, inputs);
     case 'reserve':
       return reserveTree(target.tx, inputs.load);
+    case 'welcome':
+    case 'countdown':
+    case 'poll':
+    case 'movers':
+    case 'spotlight':
+    case 'roundup':
+      return null;
   }
 }

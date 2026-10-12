@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
+import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, MomentsFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -45,6 +45,45 @@ describe('public file schemas', () => {
     expect({ days: parsed.days.length, token: parsed.days[0]?.token?.label, week: parsed.weeks[0]?.week, listed: PUBLIC_SCHEMAS['day-leaders.json'] === DayLeadersFileSchema }).toEqual({
       days: 2, token: 'USDC', week: '2026-10-05', listed: true,
     });
+  });
+
+  it('parses moments.json and lists it among the public files', () => {
+    // #given a closed poll and this week's open one, and a week with a spotlight
+    const board = { key: '1', label: null, value: 1_800, rank: 1, previous_rank: 2 };
+    const doc = {
+      ...envelope,
+      network: { chains: 93, lanes: 933 },
+      arrivals: {
+        chains: [{ selector: '9', day: '2026-10-11', number: 93, partners: ['1'], messages: 38, usd: 412_500 }],
+        lanes: [{ key: '1>9', day: '2026-10-11', messages: 30, usd: 400_000 }],
+        tokens: [{ key: 'group-1', symbol: 'USDat', day: '2026-10-08', chains: ['1'], usd: 5_000 }, { key: '1:0xa', symbol: null, day: '2026-10-09', chains: ['1'], usd: 0 }],
+      },
+      weeks: [{
+        week: '2026-10-05',
+        boards: { fee_chains: [board], tokens: [{ ...board, key: '1:0xa', label: 'USDC' }], lanes: [] },
+        spotlight: {
+          selector: '1', rank: 2, messages: 3_412, previous_messages: 1_844, usd: 96.4e6, previous_usd: 68e6, fee_usd: 1_800, previous_fee_usd: null,
+          partners: ['5', '4'], token: { key: '1:0xa', label: 'USDC', usd: 41.2e6 },
+        },
+      }],
+      countdowns: [{ metric: 'fees', threshold: 2.5e6, total: 2.43e6, per_day: 11_600, days_left: 7, previous: { threshold: 2e6, day: '2026-07-20' } }],
+      polls: [
+        {
+          week: '2026-10-05', question_kind: 'fee_chain', question: 'Which chain will pay the most CCIP fees this week?', options: [{ key: '1', label: 'Base' }, { key: 'other', label: 'Another chain' }],
+          answer: '1', outcome: { key: '1', label: 'Base', value: 1_800, change_pct: null }, votes: [62, 38], total_votes: 13,
+        },
+        { week: '2026-10-12', question_kind: 'fees_change', question: 'Will CCIP fees beat last week’s $8.0K?', options: [{ key: 'up', label: 'Up more than 10%' }], answer: null, outcome: null, votes: null, total_votes: null },
+      ],
+    };
+    // #when
+    const parsed = MomentsFileSchema.parse(doc);
+    // #then
+    expect({ polls: parsed.polls.length, spotlight: parsed.weeks[0]?.spotlight?.selector, listed: PUBLIC_SCHEMAS['moments.json'] === MomentsFileSchema }).toEqual({ polls: 2, spotlight: '1', listed: true });
+  });
+
+  it('rejects a moments.json poll of an unknown kind', () => {
+    const doc = { ...envelope, network: { chains: 0, lanes: 0 }, arrivals: { chains: [], lanes: [], tokens: [] }, weeks: [], countdowns: [], polls: [{ week: '2026-10-12', question_kind: 'quiz', question: 'q', options: [], answer: null, outcome: null, votes: null, total_votes: null }] };
+    expect(MomentsFileSchema.safeParse(doc).success).toBe(false);
   });
 
   it('parses cost.json with and without the LINK and gas-token split', () => {

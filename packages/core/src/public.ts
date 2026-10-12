@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MILESTONE_METRICS } from './records';
 
 const envelope = {
   schema_version: z.literal(1),
@@ -124,6 +125,71 @@ export const WeekLeadersSchema = z.object({ week: z.string(), fee_chains: z.arra
 
 export const DayLeadersFileSchema = z.object({ ...envelope, days: z.array(DayLeadersSchema), weeks: z.array(WeekLeadersSchema) });
 
+export const POLL_KINDS = ['fee_chain', 'fees_change', 'lane'] as const;
+export type PollKind = (typeof POLL_KINDS)[number];
+
+export const BoardEntrySchema = z.object({
+  key: z.string(),
+  label: z.string().nullable(),
+  value: z.number(),
+  rank: z.number(),
+  previous_rank: z.number().nullable(),
+});
+
+export const SpotlightSchema = z.object({
+  selector: z.string(),
+  rank: z.number(),
+  messages: z.number(),
+  previous_messages: z.number(),
+  usd: z.number(),
+  previous_usd: z.number(),
+  fee_usd: z.number().nullable(),
+  previous_fee_usd: z.number().nullable(),
+  partners: z.array(z.string()),
+  token: z.object({ key: z.string(), label: z.string().nullable(), usd: z.number() }).nullable(),
+});
+
+export const MomentsWeekSchema = z.object({
+  week: z.string(),
+  boards: z.object({ fee_chains: z.array(BoardEntrySchema), tokens: z.array(BoardEntrySchema), lanes: z.array(BoardEntrySchema) }),
+  spotlight: SpotlightSchema.nullable(),
+});
+
+const PollOptionSchema = z.object({ key: z.string(), label: z.string() });
+
+export const PollSchema = z.object({
+  week: z.string(),
+  question_kind: z.enum(POLL_KINDS),
+  question: z.string(),
+  options: z.array(PollOptionSchema),
+  answer: z.string().nullable(),
+  outcome: z.object({ key: z.string(), label: z.string(), value: z.number(), change_pct: z.number().nullable() }).nullable(),
+  votes: z.array(z.number()).nullable(),
+  total_votes: z.number().nullable(),
+});
+
+export const MomentsFileSchema = z.object({
+  ...envelope,
+  network: z.object({ chains: z.number(), lanes: z.number() }),
+  arrivals: z.object({
+    chains: z.array(z.object({ selector: z.string(), day: z.string(), number: z.number(), partners: z.array(z.string()), messages: z.number(), usd: z.number() })),
+    lanes: z.array(z.object({ key: z.string(), day: z.string(), messages: z.number(), usd: z.number() })),
+    tokens: z.array(z.object({ key: z.string(), symbol: z.string().nullable(), day: z.string(), chains: z.array(z.string()), usd: z.number() })),
+  }),
+  weeks: z.array(MomentsWeekSchema),
+  countdowns: z.array(
+    z.object({
+      metric: z.enum(MILESTONE_METRICS),
+      threshold: z.number(),
+      total: z.number(),
+      per_day: z.number(),
+      days_left: z.number(),
+      previous: z.object({ threshold: z.number(), day: z.string() }).nullable(),
+    }),
+  ),
+  polls: z.array(PollSchema),
+});
+
 export const ChainSchema = z.object({
   selector: z.string(),
   name: z.string(),
@@ -233,6 +299,7 @@ export const PUBLIC_SCHEMAS = {
   'replay.json': ReplayFileSchema,
   'cost.json': CostFileSchema,
   'day-leaders.json': DayLeadersFileSchema,
+  'moments.json': MomentsFileSchema,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
@@ -260,3 +327,8 @@ export type Leader = z.infer<typeof LeaderSchema>;
 export type DayLeaders = z.infer<typeof DayLeadersSchema>;
 export type WeekLeaders = z.infer<typeof WeekLeadersSchema>;
 export type DayLeadersFile = z.infer<typeof DayLeadersFileSchema>;
+export type BoardEntry = z.infer<typeof BoardEntrySchema>;
+export type Spotlight = z.infer<typeof SpotlightSchema>;
+export type MomentsWeek = z.infer<typeof MomentsWeekSchema>;
+export type Poll = z.infer<typeof PollSchema>;
+export type MomentsFile = z.infer<typeof MomentsFileSchema>;
