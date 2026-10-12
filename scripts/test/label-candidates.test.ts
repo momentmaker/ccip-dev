@@ -267,15 +267,15 @@ describe('handle gaps', () => {
     // #when
     const some = handleGapsMarkdown(
       { tokens: [{ key: '1:0xccc', usd: 1234.5, symbol: 'T|X', group_id: null, chain_name: 'ethereum-mainnet' }], chains: [{ selector: '2', chain_name: 'ethereum-mainnet-base-1' }] },
-      '2026-10-12',
     );
-    const none = handleGapsMarkdown({ tokens: [], chains: [] }, '2026-10-12');
+    const none = handleGapsMarkdown({ tokens: [], chains: [] });
     // #then
     expect({
       heading: some.startsWith('## Handles to research'),
       token: some.includes('| T\\|X | ethereum-mainnet | 0xccc | - | 1,235 |'),
       chain: some.includes('| ethereum-mainnet-base-1 | 2 |'),
       none: none.includes('Nothing to research this week.'),
-    }).toEqual({ heading: true, token: true, chain: true, none: true });
+      dated: /\d{4}-\d{2}-\d{2}/.test(some + none),
+    }).toEqual({ heading: true, token: true, chain: true, none: true, dated: false });
   });
 });

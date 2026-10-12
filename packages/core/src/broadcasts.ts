@@ -1,7 +1,7 @@
 import { formatCount, formatFee, formatFeeTotal, formatShare, formatUsd } from './format';
 import type { DayTotals, LargestFee, ReserveFile, TransferView } from './public';
 import { MILESTONE_METRICS, RECORD_KINDS, type MilestoneMetric, type RecordKind, type RecordSet } from './records';
-import { DEPOSIT_MIN_LINK, depositStreak, nextMilestone } from './reserve-pace';
+import { depositStreak, isDeposit, nextMilestone } from './reserve-pace';
 import { addDays, isDay, weekStart } from './time';
 
 export type BroadcastTarget =
@@ -195,7 +195,7 @@ export function allTimeTotal(metric: TotalMetric, days: readonly DayTotals[], da
 
 /** A file published before the deposit flag existed falls back to the same rule on the rounded amount. */
 export function isDepositTransfer(t: TransferView): boolean {
-  return t.deposit ?? (t.direction === 'in' && t.link >= DEPOSIT_MIN_LINK);
+  return t.deposit ?? isDeposit(t);
 }
 
 export const RESERVE_WEEKS_SHOWN = 11;
