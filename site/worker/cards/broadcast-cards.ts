@@ -7,6 +7,7 @@ import type { DayLeaders, Leader } from '@ccip-dev/core/public';
 import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
+import { moversTree, spotlightTree } from './board-cards';
 import {
   bigSize, bold, boldArrows, broadcastFrame, cardDay, cardWeek, COLORS, deltaStat, eyebrow, feeBars, hasReplayDay, iconsFor, MILESTONE_TITLES, mutedStat, namesOf, row,
   skyFor, statsPanel, TEXT_COLUMN, type BroadcastInputs,
@@ -223,9 +224,11 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return welcomeTree(target.selector, inputs);
     case 'countdown':
       return countdownTree(target.metric, target.threshold, inputs);
-    case 'poll':
     case 'movers':
+      return moversTree(target.monday, inputs);
     case 'spotlight':
+      return spotlightTree(target.monday, inputs);
+    case 'poll':
     case 'roundup':
       return null;
   }
