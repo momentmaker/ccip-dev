@@ -32,7 +32,11 @@ const item = (children: readonly Child[], width: number) => row(children, { font
 
 const symbolOf = (key: string) => shortAddress(key.slice(key.indexOf(':') + 1));
 
-/** Monday to Friday's new lanes and tokens, up to 5 of each, over a dimmed sky of those days. */
+/**
+ * Monday to Friday's new lanes and tokens, up to 5 of each, over a dimmed sky of those days. moments.json is published on
+ * the day the post goes out, so one published after the week's Sunday (a roundup carried to Monday) says "Last week", as
+ * the caption does.
+ */
 export async function roundupTree(monday: string, inputs: BroadcastInputs): Promise<VNode | null> {
   const files = await loadMomentFiles(inputs);
   if (files === null) return null;
@@ -55,7 +59,7 @@ export async function roundupTree(monday: string, inputs: BroadcastInputs): Prom
   );
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
-    eyebrow: `This week · ${cardDays(monday, friday)}`,
+    eyebrow: `${moments.updated_at.slice(0, 10) > addDays(monday, 6) ? 'Last' : 'This'} week · ${cardDays(monday, friday)}`,
     body: momentColumn(
       pill('NEW ON CCIP', PILLS.green),
       h(

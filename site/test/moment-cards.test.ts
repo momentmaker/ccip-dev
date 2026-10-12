@@ -174,12 +174,24 @@ describe('spotlight card', () => {
 });
 
 describe('New on CCIP card', () => {
-  it("lists the week's new lanes and tokens in two columns, with the network's size in the strip", async () => {
+  it('says "This week" when it posts by its Sunday, and "Last week" when it is carried to the Monday after', async () => {
+    // #given moments.json and replay.json published on its Sunday, Oct 11, then the fixtures' Monday, Oct 12
+    const sunday: typeof loadMoments = async (name) => {
+      const file = await loadMoments(name);
+      return name === 'moments.json' || name === 'replay.json' ? ({ ...file, updated_at: '2026-10-11T00:07:00.000Z' } as never) : file;
+    };
     // #when
+    const eyebrows = await Promise.all([sunday, loadMoments].map(async (load) => texts(await tree({ kind: 'roundup', monday: MONDAY }, load)).find((w) => w.includes(' week · '))));
+    // #then
+    expect(eyebrows).toEqual(['This week · Oct 5 – 9, 2026', 'Last week · Oct 5 – 9, 2026']);
+  });
+
+  it("lists the week's new lanes and tokens in two columns, with the network's size in the strip", async () => {
+    // #when the roundup is carried to Monday, Oct 12
     const words = texts(await tree({ kind: 'roundup', monday: MONDAY }));
     // #then Tempo's lanes came on Sunday, after the Monday-to-Friday window
     expect(words.slice(words.indexOf('ccip.dev'))).toEqual([
-      'ccip.dev', 'This week · Oct 5 – 9, 2026', 'NEW ON CCIP', '2 new lanes', 'Ethereum', 'Arbitrum One', 'Arbitrum One', 'Base',
+      'ccip.dev', 'Last week · Oct 5 – 9, 2026', 'NEW ON CCIP', '2 new lanes', 'Ethereum', 'Arbitrum One', 'Arbitrum One', 'Base',
       '2 new tokens', 'USDat ', 'on Ethereum', 'PST ', 'on Base', 'CCIP now runs ', '4 lanes', ' between ', '4 chains', 'Watch every lane: ', 'ccip.dev/replay',
     ]);
   });
