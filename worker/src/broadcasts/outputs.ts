@@ -1,5 +1,5 @@
 import type { BroadcastTarget } from '@ccip-dev/core/broadcasts';
-import { clip, POLL_OPTION_MAX, POLL_QUESTION_MAX, pollRecordKey, type PollRecord } from '@ccip-dev/core/moments';
+import { clip, parsePollRecord, POLL_OPTION_MAX, POLL_QUESTION_MAX, pollRecordKey, type PollRecord } from '@ccip-dev/core/moments';
 import type { RunContext } from '../context';
 import type { Env } from '../env';
 import * as store from '../store';
@@ -79,6 +79,9 @@ function pollOutput(c: RunContext, config: TelegramConfig, after: string): Broad
     async send(b) {
       if (b.facts.kind !== 'poll') return 'failed';
       const { poll } = b.facts;
+      const key = pollRecordKey(poll.week);
+      // The record is written before the output's mark, so a record in this chat means the poll is out and only the mark was lost.
+      if (parsePollRecord(await store.getMeta(c.env.DB, key))?.chat_id === config.chatId) return 'sent';
       const sent = await sendTelegramPoll(c.deps, config, {
         question: clip(noLinks(poll.question), POLL_QUESTION_MAX),
         options: poll.options.map((o) => clip(noLinks(o.label), POLL_OPTION_MAX)),
@@ -88,14 +91,15 @@ function pollOutput(c: RunContext, config: TelegramConfig, after: string): Broad
         return 'failed';
       }
       const record: PollRecord = { chat_id: config.chatId, message_id: sent.messageId, question_kind: poll.question_kind, question: poll.question, options: poll.options };
-      await savePollRecord(c, pollRecordKey(poll.week), record);
+      await savePollRecord(c, poll.week, record);
       return 'sent';
     },
   };
 }
 
 /** The poll is out, so a lost record only costs next week's vote shares; it is never a reason to send the poll again. */
-async function savePollRecord(c: RunContext, key: string, record: PollRecord): Promise<void> {
+async function savePollRecord(c: RunContext, monday: string, record: PollRecord): Promise<void> {
+  const key = pollRecordKey(monday);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       await store.setMeta(c.env.DB, key, JSON.stringify(record));
@@ -103,6 +107,11 @@ async function savePollRecord(c: RunContext, key: string, record: PollRecord): P
     } catch (err) {
       console.error(`[broadcast] saving ${key} failed (attempt ${attempt + 1})`, err instanceof Error ? err.name : 'error');
     }
+  }
+  try {
+    await c.alert(`poll-close:${monday}`, `The poll of the week of ${monday} went out, but its record could not be saved, so close it by hand next Monday; its result posts without vote shares`);
+  } catch (alertErr) {
+    console.error('[broadcast] the poll record alert failed', alertErr instanceof Error ? alertErr.name : 'error');
   }
 }
 

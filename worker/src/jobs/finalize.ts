@@ -88,7 +88,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   }
   const summary = `finalize failed for ${failures.length} day(s); the first: ${failures[0]}`;
   if (failures.length < days.length) {
-    if (mode === 'early') await closeLastWeekPoll(c);
+    await closeLastWeekPoll(c);
     try {
       await publishHistoryFiles(c);
     } catch (err) {

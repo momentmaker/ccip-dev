@@ -7,7 +7,7 @@ import { telegramOutputs, type Broadcast, type BroadcastOutput } from '../src/br
 import { closeLastWeekPoll } from '../src/broadcasts/poll';
 import { MOMENTS_SEED_KEY, runBroadcasts } from '../src/broadcasts/run';
 import * as store from '../src/store';
-import { harness, resetStorage, seedRegistry } from './helpers';
+import { harness, resetStorage, seedRegistry, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -53,14 +53,14 @@ function recorder(name: string, o: { after?: string; failures?: number } = {}) {
   return { output, sent };
 }
 
-async function mondayRun(o: { now?: string; mode?: string; cardFails?: number; pollFails?: number; fetch?: typeof fetch } = {}) {
+async function mondayRun(o: { now?: string; days?: string[]; mode?: string; cardFails?: number; pollFails?: number; fetch?: typeof fetch } = {}) {
   const channel = recorder('telegram-channel', { failures: o.cardFails });
   const drafts = recorder('x-draft');
   const preview = recorder('telegram-preview');
   const channelPoll = recorder('telegram-poll', { after: 'telegram-channel', failures: o.pollFails });
   const draftsPoll = recorder('telegram-poll', { after: 'telegram-preview' });
   const h = harness({ now: o.now ?? NOW, fetch: o.fetch ?? card(), env: { BROADCASTS: 'on', MOMENTS: o.mode ?? 'on' } });
-  await runBroadcasts(h.c, { kind: 'finalize', days: ['2026-10-11'] }, {
+  await runBroadcasts(h.c, { kind: 'finalize', days: o.days ?? ['2026-10-11'] }, {
     channel: [channel.output], drafts: [drafts.output], preview: [preview.output], channelPoll: [channelPoll.output], draftsPoll: [draftsPoll.output],
   });
   const polls = (keys: string[]) => keys.filter((k) => k === POLL_KEY);
@@ -87,7 +87,10 @@ describe('the Monday poll', () => {
   });
 
   it('sends the card as a preview and the poll to the drafts chat in drafts mode', async () => {
+    // #given the moments switch is on drafts
+    // #when
     const run = await mondayRun({ mode: 'drafts' });
+    // #then
     expect([run.channel, run.drafts, run.preview, run.channelPoll, run.draftsPoll]).toEqual([[], [], [POLL_KEY], [], [POLL_KEY]]);
   });
 
@@ -117,6 +120,7 @@ describe('the Monday poll', () => {
   });
 
   it("posts when the weekly report's card fails", async () => {
+    // #given the weekly card is down
     // #when
     const run = await mondayRun({ fetch: card('weekly/2026-10-05') });
     // #then
@@ -126,13 +130,16 @@ describe('the Monday poll', () => {
   });
 
   it('is never planned on another day, so a Tuesday retry posts no poll', async () => {
-    const tuesday = await mondayRun({ now: '2026-10-13T01:00:00.000Z' });
+    // #given Monday's poll is not sent yet
+    // #when the hourly run plans Tuesday, with the days it passes then
+    const tuesday = await mondayRun({ now: '2026-10-13T01:00:00.000Z', days: ['2026-10-12'] });
+    // #then
     expect([tuesday.channel, tuesday.channelPoll]).toEqual([[], []]);
   });
 });
 
 describe('the Monday poll and the moments budget', () => {
-  it('posts on the first moments run, which seeds the other moments, and never takes a place in the budget', async () => {
+  it('posts on the first moments run, which seeds the other moments', async () => {
     // #given two moments already went out today
     await seedLastWeek();
     await env.DB.batch(['1', '2'].map((s) => env.DB.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').bind(`broadcast:welcome:${s}`, 'sent:2026-10-12T00:07:01.000Z')));
@@ -140,6 +147,18 @@ describe('the Monday poll and the moments budget', () => {
     const run = await mondayRun();
     // #then
     expect({ poll: run.channelPoll, seed: (await store.getMeta(env.DB, MOMENTS_SEED_KEY))?.startsWith('seeded:') }).toEqual({ poll: [POLL_KEY], seed: true });
+  });
+
+  it('posts when the day already holds two moments, and no third moment goes out', async () => {
+    // #given seeded moments, two of them sent today, and a third one due
+    await seedLastWeek();
+    await env.DB.prepare("INSERT INTO daily_breakdown (day, dim, key, messages, usd_value, fee_usd) VALUES ('2026-10-11', 'lane', ?, 1, 1, 1)").bind(`${ETH}>${NETWORKS.bsc.chainSelector}`).run();
+    await store.setMeta(env.DB, MOMENTS_SEED_KEY, 'seeded:2026-10-01T00:00:00.000Z');
+    await env.DB.batch(['1', '2'].map((s) => env.DB.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').bind(`broadcast:welcome:${s}`, 'sent:2026-10-12T00:07:01.000Z')));
+    // #when
+    const run = await mondayRun();
+    // #then the poll posts, and the budget keeps the third moment back
+    expect({ poll: run.channelPoll, sentToday: await store.momentsSentOn(env.DB, '2026-10-12') }).toEqual({ poll: [POLL_KEY], sentToday: 2 });
   });
 });
 
@@ -173,6 +192,30 @@ describe('the poll output', () => {
     });
   });
 
+  it('does not send a second poll when the record is kept but the output mark was lost', async () => {
+    // #given the poll went out and its record was saved
+    const fetch = fakeFetch((url) => (url.endsWith('/sendPoll') ? jsonResponse({ ok: true, result: { message_id: 813 } }) : undefined));
+    await store.setMeta(env.DB, 'poll:2026-10-12', JSON.stringify({ chat_id: '@ccipdev', message_id: 812, question_kind: 'fee_chain', question: QUESTION, options: facts.poll.options }));
+    const outputs = telegramOutputs(harness({ now: NOW, fetch, env: ENV }).c);
+    // #when the run finds no #telegram-poll mark
+    const result = await outputs.channelPoll![0]!.send(broadcast);
+    // #then
+    expect({ result, calls: fetch.calls.length }).toEqual({ result: 'sent', calls: 0 });
+  });
+
+  it('alerts when the poll went out but its record cannot be saved', async () => {
+    // #given
+    const fetch = fakeFetch((url) => (url.endsWith('/sendPoll') ? jsonResponse({ ok: true, result: { message_id: 812 } }) : undefined));
+    const { db } = watchedDb(/ON CONFLICT/, { fail: true });
+    const h = harness({ now: NOW, fetch, env: ENV, db });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await telegramOutputs(h.c).channelPoll![0]!.send(broadcast);
+    // #then
+    expect({ result, alerts: h.alerts.map((a) => a.signature) }).toEqual({ result: 'sent', alerts: ['poll-close:2026-10-12'] });
+    log.mockRestore();
+  });
+
   it('fails without keeping a record when Telegram refuses the poll', async () => {
     // #given
     const fetch = fakeFetch(() => jsonResponse({ ok: false, description: 'Bad Request: chat not found' }, 400));
@@ -192,6 +235,34 @@ describe('closeLastWeekPoll', () => {
 
   beforeEach(async () => {
     await store.setMeta(env.DB, 'poll:2026-10-05', JSON.stringify(RECORD));
+  });
+
+  it('alerts that the counts were lost, not that the poll stayed open, when they cannot be saved after a close', async () => {
+    // #given Telegram closes the poll, but D1 refuses every write
+    const { db } = watchedDb(/ON CONFLICT/, { fail: true });
+    const { c, alerts } = harness({ now: NOW, fetch: telegram(closed), env: ENV, db });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    await closeLastWeekPoll(c);
+    // #then
+    expect(alerts).toEqual([{
+      signature: 'poll-close:2026-10-05',
+      text: 'The poll of the week of 2026-10-05 was closed, but its counts could not be saved, so its result posts without vote shares',
+    }]);
+    log.mockRestore();
+  });
+
+  it('alerts and keeps no counts when Telegram counts a different number of options', async () => {
+    // #given
+    const short = () => jsonResponse({ ok: true, result: { total_voter_count: 5, options: [{ voter_count: 5 }, { voter_count: 0 }] } });
+    const { c, alerts } = harness({ now: NOW, fetch: telegram(short), env: ENV });
+    // #when
+    await closeLastWeekPoll(c);
+    // #then
+    expect({ alerts: alerts.map((a) => a.text), record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
+      alerts: ['The poll of the week of 2026-10-05 could not be closed, so its result posts without vote shares: Telegram counted 2 options for 3'],
+      record: RECORD,
+    });
   });
 
   it("closes last week's poll on Monday and keeps its voter counts in its record", async () => {

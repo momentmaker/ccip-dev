@@ -935,12 +935,24 @@ describe("last week's poll after Monday's finalize", () => {
     expect({ votes: poll?.votes, total: poll?.total_votes }).toEqual({ votes: [75, 25], total: 4 });
   });
 
-  it('is never closed by the 06:00 run', async () => {
-    // #given
+  it('is closed by the 06:00 run when the early run could not close it', async () => {
+    // #given the early run did not close it
     const fetch = telegram();
     // #when
     await runFinalize(harness({ now: '2026-10-12T06:00:00.000Z', ccip: sunday(), fetch, env: { TELEGRAM_BOT_TOKEN: 'bot', TELEGRAM_CHANNEL_ID: '' } }).c, 'late');
     // #then
-    expect(fetch.calls.filter((c) => c.url.endsWith('/stopPoll'))).toEqual([]);
+    const poll = (await readPublic('moments.json')).polls.find((p: { week: string }) => p.week === '2026-10-05');
+    expect({ stops: fetch.calls.filter((c) => c.url.endsWith('/stopPoll')).length, votes: poll?.votes }).toEqual({ stops: 1, votes: [75, 25] });
+  });
+
+  it('is not closed again by the 06:00 run once the early run closed it', async () => {
+    // #given the early run closed it
+    const fetch = telegram();
+    const env_ = { TELEGRAM_BOT_TOKEN: 'bot', TELEGRAM_CHANNEL_ID: '' };
+    await runFinalize(harness({ now: '2026-10-12T00:07:00.000Z', ccip: sunday(), fetch, env: env_ }).c, 'early');
+    // #when
+    await runFinalize(harness({ now: '2026-10-12T06:00:00.000Z', ccip: sunday(), fetch, env: env_ }).c, 'late');
+    // #then
+    expect(fetch.calls.filter((c) => c.url.endsWith('/stopPoll')).length).toBe(1);
   });
 });
