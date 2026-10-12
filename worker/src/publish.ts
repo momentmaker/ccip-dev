@@ -1,5 +1,5 @@
-import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, weekStart, type DailyBreakdown, type Dim, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
-import type { DayLeaders, Leader } from '@ccip-dev/core/public';
+import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, weekStart, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
+import type { DayLeaders, DayTotals, LargestFee, Leader } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import * as store from './store';
@@ -52,7 +52,7 @@ export function linkAmount(value: number | null): number | null {
   return value === null ? null : Math.round(value * 100) / 100;
 }
 
-const LARGEST_FEES_LIMIT = 10;
+export const LARGEST_FEES_LIMIT = 10;
 
 export const COST_WINDOW_DAYS = 30;
 export const COST_MIN_MESSAGES = 5;
@@ -333,41 +333,70 @@ const DIMS: Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender'];
 /** Token rows carry no fees: a message's fee is not split across its tokens, so there is nothing to rank them by. */
 const FEE_DIMS: ReadonlySet<Dim> = new Set<Dim>(['src_chain', 'dst_chain', 'lane', 'sender']);
 
+/** history.json's day rows: the daily totals with their fee groups, rounded as published. */
+export async function historyDays(c: RunContext): Promise<DayTotals[]> {
+  const db = c.env.DB;
+  const groups = await store.feeGroupsByDay(db);
+  return (await store.dailyHistory(db)).map((d) => {
+    const g = groups.get(d.day);
+    return {
+      ...d,
+      usd_value: usd(d.usd_value) ?? 0,
+      fee_usd: usd(d.fee_usd),
+      fee_link_usd: usd(g?.link_usd ?? null),
+      fee_native_usd: usd(g?.native_usd ?? null),
+      fee_stable_usd: usd(g?.stable_usd ?? null),
+      fee_link_amount: linkAmount(g?.link_amount ?? null),
+    };
+  });
+}
+
+export async function largestFeeEntries(c: RunContext, throughDay: string, limit: number, classify: FeeClassifier): Promise<LargestFee[]> {
+  return (await store.largestFees(c.env.DB, throughDay, limit)).map((r) => ({
+    message_id: r.message_id,
+    day: r.day,
+    src: r.src_chain,
+    dst: r.dst_chain,
+    fee_usd: usd(r.fee_usd) ?? 0,
+    symbol: r.fee_token === null ? null : classify(r.src_chain, r.fee_token).symbol,
+  }));
+}
+
+export interface WeekLeaderRows {
+  token: Leader | null;
+  sender: Leader | null;
+  lane: Leader | null;
+  feeChains: Leader[];
+}
+
+/** A Monday–Sunday week's top token and lane by value, top sender by messages and top 3 source chains by fees. */
+export async function weekLeaderRows(c: RunContext, monday: string): Promise<WeekLeaderRows> {
+  const db = c.env.DB;
+  const sunday = addDays(monday, 6);
+  const [token] = await store.topBetween(db, 'token', monday, sunday, 1, 'value');
+  const [sender] = await store.topBetween(db, 'sender', monday, sunday, 1, 'messages');
+  const [lane] = await store.topBetween(db, 'lane', monday, sunday, 1, 'value');
+  const symbols = token ? await store.tokenSymbols(db, [splitTokenKey(token.key)]) : new Map<string, string>();
+  const names = await store.chainNames(db);
+  return {
+    token: token ? leader(token, symbolOf(symbols, token.key)) : null,
+    sender: sender ? leader(sender, senderLabel(c, names, sender.key)) : null,
+    lane: lane ? leader(lane, null) : null,
+    feeChains: await weekFeeChains(c, monday),
+  };
+}
+
 export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
   const db = c.env.DB;
-  const history = await store.dailyHistory(db);
-  const groups = await store.feeGroupsByDay(db);
+  const days = await historyDays(c);
   const linkTokens = await store.linkFeeTokens(db);
   const classify = feeClassifier(linkTokens);
-  const largest = await store.largestFees(db, history.at(-1)?.day ?? '', LARGEST_FEES_LIMIT);
-  const since = (await store.getMeta(db, 'coverage_from')) ?? history[0]?.day ?? null;
+  const since = (await store.getMeta(db, 'coverage_from')) ?? days[0]?.day ?? null;
   await putJson(
     c.env.PUBLIC,
     'history.json',
-    {
-      since,
-      days: history.map((d) => {
-        const g = groups.get(d.day);
-        return {
-          ...d,
-          usd_value: usd(d.usd_value),
-          fee_usd: usd(d.fee_usd),
-          fee_link_usd: usd(g?.link_usd ?? null),
-          fee_native_usd: usd(g?.native_usd ?? null),
-          fee_stable_usd: usd(g?.stable_usd ?? null),
-          fee_link_amount: linkAmount(g?.link_amount ?? null),
-        };
-      }),
-      largest_fees: largest.map((r) => ({
-        message_id: r.message_id,
-        day: r.day,
-        src: r.src_chain,
-        dst: r.dst_chain,
-        fee_usd: usd(r.fee_usd)!,
-        symbol: r.fee_token === null ? null : classify(r.src_chain, r.fee_token).symbol,
-      })),
-    },
+    { since, days, largest_fees: await largestFeeEntries(c, days.at(-1)?.day ?? '', LARGEST_FEES_LIMIT, classify) },
     TTL.history,
     now,
   );

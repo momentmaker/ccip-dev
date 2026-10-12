@@ -238,6 +238,20 @@ export async function tokenSymbols(db: D1Database, tokens: { chain: string; addr
   return symbols;
 }
 
+/** Registry token groups by `${chain}:${normalized address}`; null for a registry token without a group. */
+export async function tokenGroupIds(db: D1Database, tokens: { chain: string; address: string }[]): Promise<Map<string, string | null>> {
+  const groups = new Map<string, string | null>();
+  const wanted = [...new Map(tokens.map((t) => [tokenKey(t.chain, t.address), t])).values()];
+  for (const chunk of chunks(wanted, PARAM_CHUNK / 2)) {
+    const { results } = await db
+      .prepare(`SELECT chain, address, group_id FROM tokens WHERE ${chunk.map(() => '(chain = ? AND lower(address) = ?)').join(' OR ')}`)
+      .bind(...chunk.flatMap((t) => [t.chain, t.address.toLowerCase()]))
+      .all<{ chain: string; address: string; group_id: string | null }>();
+    for (const r of results) groups.set(tokenKey(r.chain, r.address), r.group_id);
+  }
+  return groups;
+}
+
 export async function messagesForDay(db: D1Database, day: string): Promise<MessageRow[]> {
   const { results } = await db.prepare('SELECT * FROM messages WHERE day = ?').bind(day).all<MessageRow>();
   return results;
