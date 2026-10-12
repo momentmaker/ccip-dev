@@ -12,7 +12,7 @@ export interface FeeUploadDeps {
   sleep(ms: number): Promise<void>;
 }
 
-/** The Worker finalizes at 00:10 and 06:00 UTC; D1 is unavailable while a file imports, so no file starts near either run. */
+/** The Worker finalizes at 00:07 and 06:00 UTC; D1 is unavailable while a file imports, so no file starts near either run. */
 export function inFinalizeWindow(nowMs: number): boolean {
   const d = new Date(nowMs);
   const m = d.getUTCHours() * 60 + d.getUTCMinutes();

@@ -94,7 +94,7 @@ Local files only; run it any time before the build. Details are in spec §9 step
 
 ## Backfill upload
 
-Run this once, after the Worker is deployed. The import makes D1 unavailable while each SQL file runs, so the Worker's jobs fail during the upload. Do it in one sitting, well away from 00:10 and 06:00 UTC (finalize), and expect `job-failed` and watchdog alerts while it runs.
+Run this once, after the Worker is deployed. The import makes D1 unavailable while each SQL file runs, so the Worker's jobs fail during the upload. Do it in one sitting, well away from 00:07 and 06:00 UTC (finalize), and expect `job-failed` and watchdog alerts while it runs.
 
 1. R2 API token: dashboard → R2 → Manage API tokens → Create. Give it **Object Read & Write** limited to the `ccip-dev-archive` bucket.
 2. Optional D1 token: `CF_BACKFILL_TOKEN`, a custom token with D1 edit only. Without it, your `wrangler login` session is used.
@@ -158,19 +158,19 @@ rewritten. Finalize then redoes every day after that one, oldest first.
 Use `last_archived_day` in place of `last_finalize_day` for the second key.
 
 - **Pacing:**
-  - Each run redoes at most 3 days: the 00:10 run from `last_finalize_day`, and the 06:00 run from `last_archived_day`.
-  - Each day adds one new day, so a rewind of N days catches up by about 2 days a day. Yesterday's 00:10 finalize, which the 00:15 daily post reads, is late by about N/2 days.
+  - Each run redoes at most 3 days: the 00:07 run from `last_finalize_day`, and the 06:00 run from `last_archived_day`.
+  - Each day adds one new day, so a rewind of N days catches up by about 2 days a day. Yesterday's 00:07 finalize, which the daily broadcast follows, is late by about N/2 days.
   - Until the 06:00 run catches up, it skips its usual re-finalize of yesterday. Each day still gets its full late run when its archive turn comes.
   - Rewind no further than you need.
 - **Cost:** each day is collected by its own walk from the newest message down to that day, so redoing old days pages through every newer day again (about 1–3 pages of 1000 per day of depth). A walk stops at 200 pages, so a rewind deeper than about 60 days cannot be walked; use the backfill instead.
 - **Detail budget:**
   - Detail fills share one 5-minute budget, which starts when the run starts and also covers the list walks. In a deep catch-up, the later days of a run may get little or none of it. They roll up with list values for the messages still missing details, and the log says "detail fill stopped at its deadline".
   - The 06:00 run re-fills a day's missing details when it archives that day. For a day already archived, rewind `last_archived_day` too.
-- **A day that fails** (`job-failed:finalize` names it) holds its own run's pointer: `last_finalize_day` for the 00:10 run, `last_archived_day` for the 06:00 run. The later days in the same run still finalize and publish, and the next run of that kind retries it.
+- **A day that fails** (`job-failed:finalize` names it) holds its own run's pointer: `last_finalize_day` for the 00:07 run, `last_archived_day` for the 06:00 run. The later days in the same run still finalize and publish, and the next run of that kind retries it.
 
 ### Re-price live fees after an alias change
 
-The Worker values a live message's fee once, at detail time, so live rows whose fee token was added to `FEE_PRICE_ALIASES` later keep `fee_usd` NULL. Finalize now re-prices a day's unpriced live fees (at the latest price) each time it finalizes that day. After an alias change it is enough to deploy, then rewind `last_finalize_day` to the day before the first affected day (finalize redoes at most 3 days per run at 00:10). This recipe remains for long ranges and for valuing each fee at its send day's price. It prices them from an exported list.
+The Worker values a live message's fee once, at detail time, so live rows whose fee token was added to `FEE_PRICE_ALIASES` later keep `fee_usd` NULL. Finalize now re-prices a day's unpriced live fees (at the latest price) each time it finalizes that day. After an alias change it is enough to deploy, then rewind `last_finalize_day` to the day before the first affected day (finalize redoes at most 3 days per run at 00:07). This recipe remains for long ranges and for valuing each fee at its send day's price. It prices them from an exported list.
 
 1. **Deploy the Worker with the new table first.** The old Worker's `applyDetail` would reset `fee_usd` on a refill.
 2. **Export the candidates** (read-only), with `<from>` the first live day (2026-10-05 for the first run):
@@ -179,9 +179,9 @@ The Worker values a live message's fee once, at detail time, so live rows whose 
 4. **Owner applies it,** outside 23:55–00:30 and 05:50–06:20 UTC:
    `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --file=<absolute path to the sql>`
    Each statement only touches a row still unpriced with the same chain, token and amount, so a rerun is safe.
-5. **Owner rewinds `last_finalize_day`** to the day before `<from>`, outside the same finalize windows (a rewind issued during the 00:10 run is overwritten by that run's `setMeta`), as in "Re-finalize a day":
+5. **Owner rewinds `last_finalize_day`** to the day before `<from>`, outside the same finalize windows (a rewind issued during the 00:07 run is overwritten by that run's `setMeta`), as in "Re-finalize a day":
    `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE meta SET value = '<day before from>' WHERE key = 'last_finalize_day'"`
-   Finalize redoes at most 3 days per run at 00:10, plus yesterday at 06:00, so catching up N days takes about N/2 days.
+   Finalize redoes at most 3 days per run at 00:07, plus yesterday at 06:00, so catching up N days takes about N/2 days.
 6. **Verify:** rerun the generator on a fresh export; it should price 0 rows. The export itself also lists unaliased rows (Canton, Mova), so judge by the generator.
 
 ### Accept a real price jump
@@ -321,7 +321,7 @@ Fills fees for every day before live ingest (2023-07-06 to 2026-10-04) from one 
    - **Old batches:** `B<NNNN> was built before batches already uploaded; delete it and rebuild its days instead (see docs/runbook.md, Fee backfill)`: a batch folder numbered below one already uploaded has files not applied yet, usually an old folder put back. The upload checks this before applying anything. Delete the folder and rebuild its days as under "Hold back or redo a batch not uploaded yet".
    - **Alerts:** each file import makes D1 unavailable, as in "Backfill upload". Expect `job-failed` and watchdog alerts such as `ingest-lag` while it runs.
    - **Finalize windows:** it waits out 23:55–00:30 and 05:50–06:20 UTC (`waiting for the Worker finalize window to pass`). The wait covers file starts only, so an import that began just before can run on past 23:55 or 05:50.
-   - **Publishing:** the next finalize (00:10 or 06:00 UTC) republishes `history.json` and `top/*`, and the site picks up the new coverage on its next build (00:25 or 06:25 UTC). The site takes fee coverage from `history.json`, so the "Fees are collected from …" notes move back as batches load and disappear once coverage starts at 2023-07-06.
+   - **Publishing:** the next finalize (00:07 or 06:00 UTC) republishes `history.json` and `top/*`, and the site picks up the new coverage on its next build (00:25 or 06:25 UTC). The site takes fee coverage from `history.json`, so the "Fees are collected from …" notes move back as batches load and disappear once coverage starts at 2023-07-06.
 
 **State files.** A corrupt one stops its script with an error that starts with the file's path. Each can be deleted:
 - `.backfill/fees/state.json` (fetch): the next fetch rebuilds it from the sealed days, counting each as done, and resumes unsealed days from their partial files.
@@ -356,7 +356,7 @@ Do this when CCIP adds a chain or a fee token.
 1. **Migration 0005** adds `fee_native_usd`, `fee_stable_usd` and `fee_link_amount` to `daily_totals`, and the index `idx_messages_fee_usd`. The deploy workflow applies migrations before it deploys the Worker, so merging to `main` applies it. For a deploy by hand, first run `pnpm --filter @ccip-dev/worker exec wrangler d1 migrations apply ccip-dev --remote`.
 2. **Live days:** finalize writes the three columns for each day it finalizes. To fill the live days from 2026-10-05 to the deploy, rewind `last_finalize_day` to 2026-10-04, outside 23:55–00:30 and 05:50–06:20 UTC:
    `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "UPDATE meta SET value = '2026-10-04' WHERE key = 'last_finalize_day'"`
-   Finalize redoes at most 3 days per 00:10 run, so N days take about N/2 days, as in "Re-finalize a day".
+   Finalize redoes at most 3 days per 00:07 run, so N days take about N/2 days, as in "Re-finalize a day".
 3. **Backfill days:** after the crawl ends, the next fee build rebuilds every sealed day with the new columns, because the pricing hash changed. Upload it as usual (Fee backfill).
 4. Until every day carries the columns, the Reserve's fee mix and LINK tiles cover only the days that have them, and say from when.
 

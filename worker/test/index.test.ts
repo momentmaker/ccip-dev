@@ -41,7 +41,10 @@ describe('runJobsFor', () => {
     expect(alerts.some((a) => a.text.includes('poison message'))).toBe(false);
   });
 
-  it('has jobs for exactly the crons declared in wrangler.toml', () => {
-    expect(Object.keys(JOBS).sort()).toEqual(['* * * * *', '*/5 * * * *', '0 * * * *', '0 6 * * *', '10 0 * * *']);
+  it('has jobs for exactly the crons declared in wrangler.toml, with the early finalize at 00:07', () => {
+    // #when
+    const crons = Object.keys(JOBS).sort();
+    // #then
+    expect(crons).toEqual(['* * * * *', '*/5 * * * *', '0 * * * *', '0 6 * * *', '7 0 * * *']);
   });
 });

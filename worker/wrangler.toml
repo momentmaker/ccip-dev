@@ -4,7 +4,7 @@ compatibility_date = "2026-10-01"
 workers_dev = false
 
 [triggers]
-crons = ["* * * * *", "*/5 * * * *", "0 * * * *", "10 0 * * *", "0 6 * * *"]
+crons = ["* * * * *", "*/5 * * * *", "0 * * * *", "7 0 * * *", "0 6 * * *"]
 
 [[d1_databases]]
 binding = "DB"

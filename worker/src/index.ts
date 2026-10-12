@@ -17,7 +17,7 @@ export const JOBS: Readonly<Record<string, Job[]>> = {
   ],
   '*/5 * * * *': [['prices', runPrices]],
   '0 * * * *': [['hourly', runHourly]],
-  '10 0 * * *': [['finalize', (c) => runFinalize(c, 'early')]],
+  '7 0 * * *': [['finalize', (c) => runFinalize(c, 'early')]],
   '0 6 * * *': [['finalize', (c) => runFinalize(c, 'late')]],
 };
 

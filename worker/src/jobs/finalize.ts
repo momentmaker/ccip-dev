@@ -17,7 +17,7 @@ const DETAIL_BUDGET_MS = 5 * 60_000;
 /**
  * How long a failing day is held for a retry to succeed. A day's last message reaches pushBack's 48-hour cut-off 72 hours
  * after the day starts; until then an hourly retry can still fill it. A retry pushed back just before the cut-off lands up
- * to an hour later, which the D+3 06:00 late run still re-fills. It cannot be longer: a day held past D+3 00:10 would push
+ * to an hour later, which the D+3 06:00 late run still re-fills. It cannot be longer: a day held past D+3 00:07 would push
  * yesterday out of the MAX_DAYS_PER_RUN window. The list sweep of a day follows the same window.
  */
 const RETRY_WINDOW_MS = 72 * 3_600_000;
