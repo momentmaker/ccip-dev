@@ -23,6 +23,7 @@ bucket_name = "ccip-dev-archive"
 [vars]
 CCIP_API_BASE = "https://api.ccip.chain.link/v2"
 BROADCASTS = "on"
+MOMENTS = "on"
 TELEGRAM_CHANNEL_ID = "@ccipdev"
 
 [observability]

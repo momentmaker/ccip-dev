@@ -3,12 +3,13 @@ import type { RunContext } from '../context';
 import type { Env } from '../env';
 import { sendTelegramPhoto, type TelegramConfig } from '../telegram';
 import type { BroadcastFacts } from './facts';
+import type { MomentFacts } from './moment-facts';
 
 export interface Broadcast {
   key: string;
   kind: BroadcastTarget['kind'];
   image: Uint8Array;
-  facts: BroadcastFacts;
+  facts: BroadcastFacts | MomentFacts;
   xText: string;
   telegramHtml: string;
 }
@@ -29,6 +30,14 @@ export type BroadcastMode = 'off' | 'drafts' | 'on';
 
 export function broadcastMode(env: Pick<Env, 'BROADCASTS'>): BroadcastMode {
   return env.BROADCASTS === 'drafts' || env.BROADCASTS === 'on' ? env.BROADCASTS : 'off';
+}
+
+/** Moments post only as far as both switches allow: off in either is off, and drafts in either is drafts. */
+export function momentMode(env: Pick<Env, 'BROADCASTS' | 'MOMENTS'>): BroadcastMode {
+  const broadcasts = broadcastMode(env);
+  const moments = broadcastMode({ BROADCASTS: env.MOMENTS });
+  if (broadcasts === 'off' || moments === 'off') return 'off';
+  return broadcasts === 'drafts' || moments === 'drafts' ? 'drafts' : 'on';
 }
 
 export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {

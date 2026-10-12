@@ -7,7 +7,10 @@ import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
 import * as store from '../store';
 import { composeCopy, type Copy } from './copy';
 import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts, weeklyFacts, type BroadcastFacts, type FactsSource } from './facts';
-import { broadcastMode, selectOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
+import { composeMomentCopy } from './moment-copy';
+import { isMomentFacts, loadMomentsSource, momentFacts, type MomentFacts, type MomentsSource } from './moment-facts';
+import { dueMoments, pickMoments, type DueMoment } from './moment-plan';
+import { broadcastMode, momentMode, selectOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
 export const IMAGE_TIMEOUT_MS = 20_000;
@@ -18,12 +21,13 @@ export const RECORDS_SEED_KEY = 'broadcast:records:seeded';
 export const RESERVE_SINCE_KEY = 'broadcast:reserve:since';
 /** A deposit older than this is never posted, so a pause or a long card outage cannot release a flood of stale ones. */
 export const RESERVE_MAX_AGE_DAYS = 3;
+export const MOMENTS_SEED_KEY = 'broadcast:moments:seeded';
 
 export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | { kind: 'reserve'; reserve: ReserveBody };
 
 interface Planned {
   target: BroadcastTarget;
-  facts: BroadcastFacts;
+  facts: BroadcastFacts | MomentFacts;
 }
 
 export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = telegramOutputs(c)): Promise<void> {
@@ -36,6 +40,45 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
   }
   const planned = request.kind === 'finalize' ? await planFinalize(c, request.days) : await planReserve(c, request.reserve);
   for (const p of planned) await deliver(c, p, enabled);
+  if (request.kind === 'finalize') await broadcastMoments(c, request.days, outputs);
+}
+
+/** After the finalize posts, the moments due today, under their own switch; one moment's failure never stops the next. */
+async function broadcastMoments(c: RunContext, days: readonly string[], outputs: OutputSet): Promise<void> {
+  const mode = momentMode(c.env);
+  if (mode === 'off' || !days.includes(addDays(dayOf(c.deps.now()), -1))) return;
+  const enabled = selectOutputs(outputs, mode);
+  for (const p of await planMoments(c, await loadMomentsSource(c))) {
+    try {
+      await deliver(c, p, enabled);
+    } catch (err) {
+      await c.alert('broadcast-run', `${broadcastKey(p.target)} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+}
+
+/** The budgeted moments due today that the day's budget still allows; the first run seeds them instead. */
+async function planMoments(c: RunContext, src: MomentsSource): Promise<Planned[]> {
+  const db = c.env.DB;
+  const today = dayOf(c.deps.now());
+  const due = dueMoments(src.moments, today);
+  if (await seedMoments(c, due)) return [];
+  const values = await store.getMetas(db, due.map((d) => broadcastKey(d.target)));
+  const done = new Set([...values].filter(([, v]) => v.startsWith('sent:') || v.startsWith('seeded:')).map(([key]) => key));
+  return pickMoments(due, { done, sentToday: await store.momentsSentOn(db, today) }).flatMap((d) => {
+    const facts = momentFacts(src, d.target);
+    return facts === null ? [] : [{ target: d.target, facts }];
+  });
+}
+
+/** The first run marks every moment due today as seeded, without posting it, so switching moments on posts no old ones. */
+async function seedMoments(c: RunContext, due: readonly DueMoment[]): Promise<boolean> {
+  const db = c.env.DB;
+  if ((await store.getMeta(db, MOMENTS_SEED_KEY)) !== null) return false;
+  const value = `seeded:${c.deps.now().toISOString()}`;
+  await store.markMeta(db, due.map((d) => broadcastKey(d.target)), value);
+  await store.setMeta(db, MOMENTS_SEED_KEY, value);
+  return true;
 }
 
 /** Broadcasts never fail the job that runs them: a failure alerts, and the hourly run retries what was not sent. */
@@ -142,7 +185,7 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
   const key = broadcastKey(p.target);
   let copy: Copy;
   try {
-    copy = composeCopy(p.facts);
+    copy = isMomentFacts(p.facts) ? composeMomentCopy(p.facts) : composeCopy(p.facts);
   } catch (err) {
     await c.alert(`broadcast-copy:${key}`, `${key} was not posted: ${err instanceof Error ? err.message : String(err)}`);
     return;

@@ -8,6 +8,7 @@ export interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_ALERT_CHAT_ID?: string;
   BROADCASTS?: string;
+  MOMENTS?: string;
   TELEGRAM_CHANNEL_ID?: string;
   TELEGRAM_DRAFTS_CHAT_ID?: string;
   GITHUB_DISPATCH_TOKEN?: string;

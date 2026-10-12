@@ -3,6 +3,7 @@ import {
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
+import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 
 const PARAM_CHUNK = 90;
 const BATCH_SIZE = 100;
@@ -78,6 +79,19 @@ export async function getMetas(db: D1Database, keys: string[]): Promise<Map<stri
     for (const r of results) values.set(r.key, r.value);
   }
   return values;
+}
+
+/**
+ * The budgeted moments marked sent on day ?1: their own keys, not their `#output` rows. Each kind is a key range, so the
+ * count reads meta's primary key instead of every alert and broadcast row.
+ */
+export const MOMENTS_SENT_SQL = `SELECT COUNT(*) AS n FROM meta
+  WHERE (${BUDGETED_MOMENTS.map((kind) => `(key > 'broadcast:${kind}:' AND key < 'broadcast:${kind};')`).join(' OR ')})
+    AND instr(key, '#') = 0 AND value >= 'sent:' || ?1 AND value < 'sent:' || ?2`;
+
+export async function momentsSentOn(db: D1Database, day: string): Promise<number> {
+  const row = await db.prepare(MOMENTS_SENT_SQL).bind(day, addDays(day, 1)).first<{ n: number }>();
+  return row?.n ?? 0;
 }
 
 export async function knownIds(db: D1Database, ids: string[]): Promise<Set<string>> {
