@@ -1,3 +1,4 @@
+import type { BroadcastTarget } from '@ccip-dev/core/broadcasts';
 import type { PublicFileName } from '@ccip-dev/core/public';
 import sponsor from '../sponsor.json';
 import { parseCardPath, type CardRoute } from '../src/lib/card-paths';
@@ -7,6 +8,9 @@ import { TOP_FILE } from '../src/lib/top';
 import { sponsorView } from '../src/lib/sponsor';
 import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
+import { broadcastTree } from './cards/broadcast-cards';
+import { BROADCAST_SIZE } from './cards/broadcast-frame';
+import { coinIcon } from './cards/coin-icons';
 import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
 import { CARD_SIZE, cardTree, SPARK_H, SPARK_W, sparkSvg, type CardSize } from './cards/frame';
 import type { VNode } from './h';
@@ -93,7 +97,7 @@ function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, u
   return pending;
 }
 
-async function build(route: CardRoute, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
+async function build(route: Exclude<CardRoute, { kind: 'broadcast' }>, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
   const load = <N extends PublicFileName>(name: N) => fetchPublic(name, { fetch: deps.fetch });
   switch (route.kind) {
     case 'home':
@@ -129,6 +133,32 @@ async function build(route: CardRoute, deps: OgDeps, env: OgEnv, origin: string)
   }
 }
 
+/**
+ * Broadcast cards read fresh data (a just-published file may still sit stale in the edge cache) and never fall back to the
+ * default card: a broadcast posts only a card that rendered from its own data.
+ */
+async function broadcastCard(target: BroadcastTarget, route: CardRoute, url: URL, env: OgEnv, ctx: { waitUntil(p: Promise<unknown>): void }, deps: OgDeps): Promise<Response> {
+  const cacheKey = new Request(`${url.origin}${url.pathname}`);
+  const uncached = { 'cache-control': 'no-store' };
+  try {
+    const cached = await deps.cache?.match(cacheKey);
+    if (cached) return cached;
+    const fresh = ((input: RequestInfo | URL, init?: RequestInit) => deps.fetch(input, { ...init, cache: 'no-store' })) as typeof fetch;
+    const tree = await broadcastTree(target, {
+      load: (name) => fetchPublic(name, { fetch: fresh }),
+      icon: (selector) => coinIcon(env.ASSETS, url.origin, selector),
+    });
+    if (!tree) return new Response('Not found', { status: 404, headers: uncached });
+    const png = await deps.renderPng(tree, BROADCAST_SIZE);
+    const response = new Response(new Uint8Array(png), { headers: { 'content-type': 'image/png', 'cache-control': `public, max-age=${cardMaxAge(route, null)}` } });
+    if (deps.cache) ctx.waitUntil(deps.cache.put(cacheKey, response.clone()));
+    return response;
+  } catch (err) {
+    console.error(`card ${url.pathname} failed: ${err instanceof Error ? err.message : String(err)}`);
+    return new Response('Card failed', { status: 500, headers: uncached });
+  }
+}
+
 async function fallback(env: OgEnv, origin: string): Promise<Response> {
   const asset = await env.ASSETS.fetch(new Request(`${origin}/og-default.png`));
   return new Response(asset.body, {
@@ -142,6 +172,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   const match = CARD_PATH.exec(url.pathname);
   const route = match ? parseCardPath(match[1]!) : null;
   if (!route) return new Response('Not found', { status: 404 });
+  if (route.kind === 'broadcast') return broadcastCard(route.target, route, url, env, ctx, deps);
 
   const cacheKey = new Request(`${url.origin}${url.pathname}`);
 

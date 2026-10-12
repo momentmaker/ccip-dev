@@ -1,3 +1,4 @@
+import { broadcastCardPath, parseBroadcastPath, type BroadcastTarget } from '@ccip-dev/core/broadcasts';
 import { isDay } from './days';
 
 export const HISTORY_RANGES = ['30d', '90d', '1y', 'all'] as const;
@@ -19,7 +20,8 @@ export type CardRoute =
   | { kind: 'history'; range: HistoryRange }
   | { kind: 'top'; dim: TopDim; window: Window; order: TopOrder }
   | { kind: 'flow'; window: Window }
-  | { kind: 'replay-chain'; slug: string };
+  | { kind: 'replay-chain'; slug: string }
+  | { kind: 'broadcast'; target: BroadcastTarget };
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const DEFAULT_CARD_URL = 'https://ccip.dev/og-default.png';
@@ -48,6 +50,10 @@ export function parseCardPath(path: string): CardRoute | null {
   if (head === 'history') return parts.length === 2 && oneOf(HISTORY_RANGES, a) ? { kind: 'history', range: a } : null;
   if (head === 'top') return parseTop(parts);
   if (head === 'flow') return parts.length === 2 && oneOf(WINDOWS, a) ? { kind: 'flow', window: a } : null;
+  if (head === 'broadcast') {
+    const target = parseBroadcastPath(parts);
+    return target ? { kind: 'broadcast', target } : null;
+  }
   return null;
 }
 
@@ -63,6 +69,8 @@ export function cardPathOf(route: CardRoute): string {
       return `flow/${route.window}`;
     case 'replay-chain':
       return `replay/${route.slug}`;
+    case 'broadcast':
+      return broadcastCardPath(route.target);
     default:
       return route.kind;
   }

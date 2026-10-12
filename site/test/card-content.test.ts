@@ -172,6 +172,7 @@ describe('cardMaxAge', () => {
     [{ kind: 'day', day: '2026-10-05' }, '2026-10-06', 600],
     [{ kind: 'day', day: '2026-10-04' }, null, 600],
     [{ kind: 'reserve' }, null, 900],
+    [{ kind: 'broadcast', target: { kind: 'daily', day: '2026-10-10' } }, null, 900],
     [{ kind: 'top', dim: 'token', window: '7d', order: 'value' }, null, 1800],
   ] as const)('%j → %s s', (route, last, seconds) => {
     expect(cardMaxAge(route, last)).toBe(seconds);

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CardSize } from '../worker/cards/frame';
 import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
+import { BROADCAST_FILES, DAY } from './fixtures/broadcast';
 import chains from './fixtures/chains.json';
 import history from './fixtures/history.json';
 import reserve from './fixtures/reserve.json';
@@ -34,9 +35,11 @@ let origins = 0;
 function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Record<string, unknown> = DATA, assets: Record<string, string> = {}) {
   const origin = `https://ccip${++origins}.test`;
   const dataUrls: string[] = [];
+  const dataInits: (RequestInit | undefined)[] = [];
   const assetPaths: string[] = [];
-  const fetchFn = (async (url: string) => {
+  const fetchFn = (async (url: string, init?: RequestInit) => {
     dataUrls.push(url);
+    dataInits.push(init);
     const name = url.replace('https://data.ccip.dev/v1/', '');
     if (broken.includes(name)) return new Response('down', { status: 500 });
     return name in data ? new Response(JSON.stringify(data[name])) : new Response('missing', { status: 404 });
@@ -62,7 +65,7 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Rec
     await Promise.all(pending);
     return res;
   };
-  return { get, renderPng, dataUrls, assetPaths };
+  return { get, renderPng, dataUrls, dataInits, assetPaths };
 }
 
 function imgSrcs(node: unknown): string[] {
@@ -74,6 +77,50 @@ function imgSrcs(node: unknown): string[] {
 }
 
 describe('handleOg', () => {
+  it('renders the daily broadcast card at 1200×675, reading each data file with no-store, cached for 15 minutes', async () => {
+    // #given
+    const { get, renderPng, dataUrls, dataInits } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
+    // #when
+    const res = await get(`/og/broadcast/daily/${DAY}.png`);
+    // #then
+    expect({
+      status: res.status,
+      size: renderPng.mock.calls[0]![1],
+      read: dataUrls.map((u) => u.replace('https://data.ccip.dev/v1/', '')).sort(),
+      noStore: dataInits.every((init) => init?.cache === 'no-store'),
+      cache: res.headers.get('cache-control'),
+    }).toEqual({
+      status: 200,
+      size: { width: 1200, height: 675 },
+      read: ['chains.json', 'day-leaders.json', 'history.json', 'replay.json'],
+      noStore: true,
+      cache: 'public, max-age=900',
+    });
+  });
+
+  it('answers 404 without rendering for a broadcast day without data, a week without leaders, or an unknown kind', async () => {
+    // #given
+    const { get, renderPng } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
+    // #when
+    const statuses = [
+      (await get('/og/broadcast/daily/2026-09-01.png')).status,
+      (await get('/og/broadcast/weekly/2026-09-28.png')).status,
+      (await get('/og/broadcast/monthly/2026-10-10.png')).status,
+    ];
+    // #then
+    expect({ statuses, rendered: renderPng.mock.calls.length }).toEqual({ statuses: [404, 404, 404], rendered: 0 });
+  });
+
+  it('answers 500, not the fallback card, when a broadcast card fails', async () => {
+    // #given rendering fails, and in a second Worker a data file is down
+    const failing = setup({ renderPng: vi.fn(async () => { throw new Error('wasm trap'); }) }, [], { ...DATA, ...BROADCAST_FILES });
+    const down = setup({}, ['history.json'], { ...DATA, ...BROADCAST_FILES });
+    // #when
+    const responses = [await failing.get(`/og/broadcast/daily/${DAY}.png`), await down.get(`/og/broadcast/daily/${DAY}.png`)];
+    // #then
+    expect(responses.map((r) => [r.status, r.headers.get('cache-control')])).toEqual([[500, 'no-store'], [500, 'no-store']]);
+  });
+
   it('renders the classic cards at 1200×630', async () => {
     const { get, renderPng } = setup();
     await get('/og/home.png');
