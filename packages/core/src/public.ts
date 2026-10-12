@@ -136,6 +136,7 @@ export const TransferViewSchema = z.object({
   usd: z.number().nullable(),
   value_now_usd: z.number().nullable(),
   change_pct: z.number().nullable(),
+  deposit: z.boolean().optional(),
 });
 
 const PricePointSchema = z.object({ ts: z.string(), tx: z.string(), price_usd: z.number() });

@@ -1,7 +1,7 @@
 import { formatCount, formatDuration, formatLink, formatUsd, linkShareText } from './format';
 import { laneLabel, shortChainName, type ChainNames } from './names';
 import type { DayTotals, LargestFee } from './public';
-import { addDays } from './time';
+import { addDays, dayStartIso } from './time';
 
 export type DayStats = Pick<DayTotals, 'day' | 'messages' | 'usd_value' | 'unique_senders' | 'fee_usd' | 'median_delivery_s'>;
 export type RecordKey = 'busiest' | 'biggest' | 'senders' | 'fees' | 'fastest';
@@ -34,6 +34,41 @@ export const FEE_DATA_START = '2023-07-06';
 
 export const LINK_SHARE_MIN_MESSAGES = 100;
 export const EXPLORER_MESSAGE_URL = 'https://ccip.chain.link/msg/';
+
+export const RECORD_KINDS = ['messages', 'value', 'fees', 'largest_fee', 'link_share'] as const;
+export type RecordKind = (typeof RECORD_KINDS)[number];
+export const MILESTONE_METRICS = ['messages', 'value', 'fees'] as const;
+export type MilestoneMetric = (typeof MILESTONE_METRICS)[number];
+
+export interface RecordValue {
+  day: string;
+  value: number;
+}
+
+export interface RecordSet {
+  kind: RecordKind;
+  day: string;
+  value: number;
+  previous: RecordValue;
+  stoodDays: number;
+}
+
+export interface MilestoneSet {
+  metric: MilestoneMetric;
+  threshold: number;
+  day: string;
+  label: string;
+}
+
+const linkSharePct = (d: FeeDayStats): number | null =>
+  d.messages >= LINK_SHARE_MIN_MESSAGES && d.fee_usd && d.fee_link_usd !== null ? (d.fee_link_usd / d.fee_usd) * 100 : null;
+
+const DAY_PICKS: Record<Exclude<RecordKind, 'largest_fee'>, (d: FeeDayStats) => number | null> = {
+  messages: (d) => d.messages,
+  value: (d) => d.usd_value,
+  fees: (d) => d.fee_usd,
+  link_share: linkSharePct,
+};
 
 export type FeeDayStats = DayStats & Pick<DayTotals, 'fee_link_usd' | 'fee_link_amount'>;
 export type FeeRecordKey = 'most_fees' | 'largest_fee' | 'link_paid' | 'link_share';
@@ -154,7 +189,7 @@ export function computeFeeRecords(days: readonly FeeDayStats[], largest: readonl
     const amount = sorted.find((d) => d.day === link.day)?.fee_link_amount;
     out.push({ key: 'link_paid', title: 'Most paid in LINK in a day', day: link.day, display: formatUsd(link.value), sub: withNote(amount == null ? null : formatLink(amount), note), explorerUrl: null });
   }
-  const share = bestDay(sorted, (d) => (d.messages >= LINK_SHARE_MIN_MESSAGES && d.fee_usd && d.fee_link_usd !== null ? (d.fee_link_usd / d.fee_usd) * 100 : null));
+  const share = bestDay(sorted, linkSharePct);
   if (share) {
     out.push({ key: 'link_share', title: 'Highest LINK share in a day', day: share.day, display: linkShareText(share.value), sub: withNote(`days with ${LINK_SHARE_MIN_MESSAGES}+ messages`, note), explorerUrl: null });
   }
@@ -245,6 +280,43 @@ export function computeFeeMilestones(days: readonly Pick<DayStats, 'day' | 'fee_
     (t): Milestone => ({ kind: 'fee_day', day: sorted.find((d) => fee(d) >= t)!.day, label: `First ${formatThresholdUsd(t)} fee day`, threshold: t }),
   );
   return sortMilestones([...runningMilestones(sorted, feeThresholds(total, 1e6), fee, 'fees', (t) => `${formatThresholdUsd(t)} in fees`), ...firstDays]);
+}
+
+const DAY_MS = 86_400_000;
+
+/** The record of `kind` among `days` (the largest single fee among `largest`), ties going to the earlier day as on the Records page. */
+export function recordValue(kind: RecordKind, days: readonly FeeDayStats[], largest: readonly LargestFee[]): RecordValue | null {
+  if (kind !== 'largest_fee') return bestDay([...days].sort(compareDay), DAY_PICKS[kind]);
+  let best: RecordValue | null = null;
+  for (const f of largest) {
+    if (best === null || f.fee_usd > best.value || (f.fee_usd === best.value && f.day < best.day)) best = { day: f.day, value: f.fee_usd };
+  }
+  return best;
+}
+
+/** The records `day` set: it holds the record counting the days up to it, and some earlier day held one before. */
+export function recordsSetOn(days: readonly FeeDayStats[], largest: readonly LargestFee[], day: string): RecordSet[] {
+  const through = days.filter((d) => d.day <= day);
+  const before = days.filter((d) => d.day < day);
+  return RECORD_KINDS.flatMap((kind) => {
+    const now = recordValue(kind, through, largest.filter((f) => f.day <= day));
+    const previous = recordValue(kind, before, largest.filter((f) => f.day < day));
+    if (now === null || previous === null || now.day !== day) return [];
+    return [{ kind, day, value: now.value, previous, stoodDays: Math.round((Date.parse(dayStartIso(day)) - Date.parse(dayStartIso(previous.day))) / DAY_MS) }];
+  });
+}
+
+const isMetric = (kind: MilestoneKind): kind is MilestoneMetric => (MILESTONE_METRICS as readonly string[]).includes(kind);
+
+/** The all-time messages, value and fee crossings the Records page lists; first-fee-day and chain milestones are left out. */
+export function trackedMilestones(days: readonly FeeDayStats[]): MilestoneSet[] {
+  return [...computeMilestones(days, []), ...computeFeeMilestones(days)].flatMap((m) =>
+    isMetric(m.kind) && m.threshold !== null ? [{ metric: m.kind, threshold: m.threshold, day: m.day, label: m.label }] : [],
+  );
+}
+
+export function milestonesOn(days: readonly FeeDayStats[], day: string): MilestoneSet[] {
+  return trackedMilestones(days.filter((d) => d.day <= day)).filter((m) => m.day === day);
 }
 
 export function liveRecordBreaks(

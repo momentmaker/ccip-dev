@@ -73,6 +73,12 @@ export function formatLink(value: number | null | undefined): string {
   return usable(value) ? `${Math.round(value).toLocaleString('en-US')} LINK` : DASH;
 }
 
+/** A LINK amount; under 100 LINK it keeps two decimals, where formatLink would show a day's 0.29 LINK in fees as 0. */
+export function formatLinkAmount(value: number | null | undefined): string {
+  if (!usable(value)) return DASH;
+  return Math.abs(value) < 100 ? `${value.toFixed(2)} LINK` : formatLink(value);
+}
+
 export function formatDuration(seconds: number | null | undefined): string {
   if (!usable(seconds)) return DASH;
   const s = Math.max(0, Math.round(seconds));

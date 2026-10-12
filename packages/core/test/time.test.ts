@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dayOf, dayStartIso, daysBetween, toIsoUtc } from '../src/time';
+import { addDays, dayOf, dayStartIso, daysBetween, isDay, toIsoUtc } from '../src/time';
 
 describe('dayOf', () => {
   it('keeps the last millisecond of a day on that day', () => {
@@ -28,5 +28,11 @@ describe('day arithmetic', () => {
   it('formats day starts and normalizes timestamps to ISO UTC', () => {
     expect(dayStartIso('2026-10-05')).toBe('2026-10-05T00:00:00.000Z');
     expect(toIsoUtc('2026-10-05T11:14:53Z')).toBe('2026-10-05T11:14:53.000Z');
+  });
+});
+
+describe('isDay', () => {
+  it.each([['2026-10-11', true], ['2026-02-30', false], ['2026-10-1', false], ['../x', false]])('%s → %s', (value, ok) => {
+    expect(isDay(value)).toBe(ok);
   });
 });

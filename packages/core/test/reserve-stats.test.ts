@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { depositStreak, isDeposit, nextMilestone } from '../src/reserve-pace';
 import { reserveStats, type PricedTransfer } from '../src/reserve-stats';
 import { weekStart } from '../src/time';
 
@@ -126,11 +127,18 @@ describe('reserveStats', () => {
     expect(stats.transfers).toHaveLength(6);
     expect(stats.transfers[0]).toEqual({
       ts: '2026-09-01T10:00:00.000Z', tx: '0x01', direction: 'in', counterparty: D, link: 100_000,
-      price_usd: 10, usd: 1_000_000, value_now_usd: 1_500_000, change_pct: 50,
+      price_usd: 10, usd: 1_000_000, value_now_usd: 1_500_000, change_pct: 50, deposit: true,
     });
     expect(stats.transfers[3]).toMatchObject({ direction: 'out', usd: 18, value_now_usd: null, change_pct: null });
     expect(stats.transfers[4]).toMatchObject({ price_usd: null, usd: null, value_now_usd: 900_000, change_pct: null });
     expect(stats.latest_transfer).toEqual(stats.transfers[5]);
+  });
+
+  it('marks each transfer a deposit by the same rule pace counts', () => {
+    // #when
+    const marks = stats.transfers.map((t) => [t.tx, t.deposit]);
+    // #then the 5-LINK gift and the outflow are not deposits
+    expect(marks).toEqual([['0x01', true], ['0x02', false], ['0x03', true], ['0x04', false], ['0x05', true], ['0x06', true]]);
   });
 
   it('sorts its input by time, so a shuffled list gives the same result', () => {
@@ -224,5 +232,25 @@ describe('reserveStats', () => {
     it('is overdue one millisecond past 24 h', () => {
       expect(overdueAt(expected + 24 * 3_600_000 + 1)).toBe(true);
     });
+  });
+});
+
+describe('reserve pace helpers', () => {
+  it('counts a deposit from 1,000 LINK in', () => {
+    expect([isDeposit({ direction: 'in', link: 1_000 }), isDeposit({ direction: 'in', link: 999.99 }), isDeposit({ direction: 'out', link: 5_000 })]).toEqual([true, false, false]);
+  });
+
+  it('counts the streak back from the last deposit while gaps stay within 8 days', () => {
+    // #given gaps of 14, 7 and 8 days
+    const ts = ['2026-08-01T00:00:00Z', '2026-08-15T00:00:00Z', '2026-08-22T00:00:00Z', '2026-08-30T00:00:00Z'];
+    // #then
+    expect([depositStreak(ts), depositStreak([]), depositStreak(ts.slice(0, 1))]).toEqual([3, 0, 1]);
+  });
+
+  it('projects the next whole million from a given time, and nothing without a pace', () => {
+    // #when 250,000 held at 250,000 a week reaches 1,000,000 three weeks later
+    const eta = nextMilestone(250_000, 250_000, new Date('2026-10-01T00:00:00Z'));
+    // #then
+    expect({ eta, none: nextMilestone(250_000, null, new Date('2026-10-01T00:00:00Z')) }).toEqual({ eta: { link: 1_000_000, eta: '2026-10-22' }, none: null });
   });
 });

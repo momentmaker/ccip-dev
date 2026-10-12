@@ -16,6 +16,14 @@ export function dayStartIso(day: string): string {
   return `${day}T00:00:00.000Z`;
 }
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isDay(value: string): boolean {
+  if (!DAY_RE.test(value)) return false;
+  const ms = Date.parse(dayStartIso(value));
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === value;
+}
+
 export function addDays(day: string, n: number): string {
   const date = parse(dayStartIso(day));
   date.setUTCDate(date.getUTCDate() + n);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, feeThresholds, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, valueThresholds, type DayStats, type FeeDayStats,
+  computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, feeThresholds, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, milestonesOn, recordsSetOn, recordValue, trackedMilestones, valueThresholds, type DayStats, type FeeDayStats,
 } from '../src/records';
 
 const day = (d: string, messages: number, usd: number, senders: number, fee: number | null, median: number | null): DayStats => ({
@@ -219,5 +219,63 @@ describe('fee milestones', () => {
 
   it('lists no fee milestones while fee coverage starts after 2023-07-06', () => {
     expect(computeFeeMilestones([feeDay('2026-10-05', 2e6), feeDay('2026-10-06', 50e3)])).toEqual([]);
+  });
+});
+
+describe('records set on a day', () => {
+  const stats = (day: string, messages: number, usd: number, fee: number | null, link: number | null): FeeDayStats => ({
+    day, messages, usd_value: usd, unique_senders: 1, fee_usd: fee, median_delivery_s: null, fee_link_usd: link, fee_link_amount: null,
+  });
+  const A = '2026-03-01';
+  const B = '2026-07-08';
+  const C = '2026-07-09';
+  // Each day pays 1% of its fees in LINK, so the LINK share ties and never sets a record.
+  const days = [stats(A, 1000, 2e6, 47_800, 478), stats(B, 900, 1e6, 30_000, 300), stats(C, 1200, 1.5e6, 57_300, 573)];
+  const fee = (day: string, fee_usd: number) => ({ message_id: `0x${day}`, day, src: '1', dst: '2', fee_usd, symbol: 'USDC' });
+  const largest = [fee(C, 12_000), fee(A, 9_000)];
+
+  it('finds each record a day sets, with the record it beat and how long that stood', () => {
+    // #when
+    const set = recordsSetOn(days, largest, C);
+    // #then
+    expect(set).toEqual([
+      { kind: 'messages', day: C, value: 1200, previous: { day: A, value: 1000 }, stoodDays: 130 },
+      { kind: 'fees', day: C, value: 57_300, previous: { day: A, value: 47_800 }, stoodDays: 130 },
+      { kind: 'largest_fee', day: C, value: 12_000, previous: { day: A, value: 9_000 }, stoodDays: 130 },
+    ]);
+  });
+
+  it('sets nothing on a day below the records, or on the first day there is', () => {
+    expect({ b: recordsSetOn(days, largest, B), a: recordsSetOn(days, largest, A) }).toEqual({ b: [], a: [] });
+  });
+
+  it('keeps a tied record with the earlier day, as the Records page does', () => {
+    expect(recordValue('link_share', days, largest)?.day).toBe(A);
+  });
+
+  it('counts the LINK share only on days with 100 or more messages', () => {
+    // #given a 99-message day paid fully in LINK
+    const quiet = [...days, stats('2026-07-10', 99, 1, 10, 10)];
+    // #then
+    expect(recordValue('link_share', quiet, largest)?.day).toBe(A);
+  });
+});
+
+describe('milestones crossed on a day', () => {
+  const day = (d: string, messages: number, fee: number): FeeDayStats => ({
+    day: d, messages, usd_value: 0, unique_senders: 1, fee_usd: fee, median_delivery_s: null, fee_link_usd: null, fee_link_amount: null,
+  });
+  // Fee coverage must start at 2023-07-06 for fee milestones to count.
+  const days = [day('2023-07-06', 600, 600_000), day('2023-07-07', 500, 500_000)];
+
+  it('lists the all-time messages, value and fee thresholds a day crossed', () => {
+    expect(milestonesOn(days, '2023-07-07')).toEqual([
+      { metric: 'messages', threshold: 1000, day: '2023-07-07', label: '1,000 messages' },
+      { metric: 'fees', threshold: 1_000_000, day: '2023-07-07', label: '$1M in fees' },
+    ]);
+  });
+
+  it('leaves out the first-fee-day and chain milestones, and days that crossed nothing', () => {
+    expect({ tracked: trackedMilestones(days).map((m) => m.metric), first: milestonesOn(days, '2023-07-06') }).toEqual({ tracked: ['messages', 'fees'], first: [] });
   });
 });

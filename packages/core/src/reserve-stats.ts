@@ -1,10 +1,10 @@
 import { dayOf, weekStart } from './time';
+import { depositStreak, isDeposit, nextMilestone } from './reserve-pace';
 import { toUnits } from './value';
 
-export const DEPOSIT_MIN_LINK = 1_000;
+export { DEPOSIT_MIN_LINK, DEPOSIT_STREAK_MAX_GAP_DAYS, MILESTONE_STEP_LINK, depositStreak, isDeposit, nextMilestone } from './reserve-pace';
+
 export const LINK_TOTAL_SUPPLY = 1_000_000_000;
-export const MILESTONE_STEP_LINK = 1_000_000;
-export const DEPOSIT_STREAK_MAX_GAP_DAYS = 8;
 export const DEPOSIT_OVERDUE_GRACE_HOURS = 24;
 
 const DAY_MS = 86_400_000;
@@ -30,6 +30,7 @@ export interface TransferView {
   usd: number | null;
   value_now_usd: number | null;
   change_pct: number | null;
+  deposit: boolean;
 }
 
 export interface WeekView {
@@ -117,7 +118,7 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
     });
   const inflows = rows.filter((r) => r.direction === 'in');
   const outflows = rows.filter((r) => r.direction === 'out');
-  const deposits = inflows.filter((r) => r.link >= DEPOSIT_MIN_LINK);
+  const deposits = rows.filter(isDeposit);
   const pricedDeposits = deposits.filter((r) => r.linkUsd !== null);
 
   const linkIn = sum(inflows.map((r) => r.link));
@@ -133,7 +134,6 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
   const complete = series.slice(0, -1).slice(-AVERAGE_WEEKS);
   const avgLink = complete.length === 0 ? null : sum(complete.map((w) => w.link)) / complete.length;
   const avgUsd = complete.length === 0 ? null : sum(complete.map((w) => w.usd)) / complete.length;
-  const milestone = (Math.floor(net / MILESTONE_STEP_LINK) + 1) * MILESTONE_STEP_LINK;
   const last = deposits.at(-1);
 
   const gaps = deposits.length > 1
@@ -151,14 +151,7 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
     : new Date(Date.parse(last!.ts) + medianGap * DAY_MS).toISOString();
   const isOverdue = nextExpected !== null && now.getTime() > Date.parse(nextExpected) + DEPOSIT_OVERDUE_GRACE_HOURS * 3_600_000;
 
-  let streak = deposits.length === 0 ? 0 : 1;
-  for (let i = gaps.length - 1; i >= 0; i--) {
-    if (gaps[i]! <= DEPOSIT_STREAK_MAX_GAP_DAYS) {
-      streak++;
-    } else {
-      break;
-    }
-  }
+  const streak = depositStreak(deposits.map((d) => d.ts));
 
   const byPrice = [...pricedDeposits].sort((a, b) => a.linkUsd! - b.linkUsd!);
   const entry = (r: Row | undefined) => (r === undefined ? null : { ts: r.ts, tx: r.tx, price_usd: round(r.linkUsd!, 4) });
@@ -176,6 +169,7 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
       r.direction === 'in' && linkPriceUsd !== null && r.linkUsd !== null && r.linkUsd > 0
         ? round((linkPriceUsd / r.linkUsd - 1) * 100, 2)
         : null,
+    deposit: isDeposit(r),
   });
   const transfers = rows.map(view);
 
@@ -200,10 +194,7 @@ export function reserveStats(input: { transfers: PricedTransfer[]; linkPriceUsd:
       avg_weekly_usd_4w: roundOrNull(avgUsd, 2),
       annualized_link: avgLink === null ? null : round(avgLink * 52, 2),
       supply_share_pct: round((net / LINK_TOTAL_SUPPLY) * 100, 4),
-      next_milestone:
-        avgLink === null || avgLink <= 0
-          ? null
-          : { link: milestone, eta: dayOf(new Date(now.getTime() + ((milestone - net) / avgLink) * WEEK_MS)) },
+      next_milestone: nextMilestone(net, avgLink, now),
       avg_days_between_deposits: avgGaps === null ? null : round(avgGaps, 2),
       next_expected_deposit: nextExpected,
       deposit_overdue: isOverdue,
