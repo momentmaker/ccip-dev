@@ -5,7 +5,7 @@ import type { Poll, PollKind } from '@ccip-dev/core/public';
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
 import {
-  bold, broadcastFrame, cardDays, COLORS, ellipsized, eyebrow, fitName, hasReplayDay, iconsFor, momentColumn, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
+  bold, broadcastFrame, cardDays, COLORS, ellipsized, eyebrow, fitName, hasReplayDay, iconsFor, loadMomentFiles, momentColumn, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
 import { HISTORY_CTA, REPLAY_CTA } from './cta';
 import { glyph } from './glyphs';
@@ -34,7 +34,9 @@ const symbolOf = (key: string) => shortAddress(key.slice(key.indexOf(':') + 1));
 
 /** Monday to Friday's new lanes and tokens, up to 5 of each, over a dimmed sky of those days. */
 export async function roundupTree(monday: string, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const files = await loadMomentFiles(inputs);
+  if (files === null) return null;
+  const { moments, replay, chains } = files;
   const roundup = roundupOf(moments, monday);
   const friday = addDays(monday, 4);
   if (roundup === null || !hasReplayDay(replay, friday)) return null;
@@ -131,7 +133,9 @@ function thisWeekPanel(poll: Poll, width: number): VNode {
 
 /** Last week's answer and how the votes went beside this week's question; the first poll shows its question alone, wider. */
 export async function pollTree(monday: string, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const files = await loadMomentFiles(inputs);
+  if (files === null) return null;
+  const { moments, replay, chains } = files;
   const poll = moments.polls.find((p) => p.week === monday);
   const last = moments.polls.find((p) => p.week === addDays(monday, -7) && p.answer !== null) ?? null;
   const sunday = addDays(monday, -1);

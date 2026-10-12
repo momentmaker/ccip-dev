@@ -252,14 +252,25 @@ describe('poll card', () => {
 });
 
 describe('moment cards', () => {
+  const targets: BroadcastTarget[] = [
+    { kind: 'welcome', selector: TEMPO }, { kind: 'countdown', metric: 'fees', threshold: 2.5e6 }, { kind: 'movers', monday: MONDAY }, { kind: 'spotlight', monday: MONDAY },
+    { kind: 'roundup', monday: MONDAY }, { kind: 'poll', monday: POLL_MONDAY },
+  ];
+
   it('write no glyph the card fonts lack', async () => {
     // #when
-    const targets: BroadcastTarget[] = [
-      { kind: 'welcome', selector: TEMPO }, { kind: 'countdown', metric: 'fees', threshold: 2.5e6 }, { kind: 'movers', monday: MONDAY }, { kind: 'spotlight', monday: MONDAY },
-      { kind: 'roundup', monday: MONDAY }, { kind: 'poll', monday: POLL_MONDAY },
-    ];
     const words = (await Promise.all(targets.map(async (t) => texts(await tree(t))))).flat();
     // #then
     expect({ words: words.length > 0, missing: words.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({ words: true, missing: [] });
+  });
+
+  it('have no card while moments.json is more than 10 minutes older than replay.json, as after its publish failed', async () => {
+    // #given replay.json is from Oct 12, 00:07; moments.json from 10 minutes, then 10 minutes and a second, before it
+    const atLimit = withMoments({ updated_at: '2026-10-11T23:57:00.000Z' });
+    const stale = withMoments({ updated_at: '2026-10-11T23:56:59.000Z' });
+    // #when
+    const rendered = async (load: typeof loadMoments) => Promise.all(targets.map(async (t) => (await broadcastTree(t, { ...inputs, load })) !== null));
+    // #then
+    expect({ atLimit: await rendered(atLimit), stale: await rendered(stale) }).toEqual({ atLimit: targets.map(() => true), stale: targets.map(() => false) });
   });
 });

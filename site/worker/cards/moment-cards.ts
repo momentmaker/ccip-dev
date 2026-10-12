@@ -5,8 +5,8 @@ import { formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
 import {
-  bigSize, bigText, bold, broadcastFrame, cardDay, COLORS, columnLine, date, eyebrow, hasReplayDay, hubSky, iconsFor, MILESTONE_TITLES, momentColumn, MONTH_DAY,
-  nameSize, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
+  bigSize, bigText, bold, broadcastFrame, cardDay, COLORS, columnLine, date, eyebrow, hasReplayDay, hubSky, iconsFor, loadMomentFiles, MILESTONE_TITLES, momentColumn,
+  MONTH_DAY, nameSize, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
 import { CHAINS_CTA, RECORDS_CTA } from './cta';
 import { skyNodes } from './orbit-sky';
@@ -15,7 +15,9 @@ const BAR_WIDTH = 600;
 
 /** A new chain gold at the hub of its own first day, linked to its first partners. */
 export async function welcomeTree(selector: string, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const files = await loadMomentFiles(inputs);
+  if (files === null) return null;
+  const { moments, replay, chains } = files;
   const arrival = moments.arrivals.chains.find((c) => c.selector === selector);
   if (arrival === undefined || !hasReplayDay(replay, arrival.day)) return null;
   const names = namesOf(replay, chains);
@@ -65,7 +67,9 @@ function progressBar(c: Countdown): VNode {
 
 /** The next milestone, its days left at the last 7 days' pace, and the way there from the last one, as of moments.json. */
 export async function countdownTree(metric: MilestoneMetric, threshold: number, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const files = await loadMomentFiles(inputs);
+  if (files === null) return null;
+  const { moments, replay, chains } = files;
   const countdown = moments.countdowns.find((c) => c.metric === metric && c.threshold === threshold);
   const asOf = addDays(moments.updated_at.slice(0, 10), -1);
   if (countdown === undefined || !hasReplayDay(replay, asOf)) return null;

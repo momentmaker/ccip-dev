@@ -1,6 +1,6 @@
 import { formatShare } from '@ccip-dev/core/format';
 import { chainName, chainNameMap, type ChainNames } from '@ccip-dev/core/names';
-import type { PublicFile, PublicFileName, ReplayFile } from '@ccip-dev/core/public';
+import type { ChainsFile, MomentsFile, PublicFile, PublicFileName, ReplayFile } from '@ccip-dev/core/public';
 import type { MilestoneMetric } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
 import { windowWeights } from '../../src/sky/weights';
@@ -189,6 +189,19 @@ export async function iconsFor(sky: OrbitSky, icon: BroadcastInputs['icon']): Pr
 export const namesOf = (replay: ReplayFile, chains: PublicFile<'chains.json'>): ChainNames => chainNameMap([...replay.chains, ...chains.chains]);
 
 export const hasReplayDay = (replay: ReplayFile, day: string) => replay.days.some((d) => d.day === day);
+
+/** moments.json and replay.json are written by the same publish, seconds apart, so a gap longer than this means a failed one. */
+const MOMENTS_LAG_MS = 10 * 60_000;
+
+/**
+ * The files a moment card reads, or null while moments.json is more than 10 minutes older than replay.json: its publish
+ * failed, so the card would show yesterday's numbers beside today's caption. The card then answers 404, and the post waits
+ * for the hourly retry after the next publish that works.
+ */
+export async function loadMomentFiles(inputs: BroadcastInputs): Promise<{ moments: MomentsFile; replay: ReplayFile; chains: ChainsFile } | null> {
+  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  return Date.parse(replay.updated_at) - Date.parse(moments.updated_at) > MOMENTS_LAG_MS ? null : { moments, replay, chains };
+}
 
 type SkyExtra = { dim?: boolean; gold?: string | null; starFree?: readonly StarFreeZone[] };
 

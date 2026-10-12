@@ -5,8 +5,8 @@ import type { BoardEntry } from '@ccip-dev/core/public';
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
 import {
-  bigText, bold, boldArrows, broadcastFrame, cardWeek, COLORS, columnLine, ellipsized, eyebrow, fitName, hasReplayDay, hubSky, iconsFor, momentColumn, nameSize, namesOf, pill, PILLS, row,
-  skyFor, TEXT_COLUMN, type BroadcastInputs,
+  bigText, bold, boldArrows, broadcastFrame, cardWeek, COLORS, columnLine, ellipsized, eyebrow, fitName, hasReplayDay, hubSky, iconsFor, loadMomentFiles, momentColumn,
+  nameSize, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
 import { BOARDS_CTA, CHAINS_CTA } from './cta';
 import { glyph, withArrows } from './glyphs';
@@ -64,7 +64,9 @@ function climberRow(c: Climber, names: ChainNames): VNode {
 
 /** The week's new #1 (or top climber) big, gold in the week's sky, with up to 3 climbers under it. */
 export async function moversTree(monday: string, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const files = await loadMomentFiles(inputs);
+  if (files === null) return null;
+  const { moments, replay, chains } = files;
   const movers = moversOf(moments.weeks, monday);
   const week = moments.weeks.find((w) => w.week === monday);
   const sunday = addDays(monday, 6);
@@ -128,7 +130,9 @@ const sideLabel = (text: string) => h('span', { style: { color: COLORS.muted, fo
 
 /** The week's fastest grower gold at the hub of its own sky, its week against the one before in a glass panel. */
 export async function spotlightTree(monday: string, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [moments, replay, chains] = await Promise.all([inputs.load('moments.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const files = await loadMomentFiles(inputs);
+  if (files === null) return null;
+  const { moments, replay, chains } = files;
   const s = moments.weeks.find((w) => w.week === monday)?.spotlight ?? null;
   const sunday = addDays(monday, 6);
   if (s === null || !hasReplayDay(replay, sunday)) return null;
