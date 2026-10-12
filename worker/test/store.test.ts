@@ -287,3 +287,35 @@ describe('topBetween', () => {
     expect(rows.map((r) => r.key)).toEqual(['d', 'b']);
   });
 });
+
+describe('dailyLeaders', () => {
+  const D9 = '2026-10-09';
+  const D10 = '2026-10-10';
+  const totals = (day: string) => ({ day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
+  const lane = (day: string, key: string, messages: number, usd_value: number, fee_usd: number | null) => ({ day, dim: 'lane' as const, key, messages, usd_value, fee_usd });
+
+  beforeEach(async () => {
+    // #given on the 9th lane a and c tie on value, and on the 10th lanes a and b tie on everything
+    await store.replaceDaily(env.DB, totals(D9), [lane(D9, 'a', 10, 100, 1), lane(D9, 'b', 20, 50, 5), lane(D9, 'c', 5, 100, null)], '2026-10-11T00:07:00.000Z');
+    await store.replaceDaily(env.DB, totals(D10), [lane(D10, 'a', 1, 10, 2), lane(D10, 'b', 1, 10, 2)], '2026-10-11T00:07:00.000Z');
+  });
+
+  it('picks each day’s first lane by value, by messages and by fees, breaking full ties by key', async () => {
+    // #when
+    const pick = async (order: store.TopOrder) => (await store.dailyLeaders(env.DB, 'lane', order, D9, D10)).map((r) => `${r.day}:${r.key}`);
+    // #then
+    expect({ value: await pick('value'), messages: await pick('messages'), fees: await pick('fees') }).toEqual({
+      value: [`${D9}:a`, `${D10}:a`],
+      messages: [`${D9}:b`, `${D10}:a`],
+      fees: [`${D9}:b`, `${D10}:a`],
+    });
+  });
+
+  it('keeps to the days asked for', async () => {
+    expect((await store.dailyLeaders(env.DB, 'lane', 'value', D10, D10)).map((r) => r.day)).toEqual([D10]);
+  });
+
+  it('ranks a window by messages', async () => {
+    expect((await store.topBetween(env.DB, 'lane', D9, D10, 10, 'messages')).map((r) => r.key)).toEqual(['b', 'a', 'c']);
+  });
+});

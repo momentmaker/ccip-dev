@@ -103,6 +103,27 @@ export const CostLaneSchema = z.object({
 
 export const CostFileSchema = z.object({ ...envelope, from: z.string(), to: z.string(), lanes: z.array(CostLaneSchema) });
 
+export const LeaderSchema = z.object({
+  key: z.string(),
+  label: z.string().nullable(),
+  messages: z.number(),
+  usd: z.number().nullable(),
+  fee_usd: z.number().nullable(),
+});
+
+export const DayLeadersSchema = z.object({
+  day: z.string(),
+  token: LeaderSchema.nullable(),
+  sender: LeaderSchema.nullable(),
+  lane: LeaderSchema.nullable(),
+  fee_lane: LeaderSchema.nullable(),
+  fee_chain: LeaderSchema.nullable(),
+});
+
+export const WeekLeadersSchema = z.object({ week: z.string(), fee_chains: z.array(LeaderSchema) });
+
+export const DayLeadersFileSchema = z.object({ ...envelope, days: z.array(DayLeadersSchema), weeks: z.array(WeekLeadersSchema) });
+
 export const ChainSchema = z.object({
   selector: z.string(),
   name: z.string(),
@@ -211,6 +232,7 @@ export const PUBLIC_SCHEMAS = {
   'reserve.json': ReserveFileSchema,
   'replay.json': ReplayFileSchema,
   'cost.json': CostFileSchema,
+  'day-leaders.json': DayLeadersFileSchema,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
@@ -234,3 +256,7 @@ export type ReserveFile = z.infer<typeof ReserveFileSchema>;
 export type ReplayFile = z.infer<typeof ReplayFileSchema>;
 export type CostLane = z.infer<typeof CostLaneSchema>;
 export type CostFile = z.infer<typeof CostFileSchema>;
+export type Leader = z.infer<typeof LeaderSchema>;
+export type DayLeaders = z.infer<typeof DayLeadersSchema>;
+export type WeekLeaders = z.infer<typeof WeekLeadersSchema>;
+export type DayLeadersFile = z.infer<typeof DayLeadersFileSchema>;

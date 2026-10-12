@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
-import { buildLabelIndex, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
+import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
@@ -517,6 +517,97 @@ describe('top files ranked by fees', () => {
     await publishHistoryFiles(harness({ now: NOW }).c);
     // #then
     expect(await readPublic('top/token.json')).not.toHaveProperty('by_fees');
+  });
+});
+
+describe('day-leaders.json', () => {
+  const NOW = '2026-10-12T00:07:00.000Z';
+  const DAY = '2026-10-11';
+  const ETH = NETWORKS.ethereum.chainSelector;
+  const OTHER = '0x9999999999999999999999999999999999999999';
+  const totals = (day: string) => ({ day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
+  const row = (day: string, dim: Dim, key: string, messages: number, usd_value: number, fee_usd: number | null) => ({ day, dim, key, messages, usd_value, fee_usd });
+  const labels = { [labelKey('ethereum-mainnet-base-1', SENDER)]: { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol' as const } };
+
+  beforeEach(async () => {
+    // #given one day with two of each: the leader by each rule is not the leader by the others
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO chains VALUES (?, 'ethereum-mainnet-base-1', 'Base Mainnet', 'EVM', '8453', 'x', 'x')").bind(BASE),
+      env.DB.prepare("INSERT INTO tokens VALUES (?, '0xtok', 'USDC', 'USD Coin', 6, NULL, 'x', 'x')").bind(BASE),
+    ]);
+    await store.replaceDaily(env.DB, totals(DAY), [
+      row(DAY, 'token', `${BASE}:0xtok`, 3, 900, null),
+      row(DAY, 'token', `${BASE}:0xother`, 9, 100, null),
+      row(DAY, 'sender', `${BASE}:${SENDER}`, 7, 10, 1),
+      row(DAY, 'sender', `${BASE}:${OTHER}`, 2, 999, 9),
+      row(DAY, 'lane', `${ETH}>${BASE}`, 5, 800, 1),
+      row(DAY, 'lane', `${BASE}>${ETH}`, 4, 200, 6),
+      row(DAY, 'src_chain', BASE, 6, 999, 7),
+      row(DAY, 'src_chain', ETH, 5, 800, 1),
+    ], NOW);
+  });
+
+  it("publishes each day's top token and lane by value, top sender by messages, and top lane and source chain by fees", async () => {
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels }).c);
+    // #then
+    expect((await readPublic('day-leaders.json')).days).toEqual([{
+      day: DAY,
+      token: { key: `${BASE}:0xtok`, label: 'USDC', messages: 3, usd: 900, fee_usd: null },
+      sender: { key: `${BASE}:${SENDER}`, label: 'Maple Finance', messages: 7, usd: 10, fee_usd: 1 },
+      lane: { key: `${ETH}>${BASE}`, label: null, messages: 5, usd: 800, fee_usd: 1 },
+      fee_lane: { key: `${BASE}>${ETH}`, label: null, messages: 4, usd: 200, fee_usd: 6 },
+      fee_chain: { key: BASE, label: null, messages: 6, usd: 999, fee_usd: 7 },
+    }]);
+  });
+
+  it('covers the 400 days before today', async () => {
+    // #given a lane on the first day of the window and on the day before it
+    await store.replaceDaily(env.DB, totals('2025-09-07'), [row('2025-09-07', 'lane', `${ETH}>${BASE}`, 1, 1, null)], NOW);
+    await store.replaceDaily(env.DB, totals('2025-09-06'), [row('2025-09-06', 'lane', `${ETH}>${BASE}`, 1, 1, null)], NOW);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('day-leaders.json')).days.map((d: { day: string }) => d.day)).toEqual(['2025-09-07', DAY]);
+  });
+
+  it('raises one day-leaders-publish alert when its query fails, and still publishes the other history files', async () => {
+    // #given
+    vi.spyOn(store, 'dailyLeaders').mockRejectedValueOnce(new Error('D1 unavailable'));
+    const { c, alerts } = harness({ now: NOW });
+    // #when
+    await publishHistoryFiles(c);
+    // #then
+    expect({ leaders: await env.PUBLIC.get('v1/day-leaders.json'), history: (await env.PUBLIC.get('v1/history.json')) !== null, alerts }).toEqual({
+      leaders: null,
+      history: true,
+      alerts: [{ signature: 'day-leaders-publish', text: 'day-leaders.json was not published: D1 unavailable' }],
+    });
+  });
+});
+
+describe('day-leaders.json weeks', () => {
+  it('lists the top 3 source chains by fees for each of the last 8 complete Monday–Sunday weeks', async () => {
+    // #given the week of Oct 5–11 sums to B 7, A 5, D 2 and C 1
+    const totals = (day: string) => ({ day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
+    const chain = (day: string, key: string, fee_usd: number) => ({ day, dim: 'src_chain' as const, key, messages: 1, usd_value: 1, fee_usd });
+    await store.replaceDaily(env.DB, totals('2026-10-06'), [chain('2026-10-06', 'A', 5), chain('2026-10-06', 'B', 3)], '2026-10-12T00:07:00.000Z');
+    await store.replaceDaily(env.DB, totals('2026-10-08'), [chain('2026-10-08', 'B', 4), chain('2026-10-08', 'C', 1), chain('2026-10-08', 'D', 2)], '2026-10-12T00:07:00.000Z');
+    // #when on Monday the 12th and on Sunday the 11th
+    await publishHistoryFiles(harness({ now: '2026-10-12T00:07:00.000Z' }).c);
+    const monday = await readPublic('day-leaders.json');
+    await publishHistoryFiles(harness({ now: '2026-10-11T00:07:00.000Z' }).c);
+    const sunday = await readPublic('day-leaders.json');
+    // #then the week is complete only once its Sunday is over
+    expect({
+      weeks: monday.weeks.map((w: { week: string }) => w.week),
+      top: monday.weeks.at(-1).fee_chains.map((l: { key: string }) => l.key),
+      sundayLast: sunday.weeks.at(-1).week,
+    }).toEqual({
+      weeks: ['2026-08-17', '2026-08-24', '2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05'],
+      top: ['B', 'A', 'D'],
+      sundayLast: '2026-09-28',
+    });
   });
 });
 

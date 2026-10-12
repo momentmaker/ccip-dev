@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CostFileSchema, HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
+import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -28,6 +28,25 @@ const envelope = { schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', at
 const emptyStatus = { ...envelope, last_ingest_ok_at: null, lag_seconds: null, last_finalize_day: null, coverage_from: null };
 
 describe('public file schemas', () => {
+  it('parses day-leaders.json and lists it among the public files', () => {
+    // #given a day with every leader, a day without fees, and a week
+    const leader = { key: '1>2', label: null, messages: 3, usd: 10, fee_usd: 1.5 };
+    const doc = {
+      ...envelope,
+      days: [
+        { day: '2026-10-10', token: { ...leader, key: '1:0xt', label: 'USDC', fee_usd: null }, sender: leader, lane: leader, fee_lane: leader, fee_chain: { ...leader, key: '1' } },
+        { day: '2026-10-11', token: null, sender: null, lane: null, fee_lane: null, fee_chain: null },
+      ],
+      weeks: [{ week: '2026-10-05', fee_chains: [{ ...leader, key: '1' }] }],
+    };
+    // #when
+    const parsed = DayLeadersFileSchema.parse(doc);
+    // #then
+    expect({ days: parsed.days.length, token: parsed.days[0]?.token?.label, week: parsed.weeks[0]?.week, listed: PUBLIC_SCHEMAS['day-leaders.json'] === DayLeadersFileSchema }).toEqual({
+      days: 2, token: 'USDC', week: '2026-10-05', listed: true,
+    });
+  });
+
   it('parses cost.json with and without the LINK and gas-token split', () => {
     // #given a route with the split and one without
     const lane = { src: '1', dst: '2', messages: 25, median_usd: 13, p10_usd: 3, p90_usd: 23 };

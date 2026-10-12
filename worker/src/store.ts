@@ -563,13 +563,32 @@ export async function trailingUsdMedian(db: D1Database, day: string, days: numbe
   return values.length % 2 === 1 ? values[mid]! : (values[mid - 1]! + values[mid]!) / 2;
 }
 
-export type TopOrder = 'value' | 'fees';
+export type TopOrder = 'value' | 'fees' | 'messages';
+
+/** Each order ends on the key, so keys tied on every figure always rank the same way, per day and per window. */
+const ORDER_COLUMNS: Record<TopOrder, string> = {
+  value: 'usd_value DESC, messages DESC, key',
+  fees: 'fee_usd DESC, usd_value DESC, key',
+  messages: 'messages DESC, usd_value DESC, key',
+};
 
 /** By fees, a key with no fee data in the window has nothing to rank by, so it is left out. */
 const TOP_ORDER_SQL: Record<TopOrder, string> = {
-  value: 'ORDER BY usd_value DESC, messages DESC',
-  fees: 'HAVING SUM(fee_usd) IS NOT NULL ORDER BY fee_usd DESC, usd_value DESC',
+  value: `ORDER BY ${ORDER_COLUMNS.value}`,
+  fees: `HAVING SUM(fee_usd) IS NOT NULL ORDER BY ${ORDER_COLUMNS.fees}`,
+  messages: `ORDER BY ${ORDER_COLUMNS.messages}`,
 };
+
+export interface BreakdownRow {
+  key: string;
+  messages: number;
+  usd_value: number;
+  fee_usd: number | null;
+}
+
+export interface LeaderRow extends BreakdownRow {
+  day: string;
+}
 
 export async function topBetween(
   db: D1Database,
@@ -578,7 +597,7 @@ export async function topBetween(
   toDay: string,
   limit: number,
   order: TopOrder,
-): Promise<{ key: string; messages: number; usd_value: number; fee_usd: number | null }[]> {
+): Promise<BreakdownRow[]> {
   const { results } = await db
     .prepare(
       `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
@@ -586,7 +605,21 @@ export async function topBetween(
        GROUP BY key ${TOP_ORDER_SQL[order]} LIMIT ?`,
     )
     .bind(dim, fromDay ?? '0000-00-00', toDay, limit)
-    .all<{ key: string; messages: number; usd_value: number; fee_usd: number | null }>();
+    .all<BreakdownRow>();
+  return results;
+}
+
+/** Each day's first row of `dim` in `order` over [fromDay, toDay]: for one day, the same ranking topBetween gives. */
+export async function dailyLeaders(db: D1Database, dim: Dim, order: TopOrder, fromDay: string, toDay: string): Promise<LeaderRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT day, key, messages, usd_value, fee_usd FROM (
+         SELECT day, key, messages, usd_value, fee_usd, ROW_NUMBER() OVER (PARTITION BY day ORDER BY ${ORDER_COLUMNS[order]}) AS rn
+         FROM daily_breakdown WHERE dim = ?1 AND day >= ?2 AND day <= ?3${order === 'fees' ? ' AND fee_usd IS NOT NULL' : ''}
+       ) WHERE rn = 1 ORDER BY day`,
+    )
+    .bind(dim, fromDay, toDay)
+    .all<LeaderRow>();
   return results;
 }
 
