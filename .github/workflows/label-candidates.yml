@@ -49,6 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           week=$(date -u +%F)
+          git add labels/handle-gaps.md
           git add labels/projects/_candidate-*.toml 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No new candidates this week"

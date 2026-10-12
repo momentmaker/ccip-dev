@@ -7,7 +7,7 @@ import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 import {
-  candidateQuery, classify, classifySolana, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, loadEndpointMaps, prBody, summarizeDetails, windowStart, type Candidate,
+  candidateQuery, chainGapQuery, classify, classifySolana, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, handleGaps, handleGapsMarkdown, handleGroupQuery, loadEndpointMaps, prBody, summarizeDetails, tokenGapQuery, windowStart, type Candidate,
 } from '../label-candidates';
 
 const candidate: Candidate = {
@@ -186,5 +186,96 @@ describe('loadEndpointMaps', () => {
       JSON.stringify({ source: 's', rpc: { base: 'https://rpc.example' }, explorer: { base: 'https://scout.example' }, ethereumLogs: [] }),
     );
     expect(await loadEndpointMaps(root)).toEqual({ rpcMap: { base: 'https://rpc.example' }, explorerMap: { base: 'https://scout.example' } });
+  });
+});
+
+describe('handle gaps', () => {
+  const tables = () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec(`
+      CREATE TABLE daily_breakdown (day TEXT, dim TEXT, key TEXT, messages INTEGER, usd_value REAL, fee_usd REAL);
+      CREATE TABLE tokens (chain TEXT, address TEXT, symbol TEXT, group_id TEXT);
+      CREATE TABLE chains (selector TEXT, name TEXT);
+    `);
+    const breakdown = db.prepare('INSERT INTO daily_breakdown VALUES (?, ?, ?, 1, ?, ?)');
+    return { db, breakdown };
+  };
+
+  it('lists the busiest tokens of the window with their symbol, group and chain', () => {
+    // #given two tokens this week and a bigger one before the window
+    const { db, breakdown } = tables();
+    db.prepare('INSERT INTO chains VALUES (?, ?)').run('1', 'ethereum-mainnet');
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?)').run('1', '0xAbC', 'syrupUSDC', 'syrup');
+    breakdown.run('2026-10-01', 'token', '1:0xabc', 600, null);
+    breakdown.run('2026-10-02', 'token', '1:0xabc', 400, null);
+    breakdown.run('2026-10-02', 'token', '1:0xdef', 900, null);
+    breakdown.run('2026-09-01', 'token', '1:0x999', 5000, null);
+    // #when
+    const q = tokenGapQuery('2026-09-30', 10);
+    const rows = db.prepare(q.sql).all(...q.params) as any[];
+    // #then
+    expect(rows.map((r) => ({ ...r }))).toEqual([
+      { key: '1:0xabc', usd: 1000, symbol: 'syrupUSDC', group_id: 'syrup', chain_name: 'ethereum-mainnet' },
+      { key: '1:0xdef', usd: 900, symbol: null, group_id: null, chain_name: 'ethereum-mainnet' },
+    ]);
+  });
+
+  it('lists the chains that move the most value or pay the most fees', () => {
+    // #given chain 3 moves little value but pays the most fees
+    const { db, breakdown } = tables();
+    for (const [selector, name] of [['1', 'ethereum-mainnet'], ['2', 'ethereum-mainnet-base-1'], ['3', 'binance_smart_chain-mainnet']]) {
+      db.prepare('INSERT INTO chains VALUES (?, ?)').run(selector, name);
+    }
+    breakdown.run('2026-10-01', 'src_chain', '1', 1000, 1);
+    breakdown.run('2026-10-01', 'dst_chain', '2', 500, null);
+    breakdown.run('2026-10-01', 'src_chain', '3', 10, 99);
+    // #when
+    const q = chainGapQuery('2026-09-30', 2, 1);
+    const rows = db.prepare(q.sql).all(...q.params) as any[];
+    // #then
+    expect(rows.map((r) => r.chain_name)).toEqual(['binance_smart_chain-mainnet', 'ethereum-mainnet', 'ethereum-mainnet-base-1']);
+  });
+
+  it('reads the registry group of each token entry by chain name and address', () => {
+    // #given
+    const { db } = tables();
+    db.prepare('INSERT INTO chains VALUES (?, ?)').run('1', 'ethereum-mainnet');
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?)').run('1', '0xAbC', 'syrupUSDC', 'syrup');
+    // #when
+    const q = handleGroupQuery([{ chain: 'ethereum-mainnet', address: '0xABC' }]);
+    const rows = db.prepare(q.sql).all(...q.params) as any[];
+    // #then
+    expect(rows.map((r) => ({ ...r }))).toEqual([{ chain_name: 'ethereum-mainnet', address: '0xabc', group_id: 'syrup' }]);
+  });
+
+  it('keeps only the tokens no entry covers, by group or by address, and the chains with no handle', () => {
+    // #given
+    const token = (key: string, group: string | null) => ({ key, usd: 1, symbol: 'T', group_id: group, chain_name: 'ethereum-mainnet' });
+    const handles = { chains: { 'ethereum-mainnet': 'ethereum' }, tokens: [{ chain: 'ethereum-mainnet', address: '0xbbb', project: 'B', x: 'b' }] };
+    // #when
+    const gaps = handleGaps(
+      [token('1:0xaaa', 'syrup'), token('1:0xBBB', null), token('1:0xccc', null)],
+      [{ selector: '1', chain_name: 'ethereum-mainnet' }, { selector: '2', chain_name: 'ethereum-mainnet-base-1' }, { selector: '9', chain_name: null }],
+      handles,
+      [{ chain_name: 'ethereum-mainnet', address: '0xbbb', group_id: 'syrup' }],
+    );
+    // #then
+    expect({ tokens: gaps.tokens.map((t) => t.key), chains: gaps.chains.map((c) => c.selector) }).toEqual({ tokens: ['1:0xccc'], chains: ['2', '9'] });
+  });
+
+  it('writes the gaps for the pull request with escaped cells, and says when there are none', () => {
+    // #when
+    const some = handleGapsMarkdown(
+      { tokens: [{ key: '1:0xccc', usd: 1234.5, symbol: 'T|X', group_id: null, chain_name: 'ethereum-mainnet' }], chains: [{ selector: '2', chain_name: 'ethereum-mainnet-base-1' }] },
+      '2026-10-12',
+    );
+    const none = handleGapsMarkdown({ tokens: [], chains: [] }, '2026-10-12');
+    // #then
+    expect({
+      heading: some.startsWith('## Handles to research'),
+      token: some.includes('| T\\|X | ethereum-mainnet | 0xccc | - | 1,235 |'),
+      chain: some.includes('| ethereum-mainnet-base-1 | 2 |'),
+      none: none.includes('Nothing to research this week.'),
+    }).toEqual({ heading: true, token: true, chain: true, none: true });
   });
 });

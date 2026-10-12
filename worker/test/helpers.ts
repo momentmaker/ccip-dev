@@ -1,6 +1,6 @@
 import type { Env } from '../src/env';
 import {
-  firstCheckAt, LINK_RESERVE, RESERVE_FIRST_BLOCK, normalizeList, normalizeRegistryToken, toMessageRow, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
+  firstCheckAt, LINK_RESERVE, RESERVE_FIRST_BLOCK, normalizeList, normalizeRegistryToken, toMessageRow, type Handles, type LabelIndex, type MessageRow, type NetworkInfo, type RegistryToken,
 } from '@ccip-dev/core';
 import {
   fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, listMessage, type FakeCcip, type FakeFetch, type FakeCoingecko, type FakePrices, type ListMessageSpec,
@@ -36,6 +36,7 @@ export function harness(opts: {
   prices?: FakePrices | RunContext['prices'];
   coingecko?: FakeCoingecko | RunContext['coingecko'];
   labels?: LabelIndex;
+  handles?: Handles;
   fetch?: typeof fetch;
   db?: D1Database;
   env?: Partial<Env>;
@@ -57,6 +58,7 @@ export function harness(opts: {
     coingecko: opts.coingecko ?? fakeCoingecko(),
     alert,
     labels: opts.labels ?? {},
+    handles: opts.handles ?? { chains: {}, tokens: [] },
   });
   return { c, alerts, setNow: (iso) => { now = new Date(iso); } };
 }

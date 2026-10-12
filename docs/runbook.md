@@ -118,6 +118,17 @@ Review the new URLs before you merge. The label-candidates job reads the file st
 
 To run it by hand: `gh workflow run endpoints`, or `pnpm endpoints:refresh` locally.
 
+## Labels and handles
+
+Broadcasts tag the players they name with X handles kept in `labels/`. A player without a verified handle is written as its plain name.
+
+- **Senders:** the `x` of a project with `verified = true` in `labels/projects/*.toml`.
+- **Tokens:** a `[[tokens]]` entry (`chain`, `address`, `source`) in the issuing project's file. It covers every chain in the token's CCIP registry group. The project needs `verified = true` and an `x`; a project file may hold tokens and no addresses.
+- **Chains:** `labels/chain-x.json` maps a CCIP chain name, as in `labels/ccip-chains.json`, to `{ "x": "<handle>", "source": "<https URL>" }`.
+- **Verifying a handle:** the `source` must be the project's or chain's own website or docs, on a page that links to the X account. For a token, use a page of the project's that lists the token's address. Leave out anything you can't verify.
+- **Check and build:** `pnpm labels:check` validates both tables (CI runs it); `pnpm labels:build` writes `worker/src/generated/labels.json` and `handles.json`. The deploy also runs it.
+- **Weekly gaps:** the `label-candidates` job writes `labels/handle-gaps.md`, the busiest tokens with no project entry and the busiest chains with no handle, into its pull request. Research them there.
+
 ## Incidents and alerts
 
 Alerts arrive in the Telegram chat.
