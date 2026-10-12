@@ -50,7 +50,7 @@ function photoOutput(c: RunContext, name: string, config: TelegramConfig, captio
 export function telegramOutputs(c: RunContext): OutputSet {
   const token = c.env.TELEGRAM_BOT_TOKEN;
   const channel = c.env.TELEGRAM_CHANNEL_ID;
-  const drafts = c.env.TELEGRAM_DRAFTS_CHAT_ID ?? c.env.TELEGRAM_ALERT_CHAT_ID;
+  const drafts = c.env.TELEGRAM_DRAFTS_CHAT_ID || c.env.TELEGRAM_ALERT_CHAT_ID;
   return {
     channel: token && channel ? [photoOutput(c, 'telegram-channel', { token, chatId: channel }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
     drafts: token && drafts ? [photoOutput(c, 'x-draft', { token, chatId: drafts }, (b) => ({ caption: b.xText }))] : [],

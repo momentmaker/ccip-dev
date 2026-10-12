@@ -15,6 +15,8 @@ const CLAIM_STALE_MS = 3_600_000;
 export const RECORD_DAYS = 3;
 export const RECORDS_SEED_KEY = 'broadcast:records:seeded';
 export const RESERVE_SINCE_KEY = 'broadcast:reserve:since';
+/** A deposit older than this is never posted, so a pause or a long card outage cannot release a flood of stale ones. */
+export const RESERVE_MAX_AGE_DAYS = 3;
 
 export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | { kind: 'reserve'; reserve: ReserveBody };
 
@@ -36,11 +38,15 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
 }
 
 /** Broadcasts never fail the job that runs them: a failure alerts, and the hourly run retries what was not sent. */
-export async function broadcastSafely(c: RunContext, request: BroadcastRequest): Promise<void> {
+export async function broadcastSafely(c: RunContext, request: BroadcastRequest, due: () => Promise<boolean> = async () => true): Promise<void> {
   try {
-    await runBroadcasts(c, request);
+    if (await due()) await runBroadcasts(c, request);
   } catch (err) {
-    await c.alert('broadcast-run', `Broadcasts failed: ${err instanceof Error ? err.message : String(err)}`);
+    try {
+      await c.alert('broadcast-run', `Broadcasts failed: ${err instanceof Error ? err.message : String(err)}`);
+    } catch (alertErr) {
+      console.error('[broadcast] the broadcast-run alert failed', alertErr instanceof Error ? alertErr.name : 'error');
+    }
   }
 }
 
@@ -48,7 +54,7 @@ export async function broadcastSafely(c: RunContext, request: BroadcastRequest):
 export async function broadcastHourly(c: RunContext, reserve: ReserveBody): Promise<void> {
   await broadcastSafely(c, { kind: 'reserve', reserve });
   const yesterday = addDays(dayOf(c.deps.now()), -1);
-  if ((await store.getMeta(c.env.DB, 'last_finalize_day')) === yesterday) await broadcastSafely(c, { kind: 'finalize', days: [yesterday] });
+  await broadcastSafely(c, { kind: 'finalize', days: [yesterday] }, async () => (await store.getMeta(c.env.DB, 'last_finalize_day')) === yesterday);
 }
 
 async function planFinalize(c: RunContext, days: readonly string[]): Promise<Planned[]> {
@@ -103,8 +109,9 @@ async function planReserve(c: RunContext, reserve: ReserveBody): Promise<Planned
     await store.setMeta(db, RESERVE_SINCE_KEY, deposits.at(-1)?.ts ?? '');
     return [];
   }
+  const oldest = new Date(c.deps.now().getTime() - RESERVE_MAX_AGE_DAYS * 86_400_000).toISOString();
   return deposits
-    .filter((d) => d.ts > since && d.price_usd !== null)
+    .filter((d) => d.ts > since && d.ts >= oldest && d.price_usd !== null)
     .flatMap((d) => {
       const facts = reserveFacts(reserve, d.tx);
       return facts === null ? [] : [{ target: { kind: 'reserve' as const, tx: d.tx }, facts }];
@@ -140,18 +147,23 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
   const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(p.target)}.png`;
   const imageProblem = await checkImage(c, cardUrl);
   if (imageProblem !== null) {
-    await c.alert(`broadcast-image:${key}`, `${key} was not posted: its card ${cardUrl} ${imageProblem}`);
     await store.releaseMeta(db, key, claim);
+    await c.alert(`broadcast-image:${key}`, `${key} was not posted: its card ${cardUrl} ${imageProblem}`);
     return;
   }
   // The query makes Telegram fetch the card afresh after a re-post; the card Worker ignores it.
   const broadcast: Broadcast = { key, kind: p.target.kind, imageUrl: `${cardUrl}?v=${now.getTime()}`, facts: p.facts, ...copy };
   let sent = 0;
+  const failedOutputs: string[] = [];
   for (const output of outputs) {
-    const result = await output.send(broadcast).catch(() => 'failed' as const);
+    const result = await output.send(broadcast).catch((err) => {
+      console.error(`[broadcast] output ${output.name} threw`, err instanceof Error ? err.name : 'error');
+      return 'failed' as const;
+    });
     if (result === 'sent') sent++;
-    else await c.alert(`broadcast-${output.name}:${key}`, `${key} was not sent to ${output.name}; the Worker logs say why`);
+    else failedOutputs.push(output.name);
   }
   if (sent > 0) await store.setMeta(db, key, `sent:${now.toISOString()}`);
   else await store.releaseMeta(db, key, claim);
+  for (const name of failedOutputs) await c.alert(`broadcast-${name}:${key}`, `${key} was not sent to ${name}; the Worker logs say why`);
 }

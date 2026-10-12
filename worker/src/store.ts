@@ -47,6 +47,8 @@ export async function setMeta(db: D1Database, key: string, value: string | null)
  * this call wrote it, so of several runs racing for the same key exactly one wins.
  */
 export async function claimMeta(db: D1Database, key: string, value: string, staleAtOrBefore: string): Promise<boolean> {
+  // A claim is reclaimable only while it is a `pending:` value older than the cutoff: `sent:` and `seeded:` sort after `pending:`,
+  // so they never compare `<=`, and any new prefix must sort after `pending:` too.
   const result = await db
     .prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE meta.value <= ?3')
     .bind(key, value, staleAtOrBefore)

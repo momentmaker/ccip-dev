@@ -136,13 +136,16 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 - **Mode** (`BROADCASTS` under `[vars]` in `worker/wrangler.toml`; change it and push):
   - `off` (the default): nothing is posted, claimed or seeded.
   - `drafts`: only the owner's X draft: the bot sends the card with the ready-to-paste X text to `TELEGRAM_DRAFTS_CHAT_ID`, or to `TELEGRAM_ALERT_CHAT_ID` when that is unset.
-  - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`; the bot is an admin there) and the X draft.
+  - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`) and the X draft. Before switching to `on`, add the bot to @ccipdev as an administrator with "Post messages".
+- **Drafts chat:** `TELEGRAM_DRAFTS_CHAT_ID` is optional. Either add it under `[vars]` in `worker/wrangler.toml`, or set it with `wrangler secret put TELEGRAM_DRAFTS_CHAT_ID`. When unset (or empty), drafts go to the alert chat.
+- **Before `drafts`:** do not switch to `drafts` until the card routes are deployed on the site; otherwise every broadcast alerts `broadcast-image` every hour.
 - **Testing with drafts:** set `drafts` and push. The next hourly run sends yesterday's daily to the drafts chat; the next 00:07 finalize sends the new one, and Monday's adds the weekly. Check the cards and the text for a few days, then set `on`.
 - **First run:** the first run in `drafts` or `on` marks every current record and passed milestone as announced without posting them (`broadcast:records:seeded`), and notes the latest Reserve deposit (`broadcast:reserve:since`); only later deposits are posted.
 - **When:**
   - The 00:07 run posts.
   - Each hourly run retries yesterday's daily, weekly and record broadcasts that are not sent yet, and posts each new deposit once it has a price.
   - The 06:00 run never posts.
+  - Reserve deposits older than 3 days are never posted, so turning broadcasts back on after a pause does not flood the channel.
   - Records only come from live days (from `live_start_day`) finalized within the last 3 days, so a rewind never posts old records.
 - **Dedup keys** in D1 `meta`: `broadcast:daily:<day>`, `broadcast:weekly:<monday>`, `broadcast:record:<kind>:<day>`, `broadcast:milestone:<metric>:<threshold>`, `broadcast:reserve:<tx>`. A value of `pending:<time>` means a send is under way and can be retried an hour later; `sent:<time>` means at least one output took it; `seeded:<time>` marks a first-run record.
 - **Re-post one** (say, after fixing a wrong number): delete its key, outside 23:55–00:30 UTC. The next hourly run posts it again if it is yesterday's daily, weekly or record, or a deposit after `broadcast:reserve:since`. Older ones are not re-posted.

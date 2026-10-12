@@ -1,12 +1,13 @@
 import type { Dim } from '@ccip-dev/core';
 import { fakeFetch, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Broadcast, BroadcastOutput } from '../src/broadcasts/outputs';
-import { RECORDS_SEED_KEY, RESERVE_SINCE_KEY, runBroadcasts } from '../src/broadcasts/run';
+import { broadcastMode, telegramOutputs } from '../src/broadcasts/outputs';
+import { broadcastHourly, RECORDS_SEED_KEY, RESERVE_SINCE_KEY, runBroadcasts } from '../src/broadcasts/run';
 import type { ReserveBody } from '../src/publish';
 import * as store from '../src/store';
-import { harness, resetStorage, seedRegistry } from './helpers';
+import { harness, resetStorage, seedRegistry, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -176,6 +177,111 @@ describe('runBroadcasts after finalize', () => {
   });
 });
 
+describe('broadcast claims', () => {
+  const stamp = (minutesBefore: number) => new Date(Date.parse(NOW) - minutesBefore * 60_000).toISOString();
+
+  it('does not re-send a key holding sent: two hours later', async () => {
+    // #given
+    await seedDays(DAY);
+    await store.setMeta(env.DB, DAILY_KEY, `sent:${stamp(120)}`);
+    // #when
+    const { channel } = await finalizeRun({ days: [DAY] });
+    // #then
+    expect(keys(channel)).toEqual([]);
+  });
+
+  it('is blocked by a pending claim 30 minutes old', async () => {
+    // #given
+    await seedDays(DAY);
+    await store.setMeta(env.DB, DAILY_KEY, `pending:${stamp(30)}`);
+    // #when
+    const { channel } = await finalizeRun({ days: [DAY] });
+    // #then
+    expect(keys(channel)).toEqual([]);
+  });
+
+  it('reclaims a pending claim 61 minutes old and sends', async () => {
+    // #given
+    await seedDays(DAY);
+    await store.setMeta(env.DB, DAILY_KEY, `pending:${stamp(61)}`);
+    // #when
+    const { channel } = await finalizeRun({ days: [DAY] });
+    // #then
+    expect(keys(channel)).toEqual([DAILY_KEY]);
+  });
+
+  it('releases the claim before alerting, so an alert that throws cannot leave it pending', async () => {
+    // #given
+    await seedDays(DAY);
+    const h = harness({ now: NOW, fetch: card(500), env: { BROADCASTS: 'on' } });
+    const throwing = { ...h.c, alert: async () => { throw new Error('alerter down'); } };
+    // #when
+    await runBroadcasts(throwing, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [] }).catch(() => {});
+    // #then
+    expect(await store.getMeta(env.DB, DAILY_KEY)).toBeNull();
+  });
+
+  it('logs an output that throws instead of swallowing it, and counts it failed', async () => {
+    // #given
+    await seedDays(DAY);
+    const h = harness({ now: NOW, fetch: card(), env: { BROADCASTS: 'on' } });
+    const boom: BroadcastOutput = { name: 'telegram-channel', send: async () => { throw new TypeError('secret-token in url'); } };
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [boom], drafts: [] });
+    const logged = log.mock.calls.map((a) => a.join(' '));
+    log.mockRestore();
+    // #then
+    expect({ logged: logged.some((l) => l.includes('TypeError') && !l.includes('secret-token')), alerts: h.alerts.map((a) => a.signature), claim: await store.getMeta(env.DB, DAILY_KEY) }).toEqual({
+      logged: true, alerts: [`broadcast-telegram-channel:${DAILY_KEY}`], claim: null,
+    });
+  });
+});
+
+describe('broadcast configuration', () => {
+  const ENV = { TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42' };
+  const draftsOf = (extra: Record<string, string>) => telegramOutputs(harness({ now: NOW, env: { ...ENV, ...extra } }).c).drafts.length;
+  const draftChat = async (extra: Record<string, string>) => {
+    const sent: string[] = [];
+    const f = fakeFetch((url, init) => {
+      if (url.endsWith('/sendPhoto')) sent.push(JSON.parse(String(init?.body)).chat_id);
+      return new Response('{"ok":true}');
+    });
+    const c = harness({ now: NOW, fetch: f, env: { ...ENV, ...extra } }).c;
+    await telegramOutputs(c).drafts[0]?.send({ key: 'k', kind: 'daily', imageUrl: 'https://ccip.dev/x.png', facts: {} as never, xText: 't', telegramHtml: 't' });
+    return sent;
+  };
+
+  it('sends drafts to TELEGRAM_DRAFTS_CHAT_ID when set', async () => {
+    expect(await draftChat({ TELEGRAM_DRAFTS_CHAT_ID: '99' })).toEqual(['99']);
+  });
+
+  it('falls back to the alert chat when TELEGRAM_DRAFTS_CHAT_ID is empty', async () => {
+    expect(await draftChat({ TELEGRAM_DRAFTS_CHAT_ID: '' })).toEqual(['42']);
+    expect(draftsOf({ TELEGRAM_DRAFTS_CHAT_ID: '' })).toBe(1);
+  });
+
+  it('reads anything but drafts or on as off', () => {
+    expect([broadcastMode({ BROADCASTS: 'On' }), broadcastMode({ BROADCASTS: 'garbage' }), broadcastMode({})]).toEqual(['off', 'off', 'off']);
+  });
+});
+
+describe('broadcast isolation', () => {
+  it('does not reject when D1 and the alerter both throw, in the hourly run', async () => {
+    // #given every D1 statement throws and so does the alerter
+    const { db } = watchedDb(/./, { fail: true });
+    const h = harness({ now: NOW, db, env: { BROADCASTS: 'on', TELEGRAM_BOT_TOKEN: 'b', TELEGRAM_CHANNEL_ID: '@c' } });
+    const c = { ...h.c, alert: async () => { throw new Error('alerter down'); } };
+    const reserve = { transfers: [], weekly: [], cost_basis: {} } as unknown as ReserveBody;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const run = broadcastHourly(c, reserve);
+    // #then
+    await expect(run).resolves.toBeUndefined();
+    log.mockRestore();
+  });
+});
+
 describe('runBroadcasts for the Reserve', () => {
   const TX1 = `0x${'01'.repeat(32)}`;
   const TX2 = `0x${'02'.repeat(32)}`;
@@ -225,5 +331,33 @@ describe('runBroadcasts for the Reserve', () => {
 
   it('neither posts nor seeds before the Reserve scan has caught up', async () => {
     expect({ sent: await reserveRun(body([], false)), since: await store.getMeta(env.DB, RESERVE_SINCE_KEY) }).toEqual({ sent: [], since: null });
+  });
+
+  it('never posts or claims a deposit older than 3 days, and posts one inside the window', async () => {
+    // #given the watermark is far in the past and mode is on
+    await store.setMeta(env.DB, RESERVE_SINCE_KEY, '2026-09-01T00:00:00.000Z');
+    const stale = view('2026-10-02T15:35:00.000Z', TX1, 100_000, 12);
+    const fresh = view('2026-10-07T15:35:00.000Z', TX2, 82_480, 12.5);
+    // #when
+    const sent = await reserveRun(body([stale, fresh]));
+    // #then
+    expect({ sent, stale: await store.getMeta(env.DB, `broadcast:reserve:${TX1}`) }).toEqual({ sent: [`broadcast:reserve:${TX2}`], stale: null });
+  });
+
+  it('alerts and claims nothing when the copy cannot be written, without fetching the card', async () => {
+    // #given a deposit so large that its undroppable headline overflows X
+    await store.setMeta(env.DB, RESERVE_SINCE_KEY, FIRST.ts);
+    const channel = recorder('telegram-channel');
+    const fetch = card();
+    const h = harness({ now: '2026-10-08T17:00:00.000Z', fetch, env: { BROADCASTS: 'on' } });
+    // #when
+    await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 1e300, 12.5)]) }, { channel: [channel.output], drafts: [] });
+    // #then
+    expect({
+      alerts: h.alerts.map((a) => a.signature),
+      claim: await store.getMeta(env.DB, `broadcast:reserve:${TX2}`),
+      sent: channel.sent.length,
+      fetches: fetch.calls.length,
+    }).toEqual({ alerts: [`broadcast-copy:broadcast:reserve:${TX2}`], claim: null, sent: 0, fetches: 0 });
   });
 });
