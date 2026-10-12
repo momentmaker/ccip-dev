@@ -135,20 +135,21 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 
 - **Mode** (`BROADCASTS` under `[vars]` in `worker/wrangler.toml`; change it and push):
   - `off` (the default): nothing is posted, claimed or seeded.
-  - `drafts`: only the owner's X draft: the bot sends the card with the ready-to-paste X text to `TELEGRAM_DRAFTS_CHAT_ID`, or to `TELEGRAM_ALERT_CHAT_ID` when that is unset.
+  - `drafts`: only the owner gets anything, in the drafts chat (`TELEGRAM_DRAFTS_CHAT_ID`, or `TELEGRAM_ALERT_CHAT_ID` when that is unset). Each broadcast arrives twice: the card with the ready-to-paste X text (`x-draft`), and the card with the caption the channel would get (`telegram-preview`), so both texts can be checked before `on`.
   - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`) and the X draft. Before switching to `on`, add the bot to @ccipdev as an administrator with "Post messages".
 - **Drafts chat:** `TELEGRAM_DRAFTS_CHAT_ID` is optional. Either add it under `[vars]` in `worker/wrangler.toml`, or set it with `wrangler secret put TELEGRAM_DRAFTS_CHAT_ID`. When unset (or empty), drafts go to the alert chat.
 - **Before `drafts`:** do not switch to `drafts` until the card routes are deployed on the site; otherwise every broadcast alerts `broadcast-image` every hour.
 - **Testing with drafts:** set `drafts` and push. The next hourly run sends yesterday's daily to the drafts chat; the next 00:07 finalize sends the new one, and Monday's adds the weekly. Check the cards and the text for a few days, then set `on`.
+  - **First drafts night:** right after 00:07, compare the daily card's numbers (messages, value, fees, LINK share) with the draft text, and on the first Monday do the same for the weekly. They must match: that confirms the card Worker's no-store data loads really bypass data.ccip.dev's cache. A card showing an older day's numbers means they did not; do not switch to `on`.
 - **First run:** the first run in `drafts` or `on` marks every current record and passed milestone as announced without posting them (`broadcast:records:seeded`), and notes the latest Reserve deposit (`broadcast:reserve:since`); only later deposits are posted.
 - **When:**
   - The 00:07 run posts.
   - Each hourly run retries yesterday's daily, weekly and record broadcasts that are not sent yet, and posts each new deposit once it has a price.
-  - The 06:00 run never posts.
+  - The 06:00 run posts only what the 00:07 run did not: when 00:07 failed entirely, it finalizes yesterday and sends that day's daily (and the weekly when it was a Sunday). Keys already `sent:` are never re-sent. The hourly retry of yesterday skips the 06:00 hour, so it cannot caption from rows the late run is replacing.
   - Reserve deposits older than 3 days are never posted, so turning broadcasts back on after a pause does not flood the channel.
   - Records only come from live days (from `live_start_day`) finalized within the last 3 days, so a rewind never posts old records.
 - **Dedup keys** in D1 `meta`: `broadcast:daily:<day>`, `broadcast:weekly:<monday>`, `broadcast:record:<kind>:<day>`, `broadcast:milestone:<metric>:<threshold>`, `broadcast:reserve:<tx>`. A value of `pending:<time>` means a send is under way and can be retried an hour later; `sent:<time>` means at least one output took it; `seeded:<time>` marks a first-run record.
-- **Re-post one** (say, after fixing a wrong number): delete its key, outside 23:55–00:30 UTC. The next hourly run posts it again if it is yesterday's daily, weekly or record, or a deposit after `broadcast:reserve:since`. Older ones are not re-posted.
+- **Re-post one** (say, after fixing a wrong number): delete its key, outside 23:55–00:30 UTC. The next hourly run posts it again if it is yesterday's daily, weekly or record, or a deposit after `broadcast:reserve:since`. Older ones are not re-posted. The card itself is cached at the edge for 15 minutes, and the `?v=` in the post's image URL does not bust that cache, so a re-post within 15 minutes of a data fix can still show the old card; wait it out first.
   `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key = 'broadcast:daily:<day>'"`
 - **A card:** open its URL, for example `https://ccip.dev/og/broadcast/daily/<day>.png`. Cards are cached for 15 minutes. One that has no data answers 404, and one that fails answers 500; neither is posted.
 
@@ -180,6 +181,8 @@ Alerts arrive in the Telegram chat.
 | `broadcast-image:<key>` | The broadcast's card answered an error or did not answer within 20 s, so nothing was posted and its key was released. Open the card URL in the alert; watch it with `pnpm --filter @ccip-dev/site exec wrangler tail ccip-dev-site --search "card"`. The hourly run retries yesterday's broadcasts. |
 | `broadcast-telegram-channel:<key>` | The channel post failed. The Worker logs give Telegram's answer; a 400 "chat not found" or 403 means the bot lost its admin rights in `@ccipdev`. If the X draft was sent, the key is kept: delete it to post again (see "Broadcasts"). |
 | `broadcast-x-draft:<key>` | The X draft did not reach the drafts chat; read the Worker logs. |
+| `broadcast-telegram-preview:<key>` | The drafts-mode preview of the channel caption did not reach the drafts chat; read the Worker logs. |
+| `broadcast-mark:<key>` | The post went out but its `sent:` key could not be written, even after one retry, so the hourly run may post it again. Set the key by hand (`INSERT … 'sent:<time>'` into `meta`) to stop that. |
 | `broadcast-copy:<key>` | The post could not be written within X's 280 or Telegram's 1,024 even with every droppable line gone. Nothing was posted; read the alert. |
 | `broadcast-run` | The broadcast step itself failed (for example a D1 error while reading its facts). Finalize and the hourly job still finished; the next hourly run retries. |
 | `reserve-read` | The Reserve balance read failed several hours in a row. Check the RPC endpoints. |
