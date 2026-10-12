@@ -1,8 +1,8 @@
 import type { Dim } from '@ccip-dev/core';
 import type { MomentsBody } from '@ccip-dev/core/moments';
-import { fakeFetch, NETWORKS } from '@ccip-dev/core/testing';
+import { fakeFetch, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dueMoments, pickMoments, type DueMoment } from '../src/broadcasts/moment-plan';
 import { momentMode, type Broadcast, type BroadcastOutput } from '../src/broadcasts/outputs';
 import { MOMENTS_SEED_KEY, runBroadcasts } from '../src/broadcasts/run';
@@ -233,6 +233,82 @@ describe('the first moments run', () => {
     // #then
     expect({ first: first.channel, seeded, seed: (await store.getMeta(env.DB, MOMENTS_SEED_KEY))?.startsWith('seeded:'), next: next.channel }).toEqual({
       first: [], seeded: ['seeded', 'seeded', 'seeded'], seed: true, next: [welcome('9000000000000000009')],
+    });
+  });
+});
+
+describe('moments on X', () => {
+  const X_KEYS = { X_API_KEY: 'k-key', X_API_SECRET: 'k-secret', X_ACCESS_TOKEN: 't-token', X_ACCESS_SECRET: 't-secret' };
+  const ENV = { BROADCASTS: 'on', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_DRAFTS_CHAT_ID: '99', ...X_KEYS };
+  const HANDLES = { chains: { 'binance_smart_chain-mainnet': 'BNBCHAIN', 'ethereum-mainnet': 'ethereum', 'ethereum-mainnet-base-1': 'base' }, tokens: [] };
+  const BSC_WELCOME = welcome(NETWORKS.bsc.chainSelector);
+
+  /** The card, the Telegram API and X, recording the chats sendPhoto reached and the texts posted to X. */
+  function world() {
+    const chats: string[] = [];
+    const f = fakeFetch(
+      (url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array(PNG), { headers: { 'content-type': 'image/png' } }) : undefined),
+      (url, init) => {
+        if (!url.endsWith('/sendPhoto')) return undefined;
+        chats.push(String((init?.body as FormData).get('chat_id')));
+        return new Response('{"ok":true}');
+      },
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      (url) => (url.endsWith('/2/tweets') ? jsonResponse({ data: { id: 'post-9' } }, 201) : undefined),
+    );
+    const xCalls = () => f.calls.map((c) => c.url).filter((u) => u.startsWith('https://api.x.com/'));
+    const posts = () => f.calls.filter((c) => c.url.endsWith('/2/tweets')).map((c) => (JSON.parse(String(c.init?.body)) as { text: string }).text);
+    return { f, chats, xCalls, posts };
+  }
+
+  /** BNB Chain's first lane opened on Monday, Oct 12, to Ethereum, so Tuesday's run welcomes it. */
+  async function seedBnbArrival(): Promise<void> {
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.base, NETWORKS.bsc], []);
+    const totals = (day: string) => ({ day, messages: 5, token_messages: 0, usd_value: 5, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
+    await store.replaceDaily(env.DB, totals('2026-08-03'), [{ day: '2026-08-03', dim: 'lane', key: `${ETH}>${BASE}`, messages: 5, usd_value: 5, fee_usd: null }], NOW);
+    await store.replaceDaily(env.DB, totals(DAY), [{ day: DAY, dim: 'lane', key: `${NETWORKS.bsc.chainSelector}>${ETH}`, messages: 5, usd_value: 5, fee_usd: null }], NOW);
+    await store.setMeta(env.DB, MOMENTS_SEED_KEY, 'seeded:2026-10-01T00:00:00.000Z');
+  }
+
+  async function run(moments: string) {
+    const w = world();
+    const h = harness({ now: NOW, fetch: w.f, env: { ...ENV, MOMENTS: moments }, handles: HANDLES });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] });
+    log.mockRestore();
+    return { ...w, alerts: h.alerts.map((a) => a.signature) };
+  }
+
+  beforeEach(seedBnbArrival);
+
+  it('posts a welcome to X in on mode, uploading its card and then posting, and tags only the welcomed chain', async () => {
+    // #when
+    const r = await run('on');
+    const posted = r.posts().find((t) => t.startsWith('🎉 Welcome to #CCIP')) ?? '';
+    // #then the daily report posts first, then the welcome
+    expect({
+      x: r.xCalls(),
+      tags: posted.match(/@\w+/g),
+      ats: posted.split('@').length - 1,
+      marks: [await store.getMeta(env.DB, `${BSC_WELCOME}#x-post`), await store.getMeta(env.DB, BSC_WELCOME)].map((m) => m?.split(':')[0]),
+      chats: r.chats,
+      alerts: r.alerts,
+    }).toEqual({
+      x: ['https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets', 'https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets'],
+      tags: ['@BNBCHAIN'],
+      ats: 1,
+      marks: ['sent', 'sent'],
+      chats: ['@ccipdev', '@ccipdev'],
+      alerts: [],
+    });
+  });
+
+  it('keeps a moment off X in drafts mode, sending it to the owner as an X draft and a preview', async () => {
+    // #when the reports are on and the moments on drafts
+    const r = await run('drafts');
+    // #then only the daily report reaches X
+    expect({ x: r.xCalls().length, welcomeOnX: await store.getMeta(env.DB, `${BSC_WELCOME}#x-post`), chats: r.chats }).toEqual({
+      x: 2, welcomeOnX: null, chats: ['@ccipdev', '99', '99'],
     });
   });
 });

@@ -47,8 +47,7 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
 async function broadcastMoments(c: RunContext, days: readonly string[], outputs: OutputSet): Promise<void> {
   const mode = momentMode(c.env);
   if (mode === 'off' || !days.includes(addDays(dayOf(c.deps.now()), -1))) return;
-  // Until the moment X text tags only its subject, moments keep the owner's X draft and never reach x-post.
-  const enabled = selectOutputs({ ...outputs, xPost: [] }, mode);
+  const enabled = selectOutputs(outputs, mode);
   for (const p of await planMoments(c, await loadMomentsSource(c))) {
     try {
       await deliver(c, p, p.target.kind === 'poll' ? selectPollOutputs(outputs, mode) : enabled);

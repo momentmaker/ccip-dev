@@ -155,7 +155,7 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 
 ### X posting
 
-In `on` mode the Worker posts the card with the X text to X through the X API (pay-as-you-go). Posts never contain a link, so each costs $0.015. The X text names projects and chains in plain text and tags no account, except `@chainlink` on Reserve deposits.
+In `on` mode the Worker posts the card with the X text to X through the X API (pay-as-you-go). Posts never contain a link, so each costs $0.015. The X text names projects and chains in plain text and tags no account, except `@chainlink` on Reserve deposits and, on a moment, the chain the moment is about (see the moments spec, §5.3). The poll never goes to X.
 
 - **Setup in the X developer console:**
   1. Under user authentication, set App permissions to "Read and write" and Type of App to "Web App, Automated App or Bot". Use `https://ccip.dev` for both the callback and the website.

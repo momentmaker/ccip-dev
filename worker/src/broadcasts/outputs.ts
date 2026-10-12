@@ -57,7 +57,7 @@ export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'
   return mode === 'on' ? [...set.channel, ...(set.xPost?.length ? set.xPost : set.drafts)] : [...set.drafts, ...set.preview];
 }
 
-/** The poll card and then the poll, to one chat; the poll has no X draft. */
+/** The poll card and then the poll, to one chat. The poll has no X text, so it never goes to X: no X draft and no X post. */
 export function selectPollOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {
   return mode === 'on' ? [...set.channel, ...(set.channelPoll ?? [])] : [...set.preview, ...(set.draftsPoll ?? [])];
 }

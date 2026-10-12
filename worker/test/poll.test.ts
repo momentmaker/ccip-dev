@@ -3,7 +3,7 @@ import { fakeFetch, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PollFacts } from '../src/broadcasts/moment-facts';
-import { telegramOutputs, type Broadcast, type BroadcastOutput } from '../src/broadcasts/outputs';
+import { selectPollOutputs, telegramOutputs, type Broadcast, type BroadcastOutput } from '../src/broadcasts/outputs';
 import { closeLastWeekPoll } from '../src/broadcasts/poll';
 import { MOMENTS_SEED_KEY, runBroadcasts } from '../src/broadcasts/run';
 import * as store from '../src/store';
@@ -159,6 +159,67 @@ describe('the Monday poll and the moments budget', () => {
     const run = await mondayRun();
     // #then the poll posts, and the budget keeps the third moment back
     expect({ poll: run.channelPoll, sentToday: await store.momentsSentOn(env.DB, '2026-10-12') }).toEqual({ poll: [POLL_KEY], sentToday: 2 });
+  });
+});
+
+describe('the Monday poll and X', () => {
+  const ENV = {
+    BROADCASTS: 'on', MOMENTS: 'on', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev',
+    X_API_KEY: 'k-key', X_API_SECRET: 'k-secret', X_ACCESS_TOKEN: 't-token', X_ACCESS_SECRET: 't-secret',
+  };
+  const mark = async (key: string) => (await store.getMeta(env.DB, key))?.split(':')[0] ?? null;
+
+  beforeEach(async () => {
+    await seedLastWeek();
+    await store.setMeta(env.DB, MOMENTS_SEED_KEY, 'seeded:2026-10-01T00:00:00.000Z');
+  });
+
+  it('sends the reports to X but nothing for the poll card, whose X text is empty, and the card and poll still complete on Telegram', async () => {
+    // #given the card, the Telegram API and X all answer
+    const telegram: string[] = [];
+    const f = fakeFetch(
+      (url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array(PNG), { headers: { 'content-type': 'image/png' } }) : undefined),
+      (url) => {
+        const method = /\/(sendPhoto|sendPoll)$/.exec(url)?.[1];
+        if (method === undefined) return undefined;
+        telegram.push(method);
+        return method === 'sendPoll' ? jsonResponse({ ok: true, result: { message_id: 812 } }) : new Response('{"ok":true}');
+      },
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      (url) => (url.endsWith('/2/tweets') ? jsonResponse({ data: { id: 'post-9' } }, 201) : undefined),
+    );
+    const h = harness({ now: NOW, fetch: f, env: ENV });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    await runBroadcasts(h.c, { kind: 'finalize', days: ['2026-10-11'] });
+    log.mockRestore();
+    // #then the daily and the weekly report post to X; the poll's card and poll go to the channel only, and the poll closes
+    expect({
+      xPosts: f.calls.filter((c) => c.url.endsWith('/2/tweets')).length,
+      onX: [await mark('broadcast:daily:2026-10-11#x-post'), await mark('broadcast:weekly:2026-10-05#x-post'), await mark(`${POLL_KEY}#x-post`)],
+      telegram,
+      poll: [await mark(`${POLL_KEY}#telegram-channel`), await mark(`${POLL_KEY}#telegram-poll`), await mark(POLL_KEY)],
+      alerts: h.alerts.map((a) => a.signature),
+    }).toEqual({
+      xPosts: 2,
+      onX: ['sent', 'sent', null],
+      telegram: ['sendPhoto', 'sendPhoto', 'sendPhoto', 'sendPoll'],
+      poll: ['sent', 'sent', 'sent'],
+      alerts: [],
+    });
+  });
+
+  it('never selects the X post for the poll, in on mode or drafts', () => {
+    // #given an output set with an X post
+    const out = (name: string): BroadcastOutput => ({ name, send: async () => 'sent' });
+    const set = {
+      channel: [out('telegram-channel')], xPost: [out('x-post')], drafts: [out('x-draft')], preview: [out('telegram-preview')],
+      channelPoll: [out('telegram-poll')], draftsPoll: [out('telegram-poll')],
+    };
+    // #when
+    const names = (mode: 'on' | 'drafts') => selectPollOutputs(set, mode).map((o) => o.name);
+    // #then
+    expect({ on: names('on'), drafts: names('drafts') }).toEqual({ on: ['telegram-channel', 'telegram-poll'], drafts: ['telegram-preview', 'telegram-poll'] });
   });
 });
 
