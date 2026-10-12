@@ -4,7 +4,7 @@ import { broadcastTree } from '../worker/cards/broadcast-cards';
 import { MISSING_GLYPHS } from '../worker/cards/glyphs';
 import type { VNode } from '../worker/h';
 import { ARB, BASE, ETH, MONDAY, texts } from './fixtures/broadcast';
-import { loadMoments, MOMENT_REPLAY, MOMENTS, TEMPO, withMoments } from './fixtures/moments';
+import { loadMoments, MOMENT_REPLAY, MOMENTS, POLL_MONDAY, TEMPO, withMoments } from './fixtures/moments';
 
 const inputs = { load: loadMoments, icon: async (selector: string) => (selector === BASE ? 'data:image/svg+xml;base64,AAAA' : null) };
 const tree = async (target: BroadcastTarget, load = loadMoments) => (await broadcastTree(target, { ...inputs, load })) as VNode;
@@ -155,11 +155,90 @@ describe('spotlight card', () => {
   });
 });
 
+describe('New on CCIP card', () => {
+  it("lists the week's new lanes and tokens in two columns, with the network's size in the strip", async () => {
+    // #when
+    const words = texts(await tree({ kind: 'roundup', monday: MONDAY }));
+    // #then Tempo's lanes came on Sunday, after the Monday-to-Friday window
+    expect(words.slice(words.indexOf('ccip.dev'))).toEqual([
+      'ccip.dev', 'This week · Oct 5 – 9, 2026', 'NEW ON CCIP', '2 new lanes', 'Ethereum', 'Arbitrum One', 'Arbitrum One', 'Base',
+      '2 new tokens', 'USDat ', 'on Ethereum', 'PST ', 'on Base', 'CCIP now runs ', '4 lanes', ' between ', '4 chains', 'Watch every lane: ', 'ccip.dev/replay',
+    ]);
+  });
+
+  it('names 5 lanes and counts the rest as "+N more"', async () => {
+    // #given seven new lanes on the Tuesday
+    const lanes = Array.from({ length: 7 }, (_, i) => ({ key: `${ETH}>${BASE}`, day: '2026-10-06', messages: 1, usd: 7 - i }));
+    // #when
+    const all = texts(await tree({ kind: 'roundup', monday: MONDAY }, withMoments({ arrivals: { ...MOMENTS.arrivals, lanes, tokens: [] } })));
+    const words = all.slice(all.indexOf('ccip.dev'));
+    // #then
+    expect({ title: words.includes('7 new lanes'), named: words.filter((w) => w === 'Ethereum').length, more: words.includes('+2 more'), tokens: words.some((w) => w.includes('token')) }).toEqual({
+      title: true, named: 5, more: true, tokens: false,
+    });
+  });
+
+  it('has no card for a week with nothing new', async () => {
+    expect(await broadcastTree({ kind: 'roundup', monday: '2026-09-28' }, inputs)).toBeNull();
+  });
+});
+
+describe('poll card', () => {
+  it("shows last week's answer, each option's share with the answer gold, and how many called it, beside this week's question", async () => {
+    // #when
+    const card = await tree({ kind: 'poll', monday: POLL_MONDAY });
+    const words = texts(card);
+    // #then
+    expect({ words: words.slice(words.indexOf('ccip.dev')), goldBars: JSON.stringify(card).split('"backgroundColor":"#ffcf5a"').length - 1 }).toEqual({
+      words: [
+        'ccip.dev', 'Prediction · Week of Oct 12, 2026', 'Last week', 'Which chain paid the most fees?', 'Base', '· $1.8K',
+        'Base', '38%', 'Ethereum', '31%', 'Arbitrum One', '22%', 'Another chain', '9%', '38% of you called it',
+        'This week', "Will CCIP fees beat last week's $29?", 'A', 'Up more than 10%', 'B', 'Within 10%', 'C', 'Down more than 10%',
+        'Vote in the poll below · results next Monday', 'Every week: ', 'ccip.dev/history',
+      ],
+      goldBars: 1,
+    });
+  });
+
+  it('shows the answer without shares or "called it" when last week\'s poll could not be closed', async () => {
+    // #given
+    const [last, current] = MOMENTS.polls;
+    const unclosed = withMoments({ polls: [{ ...last!, votes: null, total_votes: null }, current!] });
+    // #when
+    const words = texts(await tree({ kind: 'poll', monday: POLL_MONDAY }, unclosed));
+    // #then
+    expect({ answer: words.includes('· $1.8K'), shares: words.filter((w) => w.endsWith('%') && !w.includes(' ')), called: words.some((w) => w.includes('called it')) }).toEqual({
+      answer: true, shares: [], called: false,
+    });
+  });
+
+  it('shows only this week\'s question, wider, for the first poll', async () => {
+    // #given no poll was sent last week
+    const first = withMoments({ polls: [MOMENTS.polls[1]!] });
+    // #when
+    const card = await tree({ kind: 'poll', monday: POLL_MONDAY }, first);
+    // #then
+    expect({ last: texts(card).includes('Last week'), wide: JSON.stringify(card).includes('"width":1096,"backgroundColor":"rgba(16,24,44,0.85)"') }).toEqual({ last: false, wide: true });
+  });
+
+  it('draws a lane option with an arrow glyph, and has no card for a week without a poll', async () => {
+    // #given this week asks about lanes
+    const lanes = withMoments({ polls: [{ ...MOMENTS.polls[1]!, question_kind: 'lane', options: [{ key: `${ETH}>${BASE}`, label: 'Ethereum → Base' }, { key: 'other', label: 'Another lane' }] }] });
+    // #when
+    const words = texts(await tree({ kind: 'poll', monday: POLL_MONDAY }, lanes));
+    // #then
+    expect({ option: words.includes('Ethereum') && words.includes('Base'), arrow: words.some((w) => w.includes('→')), missing: await broadcastTree({ kind: 'poll', monday: '2026-10-19' }, inputs) }).toEqual({
+      option: true, arrow: false, missing: null,
+    });
+  });
+});
+
 describe('moment cards', () => {
   it('write no glyph the card fonts lack', async () => {
     // #when
     const targets: BroadcastTarget[] = [
       { kind: 'welcome', selector: TEMPO }, { kind: 'countdown', metric: 'fees', threshold: 2.5e6 }, { kind: 'movers', monday: MONDAY }, { kind: 'spotlight', monday: MONDAY },
+      { kind: 'roundup', monday: MONDAY }, { kind: 'poll', monday: POLL_MONDAY },
     ];
     const words = (await Promise.all(targets.map(async (t) => texts(await tree(t))))).flat();
     // #then

@@ -17,6 +17,7 @@ import { glyph, withArrows } from './glyphs';
 import { countdownTree, welcomeTree } from './moment-cards';
 import { skyNodes } from './orbit-sky';
 import { reserveTree } from './reserve-card';
+import { pollTree, roundupTree } from './week-cards';
 
 export const RECORD_TITLES: Record<RecordKind, string> = {
   messages: 'Most messages in a day',
@@ -228,8 +229,9 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return moversTree(target.monday, inputs);
     case 'spotlight':
       return spotlightTree(target.monday, inputs);
-    case 'poll':
     case 'roundup':
-      return null;
+      return roundupTree(target.monday, inputs);
+    case 'poll':
+      return pollTree(target.monday, inputs);
   }
 }

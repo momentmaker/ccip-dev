@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CardSize } from '../worker/cards/frame';
 import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
-import { BROADCAST_FILES, DAY, DEPOSIT_TX, OUTFLOW_TX, RECORD_DAY } from './fixtures/broadcast';
-import { MOMENT_FILES, TEMPO } from './fixtures/moments';
+import { BROADCAST_FILES, DAY, DEPOSIT_TX, MONDAY, OUTFLOW_TX, RECORD_DAY } from './fixtures/broadcast';
+import { MOMENT_FILES, POLL_MONDAY, TEMPO } from './fixtures/moments';
 import chains from './fixtures/chains.json';
 import history from './fixtures/history.json';
 import reserve from './fixtures/reserve.json';
@@ -163,6 +163,16 @@ describe('handleOg', () => {
       read: ['chains.json', 'moments.json', 'replay.json'],
       noStore: true,
     });
+  });
+
+  it('renders the movers, spotlight, New on CCIP and poll cards, and 404s the weeks moments.json holds none of', async () => {
+    // #given
+    const { get, renderPng } = setup({}, [], { ...DATA, ...BROADCAST_FILES, ...MOMENT_FILES });
+    // #when
+    const held = await Promise.all([`movers/${MONDAY}`, `spotlight/${MONDAY}`, `roundup/${MONDAY}`, `poll/${POLL_MONDAY}`].map(async (p) => (await get(`/og/broadcast/${p}.png`)).status));
+    const missing = await Promise.all(['movers/2026-09-28', 'spotlight/2026-09-28', 'roundup/2026-09-28', 'poll/2026-10-19'].map(async (p) => (await get(`/og/broadcast/${p}.png`)).status));
+    // #then
+    expect({ held, missing, rendered: renderPng.mock.calls.length }).toEqual({ held: [200, 200, 200, 200], missing: [404, 404, 404, 404], rendered: 4 });
   });
 
   it('answers 500, not the fallback card, when a broadcast card fails', async () => {

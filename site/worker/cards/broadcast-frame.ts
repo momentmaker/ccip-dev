@@ -151,11 +151,15 @@ export function broadcastFrame(spec: FrameSpec): VNode {
   );
 }
 
+/** "Oct 5 – 9, 2026", or "Sep 28 – Oct 2, 2026" across a month. */
+export function cardDays(from: string, to: string): string {
+  const end = from.slice(0, 7) === to.slice(0, 7) ? String(Number(to.slice(8))) : MONTH_DAY.format(date(to));
+  return `${MONTH_DAY.format(date(from))} – ${end}, ${to.slice(0, 4)}`;
+}
+
 /** "Oct 5 – 11, 2026", or "Sep 28 – Oct 4, 2026" across a month. */
 export function cardWeek(monday: string): string {
-  const sunday = addDays(monday, 6);
-  const end = monday.slice(0, 7) === sunday.slice(0, 7) ? String(Number(sunday.slice(8))) : MONTH_DAY.format(date(sunday));
-  return `${MONTH_DAY.format(date(monday))} – ${end}, ${sunday.slice(0, 4)}`;
+  return cardDays(monday, addDays(monday, 6));
 }
 
 export const MILESTONE_TITLES: Record<MilestoneMetric, string> = {

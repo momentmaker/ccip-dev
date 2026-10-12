@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import chains from '../../test/fixtures/chains.json';
 import topToken from '../../test/fixtures/top-token.json';
-import { BROADCAST_FILES, DAY, DEPOSIT_TX } from '../../test/fixtures/broadcast';
+import { BROADCAST_FILES, DAY, DEPOSIT_TX, MONDAY } from '../../test/fixtures/broadcast';
+import { MOMENT_FILES, POLL_MONDAY } from '../../test/fixtures/moments';
 import { orbitSky, skyNodes } from '../cards/orbit-sky';
 import { h } from '../h';
 import worker from '../index';
@@ -58,6 +59,8 @@ afterEach(async () => {
   delete assets['/chains/ethereum-mainnet-base-1.svg'];
   await caches.default.delete(new Request(`https://ccip.dev/og/broadcast/daily/${DAY}.png`));
   await caches.default.delete(new Request(`https://ccip.dev/og/broadcast/reserve/${DEPOSIT_TX}.png`));
+  await caches.default.delete(new Request(`https://ccip.dev/og/broadcast/spotlight/${MONDAY}.png`));
+  await caches.default.delete(new Request(`https://ccip.dev/og/broadcast/poll/${POLL_MONDAY}.png`));
 });
 
 describe('site Worker', () => {
@@ -80,6 +83,20 @@ describe('site Worker', () => {
     // #then the mark's #375BD2 stroke runs through (880, 200), just below its top corner
     const [r, g, b] = await pngPixel(png, 880, 200);
     expect({ height: new DataView(png.buffer).getUint32(20), mark: b > 180 && r < 100 && g < 130 }).toEqual({ height: 675, mark: true });
+  });
+
+  it('renders the spotlight and poll cards as real 1200×675 PNGs, the spotlight chain drawn at the hub from the site assets', async () => {
+    // #given Base, the spotlight chain, has a red icon
+    assets['/chains/ethereum-mainnet-base-1.svg'] = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#ff0000"/></svg>';
+    stubData({ ...BROADCAST_FILES, ...MOMENT_FILES });
+    // #when
+    const started = Date.now();
+    const spotlight = await renderCard(`/og/broadcast/spotlight/${MONDAY}.png`);
+    const poll = await renderCard(`/og/broadcast/poll/${POLL_MONDAY}.png`);
+    const elapsed = Date.now() - started;
+    // #then
+    const [r, g] = await pngPixel(spotlight, 860, 300);
+    expect({ heights: [spotlight, poll].map((png) => new DataView(png.buffer).getUint32(20)), hub: r > 200 && g < 60, fast: elapsed < 20_000 }).toEqual({ heights: [675, 675], hub: true, fast: true });
   });
 
   it('renders the home card as a real 1200×630 PNG fetching only our data', async () => {
