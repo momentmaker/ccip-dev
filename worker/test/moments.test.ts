@@ -205,6 +205,15 @@ describe('moments.json polls', () => {
     // #then
     expect(polls.map((p) => [p.week, p.answer, p.votes])).toEqual([['2026-10-05', BASE, null], ['2026-10-12', null, null]]);
   });
+
+  it('answers a poll that was marked closed without counts like one with no votes', async () => {
+    // #given Telegram had already closed last week's poll, so its record holds no counts
+    await store.setMeta(env.DB, 'poll:2026-10-05', JSON.stringify({ ...RECORD, closed: 'unavailable' }));
+    // #when
+    const { polls } = await build(LAST_DAY, [...week('2026-09-28', 70), ...week('2026-10-05', 120)]);
+    // #then
+    expect(polls[0]).toMatchObject({ week: '2026-10-05', answer: BASE, votes: null, total_votes: null });
+  });
 });
 
 describe('moments.json publish', () => {

@@ -175,13 +175,23 @@ describe('stopTelegramPoll', () => {
     });
   });
 
-  it('reports a poll whose message was deleted, and an answer without counts', async () => {
+  it('reports a poll whose message was deleted or that was already closed as unavailable, and an answer without counts or a refusal as a problem', async () => {
     // #given
-    const deleted = fakeFetch(() => jsonResponse({ ok: false, error_code: 400, description: 'Bad Request: message to stop poll not found' }, 400));
-    const odd = fakeFetch(() => jsonResponse({ ok: true, result: { options: [{ text: 'Base' }] } }));
+    const answer = (description: string) => fakeFetch(() => jsonResponse({ ok: false, error_code: 400, description }, 400));
+    const fetches = [
+      answer('Bad Request: message with poll to stop not found'),
+      answer('Bad Request: poll has already been closed'),
+      fakeFetch(() => jsonResponse({ ok: true, result: { options: [{ text: 'Base' }] } })),
+      answer('Bad Request: chat not found'),
+    ];
     // #when
-    const results = [await stopTelegramPoll({ fetch: deleted, sleep: async () => {} }, CONFIG, 812), await stopTelegramPoll({ fetch: odd, sleep: async () => {} }, CONFIG, 812)];
+    const results = await Promise.all(fetches.map((fetch) => stopTelegramPoll({ fetch, sleep: async () => {} }, CONFIG, 812)));
     // #then
-    expect(results).toEqual([{ problem: 'Telegram returned HTTP 400: Bad Request: message to stop poll not found' }, { problem: 'Telegram answered without vote counts' }]);
+    expect(results).toEqual([
+      { unavailable: 'Telegram returned HTTP 400: Bad Request: message with poll to stop not found' },
+      { unavailable: 'Telegram returned HTTP 400: Bad Request: poll has already been closed' },
+      { problem: 'Telegram answered without vote counts' },
+      { problem: 'Telegram returned HTTP 400: Bad Request: chat not found' },
+    ]);
   });
 });

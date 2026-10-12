@@ -338,19 +338,50 @@ describe('closeOpenPolls', () => {
     });
   });
 
-  it('alerts and keeps no counts when the poll cannot be closed, as when its message was deleted', async () => {
+  it.each([
+    ['already closed', 'Bad Request: poll has already been closed'],
+    ['deleted', 'Bad Request: message with poll to stop not found'],
+    ['deleted, in the older wording and another case', 'Bad Request: Message To Stop Poll Not Found'],
+  ])('marks a poll Telegram reports %s as closed without counts, alerts once, and never tries it again', async (_, description) => {
     // #given
-    const fetch = telegram(() => jsonResponse({ ok: false, description: 'Bad Request: message to stop poll not found' }, 400));
-    const { c, alerts } = harness({ now: NOW, fetch, env: ENV });
-    // #when
-    await closeOpenPolls(c);
+    const fetch = telegram(() => jsonResponse({ ok: false, error_code: 400, description }, 400));
+    const h = harness({ now: NOW, fetch, env: ENV });
+    // #when Monday's early and 06:00 finalize and Tuesday's run
+    for (const now of [NOW, '2026-10-12T06:00:00.000Z', '2026-10-13T00:07:00.000Z']) {
+      h.setNow(now);
+      await closeOpenPolls(h.c);
+    }
     // #then
-    expect({ alerts, record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
+    expect({ stops: fetch.calls.length, alerts: h.alerts, record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
+      stops: 1,
       alerts: [{
         signature: 'poll-close:2026-10-05',
-        text: 'The poll of the week of 2026-10-05 could not be closed, so its result posts without vote shares: Telegram returned HTTP 400: Bad Request: message to stop poll not found',
+        text: `The poll of the week of 2026-10-05 was already closed or deleted, so its votes cannot be read and its result posts without vote shares: Telegram returned HTTP 400: ${description}`,
       }],
-      record: RECORD,
+      record: { ...RECORD, closed: 'unavailable' },
+    });
+  });
+
+  it('keeps no counts and alerts when the close fails on the network, and closes the poll at the next finalize', async () => {
+    // #given the first stopPoll call fails to connect
+    let stops = 0;
+    const fetch = (async (input: RequestInfo | URL) => {
+      if (!String(input).endsWith('/stopPoll')) throw new Error(`unexpected ${String(input)}`);
+      stops += 1;
+      if (stops === 1) throw new TypeError('network connection lost');
+      return closed();
+    }) as typeof globalThis.fetch;
+    const h = harness({ now: NOW, fetch, env: ENV });
+    // #when the early finalize, then the 06:00 one
+    await closeOpenPolls(h.c);
+    const afterEarly = await store.getMeta(env.DB, 'poll:2026-10-05');
+    h.setNow('2026-10-12T06:00:00.000Z');
+    await closeOpenPolls(h.c);
+    // #then
+    expect({ afterEarly: JSON.parse(afterEarly!), alerts: h.alerts.map((a) => a.text), record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
+      afterEarly: RECORD,
+      alerts: ['The poll of the week of 2026-10-05 could not be closed, so its result posts without vote shares: Telegram request failed (TypeError)'],
+      record: { ...RECORD, voters: [5, 8, 0], total_voters: 13 },
     });
   });
 

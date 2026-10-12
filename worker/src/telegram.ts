@@ -79,15 +79,26 @@ export async function sendTelegramPoll(
   return typeof messageId === 'number' ? { messageId } : { problem: 'Telegram answered without a message id' };
 }
 
-/** Closes a poll the bot sent and returns each option's voter count, in option order, and the total; or what went wrong. */
+/**
+ * Bot API answers after which the bot can never close the poll: it is already closed, or its message is gone. "Poll has
+ * already been closed" is TDLib's (PollManager::stop_poll), which the Bot API writes lower-cased; "message with poll to
+ * stop not found" is the Bot API's own stopPoll answer (telegram-bot-api Client.cpp), and "message to stop poll not found"
+ * an older wording of it.
+ */
+const POLL_UNAVAILABLE = /poll has already been closed|message with poll to stop not found|message to stop poll not found/i;
+
+/**
+ * Closes a poll the bot sent and returns each option's voter count, in option order, and the total. A poll Telegram can
+ * no longer close is `unavailable`; anything else that went wrong is a `problem`, which a later try may get past.
+ */
 export async function stopTelegramPoll(
   deps: Pick<Deps, 'fetch' | 'sleep'>,
   config: TelegramConfig,
   messageId: number,
   timeoutMs = TELEGRAM_TIMEOUT_MS,
-): Promise<{ voters: number[]; total: number } | { problem: string }> {
+): Promise<{ voters: number[]; total: number } | { unavailable: string } | { problem: string }> {
   const result = await callTelegram(deps, config.token, 'stopPoll', { chat_id: config.chatId, message_id: messageId }, timeoutMs);
-  if ('problem' in result) return result;
+  if ('problem' in result) return POLL_UNAVAILABLE.test(result.problem) ? { unavailable: result.problem } : result;
   const poll = result.result as { options?: { voter_count?: unknown }[]; total_voter_count?: unknown } | null;
   const voters = poll?.options?.map((o) => o.voter_count);
   if (!voters || !voters.every((n): n is number => typeof n === 'number') || typeof poll?.total_voter_count !== 'number') {

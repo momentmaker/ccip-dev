@@ -298,7 +298,11 @@ export function voteShares(voters: readonly number[]): number[] {
   return voters.map((n) => (total === 0 ? 0 : Math.round((n * 100) / total)));
 }
 
-/** What the Worker keeps in D1 `meta` under `poll:<monday>` once a poll is sent, with its voter counts once it is closed. */
+/**
+ * What the Worker keeps in D1 `meta` under `poll:<monday>` once a poll is sent, with its voter counts once it is closed.
+ * `closed: 'unavailable'` marks a poll Telegram had already closed, or whose message was deleted: it has no counts and is
+ * never tried again.
+ */
 export const PollRecordSchema = z.object({
   chat_id: z.string(),
   message_id: z.number().int(),
@@ -307,6 +311,7 @@ export const PollRecordSchema = z.object({
   options: z.array(z.object({ key: z.string(), label: z.string() })),
   voters: z.array(z.number()).optional(),
   total_voters: z.number().optional(),
+  closed: z.literal('unavailable').optional(),
 });
 export type PollRecord = z.infer<typeof PollRecordSchema>;
 

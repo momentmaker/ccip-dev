@@ -290,4 +290,11 @@ describe('parsePollRecord', () => {
       parsePollRecord(JSON.stringify(record)), parsePollRecord(null), parsePollRecord('{'), parsePollRecord(JSON.stringify({ ...record, message_id: 'x' })), pollRecordKey('2026-10-05'),
     ]).toEqual([record, null, null, null, 'poll:2026-10-05']);
   });
+
+  it('keeps the mark of a poll that was closed without its counts', () => {
+    // #given
+    const record = { chat_id: '@ccipdev', message_id: 7, question_kind: 'lane', question: 'Which lane will move the most value this week?', options: [{ key: 'other', label: 'Another lane' }], closed: 'unavailable' };
+    // #then
+    expect(parsePollRecord(JSON.stringify(record))?.closed).toBe('unavailable');
+  });
 });
