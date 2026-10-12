@@ -14,6 +14,8 @@ export interface Tagger {
   chain(selector: string): Player;
   sender(key: string): Player;
   tokenProject(key: string): Player | null;
+  /** The project of a registry token group, through any of its tokens' entries. */
+  groupProject(group: string): Player | null;
 }
 
 const splitKey = (key: string) => {
@@ -54,5 +56,9 @@ export async function createTagger(c: RunContext, tokenKeys: readonly string[]):
       return label ? { name: label.name, x: label.x ?? null } : { name: shortAddress(address), x: null };
     },
     tokenProject: (key) => projects.get(key) ?? null,
+    groupProject: (group) => {
+      const match = entries.find((e) => groupOf(e.selector, e.address) === group);
+      return match ? { name: match.project, x: match.x } : null;
+    },
   };
 }
