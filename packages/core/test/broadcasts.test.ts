@@ -153,10 +153,20 @@ describe('reserveDepositFacts', () => {
     // #then 210,004 LINK held; the 4 weeks before its week average 75,000 LINK; 789,996 LINK to go is 10.53 weeks
     expect(facts).toEqual({
       tx: '0x05', ts: '2026-09-15T15:00:00.000Z', link: 60_000, usdAtDeposit: 750_000, usdNow: 900_000, changePct: 20,
-      balanceLink: 210_004, depositCount: 3, streak: 3, avgWeeklyLink: 75_000, avgWeeklyUsd: 800_000,
+      balanceLink: 210_004, depositCount: 3, streak: 3, avgWeeklyLink: 75_000, avgWeeklyUsd: 800_000, averageWeeks: 2,
       nextMilestone: { link: 1_000_000, eta: '2026-11-28' },
       weeks: [{ week: '2026-08-31', link: 100_000 }, { week: '2026-09-07', link: 50_000 }, { week: '2026-09-14', link: 60_000 }],
     });
+  });
+
+  it('averages at most the 4 weeks before the deposit, and says how many it used', () => {
+    // #given six earlier weeks before a deposit in the week of Oct 12, and none before the first week
+    const weekly = ['2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12'].map((week) => ({ week, deposits: 1, link: 1000, usd: 10_000 }));
+    const long = { transfers: [{ ...reserve.transfers[4]!, ts: '2026-10-13T15:00:00.000Z' }], weekly };
+    // #when
+    const counts = [reserveDepositFacts(long, '0x05')?.averageWeeks, reserveDepositFacts(reserve, '0x05')?.averageWeeks, reserveDepositFacts({ ...reserve, weekly: [] }, '0x05')?.averageWeeks];
+    // #then
+    expect(counts).toEqual([4, 2, 0]);
   });
 
   it('has nothing for a gift, an outflow or an unknown transaction', () => {

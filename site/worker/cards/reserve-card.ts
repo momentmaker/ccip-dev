@@ -2,7 +2,7 @@ import { reserveDepositFacts, type ReserveDepositFacts } from '@ccip-dev/core/br
 import { formatCompactCount, formatCount, formatPct, formatUsd } from '@ccip-dev/core/format';
 import { h, type Child, type VNode } from '../h';
 import type { BroadcastInputs } from './broadcast-cards';
-import { bold, broadcastFrame, cardDay, COLORS, date, dayNumber, eyebrow, MONTH_DAY, row } from './broadcast-frame';
+import { bold, broadcastFrame, cardDay, COLORS, date, dayNumber, eyebrow, MONTH_DAY, row, TEXT_COLUMN } from './broadcast-frame';
 import { RESERVE_CTA } from './cta';
 import { ORBIT_H, ORBIT_W, skySvg, svgDataUri } from './orbit-sky';
 
@@ -10,11 +10,11 @@ export const RESERVE_BARS = { x: 735, bottom: 540, step: 30, width: 20, max: 70 
 
 const MARK = { x: 880, y: 300 };
 const STREAMS = [
-  { d: 'M1210 40 C1090 70 1010 140 935 215', width: 5, opacity: 0.9, from: [1210, 40], to: [935, 215] },
-  { d: 'M1215 170 C1120 190 1050 230 975 265', width: 4, opacity: 0.7, from: [1215, 170], to: [975, 265] },
-  { d: 'M1150 -10 C1080 60 1000 120 915 200', width: 3, opacity: 0.5, from: [1150, -10], to: [915, 200] },
+  { d: 'M1215 115 C1100 125 1010 160 935 215', width: 5, opacity: 0.9, from: [1215, 115], to: [935, 215] },
+  { d: 'M1215 190 C1130 200 1050 235 975 265', width: 4, opacity: 0.7, from: [1215, 190], to: [975, 265] },
+  { d: 'M1215 255 C1120 262 1030 285 962 300', width: 3, opacity: 0.5, from: [1215, 255], to: [962, 300] },
 ] as const;
-const COMETS = [[1010, 140], [1080, 205], [1010, 95]] as const;
+const COMETS = [[1060, 148], [1091, 220], [1078, 274]] as const;
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -51,7 +51,7 @@ export function reserveSvg(d: ReserveDepositFacts, seed: number): string {
     ...COMETS.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="16" fill="#9fc2ff" opacity="0.4" filter="url(#blur8)"/>`),
     ...bars,
   ].join('');
-  return skySvg(seed, defs, body);
+  return skySvg(seed, defs, body, [TEXT_COLUMN]);
 }
 
 function reserveStat(value: string, label: string): VNode {
@@ -65,8 +65,8 @@ function reserveStat(value: string, label: string): VNode {
 
 function reserveBody(d: ReserveDepositFacts): VNode {
   const worth: Child[] = [
-    ...(d.usdAtDeposit === null ? [] : [bold(formatUsd(d.usdAtDeposit)), ' at deposit']),
-    ...(d.usdNow === null ? [] : [' · ', bold(formatUsd(d.usdNow)), ` today${d.changePct === null ? '' : ` (${formatPct(d.changePct)})`}`]),
+    ...(d.usdAtDeposit === null ? [] : [bold(`${formatUsd(d.usdAtDeposit)} `), d.usdNow === null ? 'at deposit' : 'at deposit · ']),
+    ...(d.usdNow === null ? [] : [bold(`${formatUsd(d.usdNow)} `), `today${d.changePct === null ? '' : ` (${formatPct(d.changePct)})`}`]),
   ];
   return h(
     'div',
@@ -107,7 +107,7 @@ export async function reserveTree(tx: string, load: BroadcastInputs['load']): Pr
     insight:
       d.avgWeeklyLink === null
         ? []
-        : ['Weekly average: ', bold(`${formatCount(d.avgWeeklyLink)} LINK`), `${d.avgWeeklyUsd === null ? '' : ` (${formatUsd(d.avgWeeklyUsd)})`} over 4 weeks`],
+        : ['Weekly average: ', bold(`${formatCount(d.avgWeeklyLink)} LINK`), `${d.avgWeeklyUsd === null ? '' : ` (${formatUsd(d.avgWeeklyUsd)})`} over ${d.averageWeeks} week${d.averageWeeks === 1 ? '' : 's'}`],
     cta: RESERVE_CTA,
   });
 }

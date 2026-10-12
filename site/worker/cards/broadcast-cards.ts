@@ -8,10 +8,10 @@ import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetr
 import { addDays } from '@ccip-dev/core/time';
 import { windowWeights } from '../../src/sky/weights';
 import { h, type Child, type VNode } from '../h';
-import { bold, boldArrows, broadcastFrame, cardDay, COLORS, date, dayNumber, deltaStat, eyebrow, feeBars, MONTH_DAY, mutedStat, row, statsPanel } from './broadcast-frame';
+import { bold, boldArrows, broadcastFrame, cardDay, COLORS, date, dayNumber, deltaStat, eyebrow, feeBars, MONTH_DAY, mutedStat, row, statsPanel, TEXT_COLUMN } from './broadcast-frame';
 import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph } from './glyphs';
-import { orbitSky, skyNodes, type OrbitSky } from './orbit-sky';
+import { orbitSky, skyNodes, type OrbitSky, type StarFreeZone } from './orbit-sky';
 import { reserveTree } from './reserve-card';
 
 export interface BroadcastInputs {
@@ -41,7 +41,7 @@ export async function iconsFor(sky: OrbitSky, icon: BroadcastInputs['icon']): Pr
 export const namesOf = (replay: ReplayFile, chains: PublicFile<'chains.json'>): ChainNames => chainNameMap([...replay.chains, ...chains.chains]);
 
 /** The day's (or week's) chains and lanes from replay.json, around the busiest chain. */
-export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: string, extra: { dim?: boolean; gold?: string | null } = {}): OrbitSky {
+export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: string, extra: { dim?: boolean; gold?: string | null; starFree?: readonly StarFreeZone[] } = {}): OrbitSky {
   const weights = windowWeights(replay, from, to);
   return orbitSky({
     chains: [...weights.chains].map(([selector, value]) => ({ selector, value, name: chainName(names, selector) })),
@@ -156,17 +156,24 @@ function headlineBody(o: { pill: string; title: string; value: string; lines: (V
   );
 }
 
+const COLUMN_WIDTH = 660;
+
+/** A line that stays inside the text column and wraps instead of running into the sky. */
+const columnRow = (children: readonly Child[], style: Record<string, unknown>) =>
+  row(children, { marginTop: 10, alignSelf: 'flex-start', maxWidth: COLUMN_WIDTH, flexWrap: 'wrap', ...style });
+
+/** A space sitting first in a text piece next to a bold one renders wider than the space before the bold, so spaces trail instead. */
 function previousLine(r: RecordSet): VNode {
   const days = `${formatCount(r.stoodDays)} day${r.stoodDays === 1 ? '' : 's'}`;
-  return row(['Previous record ', bold(recordValueText(r.kind, r.previous.value)), ` on ${formatUtcDay(r.previous.day)} · stood ${days}`], { fontSize: 26, marginTop: 10, color: COLORS.muted, alignSelf: 'flex-start' });
+  return columnRow(['Previous record ', bold(`${recordValueText(r.kind, r.previous.value)} `), `on ${formatUtcDay(r.previous.day)} · stood ${days}`], { fontSize: 26, color: COLORS.muted });
 }
 
 function driverLine(r: RecordSet, d: RecordDriver | null, names: ChainNames): VNode | null {
   if (d === null) return null;
-  const lane = boldArrows(laneLabel(names, d.lane), 20);
-  const style = { fontSize: 24, marginTop: 10, color: COLORS.soft, alignSelf: 'flex-start' };
-  if (r.kind === 'largest_fee') return row(['Paid on ', lane, d.symbol ? `, paid in ${d.symbol}` : ''], style);
-  return row(['Driven by ', lane, r.kind === 'value' ? `: ${formatUsd(d.usd)} moved` : `: ${formatCount(d.messages)} messages`], style);
+  const lane = boldArrows(laneLabel(names, d.lane), 20, { maxWidth: COLUMN_WIDTH, flexWrap: 'wrap' });
+  const style = { fontSize: 24, color: COLORS.soft };
+  if (r.kind === 'largest_fee') return columnRow(['Paid on ', lane, d.symbol ? `, paid in ${d.symbol}` : ''], style);
+  return columnRow(['Driven by ', lane, r.kind === 'value' ? `: ${formatUsd(d.usd)} moved` : `: ${formatCount(d.messages)} messages`], style);
 }
 
 const ALL_TIME: Record<TotalMetric, [string, (v: number) => string]> = {
@@ -188,7 +195,7 @@ async function recordTree(kind: RecordKind, day: string, inputs: BroadcastInputs
   if (record === undefined) return null;
   const names = namesOf(replay, chains);
   const driver = recordDriver(record, leaders.days.find((d) => d.day === day) ?? null, largest);
-  const sky = skyFor(replay, names, day, day, { dim: true, gold: driver ? (driver.lane.split('>')[0] ?? null) : null });
+  const sky = skyFor(replay, names, day, day, { dim: true, gold: driver ? (driver.lane.split('>')[0] ?? null) : null, starFree: [TEXT_COLUMN] });
   const metric = RECORD_TOTAL[kind];
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
@@ -210,7 +217,7 @@ async function milestoneTree(metric: MilestoneMetric, threshold: number, inputs:
   const milestone = trackedMilestones(history.days).find((m) => m.metric === metric && m.threshold === threshold);
   if (milestone === undefined) return null;
   const names = namesOf(replay, chains);
-  const sky = skyFor(replay, names, milestone.day, milestone.day, { dim: true });
+  const sky = skyFor(replay, names, milestone.day, milestone.day, { dim: true, starFree: [TEXT_COLUMN] });
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
     eyebrow: `Milestone · ${cardDay(milestone.day)}`,
@@ -218,7 +225,7 @@ async function milestoneTree(metric: MilestoneMetric, threshold: number, inputs:
       pill: 'MILESTONE',
       title: MILESTONE_TITLES[metric],
       value: metric === 'messages' ? formatCount(threshold) : formatThresholdUsd(threshold),
-      lines: [row([`Crossed on ${formatUtcDay(milestone.day)}`], { fontSize: 26, marginTop: 10, color: COLORS.muted })],
+      lines: [columnRow([`Crossed on ${formatUtcDay(milestone.day)}`], { fontSize: 26, color: COLORS.muted })],
     }),
     insight: allTimeInsight(metric, allTimeTotal(metric, history.days, milestone.day)),
     cta: RECORDS_CTA,

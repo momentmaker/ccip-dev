@@ -50,12 +50,21 @@ export interface OrbitSky {
   dim: boolean;
 }
 
+/** A box in card pixels that the star field keeps clear, where text sits straight on the sky. */
+export interface StarFreeZone {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface OrbitOptions {
   chains: readonly OrbitChain[];
   lanes: readonly OrbitLane[];
   seed: number;
   dim?: boolean;
   gold?: string | null;
+  starFree?: readonly StarFreeZone[];
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -72,7 +81,8 @@ export function seeded(seed: number): () => number {
   };
 }
 
-export function starField(seed: number, count = STAR_COUNT): string {
+/** A skipped star still draws its random numbers, so every other star stays where it was. */
+export function starField(seed: number, count = STAR_COUNT, starFree: readonly StarFreeZone[] = []): string {
   const rand = seeded(seed);
   const sizes = [1, 1, 1, 1.6, 2.4];
   let out = '';
@@ -80,7 +90,9 @@ export function starField(seed: number, count = STAR_COUNT): string {
     const x = Math.round(rand() * ORBIT_W);
     const y = Math.round(rand() * STRIP_TOP);
     const r = sizes[Math.floor(rand() * sizes.length)]!;
-    out += `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${(0.15 + rand() * 0.6).toFixed(2)}"/>`;
+    const opacity = 0.15 + rand() * 0.6;
+    if (starFree.some((z) => x >= z.x && x <= z.x + z.width && y >= z.y && y <= z.y + z.height)) continue;
+    out += `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${opacity.toFixed(2)}"/>`;
   }
   return out;
 }
@@ -93,11 +105,11 @@ const BASE_DEFS = [
 ].join('');
 
 /** The night sky every broadcast card shares: the background, two nebulas and seeded stars, then `body`. */
-export function skySvg(seed: number, defs: string, body: string): string {
+export function skySvg(seed: number, defs: string, body: string, starFree: readonly StarFreeZone[] = []): string {
   const rect = (fill: string) => `<rect width="${ORBIT_W}" height="${ORBIT_H}" fill="${fill}"/>`;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${ORBIT_W}" height="${ORBIT_H}" viewBox="0 0 ${ORBIT_W} ${ORBIT_H}">` +
-    `<defs>${BASE_DEFS}${defs}</defs>${rect('#070a10')}${rect('url(#neb1)')}${rect('url(#neb2)')}${starField(seed)}${body}</svg>`
+    `<defs>${BASE_DEFS}${defs}</defs>${rect('#070a10')}${rect('url(#neb1)')}${rect('url(#neb2)')}${starField(seed, STAR_COUNT, starFree)}${body}</svg>`
   );
 }
 
@@ -147,7 +159,7 @@ export function orbitSky(o: OrbitOptions): OrbitSky {
   const halos = coins
     .map((c) => `<circle cx="${c.x}" cy="${c.y}" r="${r1(c.r * 2)}" fill="url(#${c.gold ? 'gold' : 'halo'})" opacity="${c.gold ? '1' : (0.9 * fade).toFixed(3)}"/>`)
     .join('');
-  return { svg: skySvg(o.seed, gradients, rings + paths + halos), coins, dim: Boolean(o.dim) };
+  return { svg: skySvg(o.seed, gradients, rings + paths + halos, o.starFree), coins, dim: Boolean(o.dim) };
 }
 
 function coinNode(c: OrbitCoin, src: string | null, dim: boolean): VNode {

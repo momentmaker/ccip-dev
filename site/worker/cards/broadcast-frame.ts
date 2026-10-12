@@ -3,6 +3,7 @@ import { h, type Child, type VNode } from '../h';
 import type { Cta } from './cta';
 import type { CardSize } from './frame';
 import { glyph, withArrows } from './glyphs';
+import type { StarFreeZone } from './orbit-sky';
 
 export const BROADCAST_SIZE: CardSize = { width: 1200, height: 675 };
 export const STRIP_H = 64;
@@ -17,6 +18,9 @@ export const cardDay = (day: string) => CARD_DAY.format(date(day));
 /** Days since 1970-01-01 (UTC): the stars' seed and the call to action's turn. */
 export const dayNumber = (day: string) => Math.floor(Date.parse(`${day.slice(0, 10)}T00:00:00.000Z`) / 86_400_000);
 
+/** The left text column of the cards whose text sits on the open sky, with no glass panel behind it. */
+export const TEXT_COLUMN: StarFreeZone = { x: 40, y: 40, width: 660, height: 440 };
+
 export function eyebrow(text: string, style: Record<string, unknown> = {}): VNode {
   return h('div', { style: { fontSize: 20, fontWeight: 700, letterSpacing: 4, color: COLORS.muted, textTransform: 'uppercase', ...style } }, text);
 }
@@ -30,8 +34,8 @@ export function row(children: readonly Child[], style: Record<string, unknown> =
   return h('div', { style: { display: 'flex', alignItems: 'center', whiteSpace: 'pre', ...style } }, ...children);
 }
 
-export function boldArrows(text: string, size = 16): VNode {
-  return row(withArrows(text, size, COLORS.strong), { color: COLORS.strong, fontWeight: 700 });
+export function boldArrows(text: string, size = 16, style: Record<string, unknown> = {}): VNode {
+  return row(withArrows(text, size, COLORS.strong), { color: COLORS.strong, fontWeight: 700, ...style });
 }
 
 export interface StatView {

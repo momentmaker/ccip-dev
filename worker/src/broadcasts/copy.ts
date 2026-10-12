@@ -239,7 +239,7 @@ function reserveTg(f: ReserveFacts): Line[] {
     { text: bold('New deposit into the Chainlink Reserve') },
     { text: added.join(' · ') },
     { text: `Now ${formatCompactCount(d.balanceLink)} LINK held${d.streak >= 2 ? ` · ${formatCount(d.streak)} weekly deposits in a row` : ''}` },
-    ...(d.avgWeeklyLink === null ? [] : [{ text: `4-week average: ${formatCount(d.avgWeeklyLink)} LINK a week${paren(d.avgWeeklyUsd === null ? null : formatUsd(d.avgWeeklyUsd))}` }]),
+    ...(d.avgWeeklyLink === null ? [] : [{ text: `${d.averageWeeks}-week average: ${formatCount(d.avgWeeklyLink)} LINK a week${paren(d.avgWeeklyUsd === null ? null : formatUsd(d.avgWeeklyUsd))}` }]),
     ...(d.nextMilestone ? [{ text: `On pace for ${millions(d.nextMilestone.link)} LINK around ${longDay(d.nextMilestone.eta)}` }] : []),
     { text: '' },
     { text: '#CCIP #Chainlink $LINK', drop: DROP.closing },

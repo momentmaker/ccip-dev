@@ -131,6 +131,15 @@ describe('handleOg', () => {
     });
   });
 
+  it('answers 404 without rendering for a Reserve transaction that is not a deposit', async () => {
+    // #given 0x04 is a 1-LINK outflow
+    const { get, renderPng } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
+    // #when
+    const status = (await get('/og/broadcast/reserve/0x04.png')).status;
+    // #then
+    expect({ status, rendered: renderPng.mock.calls.length }).toEqual({ status: 404, rendered: 0 });
+  });
+
   it('answers 500, not the fallback card, when a broadcast card fails', async () => {
     // #given rendering fails, and in a second Worker a data file is down
     const failing = setup({ renderPng: vi.fn(async () => { throw new Error('wasm trap'); }) }, [], { ...DATA, ...BROADCAST_FILES });

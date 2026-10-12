@@ -82,3 +82,22 @@ describe('skyNodes', () => {
     });
   });
 });
+
+describe('star-free zones', () => {
+  const zone = { x: 40, y: 40, width: 660, height: 440 };
+  const stars = (svg: string) => [...svg.matchAll(/<circle cx="(\d+)" cy="(\d+)"/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+
+  it('emits no star inside a zone and keeps every other star where it was', () => {
+    // #given
+    const all = stars(starField(7));
+    // #when
+    const kept = stars(starField(7, STAR_COUNT, [zone]));
+    // #then
+    const inside = (s: { x: number; y: number }) => s.x >= zone.x && s.x <= zone.x + zone.width && s.y >= zone.y && s.y <= zone.y + zone.height;
+    expect({ inZone: kept.filter(inside), same: kept, skipped: all.some(inside) }).toEqual({ inZone: [], same: all.filter((s) => !inside(s)), skipped: true });
+  });
+
+  it('draws the same field as before when no zone is given', () => {
+    expect(starField(7, STAR_COUNT, [])).toBe(starField(7));
+  });
+});

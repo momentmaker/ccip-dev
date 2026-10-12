@@ -38,7 +38,7 @@ const RESERVE: ReserveFacts = {
   kind: 'reserve',
   deposit: {
     tx: `0x${'ab'.repeat(32)}`, ts: '2026-10-08T15:35:00.000Z', link: 82_480, usdAtDeposit: 1_030_000, usdNow: 1_100_000, changePct: 6.9, balanceLink: 6_200_000,
-    depositCount: 94, streak: 62, avgWeeklyLink: 85_687, avgWeeklyUsd: 1_080_000, nextMilestone: { link: 7_000_000, eta: '2026-12-16' }, weeks: [],
+    depositCount: 94, streak: 62, avgWeeklyLink: 85_687, avgWeeklyUsd: 1_080_000, averageWeeks: 4, nextMilestone: { link: 7_000_000, eta: '2026-12-16' }, weeks: [],
   },
 };
 const withLeaders = (leaders: Partial<DailyFacts['leaders']>): DailyFacts => ({ ...DAILY, leaders: { ...DAILY.leaders, ...leaders } });
@@ -207,5 +207,14 @@ describe('Telegram captions', () => {
         '#CCIP #Chainlink $LINK',
       ].join('\n'),
     ]);
+  });
+
+  it('says "1-week average" when a young Reserve has one earlier week', () => {
+    // #given
+    const young: ReserveFacts = { ...RESERVE, deposit: { ...RESERVE.deposit, averageWeeks: 1 } };
+    // #when
+    const lines = composeCopy(young).telegramHtml.split('\n');
+    // #then
+    expect(lines).toContain('1-week average: 85,687 LINK a week ($1.1M)');
   });
 });

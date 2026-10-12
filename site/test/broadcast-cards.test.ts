@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { VNode } from '../worker/h';
-import { broadcastTree } from '../worker/cards/broadcast-cards';
+import { trackedMilestones } from '@ccip-dev/core/records';
+import { bigSize, broadcastTree } from '../worker/cards/broadcast-cards';
+import { reserveSvg } from '../worker/cards/reserve-card';
 import { ctaFor } from '../worker/cards/cta';
 import { MISSING_GLYPHS } from '../worker/cards/glyphs';
-import { BASE, DAY, DEPOSIT_TX, loadFixture, MONDAY, RECORD_DAY, texts } from './fixtures/broadcast';
+import { BASE, DAY, DEPOSIT_TX, HISTORY, loadFixture, MONDAY, RECORD_DAY, texts } from './fixtures/broadcast';
 
 const inputs = { load: loadFixture, icon: async (selector: string) => (selector === BASE ? 'data:image/svg+xml;base64,AAAA' : null) };
 const tree = async (target: Parameters<typeof broadcastTree>[0]) => (await broadcastTree(target, inputs)) as VNode;
@@ -75,7 +77,7 @@ describe('record broadcast card', () => {
     expect(texts(card)).toEqual(
       expect.arrayContaining([
         'New all-time record · Sun, Oct 11, 2026', 'NEW RECORD', 'Most messages in a day', '300',
-        'Previous record ', '200', ' on Sep 28, 2026 · stood 13 days', 'Driven by ', 'Ethereum', 'Base', ': 30 messages',
+        'Previous record ', '200 ', 'on Sep 28, 2026 · stood 13 days', 'Driven by ', 'Ethereum', 'Base', ': 30 messages',
         'All-time messages now ', '2,850', 'Every record: ', 'ccip.dev/records',
       ]),
     );
@@ -88,8 +90,8 @@ describe('record broadcast card', () => {
     const largest = texts(await tree({ kind: 'record', record: 'largest_fee', day: RECORD_DAY }));
     // #then
     expect({ fees, largest }).toEqual({
-      fees: expect.arrayContaining(['Most fees paid to CCIP in a day', '$6', '$4', 'Driven by ', 'Base', 'Arbitrum One', ': 5,712 messages', 'All-time fees now ', '$57']),
-      largest: expect.arrayContaining(['Largest single fee', '$120.00', '$80.00', ' on Sep 30, 2026 · stood 11 days', 'Paid on ', 'Ethereum', ', paid in LINK']),
+      fees: expect.arrayContaining(['Most fees paid to CCIP in a day', '$6', '$4 ', 'Driven by ', 'Base', 'Arbitrum One', ': 5,712 messages', 'All-time fees now ', '$57']),
+      largest: expect.arrayContaining(['Largest single fee', '$120.00', '$80.00 ', 'on Sep 30, 2026 · stood 11 days', 'Paid on ', 'Ethereum', ', paid in LINK']),
     });
   });
 
@@ -129,9 +131,9 @@ describe('Reserve broadcast card', () => {
     }).toEqual({
       words: expect.arrayContaining([
         'Chainlink Reserve · Tue, Sep 15, 2026', 'New deposit into the Reserve', '+60,000', 'LINK',
-        '$750.0K', ' at deposit', ' · ', '$900.0K', ' today (+20.0%)',
+        '$750.0K ', 'at deposit · ', '$900.0K ', 'today (+20.0%)',
         '210.0K', 'LINK held', '3', 'weeks in a row', 'Nov 28', 'On pace for 1M', 'LINK ADDED PER WEEK · 3 WEEKS',
-        'Weekly average: ', '75,000 LINK', ' ($800.0K) over 4 weeks', 'Track it: ', 'ccip.dev/reserve',
+        'Weekly average: ', '75,000 LINK', ' ($800.0K) over 2 weeks', 'Track it: ', 'ccip.dev/reserve',
       ]),
       bars: 3,
       current: true,
@@ -146,12 +148,61 @@ describe('Reserve broadcast card', () => {
     ]).toEqual([null, null, null]);
   });
 
-  it('writes no glyph the card fonts lack on the record, milestone and Reserve cards', async () => {
+  it('writes no glyph the card fonts lack on any record kind, milestone metric or Reserve card', async () => {
+    // #given every record kind the record day sets and every milestone the fixture history crosses
+    const kinds = ['messages', 'value', 'fees', 'largest_fee'] as const;
+    const milestones = trackedMilestones(HISTORY.days);
+    // #when
     const words = [
-      ...texts(await tree({ kind: 'record', record: 'value', day: RECORD_DAY })),
-      ...texts(await tree({ kind: 'milestone', metric: 'messages', threshold: 2000 })),
+      ...(await Promise.all(kinds.map(async (record) => texts(await tree({ kind: 'record', record, day: RECORD_DAY }))))).flat(),
+      ...(await Promise.all(milestones.map(async (m) => texts(await tree({ kind: 'milestone', metric: m.metric, threshold: m.threshold }))))).flat(),
       ...texts(await tree({ kind: 'reserve', tx: DEPOSIT_TX })),
     ];
-    expect(words.filter((w) => MISSING_GLYPHS.test(w))).toEqual([]);
+    // #then
+    expect({ words: words.length > 0, milestones: new Set(milestones.map((m) => m.metric)).size, missing: words.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({
+      words: true, milestones: expect.any(Number), missing: [],
+    });
+  });
+});
+
+describe('record card text column', () => {
+  const longNames = { src: 'Ethereum Mainnet Optimism Superchain Rollup', dst: 'Arbitrum Nova Orbit Gaming Network Extra' };
+
+  it('keeps the worst-case previous-record and lane lines inside the text column, wrapping instead of overflowing', async () => {
+    // #given a $1.2K previous fee under a $5,000 record, and chains with long names on the largest fee's route
+    const load: typeof loadFixture = async (name) => {
+      const file = await loadFixture(name);
+      if (name === 'history.json') {
+        const history = file as Awaited<ReturnType<typeof loadFixture<'history.json'>>>;
+        return { ...history, largest_fees: history.largest_fees!.map((f) => ({ ...f, fee_usd: f.message_id === '0x2' ? 1234.56 : 5000 })) } as typeof file;
+      }
+      if (name === 'replay.json' || name === 'chains.json') {
+        return JSON.parse(JSON.stringify(file).replace('Ethereum Mainnet', longNames.src).replace('Arbitrum One', longNames.dst).replace('Base Mainnet', longNames.dst)) as typeof file;
+      }
+      return file;
+    };
+    // #when
+    const card = JSON.stringify(await broadcastTree({ kind: 'record', record: 'largest_fee', day: RECORD_DAY }, { ...inputs, load }));
+    // #then the previous-record row, the route row and the route's own names all carry the column's width cap
+    expect({ capped: card.match(/"maxWidth":660/g)?.length, wraps: card.includes('"flexWrap":"wrap"'), previous: card.includes('$1.2K ') }).toEqual({ capped: 3, wraps: true, previous: true });
+  });
+});
+
+describe('bigSize', () => {
+  it.each([[7, 132], [8, 104], [10, 104], [11, 80]])('sizes a %i-character value at %i px', (length, size) => {
+    expect(bigSize('9'.repeat(length))).toBe(size);
+  });
+});
+
+describe('reserveSvg', () => {
+  const facts = (weeks: { week: string; link: number }[]) => ({ weeks }) as Parameters<typeof reserveSvg>[0];
+
+  it('draws the same picture for the same seed', () => {
+    const d = facts([{ week: 'a', link: 5 }, { week: 'b', link: 9 }]);
+    expect(reserveSvg(d, 3)).toBe(reserveSvg(d, 3));
+  });
+
+  it('has no NaN or Infinity for an empty series or one that added nothing', () => {
+    expect([facts([]), facts([{ week: 'a', link: 0 }, { week: 'b', link: 0 }])].map((d) => /NaN|Infinity/.test(reserveSvg(d, 3)))).toEqual([false, false]);
   });
 });

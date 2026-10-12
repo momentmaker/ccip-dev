@@ -214,6 +214,8 @@ export interface ReserveDepositFacts {
   streak: number;
   avgWeeklyLink: number | null;
   avgWeeklyUsd: number | null;
+  /** How many weeks the averages cover: up to 4, fewer for a young Reserve. */
+  averageWeeks: number;
   nextMilestone: { link: number; eta: string } | null;
   weeks: { week: string; link: number }[];
 }
@@ -244,6 +246,7 @@ export function reserveDepositFacts(reserve: Pick<ReserveFile, 'transfers' | 'we
     streak: depositStreak(deposits.map((d) => d.ts)),
     avgWeeklyLink,
     avgWeeklyUsd: average((w) => w.usd),
+    averageWeeks: before.length,
     nextMilestone: nextMilestone(balance, avgWeeklyLink, new Date(deposit.ts)),
     weeks: reserve.weekly.filter((w) => w.week <= week).slice(-RESERVE_WEEKS_SHOWN).map((w) => ({ week: w.week, link: w.link })),
   };
