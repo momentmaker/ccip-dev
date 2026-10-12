@@ -221,6 +221,15 @@ describe('poll card', () => {
     expect({ last: texts(card).includes('Last week'), wide: JSON.stringify(card).includes('"width":1096,"backgroundColor":"rgba(16,24,44,0.85)"') }).toEqual({ last: false, wide: true });
   });
 
+  it('shows at most 4 options', async () => {
+    // #given five options
+    const five = withMoments({ polls: [{ ...MOMENTS.polls[1]!, options: ['a', 'b', 'c', 'd', 'e'].map((key) => ({ key, label: `Option ${key}` })) }] });
+    // #when
+    const words = texts(await tree({ kind: 'poll', monday: POLL_MONDAY }, five));
+    // #then
+    expect(words.filter((w) => w.startsWith('Option '))).toEqual(['Option a', 'Option b', 'Option c', 'Option d']);
+  });
+
   it('draws a lane option with an arrow glyph, and has no card for a week without a poll', async () => {
     // #given this week asks about lanes
     const lanes = withMoments({ polls: [{ ...MOMENTS.polls[1]!, question_kind: 'lane', options: [{ key: `${ETH}>${BASE}`, label: 'Ethereum → Base' }, { key: 'other', label: 'Another lane' }] }] });

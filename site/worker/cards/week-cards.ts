@@ -5,7 +5,7 @@ import type { Poll, PollKind } from '@ccip-dev/core/public';
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
 import {
-  bold, broadcastFrame, cardDays, COLORS, eyebrow, hasReplayDay, iconsFor, momentColumn, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
+  bold, broadcastFrame, cardDays, COLORS, ellipsized, eyebrow, fitName, hasReplayDay, iconsFor, momentColumn, namesOf, pill, PILLS, row, skyFor, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
 import { HISTORY_CTA, REPLAY_CTA } from './cta';
 import { glyph } from './glyphs';
@@ -14,20 +14,6 @@ import { skyNodes } from './orbit-sky';
 export const ROUNDUP_SHOWN = 5;
 
 const plural = (n: number, word: string) => `${formatCount(n)} new ${word}${n === 1 ? '' : 's'}`;
-
-const ellipsized = { display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 } as const;
-
-/** A name that gives way to an ellipsis rather than a cut glyph; a lane's two ends shrink separately around their arrow glyph. */
-function fitName(text: string, size: number, color: string, weight: number, style: Record<string, unknown> = {}): VNode {
-  const parts = text.split(' → ');
-  return row(
-    parts.flatMap((part, i): Child[] => [
-      ...(i > 0 ? [glyph('right', Math.round(size * 0.8), color, { left: 8, right: 8 })] : []),
-      h('div', { style: { ...ellipsized, fontWeight: weight, color } }, part),
-    ]),
-    { fontSize: size, minWidth: 0, flexShrink: 1, ...style },
-  );
-}
 
 function roundupColumn(title: string, items: readonly VNode[], total: number, width: number): VNode {
   return h(
@@ -39,8 +25,10 @@ function roundupColumn(title: string, items: readonly VNode[], total: number, wi
   );
 }
 
-const ITEM_WIDTH = 320;
-const item = (children: readonly Child[]) => row(children, { fontSize: 24, marginTop: 10, color: COLORS.soft, width: ITEM_WIDTH });
+const ITEM_INSET = 10;
+/** Lanes need the room, so they get the wider column; a list alone takes the whole text column. */
+const columnWidths = (hasLanes: boolean, hasTokens: boolean) => (hasLanes && hasTokens ? { lanes: 380, tokens: 280 } : { lanes: 640, tokens: 640 });
+const item = (children: readonly Child[], width: number) => row(children, { fontSize: 24, marginTop: 10, color: COLORS.soft, width });
 
 const symbolOf = (key: string) => shortAddress(key.slice(key.indexOf(':') + 1));
 
@@ -52,12 +40,16 @@ export async function roundupTree(monday: string, inputs: BroadcastInputs): Prom
   if (roundup === null || !hasReplayDay(replay, friday)) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, monday, friday, { dim: true, starFree: [TEXT_COLUMN] });
-  const lanes = roundup.lanes.slice(0, ROUNDUP_SHOWN).map((l) => item([fitName(laneLabel(names, l.key), 24, COLORS.strong, 700, { flex: 1 })]));
+  const { lanes: laneWidth, tokens: tokenWidth } = columnWidths(roundup.lanes.length > 0, roundup.tokens.length > 0);
+  const lanes = roundup.lanes.slice(0, ROUNDUP_SHOWN).map((l) => item([fitName(laneLabel(names, l.key), 24, COLORS.strong, 700, { flex: 1 })], laneWidth - ITEM_INSET));
   const tokens = roundup.tokens.slice(0, ROUNDUP_SHOWN).map((t) =>
-    item([
-      h('div', { style: { ...ellipsized, whiteSpace: 'pre', maxWidth: 190, fontWeight: 700, color: COLORS.strong } }, `${t.symbol ?? symbolOf(t.key)} `),
-      h('div', { style: ellipsized }, `on ${chainName(names, t.chains[0] ?? '')}`),
-    ]),
+    item(
+      [
+        h('div', { style: { ...ellipsized, whiteSpace: 'pre', maxWidth: 150, fontWeight: 700, color: COLORS.strong } }, `${t.symbol ?? symbolOf(t.key)} `),
+        h('div', { style: ellipsized }, `on ${chainName(names, t.chains[0] ?? '')}`),
+      ],
+      tokenWidth - ITEM_INSET,
+    ),
   );
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
@@ -67,8 +59,8 @@ export async function roundupTree(monday: string, inputs: BroadcastInputs): Prom
       h(
         'div',
         { style: { display: 'flex', marginTop: 24 } },
-        lanes.length === 0 ? null : roundupColumn(plural(roundup.lanes.length, 'lane'), lanes, roundup.lanes.length, 330),
-        tokens.length === 0 ? null : roundupColumn(plural(roundup.tokens.length, 'token'), tokens, roundup.tokens.length, 330),
+        lanes.length === 0 ? null : roundupColumn(plural(roundup.lanes.length, 'lane'), lanes, roundup.lanes.length, laneWidth),
+        tokens.length === 0 ? null : roundupColumn(plural(roundup.tokens.length, 'token'), tokens, roundup.tokens.length, tokenWidth),
       ),
     ),
     insight: ['CCIP now runs ', bold(`${formatCount(moments.network.lanes)} lanes`), ' between ', bold(`${formatCount(moments.network.chains)} chains`)],
@@ -97,13 +89,15 @@ function answerRow(poll: Poll): VNode | null {
 function shareBar(label: string, pct: number, answer: boolean): VNode {
   return row(
     [
-      h('div', { style: { display: 'flex', width: 190, marginRight: 12, flexShrink: 0 } }, fitName(label, 20, answer ? COLORS.strong : COLORS.soft, 700)),
-      h('div', { style: { display: 'flex', width: 180, height: 14, borderRadius: 7, backgroundColor: '#18202e', flexShrink: 0 } }, h('div', { style: { width: Math.round(1.8 * pct), height: 14, borderRadius: 7, backgroundColor: answer ? COLORS.gold : '#3a4a68' } })),
+      h('div', { style: { display: 'flex', width: 240, marginRight: 12, flexShrink: 0 } }, fitName(label, 20, answer ? COLORS.strong : COLORS.soft, 700)),
+      h('div', { style: { display: 'flex', width: 130, height: 14, borderRadius: 7, backgroundColor: '#18202e', flexShrink: 0 } }, h('div', { style: { width: Math.round(1.3 * pct), height: 14, borderRadius: 7, backgroundColor: answer ? COLORS.gold : '#3a4a68' } })),
       h('span', { style: { marginLeft: 12, color: answer ? COLORS.gold : COLORS.muted, fontWeight: 700 } }, `${pct}%`),
     ],
     { fontSize: 20, marginTop: 8 },
   );
 }
+
+const MAX_OPTIONS = 4;
 
 const PANEL = { display: 'flex', flexDirection: 'column', padding: '24px 28px', borderRadius: 22 };
 
@@ -131,7 +125,7 @@ function thisWeekPanel(poll: Poll, width: number): VNode {
     { style: { ...PANEL, width, backgroundColor: 'rgba(16,24,44,0.85)', border: '1px solid #2c4a8a' } },
     eyebrow('This week', { fontSize: 18, color: '#9cc0ff' }),
     h('div', { style: { fontSize: questionSize(poll.question), fontWeight: 800, color: COLORS.strong, marginTop: 10, lineHeight: 1.2 } }, poll.question),
-    ...poll.options.map((o, i) => row([letter(i), fitName(o.label, 24, COLORS.strong, 700, { flex: 1 })], { marginTop: 10 })),
+    ...poll.options.slice(0, MAX_OPTIONS).map((o, i) => row([letter(i), fitName(o.label, 24, COLORS.strong, 700, { flex: 1 })], { marginTop: 10 })),
   );
 }
 

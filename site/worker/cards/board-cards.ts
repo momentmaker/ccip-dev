@@ -5,7 +5,7 @@ import type { BoardEntry } from '@ccip-dev/core/public';
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
 import {
-  bigText, bold, boldArrows, broadcastFrame, cardWeek, COLORS, columnLine, eyebrow, hasReplayDay, hubSky, iconsFor, momentColumn, nameSize, namesOf, pill, PILLS, row,
+  bigText, bold, boldArrows, broadcastFrame, cardWeek, COLORS, columnLine, ellipsized, eyebrow, fitName, hasReplayDay, hubSky, iconsFor, momentColumn, nameSize, namesOf, pill, PILLS, row,
   skyFor, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
 import { BOARDS_CTA, CHAINS_CTA } from './cta';
@@ -45,19 +45,9 @@ function headlineName(text: string): VNode {
   return row(withArrows(text, Math.round(size * 0.55), '#ffffff'), { fontSize: size, fontWeight: 800, letterSpacing: -2, color: '#ffffff', marginTop: 6, flexWrap: 'wrap', maxWidth: 660 });
 }
 
-const ellipsized = { display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 } as const;
 const climberSize = (text: string) => (text.length <= 22 ? 22 : text.length <= 34 ? 20 : 18);
 
-/** A name that gives way to an ellipsis rather than a cut glyph; a lane's two ends shrink separately around their arrow. */
-function climberName(text: string): VNode {
-  const size = climberSize(text);
-  const parts = text.split(' → ');
-  const style = { ...ellipsized, fontWeight: 700, color: COLORS.strong, fontSize: size };
-  return row(
-    parts.flatMap((part, i): Child[] => [...(i > 0 ? [glyph('right', Math.round(size * 0.8), COLORS.strong, { left: 8, right: 8 })] : []), h('div', { style }, part)]),
-    { flex: 1, minWidth: 0 },
-  );
-}
+const climberName = (text: string) => fitName(text, climberSize(text), COLORS.strong, 700, { flex: 1 });
 
 function climberRow(c: Climber, names: ChainNames): VNode {
   const gain: Child[] = c.gain === null ? ['new'] : [glyph('up', 16, COLORS.up, { right: 6 }), String(c.gain)];

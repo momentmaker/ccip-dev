@@ -48,6 +48,20 @@ export function boldArrows(text: string, size = 16, style: Record<string, unknow
   return row(withArrows(text, size, COLORS.strong), { color: COLORS.strong, fontWeight: 700, ...style });
 }
 
+export const ellipsized = { display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 } as const;
+
+/** A name that gives way to an ellipsis rather than a cut glyph; a lane's two ends shrink separately around their arrow glyph. */
+export function fitName(text: string, size: number, color: string, weight: number, style: Record<string, unknown> = {}): VNode {
+  const parts = text.split(' → ');
+  return row(
+    parts.flatMap((part, i): Child[] => [
+      ...(i > 0 ? [glyph('right', Math.round(size * 0.8), color, { left: 8, right: 8 })] : []),
+      h('div', { style: { ...ellipsized, fontWeight: weight, color, fontSize: size } }, part),
+    ]),
+    { fontSize: size, minWidth: 0, flexShrink: 1, ...style },
+  );
+}
+
 export interface StatView {
   label: string;
   value: string;
