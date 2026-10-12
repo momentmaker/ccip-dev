@@ -20,12 +20,18 @@ describe('card paths', () => {
     ['broadcast/record/fees/2026-07-09', { kind: 'broadcast', target: { kind: 'record', record: 'fees', day: '2026-07-09' } }],
     ['broadcast/milestone/messages/1000000', { kind: 'broadcast', target: { kind: 'milestone', metric: 'messages', threshold: 1_000_000 } }],
     [`broadcast/reserve/0x${'ab'.repeat(32)}`, { kind: 'broadcast', target: { kind: 'reserve', tx: `0x${'ab'.repeat(32)}` } }],
+    ['broadcast/welcome/7281642695469137430', { kind: 'broadcast', target: { kind: 'welcome', selector: '7281642695469137430' } }],
+    ['broadcast/countdown/fees/2500000', { kind: 'broadcast', target: { kind: 'countdown', metric: 'fees', threshold: 2_500_000 } }],
+    ['broadcast/poll/2026-10-12', { kind: 'broadcast', target: { kind: 'poll', monday: '2026-10-12' } }],
+    ['broadcast/movers/2026-10-05', { kind: 'broadcast', target: { kind: 'movers', monday: '2026-10-05' } }],
+    ['broadcast/spotlight/2026-10-05', { kind: 'broadcast', target: { kind: 'spotlight', monday: '2026-10-05' } }],
+    ['broadcast/roundup/2026-10-05', { kind: 'broadcast', target: { kind: 'roundup', monday: '2026-10-05' } }],
   ] as [string, CardRoute][])('parses %s and prints it back', (path, route) => {
     expect(parseCardPath(path)).toEqual(route);
     expect(cardPathOf(route)).toBe(path);
   });
 
-  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06'])('rejects %j', (path) => {
+  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base'])('rejects %j', (path) => {
     expect(parseCardPath(path)).toBeNull();
   });
 

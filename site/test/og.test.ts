@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CardSize } from '../worker/cards/frame';
 import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
 import { BROADCAST_FILES, DAY, DEPOSIT_TX, OUTFLOW_TX, RECORD_DAY } from './fixtures/broadcast';
+import { MOMENT_FILES, TEMPO } from './fixtures/moments';
 import chains from './fixtures/chains.json';
 import history from './fixtures/history.json';
 import reserve from './fixtures/reserve.json';
@@ -138,6 +139,30 @@ describe('handleOg', () => {
     const status = (await get(`/og/broadcast/reserve/${OUTFLOW_TX}.png`)).status;
     // #then
     expect({ status, rendered: renderPng.mock.calls.length }).toEqual({ status: 404, rendered: 0 });
+  });
+
+  it('renders the welcome and countdown cards from moments.json, replay.json and chains.json with no-store, and 404s a moment the file does not hold', async () => {
+    // #given
+    const { get, renderPng, dataUrls, dataInits } = setup({}, [], { ...DATA, ...BROADCAST_FILES, ...MOMENT_FILES });
+    // #when
+    const statuses = [
+      (await get(`/og/broadcast/welcome/${TEMPO}.png`)).status,
+      (await get('/og/broadcast/countdown/fees/2500000.png')).status,
+      (await get('/og/broadcast/welcome/5009297550715157269.png')).status,
+      (await get('/og/broadcast/countdown/fees/5000000.png')).status,
+    ];
+    // #then
+    expect({
+      statuses,
+      rendered: renderPng.mock.calls.map((call) => call[1]),
+      read: [...new Set(dataUrls.map((u) => u.replace('https://data.ccip.dev/v1/', '')))].sort(),
+      noStore: dataInits.every((init) => init?.cache === 'no-store'),
+    }).toEqual({
+      statuses: [200, 200, 404, 404],
+      rendered: [{ width: 1200, height: 675 }, { width: 1200, height: 675 }],
+      read: ['chains.json', 'moments.json', 'replay.json'],
+      noStore: true,
+    });
   });
 
   it('answers 500, not the fallback card, when a broadcast card fails', async () => {

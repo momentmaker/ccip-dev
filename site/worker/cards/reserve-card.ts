@@ -1,8 +1,7 @@
 import { reserveDepositFacts, type ReserveDepositFacts } from '@ccip-dev/core/broadcasts';
 import { formatCompactCount, formatCount, formatPct, formatUsd } from '@ccip-dev/core/format';
 import { h, type Child, type VNode } from '../h';
-import type { BroadcastInputs } from './broadcast-cards';
-import { bold, broadcastFrame, cardDay, COLORS, date, dayNumber, eyebrow, MONTH_DAY, row, TEXT_COLUMN } from './broadcast-frame';
+import { bold, broadcastFrame, cardDay, COLORS, date, dayNumber, eyebrow, MONTH_DAY, row, TEXT_COLUMN, type BroadcastInputs } from './broadcast-frame';
 import { RESERVE_CTA } from './cta';
 import { ORBIT_H, ORBIT_W, skySvg, svgDataUri } from './orbit-sky';
 

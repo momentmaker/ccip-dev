@@ -15,6 +15,7 @@ export const CTA_ROTATION: readonly Cta[] = [
 
 export const RECORDS_CTA: Cta = { lead: 'Every record:', path: 'ccip.dev/records' };
 export const RESERVE_CTA: Cta = { lead: 'Track it:', path: 'ccip.dev/reserve' };
+export const CHAINS_CTA: Cta = { lead: 'Every chain:', path: 'ccip.dev/chains' };
 
 /** Be The Oracle joins the rotation at its launch, set here with its call to action; until then it stays out. */
 export const ORACLE: { launch: string; cta: Cta } | null = null;

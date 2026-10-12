@@ -1,9 +1,19 @@
 import { formatShare } from '@ccip-dev/core/format';
+import { chainName, chainNameMap, type ChainNames } from '@ccip-dev/core/names';
+import type { PublicFile, PublicFileName, ReplayFile } from '@ccip-dev/core/public';
+import type { MilestoneMetric } from '@ccip-dev/core/records';
+import { addDays } from '@ccip-dev/core/time';
+import { windowWeights } from '../../src/sky/weights';
 import { h, type Child, type VNode } from '../h';
 import type { Cta } from './cta';
 import type { CardSize } from './frame';
-import { glyph, withArrows } from './glyphs';
-import type { StarFreeZone } from './orbit-sky';
+import { glyph, withArrows, type GlyphName } from './glyphs';
+import { orbitSky, type OrbitSky, type StarFreeZone } from './orbit-sky';
+
+export interface BroadcastInputs {
+  load: <N extends PublicFileName>(name: N) => Promise<PublicFile<N>>;
+  icon: (selector: string) => Promise<string | null>;
+}
 
 export const BROADCAST_SIZE: CardSize = { width: 1200, height: 675 };
 export const STRIP_H = 64;
@@ -139,4 +149,99 @@ export function broadcastFrame(spec: FrameSpec): VNode {
     spec.body,
     strip(spec.insight, spec.cta),
   );
+}
+
+/** "Oct 5 – 11, 2026", or "Sep 28 – Oct 4, 2026" across a month. */
+export function cardWeek(monday: string): string {
+  const sunday = addDays(monday, 6);
+  const end = monday.slice(0, 7) === sunday.slice(0, 7) ? String(Number(sunday.slice(8))) : MONTH_DAY.format(date(sunday));
+  return `${MONTH_DAY.format(date(monday))} – ${end}, ${sunday.slice(0, 4)}`;
+}
+
+export const MILESTONE_TITLES: Record<MilestoneMetric, string> = {
+  messages: 'All-time messages on CCIP',
+  value: 'All-time value moved over CCIP',
+  fees: 'All-time fees paid to CCIP',
+};
+
+export async function iconsFor(sky: OrbitSky, icon: BroadcastInputs['icon']): Promise<Map<string, string | null>> {
+  return new Map(await Promise.all(sky.coins.map(async (c) => [c.selector, await icon(c.selector)] as const)));
+}
+
+export const namesOf = (replay: ReplayFile, chains: PublicFile<'chains.json'>): ChainNames => chainNameMap([...replay.chains, ...chains.chains]);
+
+export const hasReplayDay = (replay: ReplayFile, day: string) => replay.days.some((d) => d.day === day);
+
+type SkyExtra = { dim?: boolean; gold?: string | null; starFree?: readonly StarFreeZone[] };
+
+/** The day's (or week's) chains and lanes from replay.json, around the busiest chain. */
+export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: string, extra: SkyExtra = {}): OrbitSky {
+  const weights = windowWeights(replay, from, to);
+  return orbitSky({
+    chains: [...weights.chains].map(([selector, value]) => ({ selector, value, name: chainName(names, selector) })),
+    lanes: weights.lanes,
+    seed: dayNumber(to),
+    ...extra,
+  });
+}
+
+/**
+ * One chain at the hub of its own sky with the chains it shared a lane with over [from, to] around it. Messages count
+ * with value, so a partner on an unpriced lane still shows, and the hub always outweighs its partners.
+ */
+export function hubSky(replay: ReplayFile, names: ChainNames, hub: string, from: string, to: string, extra: SkyExtra = {}): OrbitSky {
+  const lanes = windowWeights(replay, from, to).lanes.filter((l) => l.src === hub || l.dst === hub);
+  const partners = new Map<string, number>();
+  for (const l of lanes) {
+    const other = l.src === hub ? l.dst : l.src;
+    partners.set(other, (partners.get(other) ?? 0) + l.usd + l.messages);
+  }
+  const top = Math.max(1, ...partners.values());
+  return orbitSky({
+    chains: [{ selector: hub, value: top * 3, name: chainName(names, hub) }, ...[...partners].map(([selector, value]) => ({ selector, value, name: chainName(names, selector) }))],
+    lanes: lanes.map((l) => ({ src: l.src, dst: l.dst, usd: l.usd + l.messages })),
+    seed: dayNumber(to),
+    ...extra,
+  });
+}
+
+export const PILLS = {
+  gold: { from: '#ffcf5a', to: '#ff9f43', ink: '#1a1205' },
+  welcome: { from: '#7de3ff', to: '#4a7ff0', ink: '#04101f' },
+  violet: { from: '#c6a8ff', to: '#7d5cff', ink: '#120a26' },
+  green: { from: '#7fd4a0', to: '#2bb673', ink: '#04160c' },
+} as const;
+
+export function pill(text: string, colors: (typeof PILLS)[keyof typeof PILLS], icon: GlyphName | null = null): VNode {
+  return row([icon ? glyph(icon, 18, colors.ink, { right: 8 }) : null, text], {
+    alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 999, backgroundImage: `linear-gradient(90deg, ${colors.from}, ${colors.to})`,
+    color: colors.ink, fontWeight: 800, fontSize: 20, letterSpacing: 3,
+  });
+}
+
+export const MOMENT_COLUMN_WIDTH = 660;
+
+/** The left text column of a moment card, on the open sky. */
+export function momentColumn(...children: (VNode | null)[]): VNode {
+  return h('div', { style: { position: 'absolute', left: 52, top: 118, width: MOMENT_COLUMN_WIDTH, display: 'flex', flexDirection: 'column' } }, ...children);
+}
+
+/** A name or figure at headline size, with a soft glow. */
+export function bigText(text: string, size: number, glow = 'rgba(74,127,240,0.45)'): VNode {
+  return h('div', { style: { fontSize: size, fontWeight: 800, letterSpacing: -3, lineHeight: 1.05, color: '#ffffff', textShadow: `0 0 40px ${glow}`, marginTop: 6, maxWidth: MOMENT_COLUMN_WIDTH } }, text);
+}
+
+/** A line inside the text column that wraps instead of running into the sky. */
+export function columnLine(children: readonly Child[], style: Record<string, unknown> = {}): VNode {
+  return row(children, { marginTop: 10, alignSelf: 'flex-start', maxWidth: MOMENT_COLUMN_WIDTH, flexWrap: 'wrap', fontSize: 26, color: COLORS.muted, ...style });
+}
+
+/** Headline size for a record or milestone figure. */
+export function bigSize(text: string): number {
+  return text.length <= 7 ? 132 : text.length <= 10 ? 104 : 80;
+}
+
+/** Headline size for a name: large for a short one, smaller as it grows, so it stays on one line in the column. */
+export function nameSize(text: string): number {
+  return text.length <= 9 ? 96 : text.length <= 14 ? 72 : 52;
 }

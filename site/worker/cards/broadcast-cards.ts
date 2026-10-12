@@ -2,22 +2,20 @@ import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, recordValueText, weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
 } from '@ccip-dev/core/broadcasts';
 import { formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
-import { chainName, chainNameMap, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
-import type { DayLeaders, Leader, PublicFile, PublicFileName, ReplayFile } from '@ccip-dev/core/public';
+import { chainName, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
+import type { DayLeaders, Leader } from '@ccip-dev/core/public';
 import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
-import { windowWeights } from '../../src/sky/weights';
 import { h, type Child, type VNode } from '../h';
-import { bold, boldArrows, broadcastFrame, cardDay, COLORS, date, dayNumber, deltaStat, eyebrow, feeBars, MONTH_DAY, mutedStat, row, statsPanel, TEXT_COLUMN } from './broadcast-frame';
+import {
+  bigSize, bold, boldArrows, broadcastFrame, cardDay, cardWeek, COLORS, deltaStat, eyebrow, feeBars, hasReplayDay, iconsFor, MILESTONE_TITLES, mutedStat, namesOf, row,
+  skyFor, statsPanel, TEXT_COLUMN, type BroadcastInputs,
+} from './broadcast-frame';
 import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph, withArrows } from './glyphs';
-import { orbitSky, skyNodes, type OrbitSky, type StarFreeZone } from './orbit-sky';
+import { countdownTree, welcomeTree } from './moment-cards';
+import { skyNodes } from './orbit-sky';
 import { reserveTree } from './reserve-card';
-
-export interface BroadcastInputs {
-  load: <N extends PublicFileName>(name: N) => Promise<PublicFile<N>>;
-  icon: (selector: string) => Promise<string | null>;
-}
 
 export const RECORD_TITLES: Record<RecordKind, string> = {
   messages: 'Most messages in a day',
@@ -26,32 +24,6 @@ export const RECORD_TITLES: Record<RecordKind, string> = {
   largest_fee: 'Largest single fee',
   link_share: 'Highest share of fees paid in LINK',
 };
-
-/** "Oct 5 – 11, 2026", or "Sep 28 – Oct 4, 2026" across a month. */
-export function cardWeek(monday: string): string {
-  const sunday = addDays(monday, 6);
-  const end = monday.slice(0, 7) === sunday.slice(0, 7) ? String(Number(sunday.slice(8))) : MONTH_DAY.format(date(sunday));
-  return `${MONTH_DAY.format(date(monday))} – ${end}, ${sunday.slice(0, 4)}`;
-}
-
-export async function iconsFor(sky: OrbitSky, icon: BroadcastInputs['icon']): Promise<Map<string, string | null>> {
-  return new Map(await Promise.all(sky.coins.map(async (c) => [c.selector, await icon(c.selector)] as const)));
-}
-
-export const namesOf = (replay: ReplayFile, chains: PublicFile<'chains.json'>): ChainNames => chainNameMap([...replay.chains, ...chains.chains]);
-
-/** The day's (or week's) chains and lanes from replay.json, around the busiest chain. */
-export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: string, extra: { dim?: boolean; gold?: string | null; starFree?: readonly StarFreeZone[] } = {}): OrbitSky {
-  const weights = windowWeights(replay, from, to);
-  return orbitSky({
-    chains: [...weights.chains].map(([selector, value]) => ({ selector, value, name: chainName(names, selector) })),
-    lanes: weights.lanes,
-    seed: dayNumber(to),
-    ...extra,
-  });
-}
-
-const hasReplayDay = (replay: ReplayFile, day: string) => replay.days.some((d) => d.day === day);
 
 const addressOf = (key: string) => key.slice(key.indexOf(':') + 1);
 
@@ -142,10 +114,6 @@ async function weeklyTree(monday: string, inputs: BroadcastInputs): Promise<VNod
   });
 }
 
-export function bigSize(text: string): number {
-  return text.length <= 7 ? 132 : text.length <= 10 ? 104 : 80;
-}
-
 function headlineBody(o: { pill: string; title: string; value: string; lines: (VNode | null)[] }): VNode {
   return h(
     'div',
@@ -218,12 +186,6 @@ async function recordTree(kind: RecordKind, day: string, inputs: BroadcastInputs
   });
 }
 
-const MILESTONE_TITLES: Record<MilestoneMetric, string> = {
-  messages: 'All-time messages on CCIP',
-  value: 'All-time value moved over CCIP',
-  fees: 'All-time fees paid to CCIP',
-};
-
 async function milestoneTree(metric: MilestoneMetric, threshold: number, inputs: BroadcastInputs): Promise<VNode | null> {
   const [history, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const milestone = trackedMilestones(history.days).find((m) => m.metric === metric && m.threshold === threshold);
@@ -258,7 +220,9 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
     case 'reserve':
       return reserveTree(target.tx, inputs.load);
     case 'welcome':
+      return welcomeTree(target.selector, inputs);
     case 'countdown':
+      return countdownTree(target.metric, target.threshold, inputs);
     case 'poll':
     case 'movers':
     case 'spotlight':

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { VNode } from '../worker/h';
 import { trackedMilestones } from '@ccip-dev/core/records';
-import { bigSize, broadcastTree } from '../worker/cards/broadcast-cards';
+import { broadcastTree } from '../worker/cards/broadcast-cards';
+import { bigSize } from '../worker/cards/broadcast-frame';
 import { reserveSvg } from '../worker/cards/reserve-card';
 import { ctaFor } from '../worker/cards/cta';
 import { MISSING_GLYPHS } from '../worker/cards/glyphs';
