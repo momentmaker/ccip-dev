@@ -74,7 +74,7 @@ function photoOutput(c: RunContext, name: string, config: TelegramConfig, captio
   };
 }
 
-/** Sends the week's poll after its card, and keeps its message id under `poll:<monday>` so next Monday's run can close it. */
+/** Sends the week's poll after its card, and keeps its message id under `poll:<monday>` so a finalize after its week can close it. */
 function pollOutput(c: RunContext, config: TelegramConfig, after: string): BroadcastOutput {
   return {
     name: 'telegram-poll',

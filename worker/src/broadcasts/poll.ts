@@ -1,26 +1,41 @@
 import { addDays, dayOf, weekStart } from '@ccip-dev/core';
-import { parsePollRecord, pollRecordKey } from '@ccip-dev/core/moments';
+import { parsePollRecord, pollRecordKey, type PollRecord } from '@ccip-dev/core/moments';
 import type { RunContext } from '../context';
 import * as store from '../store';
 import { stopTelegramPoll } from '../telegram';
-import { momentMode } from './outputs';
+
+/** How many weeks before this one a finalize looks back for a poll still open. */
+export const CLOSE_WEEKS = 8;
 
 /**
- * Monday's early and 06:00 finalize run this before they publish moments.json: it closes last week's poll and keeps its
- * voter counts in the poll's record, so this week's card can show who called it. A poll that already has its counts is
- * skipped, so the 06:00 run only closes what the early run could not. A poll that cannot be closed (deleted, or a failed
- * call) keeps no counts and alerts; nothing here ever fails the finalize.
+ * Each early and 06:00 finalize runs this before it publishes moments.json: it closes every poll of the 8 weeks before this
+ * one that has no voter counts yet, oldest first, and keeps the counts in the poll's record, so the next poll card can show
+ * who called it. Closing posts nothing, so it runs whatever BROADCASTS and MOMENTS say: switching moments off must not leave
+ * a public poll open. A poll that cannot be closed (deleted, or a failed call) keeps no counts and alerts, and the next
+ * finalize tries again; nothing here ever fails the finalize.
  */
-export async function closeLastWeekPoll(c: RunContext): Promise<void> {
-  const today = dayOf(c.deps.now());
+export async function closeOpenPolls(c: RunContext): Promise<void> {
   const token = c.env.TELEGRAM_BOT_TOKEN;
-  if (weekStart(today) !== today || momentMode(c.env) === 'off' || !token) return;
-  const monday = addDays(today, -7);
+  if (!token) return;
+  const thisWeek = weekStart(dayOf(c.deps.now()));
+  const mondays = Array.from({ length: CLOSE_WEEKS }, (_, i) => addDays(thisWeek, -7 * (CLOSE_WEEKS - i)));
+  let records: Map<string, string>;
+  try {
+    records = await store.getMetas(c.env.DB, mondays.map(pollRecordKey));
+  } catch (err) {
+    await alertPollClose(c, mondays.at(-1)!, `The polls of the ${CLOSE_WEEKS} weeks before ${thisWeek} could not be read, so none was closed: ${errorText(err)}`);
+    return;
+  }
+  for (const monday of mondays) {
+    const record = parsePollRecord(records.get(pollRecordKey(monday)) ?? null);
+    if (record !== null && record.voters === undefined) await closePoll(c, token, monday, record);
+  }
+}
+
+async function closePoll(c: RunContext, token: string, monday: string, record: PollRecord): Promise<void> {
   const key = pollRecordKey(monday);
   let problem: string;
   try {
-    const record = parsePollRecord(await store.getMeta(c.env.DB, key));
-    if (record === null || record.voters !== undefined) return;
     const closed = await stopTelegramPoll(c.deps, { token, chatId: record.chat_id }, record.message_id);
     if ('problem' in closed) problem = `The poll of the week of ${monday} could not be closed, so its result posts without vote shares: ${closed.problem}`;
     else if (closed.voters.length !== record.options.length) {
@@ -38,8 +53,14 @@ export async function closeLastWeekPoll(c: RunContext): Promise<void> {
       }
     }
   } catch (err) {
-    problem = `The poll of the week of ${monday} could not be closed, so its result posts without vote shares: ${err instanceof Error ? err.message : String(err)}`;
+    problem = `The poll of the week of ${monday} could not be closed, so its result posts without vote shares: ${errorText(err)}`;
   }
+  await alertPollClose(c, monday, problem);
+}
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+async function alertPollClose(c: RunContext, monday: string, problem: string): Promise<void> {
   try {
     await c.alert(`poll-close:${monday}`, problem);
   } catch (alertErr) {

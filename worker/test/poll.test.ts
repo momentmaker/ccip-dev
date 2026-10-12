@@ -4,7 +4,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PollFacts } from '../src/broadcasts/moment-facts';
 import { selectPollOutputs, telegramOutputs, type Broadcast, type BroadcastOutput } from '../src/broadcasts/outputs';
-import { closeLastWeekPoll } from '../src/broadcasts/poll';
+import { closeOpenPolls } from '../src/broadcasts/poll';
 import { MOMENTS_SEED_KEY, runBroadcasts } from '../src/broadcasts/run';
 import * as store from '../src/store';
 import { harness, resetStorage, seedRegistry, watchedDb } from './helpers';
@@ -288,7 +288,7 @@ describe('the poll output', () => {
   });
 });
 
-describe('closeLastWeekPoll', () => {
+describe('closeOpenPolls', () => {
   const RECORD = { chat_id: '@ccipdev', message_id: 7, question_kind: 'fee_chain', question: QUESTION, options: OPTIONS };
   const ENV = { BROADCASTS: 'on', MOMENTS: 'on', TELEGRAM_BOT_TOKEN: 'bot' };
   const telegram = (answer: () => Response) => fakeFetch((url) => (url.endsWith('/stopPoll') ? answer() : undefined));
@@ -304,7 +304,7 @@ describe('closeLastWeekPoll', () => {
     const { c, alerts } = harness({ now: NOW, fetch: telegram(closed), env: ENV, db });
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     // #when
-    await closeLastWeekPoll(c);
+    await closeOpenPolls(c);
     // #then
     expect(alerts).toEqual([{
       signature: 'poll-close:2026-10-05',
@@ -318,7 +318,7 @@ describe('closeLastWeekPoll', () => {
     const short = () => jsonResponse({ ok: true, result: { total_voter_count: 5, options: [{ voter_count: 5 }, { voter_count: 0 }] } });
     const { c, alerts } = harness({ now: NOW, fetch: telegram(short), env: ENV });
     // #when
-    await closeLastWeekPoll(c);
+    await closeOpenPolls(c);
     // #then
     expect({ alerts: alerts.map((a) => a.text), record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
       alerts: ['The poll of the week of 2026-10-05 could not be closed, so its result posts without vote shares: Telegram counted 2 options for 3'],
@@ -330,7 +330,7 @@ describe('closeLastWeekPoll', () => {
     // #given
     const fetch = telegram(closed);
     // #when
-    await closeLastWeekPoll(harness({ now: NOW, fetch, env: ENV }).c);
+    await closeOpenPolls(harness({ now: NOW, fetch, env: ENV }).c);
     // #then
     expect({ body: JSON.parse(String(fetch.calls[0]?.init?.body)), record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
       body: { chat_id: '@ccipdev', message_id: 7 },
@@ -343,7 +343,7 @@ describe('closeLastWeekPoll', () => {
     const fetch = telegram(() => jsonResponse({ ok: false, description: 'Bad Request: message to stop poll not found' }, 400));
     const { c, alerts } = harness({ now: NOW, fetch, env: ENV });
     // #when
-    await closeLastWeekPoll(c);
+    await closeOpenPolls(c);
     // #then
     expect({ alerts, record: JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!) }).toEqual({
       alerts: [{
@@ -354,18 +354,56 @@ describe('closeLastWeekPoll', () => {
     });
   });
 
-  it('does nothing on another day, with moments off, without a bot token, or for a poll already closed', async () => {
+  it('does nothing without a bot token', async () => {
     // #given
     const fetch = telegram(closed);
-    await store.setMeta(env.DB, 'poll:2026-09-28', JSON.stringify({ ...RECORD, voters: [1, 1, 1], total_voters: 3 }));
     // #when
-    await closeLastWeekPoll(harness({ now: '2026-10-13T00:07:00.000Z', fetch, env: ENV }).c);
-    await closeLastWeekPoll(harness({ now: NOW, fetch, env: { ...ENV, MOMENTS: 'off' } }).c);
-    await closeLastWeekPoll(harness({ now: NOW, fetch, env: { ...ENV, BROADCASTS: 'off' } }).c);
-    await closeLastWeekPoll(harness({ now: NOW, fetch, env: { ...ENV, TELEGRAM_BOT_TOKEN: '' } }).c);
-    await closeLastWeekPoll(harness({ now: '2026-10-05T00:07:00.000Z', fetch, env: ENV }).c);
+    await closeOpenPolls(harness({ now: NOW, fetch, env: { ...ENV, TELEGRAM_BOT_TOKEN: '' } }).c);
     // #then
     expect(fetch.calls).toEqual([]);
+  });
+
+  it("leaves this week's poll open on its Monday and the days after, and a poll older than 8 weeks alone", async () => {
+    // #given the poll of the week of Oct 5 is this week's, and the poll of Aug 3 is 9 weeks before it
+    const fetch = telegram(closed);
+    await store.setMeta(env.DB, 'poll:2026-08-03', JSON.stringify(RECORD));
+    // #when Monday's and Tuesday's finalize run
+    await closeOpenPolls(harness({ now: '2026-10-05T00:07:00.000Z', fetch, env: ENV }).c);
+    await closeOpenPolls(harness({ now: '2026-10-06T00:07:00.000Z', fetch, env: ENV }).c);
+    // #then
+    expect(fetch.calls).toEqual([]);
+  });
+
+  it("closes last week's poll with moments off, since closing posts nothing", async () => {
+    // #given the documented kill switch is on
+    const fetch = telegram(closed);
+    // #when
+    await closeOpenPolls(harness({ now: NOW, fetch, env: { ...ENV, MOMENTS: 'off' } }).c);
+    // #then
+    expect(JSON.parse((await store.getMeta(env.DB, 'poll:2026-10-05'))!)).toEqual({ ...RECORD, voters: [5, 8, 0], total_voters: 13 });
+  });
+
+  it('closes a poll that a skipped Monday left open, oldest first', async () => {
+    // #given the poll of Sep 28 was never closed, and last week's is open too
+    const fetch = telegram(closed);
+    await store.setMeta(env.DB, 'poll:2026-09-28', JSON.stringify({ ...RECORD, message_id: 6 }));
+    // #when
+    await closeOpenPolls(harness({ now: NOW, fetch, env: ENV }).c);
+    // #then
+    expect({
+      closed: fetch.calls.map((call) => JSON.parse(String(call.init?.body)).message_id),
+      counts: [(await store.getMeta(env.DB, 'poll:2026-09-28'))?.includes('"voters"'), (await store.getMeta(env.DB, 'poll:2026-10-05'))?.includes('"voters"')],
+    }).toEqual({ closed: [6, 7], counts: [true, true] });
+  });
+
+  it('never sends a closed poll to stopPoll again', async () => {
+    // #given the poll of Sep 28 already has its counts
+    const fetch = telegram(closed);
+    await store.setMeta(env.DB, 'poll:2026-09-28', JSON.stringify({ ...RECORD, message_id: 6, voters: [1, 1, 1], total_voters: 3 }));
+    // #when Monday's early and 06:00 finalize and Tuesday's both run
+    for (const now of [NOW, '2026-10-12T06:00:00.000Z', '2026-10-13T00:07:00.000Z']) await closeOpenPolls(harness({ now, fetch, env: ENV }).c);
+    // #then only last week's poll was closed, once
+    expect(fetch.calls.map((call) => JSON.parse(String(call.init?.body)).message_id)).toEqual([7]);
   });
 
   it('never throws, even when D1 and the alerter both fail', async () => {
@@ -374,7 +412,7 @@ describe('closeLastWeekPoll', () => {
     const c = { ...h.c, alert: async () => { throw new Error('alerter down'); } };
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     // #when
-    const run = closeLastWeekPoll(c);
+    const run = closeOpenPolls(c);
     // #then
     await expect(run).resolves.toBeUndefined();
     log.mockRestore();
