@@ -223,7 +223,7 @@ The first poll has no "Last week" line.
 1. **Close last week's poll.** On Monday, the run calls Telegram `stopPoll` on the message id saved in `meta` (`poll:<monday>` holds `{ chat_id, message_id, question_kind, options }`). Telegram returns each option's `voter_count`; the shares go into `moments.json`. A poll that can't be closed (deleted, or the call fails) keeps `votes: null`, and the card shows the answer without "called it".
 2. **Work out last week's answer** from our data, and publish it.
 3. **Post the card** (last week's result, if any, and this week's question).
-4. **Send the poll** with `sendPoll` right after the card. Polls in a channel are anonymous. Telegram polls close on their own after at most 10 minutes, so no close time is set; step 1 closes it a week later. Save its message id.
+4. **Send the poll** with `sendPoll` right after the card. Polls in a channel are anonymous. No close time is set; step 1 closes it a week later with `stopPoll`. Save its message id.
 
 - **Outputs:**
   - `telegram-poll` is a new output, posted only to the chat the card went to: the channel in `on`, the drafts chat in `drafts`.
