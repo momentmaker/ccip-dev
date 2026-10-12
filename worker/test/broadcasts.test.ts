@@ -1,9 +1,9 @@
 import type { Dim } from '@ccip-dev/core';
-import { fakeFetch, NETWORKS } from '@ccip-dev/core/testing';
+import { fakeFetch, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Broadcast, BroadcastOutput } from '../src/broadcasts/outputs';
-import { broadcastMode, telegramOutputs } from '../src/broadcasts/outputs';
+import { broadcastMode, broadcastOutputs, selectOutputs, telegramOutputs } from '../src/broadcasts/outputs';
 import { broadcastHourly, RECORDS_SEED_KEY, RESERVE_SINCE_KEY, runBroadcasts } from '../src/broadcasts/run';
 import type { ReserveBody } from '../src/publish';
 import * as store from '../src/store';
@@ -50,7 +50,7 @@ async function finalizeRun(o: { now?: string; days: string[]; mode?: string; cha
   const drafts = recorder('x-draft', o.drafts);
   const preview = recorder('telegram-preview');
   const h = harness({ now: o.now ?? NOW, fetch: o.fetch ?? card(), env: { BROADCASTS: o.mode ?? 'on' } });
-  await runBroadcasts(h.c, { kind: 'finalize', days: o.days }, { channel: [channel.output], drafts: [drafts.output], preview: [preview.output] });
+  await runBroadcasts(h.c, { kind: 'finalize', days: o.days }, { channel: [channel.output], drafts: [drafts.output], preview: [preview.output], xPost: [] });
   return { channel: channel.sent, drafts: drafts.sent, preview: preview.sent, alerts: h.alerts };
 }
 
@@ -122,7 +122,7 @@ describe('runBroadcasts after finalize', () => {
       await seedDays(DAY);
       const h = harness({ now: NOW, fetch: card(), db: failingMarks(fails), env: { BROADCASTS: 'on' } });
       const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-      await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [], preview: [] });
+      await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [], preview: [], xPost: [] });
       log.mockRestore();
       return { alerts: h.alerts.map((a) => a.signature), claim: (await store.getMeta(env.DB, DAILY_KEY))?.split(':')[0] };
     };
@@ -352,7 +352,7 @@ describe('broadcast claims', () => {
     const h = harness({ now: NOW, fetch: card(500), env: { BROADCASTS: 'on' } });
     const throwing = { ...h.c, alert: async () => { throw new Error('alerter down'); } };
     // #when
-    await runBroadcasts(throwing, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [], preview: [] }).catch(() => {});
+    await runBroadcasts(throwing, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [], preview: [], xPost: [] }).catch(() => {});
     // #then
     expect(await store.getMeta(env.DB, DAILY_KEY)).toBeNull();
   });
@@ -364,7 +364,7 @@ describe('broadcast claims', () => {
     const boom: BroadcastOutput = { name: 'telegram-channel', send: async () => { throw new TypeError('secret-token in url'); } };
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     // #when
-    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [boom], drafts: [], preview: [] });
+    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [boom], drafts: [], preview: [], xPost: [] });
     const logged = log.mock.calls.map((a) => a.join(' '));
     log.mockRestore();
     // #then
@@ -454,7 +454,7 @@ describe('runBroadcasts for the Reserve', () => {
   const reserveRun = async (reserve: ReserveBody) => {
     const channel = recorder('telegram-channel');
     const h = harness({ now: '2026-10-08T17:00:00.000Z', fetch: card(), env: { BROADCASTS: 'on' } });
-    await runBroadcasts(h.c, { kind: 'reserve', reserve }, { channel: [channel.output], drafts: [], preview: [] });
+    await runBroadcasts(h.c, { kind: 'reserve', reserve }, { channel: [channel.output], drafts: [], preview: [], xPost: [] });
     return keys(channel.sent);
   };
 
@@ -505,7 +505,7 @@ describe('runBroadcasts for the Reserve', () => {
     const fetch = card();
     const h = harness({ now: '2026-10-08T17:00:00.000Z', fetch, env: { BROADCASTS: 'on' } });
     // #when
-    await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 1e300, 12.5)]) }, { channel: [channel.output], drafts: [], preview: [] });
+    await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 1e300, 12.5)]) }, { channel: [channel.output], drafts: [], preview: [], xPost: [] });
     // #then
     expect({
       alerts: h.alerts.map((a) => a.signature),
@@ -513,5 +513,97 @@ describe('runBroadcasts for the Reserve', () => {
       sent: channel.sent.length,
       fetches: fetch.calls.length,
     }).toEqual({ alerts: [`broadcast-copy:broadcast:reserve:${TX2}`], claim: null, sent: 0, fetches: 0 });
+  });
+});
+
+describe('X posting output', () => {
+  const X_KEYS = { X_API_KEY: 'k-key', X_API_SECRET: 'k-secret', X_ACCESS_TOKEN: 't-token', X_ACCESS_SECRET: 't-secret' };
+  const ENV = { TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42' };
+  const BROADCAST: Broadcast = { key: 'broadcast:daily:2026-10-10', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: '#CCIP daily', telegramHtml: '<b>t</b>' };
+  const xPostOf = (extra: Record<string, string>, f?: typeof fetch) => broadcastOutputs(harness({ now: NOW, fetch: f, env: { ...ENV, ...extra } }).c).xPost;
+
+  it('is present only when all four keys are set and X_POSTS is not off', () => {
+    // #when
+    const names = (extra: Record<string, string>) => xPostOf(extra).map((o) => o.name);
+    const { X_ACCESS_SECRET: _omitted, ...threeKeys } = X_KEYS;
+    // #then
+    expect({
+      all: names(X_KEYS),
+      switchedOn: names({ ...X_KEYS, X_POSTS: 'on' }),
+      off: names({ ...X_KEYS, X_POSTS: 'off' }),
+      missingOne: names(threeKeys),
+      none: names({}),
+    }).toEqual({ all: ['x-post'], switchedOn: ['x-post'], off: [], missingOne: [], none: [] });
+  });
+
+  it('uploads the card, then posts the X text with that media id, and logs the public post id', async () => {
+    // #given
+    const f = fakeFetch(
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      (url) => (url.endsWith('/2/tweets') ? jsonResponse({ data: { id: 'post-9' } }, 201) : undefined),
+    );
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    const logged = log.mock.calls.map((a) => a.join(' '));
+    log.mockRestore();
+    // #then
+    expect({
+      result,
+      urls: f.calls.map((c) => c.url),
+      posted: JSON.parse(String(f.calls[1]?.init?.body)),
+      bytes: [...new Uint8Array(await ((f.calls[0]?.init?.body as FormData).get('media') as Blob).arrayBuffer())],
+      logged: logged.some((l) => l.includes('post-9') && l.includes(BROADCAST.key)),
+    }).toEqual({
+      result: 'sent',
+      urls: ['https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets'],
+      posted: { text: '#CCIP daily', media: { media_ids: ['media-1'] } },
+      bytes: PNG,
+      logged: true,
+    });
+  });
+
+  it('fails without posting when the upload fails, logging the problem and no key', async () => {
+    // #given
+    const f = fakeFetch(() => jsonResponse({ detail: 'Unauthorized' }, 401));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    const logged = log.mock.calls.map((a) => a.join(' ')).join('\n');
+    log.mockRestore();
+    // #then
+    expect({ result, calls: f.calls.length, logged: logged.includes('401') && logged.includes('Unauthorized'), leaked: Object.values(X_KEYS).some((v) => logged.includes(v)) }).toEqual({
+      result: 'failed', calls: 1, logged: true, leaked: false,
+    });
+  });
+
+  it('fails when the post is refused after a good upload', async () => {
+    // #given
+    const f = fakeFetch(
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      () => jsonResponse({ detail: 'You are not allowed to create a Post with duplicate content.' }, 403),
+    );
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    log.mockRestore();
+    // #then
+    expect(result).toBe('failed');
+  });
+
+  it('replaces the X draft with the post in on mode, and leaves drafts mode alone', () => {
+    // #given
+    const out = (name: string): BroadcastOutput => ({ name, send: async () => 'sent' });
+    const set = { channel: [out('telegram-channel')], drafts: [out('x-draft')], preview: [out('telegram-preview')], xPost: [out('x-post')] };
+    // #then
+    expect({
+      on: selectOutputs(set, 'on').map((o) => o.name),
+      onWithoutX: selectOutputs({ ...set, xPost: [] }, 'on').map((o) => o.name),
+      drafts: selectOutputs(set, 'drafts').map((o) => o.name),
+    }).toEqual({ on: ['telegram-channel', 'x-post'], onWithoutX: ['telegram-channel', 'x-draft'], drafts: ['x-draft', 'telegram-preview'] });
+  });
+
+  it('keeps telegramOutputs free of X posting', () => {
+    expect(telegramOutputs(harness({ now: NOW, env: { ...ENV, ...X_KEYS } }).c).xPost).toEqual([]);
   });
 });

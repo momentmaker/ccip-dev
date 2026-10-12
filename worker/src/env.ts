@@ -10,5 +10,10 @@ export interface Env {
   BROADCASTS?: string;
   TELEGRAM_CHANNEL_ID?: string;
   TELEGRAM_DRAFTS_CHAT_ID?: string;
+  X_POSTS?: string;
+  X_API_KEY?: string;
+  X_API_SECRET?: string;
+  X_ACCESS_TOKEN?: string;
+  X_ACCESS_SECRET?: string;
   GITHUB_DISPATCH_TOKEN?: string;
 }

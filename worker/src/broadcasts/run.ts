@@ -7,7 +7,7 @@ import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
 import * as store from '../store';
 import { composeCopy, type Copy } from './copy';
 import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts, weeklyFacts, type BroadcastFacts, type FactsSource } from './facts';
-import { broadcastMode, selectOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
+import { broadcastMode, broadcastOutputs, selectOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
 export const IMAGE_TIMEOUT_MS = 20_000;
@@ -26,7 +26,7 @@ interface Planned {
   facts: BroadcastFacts;
 }
 
-export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = telegramOutputs(c)): Promise<void> {
+export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = broadcastOutputs(c)): Promise<void> {
   const mode = broadcastMode(c.env);
   if (mode === 'off') return;
   const enabled = selectOutputs(outputs, mode);

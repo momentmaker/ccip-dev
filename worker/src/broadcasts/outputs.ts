@@ -2,6 +2,7 @@ import type { BroadcastTarget } from '@ccip-dev/core/broadcasts';
 import type { RunContext } from '../context';
 import type { Env } from '../env';
 import { sendTelegramPhoto, type TelegramConfig } from '../telegram';
+import { createPost, uploadImage, type XCredentials } from '../x';
 import type { BroadcastFacts } from './facts';
 
 export interface Broadcast {
@@ -18,9 +19,14 @@ export interface BroadcastOutput {
   send(b: Broadcast): Promise<'sent' | 'failed'>;
 }
 
-/** `channel` outputs post publicly; `drafts` and `preview` outputs reach only the owner. `preview` shows the channel's caption in drafts mode. */
+/**
+ * `channel` and `xPost` outputs post publicly; `drafts` and `preview` outputs reach only the owner. `preview` shows the channel's
+ * caption in drafts mode. A working `xPost` output replaces the X draft in `on` mode. An `xPost` output posts the card and the
+ * X text only, never a poll.
+ */
 export interface OutputSet {
   channel: BroadcastOutput[];
+  xPost: BroadcastOutput[];
   drafts: BroadcastOutput[];
   preview: BroadcastOutput[];
 }
@@ -32,7 +38,7 @@ export function broadcastMode(env: Pick<Env, 'BROADCASTS'>): BroadcastMode {
 }
 
 export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {
-  return mode === 'on' ? [...set.channel, ...set.drafts] : [...set.drafts, ...set.preview];
+  return mode === 'on' ? [...set.channel, ...(set.xPost.length > 0 ? set.xPost : set.drafts)] : [...set.drafts, ...set.preview];
 }
 
 function photoOutput(c: RunContext, name: string, config: TelegramConfig, caption: (b: Broadcast) => { caption: string; parseMode?: 'HTML' }): BroadcastOutput {
@@ -53,8 +59,44 @@ export function telegramOutputs(c: RunContext): OutputSet {
   const channel = c.env.TELEGRAM_CHANNEL_ID;
   const drafts = c.env.TELEGRAM_DRAFTS_CHAT_ID || c.env.TELEGRAM_ALERT_CHAT_ID;
   return {
+    xPost: [],
     channel: token && channel ? [photoOutput(c, 'telegram-channel', { token, chatId: channel }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
     drafts: token && drafts ? [photoOutput(c, 'x-draft', { token, chatId: drafts }, (b) => ({ caption: b.xText }))] : [],
     preview: token && drafts ? [photoOutput(c, 'telegram-preview', { token, chatId: drafts }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
   };
+}
+
+function xCredentials(env: Env): XCredentials | null {
+  const { X_API_KEY: apiKey, X_API_SECRET: apiSecret, X_ACCESS_TOKEN: accessToken, X_ACCESS_SECRET: accessSecret } = env;
+  return apiKey && apiSecret && accessToken && accessSecret && env.X_POSTS !== 'off' ? { apiKey, apiSecret, accessToken, accessSecret } : null;
+}
+
+function xPostOutput(c: RunContext, creds: XCredentials): BroadcastOutput {
+  const name = 'x-post';
+  return {
+    name,
+    async send(b) {
+      const uploaded = await uploadImage(c.deps, creds, b.image);
+      if ('problem' in uploaded) return failed(name, b.key, `upload: ${uploaded.problem}`);
+      const posted = await createPost(c.deps, creds, { text: b.xText, mediaIds: [uploaded.mediaId] });
+      if ('problem' in posted) return failed(name, b.key, `post: ${posted.problem}`);
+      console.log(`[broadcast] ${name} posted ${b.key} as ${posted.postId}`);
+      return 'sent';
+    },
+  };
+}
+
+function failed(name: string, key: string, problem: string): 'failed' {
+  console.error(`[broadcast] ${name} failed for ${key}: ${problem}`);
+  return 'failed';
+}
+
+/** The X post replaces the owner's X draft once all four keys are set; `X_POSTS = "off"` brings the drafts back. */
+export function xOutputs(c: RunContext): BroadcastOutput[] {
+  const creds = xCredentials(c.env);
+  return creds ? [xPostOutput(c, creds)] : [];
+}
+
+export function broadcastOutputs(c: RunContext): OutputSet {
+  return { ...telegramOutputs(c), xPost: xOutputs(c) };
 }
