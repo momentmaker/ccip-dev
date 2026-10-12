@@ -168,7 +168,7 @@ Moments are computed from D1 through the same functions that write `history.json
 
 ### 5.3 Copy
 
-As in 3a: no links, X counted the way X counts, @handles only when verified, plain names otherwise. New:
+As in 3a: no links, X counted the way X counts, @handles only on the subject and only when verified, plain names otherwise. New:
 - **An X post tags only its subject.** A welcome tags the welcomed chain; movers tag the headline (the new #1, or the top climber when there's no new #1) when it is a chain; a spotlight tags the spotlighted chain. A subject without a verified handle is a plain name. Everyone else is a plain name: partners, the dethroned leader, the other climbers, lanes, token symbols and token projects. Countdowns and New on CCIP tag no one, and the poll has no X text.
 - Why: X's automation rules ban unsolicited @mentions (owner decision, 2026-10-12, replacing the earlier cap of 5 @handles a post).
 - `#Chainlink` closes welcome and countdown posts; `#Chainlink $LINK` closes movers and spotlight; New on CCIP carries `#CCIP` only.
@@ -284,7 +284,7 @@ Every ▲ ▼ ★ → is drawn as a glyph, as in 3a.
 
 ## 10. Rollout
 
-1. Deploy (moments ship `on`). The first run seeds what's due that day without posting.
+1. Deploy (moments ship `on`). The first run seeds what's due that day without posting. Moments also post publicly to X, up to 2 × $0.015 a day; the poll stays on Telegram.
 2. The owner watches the channel through one full week: a Monday poll, Tuesday movers, Thursday spotlight, Saturday roundup.
 3. `MOMENTS = "off"` in `worker/wrangler.toml` and a push stops them at any time.
 

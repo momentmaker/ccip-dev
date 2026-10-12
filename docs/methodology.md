@@ -87,7 +87,19 @@
 - **What is posted:** a daily report after each day is finalized, a weekly report on Mondays (Monday–Sunday, UTC), a post for each record or milestone a newly finalized day sets, and one for each Reserve deposit. They go to the Telegram channel @ccipdev and to X.
 - **Same numbers as the site:** posts and their cards use the site's data and number formats. A daily change is against the mean of the 7 days before; a weekly change is against the week before.
 - **Records** follow the Records page's rules: a tie keeps the earlier day, and the LINK share counts days with 100 or more messages. Milestones are the all-time message, value and fee thresholds the Records page lists.
-- **Tags:** a project or chain is tagged only with an X handle its own website or docs link to; otherwise it is named.
+- **Tags:** an X post tags only the player it is about, and only with an X handle its own website or docs link to; everyone else, and any player without a verified handle, is named. Reserve deposits tag @chainlink.
+
+## Moments
+
+Besides the daily and weekly reports, @ccipdev posts moments: short posts about one chain, token or week. Each is computed from the same data as the site, after each day is finalized. They go to the Telegram channel and to X; the poll goes to Telegram only.
+
+- **A new chain** is welcomed the day after its first CCIP message, on either side of a lane. Its number is how many chains had sent or received a message by that day. Its first partners are the chains on its lanes that day, by value.
+- **A countdown** names the next all-time milestone (the messages, value and fee thresholds of the Records page) when it is 2 to 7 days away at the pace of the last 7 days. Under 2 days the milestone post itself is about to come.
+- **Movers** compare last week's top 10 (Monday to Sunday) with the week before's, on three boards: chains by fees paid, tokens by value and lanes by value. A new #1 leads (fees first, then tokens, then lanes); otherwise the biggest climb does. Climbers gained 3 places or more, or entered the top 10.
+- **The spotlight** is the chain whose messages (sent and received) grew the most against the week before, among chains with at least 100 messages last week and 50 the week before, and whose first message came no later than the first day of the week before, so a partial first week cannot inflate its rise. A chain is not spotlighted again within 4 weeks.
+- **New on CCIP** lists the lanes and tokens whose first message came Monday to Friday. A token is counted by its registry group, so a token's new chain is not a new token. A lane of a newly welcomed chain is left out.
+- **The poll** asks, in turn by week, which chain will pay the most fees, whether fees will beat last week's total (by more than 10%, within 10%, or less), or which lane will move the most value. The answer is taken from our data once the week is complete.
+- **Tags:** an X post tags only the chain it is about (the welcomed chain, the spotlighted chain, or the chain that leads the movers), and only with a verified handle. Everyone else is named in plain text.
 
 ## Coverage
 History starts on **2023-07-06**. This is the first CCIP mainnet message (2023-07-06 22:34:59 UTC). All-time

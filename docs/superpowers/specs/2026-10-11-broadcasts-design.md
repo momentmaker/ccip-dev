@@ -33,6 +33,7 @@ Each post tags the projects and chains it features, so they reshare it.
   - The right half is a rotating call to action, chosen by date.
   - "Be The Oracle" joins the rotation only after the game launches, behind a flag. For its first month it takes every other day.
 - **Tags:**
+  - Superseded 2026-10-12: X's automation rules ban unsolicited @mentions, so a post tags only its subject, and only the Reserve post keeps `@chainlink`; the lines below are the original design.
   - Players are tagged with verified @handles: the top sender, the top token's project, and the chains behind the busiest lane and the top fee chain.
   - @handles stay in API posts too; the switch exists only as a safety valve.
   - @chainlink goes on records, milestones and Reserve deposits.
