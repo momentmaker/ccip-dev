@@ -64,6 +64,8 @@ export interface RoundupFacts {
   lanes: { key: string; src: Player; dst: Player; usd: number }[];
   tokens: { key: string; symbol: string; chain: Player; project: Player | null }[];
   network: MomentsBody['network'];
+  /** Posted after its week's Sunday, as when carried into the next week, so its copy says "last week". */
+  lastWeek: boolean;
 }
 
 export interface PollFacts {
@@ -85,14 +87,16 @@ export function isMomentFacts(facts: { kind: string }): facts is MomentFacts {
 export interface MomentsSource {
   moments: MomentsBody;
   tags: Tagger;
+  /** The day the moments post. */
+  today: string;
 }
 
 /** The moments as of yesterday, read from D1 through the builder that writes moments.json, so a caption and its card agree. */
 export async function loadMomentsSource(c: RunContext): Promise<MomentsSource> {
-  const lastDay = addDays(dayOf(c.deps.now()), -1);
-  const moments = await buildMoments(c, { lastDay, days: await historyDays(c) });
+  const today = dayOf(c.deps.now());
+  const moments = await buildMoments(c, { lastDay: addDays(today, -1), days: await historyDays(c) });
   const tokenKeys = moments.arrivals.tokens.filter((t) => t.key.includes(':')).map((t) => t.key);
-  return { moments, tags: await createTagger(c, tokenKeys) };
+  return { moments, tags: await createTagger(c, tokenKeys), today };
 }
 
 const addressOf = (key: string) => key.slice(key.indexOf(':') + 1);
@@ -140,6 +144,7 @@ function roundupFacts(src: MomentsSource, monday: string): RoundupFacts | null {
       project: t.key.includes(':') ? tags.tokenProject(t.key) : tags.groupProject(t.key),
     })),
     network: src.moments.network,
+    lastWeek: src.today > addDays(monday, 6),
   };
 }
 

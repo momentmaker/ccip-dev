@@ -50,6 +50,7 @@ const ROUNDUP: RoundupFacts = {
     { key: '1:0x', symbol: 'PST', chain: p('Base', 'base'), project: p('Huma Finance', 'humafinance') },
   ],
   network: { chains: 93, lanes: 933 },
+  lastWeek: false,
 };
 const LAST: Poll = {
   week: '2026-10-05', question_kind: 'fee_chain', question: 'Which chain will pay the most CCIP fees this week?',
@@ -133,6 +134,15 @@ describe('moment Telegram captions', () => {
     const copy = composeMomentCopy(near);
     // #then
     expect([copy.xText.split('\n')[1], copy.telegramHtml.split('\n')[2]]).toEqual(['$2.49M now, adding about $1.0K a day', '<b>$2.49M</b> so far.']);
+  });
+
+  it('says "last week" in New on CCIP when it posts after its week, carried to the Monday', () => {
+    // #given
+    const carried: RoundupFacts = { ...ROUNDUP, lastWeek: true };
+    // #when
+    const copy = composeMomentCopy(carried);
+    // #then
+    expect([copy.xText.split('\n')[0], copy.telegramHtml.split('\n')[0]]).toEqual(['New on #CCIP last week', '<b>New on CCIP last week · Oct 5–9</b>']);
   });
 
   it('leaves the value out of the welcome when the first day moved $0, on X and on Telegram', () => {

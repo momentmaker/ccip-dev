@@ -48,7 +48,7 @@ const MOMENTS: MomentsBody = {
     { week: '2026-10-12', question_kind: 'fees_change', question: "Will CCIP fees beat last week's $8.0K?", options: [{ key: 'up', label: 'Up more than 10%' }], answer: null, outcome: null, votes: null, total_votes: null },
   ],
 };
-const SRC: MomentsSource = { moments: MOMENTS, tags: TAGS };
+const SRC: MomentsSource = { moments: MOMENTS, tags: TAGS, today: '2026-10-10' };
 
 describe('momentFacts', () => {
   it('welcomes a new chain with its number, first-day totals and partners as players', () => {
@@ -85,6 +85,13 @@ describe('momentFacts', () => {
       spotlight: ['Base', ['Ethereum', 'Arbitrum', 'BNB Chain'], { symbol: 'USDC', usd: 41.2e6 }],
       roundup: [['Base → BNB Chain'], [['USDat', 'Ethereum', 'saturn'], ['PST', 'Base', 'humafinance']]],
     });
+  });
+
+  it("marks a roundup posted after its week's Sunday as last week's, and one posted by that Sunday as this week's", () => {
+    // #when the roundup of the week of Oct 5 posts on its Sunday, then carried to the Monday after
+    const on = (today: string) => momentFacts({ ...SRC, today }, { kind: 'roundup', monday: '2026-10-05' });
+    // #then
+    expect([on('2026-10-11'), on('2026-10-12')].map((f) => (f?.kind === 'roundup' ? f.lastWeek : null))).toEqual([false, true]);
   });
 
   it("gives the poll this week's question and last week's result", () => {

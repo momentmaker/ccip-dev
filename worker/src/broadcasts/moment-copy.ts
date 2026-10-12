@@ -184,7 +184,7 @@ function roundupX(f: RoundupFacts, shown: number): Line[] {
   const lanes = shownList(f.lanes, shown, (l) => `${plain(l.src)} → ${plain(l.dst)}`);
   const tokens = shownList(f.tokens, shown, (t) => `${noLinks(t.symbol)} on ${plain(t.chain)}${t.project ? ` (${plain(t.project)})` : ''}`);
   return [
-    { text: 'New on #CCIP this week' },
+    { text: `New on #CCIP ${f.lastWeek ? 'last' : 'this'} week` },
     ...(lanes ? [{ text: `Lanes: ${lanes}` }] : []),
     ...(tokens ? [{ text: `Tokens: ${tokens}` }] : []),
     { text: `CCIP now runs ${formatCount(f.network.lanes)} lanes between ${formatCount(f.network.chains)} chains`, drop: MOMENT_DROP.closing },
@@ -210,7 +210,7 @@ function roundupTg(f: RoundupFacts, shown: number): Line[] {
   const lanes = shownList(f.lanes, shown, (l) => `${tgName(l.src)} → ${tgName(l.dst)}`);
   const tokens = shownList(f.tokens, shown, (t) => `${tgText(t.symbol)} on ${tgName(t.chain)}${t.project ? ` (${tgName(t.project)})` : ''}`);
   return [
-    { text: bold(`New on CCIP this week · ${dayRange(f.monday, addDays(f.monday, 4))}`) },
+    { text: bold(`New on CCIP ${f.lastWeek ? 'last' : 'this'} week · ${dayRange(f.monday, addDays(f.monday, 4))}`) },
     ...(lanes ? [{ text: `New lanes: ${lanes}` }] : []),
     ...(tokens ? [{ text: `New tokens: ${tokens}` }] : []),
     { text: `CCIP now runs ${bold(formatCount(f.network.lanes))} lanes between ${bold(formatCount(f.network.chains))} chains.` },
