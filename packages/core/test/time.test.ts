@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dayOf, dayStartIso, daysBetween, isDay, toIsoUtc } from '../src/time';
+import { addDays, dayOf, dayStartIso, daysBetween, isDay, lastCompleteMonday, toIsoUtc } from '../src/time';
 
 describe('dayOf', () => {
   it('keeps the last millisecond of a day on that day', () => {
@@ -34,5 +34,11 @@ describe('day arithmetic', () => {
 describe('isDay', () => {
   it.each([['2026-10-11', true], ['2026-02-30', false], ['2026-10-1', false], ['../x', false]])('%s → %s', (value, ok) => {
     expect(isDay(value)).toBe(ok);
+  });
+});
+
+describe('lastCompleteMonday', () => {
+  it.each([['2026-10-11', '2026-10-05'], ['2026-10-12', '2026-10-05'], ['2026-10-10', '2026-09-28']])('the last whole week through %s starts on %s', (lastDay, monday) => {
+    expect(lastCompleteMonday(lastDay)).toBe(monday);
   });
 });

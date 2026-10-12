@@ -67,6 +67,19 @@ export async function markMeta(db: D1Database, keys: string[], value: string): P
   await runBatch(db, keys.map((key) => insert.bind(key, value)));
 }
 
+/** meta values by key, for the keys that have one. */
+export async function getMetas(db: D1Database, keys: string[]): Promise<Map<string, string>> {
+  const values = new Map<string, string>();
+  for (const chunk of chunks([...new Set(keys)], PARAM_CHUNK)) {
+    const { results } = await db
+      .prepare(`SELECT key, value FROM meta WHERE key IN (${placeholders(chunk.length)})`)
+      .bind(...chunk)
+      .all<{ key: string; value: string }>();
+    for (const r of results) values.set(r.key, r.value);
+  }
+  return values;
+}
+
 export async function knownIds(db: D1Database, ids: string[]): Promise<Set<string>> {
   const known = new Set<string>();
   for (const chunk of chunks(ids, PARAM_CHUNK)) {
@@ -643,6 +656,59 @@ export async function dailyLeaders(db: D1Database, dim: Dim, order: TopOrder, fr
     .bind(dim, fromDay, toDay)
     .all<LeaderRow>();
   return results;
+}
+
+export interface FirstDayRow {
+  key: string;
+  first_day: string;
+}
+
+/** Each key's first day with a message, oldest first. */
+export async function firstDays(db: D1Database, dim: 'lane' | 'token'): Promise<FirstDayRow[]> {
+  const { results } = await db
+    .prepare('SELECT key, MIN(day) AS first_day FROM daily_breakdown WHERE dim = ? GROUP BY key ORDER BY first_day, key')
+    .bind(dim)
+    .all<FirstDayRow>();
+  return results;
+}
+
+/** The rows of `dim` over [fromDay, toDay], one per day and key. */
+export async function breakdownBetween(db: D1Database, dim: Dim, fromDay: string, toDay: string): Promise<LeaderRow[]> {
+  const { results } = await db
+    .prepare('SELECT day, key, messages, usd_value, fee_usd FROM daily_breakdown WHERE dim = ? AND day >= ? AND day <= ? ORDER BY day, key')
+    .bind(dim, fromDay, toDay)
+    .all<LeaderRow>();
+  return results;
+}
+
+export interface ChainWeekRow {
+  key: string;
+  /** The week's Monday. */
+  week: string;
+  messages: number;
+}
+
+/** Each chain's messages sent or received, by the Monday of their week, over [?1, ?2]; it reads only the window's chain rows. */
+export const CHAIN_WEEK_MESSAGES_SQL = `SELECT key, date(day, '-' || ((CAST(strftime('%w', day) AS INTEGER) + 6) % 7) || ' days') AS week, SUM(messages) AS messages
+  FROM daily_breakdown WHERE dim IN ('src_chain', 'dst_chain') AND day >= ?1 AND day <= ?2
+  GROUP BY key, week ORDER BY week, key`;
+
+export async function chainWeekMessages(db: D1Database, fromDay: string, toDay: string): Promise<ChainWeekRow[]> {
+  const { results } = await db.prepare(CHAIN_WEEK_MESSAGES_SQL).bind(fromDay, toDay).all<ChainWeekRow>();
+  return results;
+}
+
+/** The registry tokens of the given groups. */
+export async function tokenGroupMembers(db: D1Database, groups: string[]): Promise<{ chain: string; address: string; group_id: string; symbol: string }[]> {
+  const members: { chain: string; address: string; group_id: string; symbol: string }[] = [];
+  for (const chunk of chunks([...new Set(groups)], PARAM_CHUNK)) {
+    const { results } = await db
+      .prepare(`SELECT chain, address, group_id, symbol FROM tokens WHERE group_id IN (${placeholders(chunk.length)}) ORDER BY chain, address`)
+      .bind(...chunk)
+      .all<{ chain: string; address: string; group_id: string; symbol: string }>();
+    members.push(...results);
+  }
+  return members;
 }
 
 export interface ReserveTransferRow {

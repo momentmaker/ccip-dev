@@ -44,3 +44,8 @@ export function weekStart(iso: string): string {
   const sinceMonday = (new Date(midnight).getUTCDay() + 6) % 7;
   return dayOf(new Date(midnight - sinceMonday * DAY_MS));
 }
+
+/** The Monday of the last Monday–Sunday week that ends on or before `lastDay`. */
+export function lastCompleteMonday(lastDay: string): string {
+  return addDays(weekStart(addDays(lastDay, 1)), -7);
+}

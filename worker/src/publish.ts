@@ -1,14 +1,15 @@
-import { addDays, dayOf, feeClassifier, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, weekStart, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, feeClassifier, lastCompleteMonday, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
 import type { DayLeaders, DayTotals, LargestFee, Leader, ReserveFile } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
+import { buildMoments } from './moments';
 import * as store from './store';
 
 export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'attribution'>;
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
-export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, cost: 300, leaders: 300, chains: 3600, tokens: 3600 } as const;
+export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, cost: 300, leaders: 300, moments: 300, chains: 3600, tokens: 3600 } as const;
 
 const LIVE_WINDOW_MINUTES = 15;
 
@@ -122,11 +123,6 @@ export async function dayLeaderEntries(c: RunContext, fromDay: string, toDay: st
       fee_chain: fc ? leader(fc, null) : null,
     };
   });
-}
-
-/** The Monday of the last Monday–Sunday week that ends on or before `lastDay`. */
-export function lastCompleteMonday(lastDay: string): string {
-  return addDays(weekStart(addDays(lastDay, 1)), -7);
 }
 
 export async function weekFeeChains(c: RunContext, monday: string): Promise<Leader[]> {
@@ -409,6 +405,12 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
     await publishDayLeaders(c, now);
   } catch (err) {
     await c.alert('day-leaders-publish', `day-leaders.json was not published: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  try {
+    await putJson(c.env.PUBLIC, 'moments.json', await buildMoments(c, { lastDay: addDays(dayOf(now), -1), days }), TTL.moments, now);
+  } catch (err) {
+    await c.alert('moments-publish', `moments.json was not published: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   const today = dayOf(now);
