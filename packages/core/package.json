@@ -6,7 +6,10 @@
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
     "./public": "./src/public.ts",
-    "./time": "./src/time.ts"
+    "./time": "./src/time.ts",
+    "./format": "./src/format.ts",
+    "./names": "./src/names.ts",
+    "./records": "./src/records.ts"
   },
   "scripts": {
     "test": "vitest run",

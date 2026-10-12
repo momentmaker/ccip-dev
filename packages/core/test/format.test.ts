@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DASH, formatAgo, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatPct, formatPrice, formatShare, formatUsd, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
-} from '../src/lib/format';
+} from '../src/format';
 
 describe('formatUsd', () => {
   it.each([

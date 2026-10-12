@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chainName, chainNameMap, keyChains, laneLabel, senderLabel, shortAddress, shortChainName, tokenLabel } from '../src/lib/names';
+import { chainName, chainNameMap, keyChains, laneLabel, senderLabel, shortAddress, shortChainName, tokenLabel } from '../src/names';
 
 const ETH = '5009297550715157269';
 const BASE = '15971525489660198786';

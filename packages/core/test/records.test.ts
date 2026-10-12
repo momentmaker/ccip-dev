@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, feeThresholds, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, valueThresholds, type DayStats, type FeeDayStats,
-} from '../src/lib/records';
+} from '../src/records';
 
 const day = (d: string, messages: number, usd: number, senders: number, fee: number | null, median: number | null): DayStats => ({
   day: d, messages, usd_value: usd, unique_senders: senders, fee_usd: fee, median_delivery_s: median,
