@@ -26,7 +26,7 @@ export interface BroadcastOutput {
  */
 export interface OutputSet {
   channel: BroadcastOutput[];
-  xPost: BroadcastOutput[];
+  xPost?: BroadcastOutput[];
   drafts: BroadcastOutput[];
   preview: BroadcastOutput[];
 }
@@ -38,7 +38,7 @@ export function broadcastMode(env: Pick<Env, 'BROADCASTS'>): BroadcastMode {
 }
 
 export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {
-  return mode === 'on' ? [...set.channel, ...(set.xPost.length > 0 ? set.xPost : set.drafts)] : [...set.drafts, ...set.preview];
+  return mode === 'on' ? [...set.channel, ...(set.xPost?.length ? set.xPost : set.drafts)] : [...set.drafts, ...set.preview];
 }
 
 function photoOutput(c: RunContext, name: string, config: TelegramConfig, caption: (b: Broadcast) => { caption: string; parseMode?: 'HTML' }): BroadcastOutput {
@@ -71,15 +71,28 @@ function xCredentials(env: Env): XCredentials | null {
   return apiKey && apiSecret && accessToken && accessSecret && env.X_POSTS !== 'off' ? { apiKey, apiSecret, accessToken, accessSecret } : null;
 }
 
-function xPostOutput(c: RunContext, creds: XCredentials): BroadcastOutput {
+/** Once X times out, fails to connect or answers 5xx, `down` makes the rest of the run's sends fail without calling X again. */
+function xPostOutput(c: RunContext, creds: XCredentials, circuit: { down: boolean }): BroadcastOutput {
   const name = 'x-post';
   return {
     name,
     async send(b) {
+      if (b.xText.trim() === '') return failed(name, b.key, 'the broadcast has no X text, so it is not posted to X');
+      if (circuit.down) return failed(name, b.key, 'X failed earlier in this run, so it is not called again');
       const uploaded = await uploadImage(c.deps, creds, b.image);
-      if ('problem' in uploaded) return failed(name, b.key, `upload: ${uploaded.problem}`);
+      if ('problem' in uploaded) {
+        circuit.down = uploaded.outage;
+        return failed(name, b.key, `upload: ${uploaded.problem}`);
+      }
       const posted = await createPost(c.deps, creds, { text: b.xText, mediaIds: [uploaded.mediaId] });
-      if ('problem' in posted) return failed(name, b.key, `post: ${posted.problem}`);
+      if ('duplicate' in posted) {
+        console.log(`[broadcast] X already has ${b.key} (duplicate content); counting it as sent`);
+        return 'sent';
+      }
+      if ('problem' in posted) {
+        circuit.down = posted.outage;
+        return failed(name, b.key, `post: ${posted.problem}`);
+      }
       console.log(`[broadcast] ${name} posted ${b.key} as ${posted.postId}`);
       return 'sent';
     },
@@ -92,9 +105,10 @@ function failed(name: string, key: string, problem: string): 'failed' {
 }
 
 /** The X post replaces the owner's X draft once all four keys are set; `X_POSTS = "off"` brings the drafts back. */
+/** The circuit state lives in this call's closure, and `broadcastOutputs(c)` runs once per run, so a trip lasts one run. */
 export function xOutputs(c: RunContext): BroadcastOutput[] {
   const creds = xCredentials(c.env);
-  return creds ? [xPostOutput(c, creds)] : [];
+  return creds ? [xPostOutput(c, creds, { down: false })] : [];
 }
 
 export function broadcastOutputs(c: RunContext): OutputSet {

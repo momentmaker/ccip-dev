@@ -11,7 +11,8 @@ export interface XCredentials {
   accessSecret: string;
 }
 
-export type XProblem = { problem: string; permanent: boolean };
+/** `outage` is true for a timeout, a network error or a 5xx: X itself is not answering, so more sends this run would fail too. */
+export type XProblem = { problem: string; outage: boolean };
 type XDeps = Pick<Deps, 'fetch' | 'sleep' | 'clock'>;
 
 /** RFC 3986: encodeURIComponent leaves !*'() alone. */
@@ -58,13 +59,10 @@ function freshNonce(): string {
   return [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-const PERMANENT = new Set([400, 401, 403, 404]);
-
 async function detail(res: Response): Promise<string> {
   try {
     const body = (await res.json()) as { detail?: unknown; title?: unknown };
-    const text = typeof body.detail === 'string' ? body.detail : typeof body.title === 'string' ? body.title : '';
-    return text === '' ? '' : `: ${text.slice(0, 200)}`;
+    return (typeof body.detail === 'string' ? body.detail : typeof body.title === 'string' ? body.title : '').slice(0, 200);
   } catch {
     return '';
   }
@@ -72,13 +70,14 @@ async function detail(res: Response): Promise<string> {
 
 /** Seconds until x-rate-limit-reset (epoch seconds), or null when X sent none. */
 function secondsUntilReset(res: Response, nowMs: number): number | null {
-  const reset = Number(res.headers.get('x-rate-limit-reset'));
+  const header = res.headers.get('x-rate-limit-reset');
+  const reset = header === null ? Number.NaN : Number(header);
   return Number.isFinite(reset) && reset > 0 ? Math.max(0, reset - nowMs / 1000) : null;
 }
 
 /**
- * A signed POST. `body` runs per attempt because a retry must re-send the whole body, and each attempt gets its own nonce.
- * A 429 is retried once after x-rate-limit-reset, at most 30 s; with no reset header it is given up. Returns the response
+ * A signed POST. `request` runs per attempt because a retry must re-send the whole body, and each attempt gets its own nonce.
+ * A 429 is retried once when x-rate-limit-reset is at most 30 s away; with a later reset or none it is given up at once. Returns the response
  * body of a 2xx, or what went wrong. The problem text never holds a key, the Authorization header or the URL.
  */
 async function signedPost(
@@ -87,7 +86,7 @@ async function signedPost(
   path: string,
   request: () => { body: BodyInit; headers?: Record<string, string> },
   timeoutMs: number,
-): Promise<{ json: unknown } | XProblem> {
+): Promise<{ json: unknown } | (XProblem & { duplicate: boolean })> {
   const url = `${API}${path}`;
   const attempt = async () => {
     const { body, headers } = request();
@@ -98,19 +97,24 @@ async function signedPost(
     let res = await attempt();
     if (res.status === 429) {
       const wait = secondsUntilReset(res, deps.clock());
-      if (wait !== null) {
-        await deps.sleep(Math.min(wait, X_RETRY_CAP_S) * 1000);
+      if (wait !== null && wait <= X_RETRY_CAP_S) {
+        await res.body?.cancel();
+        await deps.sleep(wait * 1000);
         res = await attempt();
       }
     }
-    if (!res.ok) return { problem: `X returned HTTP ${res.status}${await detail(res)}`, permanent: PERMANENT.has(res.status) };
+    if (!res.ok) {
+      const why = await detail(res);
+      return { problem: `X returned HTTP ${res.status}${why === '' ? '' : `: ${why}`}`, outage: res.status >= 500, duplicate: res.status === 403 && /duplicate/i.test(why) };
+    }
     return { json: await res.json().catch(() => null) };
   } catch (error) {
-    return { problem: `X request failed (${error instanceof Error ? error.name : 'unknown error'})`, permanent: false };
+    return { problem: `X request failed (${error instanceof Error ? error.name : 'unknown error'})`, outage: true, duplicate: false };
   }
 }
 
-const idOf = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : typeof value === 'number' ? String(value) : null);
+/** Ids are strings only: a 19-digit JSON number has already lost precision. */
+const idOf = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null);
 
 /** Uploads a PNG card for a post. Reads the id from `data.id`, then `id`, then `media_id_string`. */
 export async function uploadImage(deps: XDeps, creds: XCredentials, png: Uint8Array, timeoutMs = X_TIMEOUT_MS): Promise<{ mediaId: string } | XProblem> {
@@ -126,18 +130,22 @@ export async function uploadImage(deps: XDeps, creds: XCredentials, png: Uint8Ar
     },
     timeoutMs,
   );
-  if ('problem' in sent) return sent;
+  if ('problem' in sent) return { problem: sent.problem, outage: sent.outage };
   const json = (sent.json ?? {}) as { data?: { id?: unknown }; id?: unknown; media_id_string?: unknown };
   const mediaId = idOf(json.data?.id) ?? idOf(json.id) ?? idOf(json.media_id_string);
-  return mediaId === null ? { problem: 'X accepted the upload but sent no media id', permanent: false } : { mediaId };
+  return mediaId === null ? { problem: 'X accepted the upload but sent no media id', outage: false } : { mediaId };
 }
 
+/**
+ * Any 2xx means the post exists, so an unreadable id still counts as posted. A 403 that calls the text a duplicate means X
+ * already has it.
+ */
 export async function createPost(
   deps: XDeps,
   creds: XCredentials,
   { text, mediaIds }: { text: string; mediaIds: string[] },
   timeoutMs = X_TIMEOUT_MS,
-): Promise<{ postId: string } | XProblem> {
+): Promise<{ postId: string } | { duplicate: true } | XProblem> {
   const sent = await signedPost(
     deps,
     creds,
@@ -145,7 +153,9 @@ export async function createPost(
     () => ({ body: JSON.stringify({ text, media: { media_ids: mediaIds } }), headers: { 'content-type': 'application/json' } }),
     timeoutMs,
   );
-  if ('problem' in sent) return sent;
+  if ('problem' in sent) return sent.duplicate ? { duplicate: true } : { problem: sent.problem, outage: sent.outage };
   const postId = idOf((sent.json as { data?: { id?: unknown } } | null)?.data?.id);
-  return postId === null ? { problem: 'X accepted the post but sent no post id', permanent: false } : { postId };
+  if (postId !== null) return { postId };
+  console.error('[x] the post was accepted but its id could not be read');
+  return { postId: 'unknown' };
 }

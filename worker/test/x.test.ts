@@ -89,11 +89,18 @@ describe('uploadImage', () => {
     expect(result).toEqual({ mediaId });
   });
 
-  it('reports a success without a media id as a retryable problem', async () => {
+  it('reports a success without a media id as a problem to retry, since uploads are not public', async () => {
     // #when
     const result = await uploadImage(deps(fakeFetch(() => jsonResponse({ data: {} }))), CREDS, PNG);
     // #then
-    expect(result).toEqual({ problem: expect.stringContaining('media id'), permanent: false });
+    expect(result).toEqual({ problem: expect.stringContaining('media id'), outage: false });
+  });
+
+  it('does not accept a numeric media id, which would have lost precision', async () => {
+    // #when
+    const result = await uploadImage(deps(fakeFetch(() => jsonResponse({ data: { id: 1234567890123456789 } }))), CREDS, PNG);
+    // #then
+    expect(result).toMatchObject({ problem: expect.stringContaining('media id') });
   });
 });
 
@@ -122,32 +129,67 @@ describe('createPost', () => {
     });
   });
 
-  it('reports a success without a post id as a retryable problem', async () => {
+  it.each([
+    ['sends no id', () => jsonResponse({}, 201)],
+    ['sends a body that is not JSON', () => new Response('<html>', { status: 201 })],
+    ['sends a numeric id', () => jsonResponse({ data: { id: 1234567890123456789 } }, 201)],
+  ])('counts a 2xx that %s as posted with an unknown id, because the post exists', async (_name, respond) => {
+    // #given
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     // #when
-    const result = await createPost(deps(fakeFetch(() => jsonResponse({}, 201))), CREDS, { text: 't', mediaIds: ['1'] });
+    const result = await createPost(deps(fakeFetch(respond)), CREDS, { text: 't', mediaIds: ['1'] });
+    const logged = log.mock.calls.length;
+    log.mockRestore();
     // #then
-    expect(result).toEqual({ problem: expect.stringContaining('post id'), permanent: false });
+    expect({ result, logged }).toEqual({ result: { postId: 'unknown' }, logged: 1 });
+  });
+
+  it('counts a 2xx whose body read times out as posted with an unknown id', async () => {
+    // #given
+    const res = jsonResponse({}, 201);
+    vi.spyOn(res, 'json').mockRejectedValue(new DOMException('timed out', 'TimeoutError'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await createPost(deps(fakeFetch(() => res)), CREDS, { text: 't', mediaIds: ['1'] });
+    log.mockRestore();
+    // #then
+    expect(result).toEqual({ postId: 'unknown' });
+  });
+
+  it('answers a 403 duplicate-content refusal as a duplicate, by its detail or its title', async () => {
+    // #when
+    const byDetail = await createPost(deps(fakeFetch(() => jsonResponse({ title: 'Forbidden', detail: 'You are not allowed to create a Tweet with duplicate content.' }, 403))), CREDS, { text: 't', mediaIds: ['1'] });
+    const byTitle = await createPost(deps(fakeFetch(() => jsonResponse({ title: 'Duplicate content' }, 403))), CREDS, { text: 't', mediaIds: ['1'] });
+    const otherForbidden = await createPost(deps(fakeFetch(() => jsonResponse({ detail: 'Forbidden' }, 403))), CREDS, { text: 't', mediaIds: ['1'] });
+    const duplicateOn400 = await createPost(deps(fakeFetch(() => jsonResponse({ detail: 'duplicate' }, 400))), CREDS, { text: 't', mediaIds: ['1'] });
+    // #then
+    expect({ byDetail, byTitle, otherForbidden, duplicateOn400 }).toEqual({
+      byDetail: { duplicate: true },
+      byTitle: { duplicate: true },
+      otherForbidden: { problem: 'X returned HTTP 403: Forbidden', outage: false },
+      duplicateOn400: { problem: 'X returned HTTP 400: duplicate', outage: false },
+    });
   });
 });
 
 describe('request failures', () => {
-  it.each([[400, true], [401, true], [403, true], [404, true], [408, false], [500, false], [503, false]])('marks HTTP %i permanent: %s', async (status, permanent) => {
+  it.each([[400, false], [401, false], [403, false], [404, false], [408, false], [429, false], [500, true], [503, true]])('marks HTTP %i as an X outage: %s', async (status, outage) => {
     // #when
     const result = await createPost(deps(fakeFetch(() => jsonResponse({ title: 'Nope' }, status))), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
-    expect(result).toMatchObject({ permanent });
+    expect(result).toMatchObject({ outage });
   });
 
   it('names the status and X\'s detail, cut to 200 characters, and leaks no credential, header or key', async () => {
     // #given
-    const fetch = fakeFetch(() => jsonResponse({ title: 'Forbidden', detail: `duplicate ${'x'.repeat(400)}` }, 403));
+    const fetch = fakeFetch(() => jsonResponse({ title: 'Forbidden', detail: `denied ${'x'.repeat(400)}` }, 403));
     // #when
     const result = await createPost(deps(fetch), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
     const problem = 'problem' in result ? result.problem : '';
     expect({
       status: problem.includes('403'),
-      detail: problem.includes('duplicate xxx'),
+      detail: problem.includes('denied xxx'),
       capped: problem.length < 260,
       leaks: [CREDS.apiKey, CREDS.apiSecret, CREDS.accessToken, CREDS.accessSecret, 'OAuth', 'api.x.com'].filter((s) => problem.includes(s)),
     }).toEqual({ status: true, detail: true, capped: true, leaks: [] });
@@ -157,7 +199,7 @@ describe('request failures', () => {
     // #when
     const result = await createPost(deps(fakeFetch(() => jsonResponse({ title: 'Unauthorized' }, 401))), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
-    expect(result).toEqual({ problem: 'X returned HTTP 401: Unauthorized', permanent: true });
+    expect(result).toEqual({ problem: 'X returned HTTP 401: Unauthorized', outage: false });
   });
 
   it('reports a network error by its name only, as retryable', async () => {
@@ -168,7 +210,7 @@ describe('request failures', () => {
     // #when
     const result = await uploadImage(deps(fetch), CREDS, PNG);
     // #then
-    expect(result).toEqual({ problem: 'X request failed (TypeError)', permanent: false });
+    expect(result).toEqual({ problem: 'X request failed (TypeError)', outage: true });
   });
 
   it('gives every request a timeout signal', async () => {
@@ -202,15 +244,27 @@ describe('429 handling', () => {
     }).toEqual({ result: { mediaId: '55' }, slept: [[7000]], distinctBodies: true, secondBytes: [137, 80, 78, 71], freshNonce: true });
   });
 
-  it('caps the wait at 30 seconds', async () => {
+  it('waits for a reset exactly 30 seconds away, and drops the first response body before retrying', async () => {
     // #given
+    const first = jsonResponse({}, 429, { 'x-rate-limit-reset': resetIn(X_RETRY_CAP_S) });
+    const cancel = vi.spyOn(first.body as ReadableStream, 'cancel');
     let calls = 0;
-    const fetch = fakeFetch(() => (++calls === 1 ? jsonResponse({}, 429, { 'x-rate-limit-reset': resetIn(900) }) : jsonResponse({ data: { id: '1' } }, 201)));
+    const fetch = fakeFetch(() => (++calls === 1 ? first : jsonResponse({ data: { id: '1' } }, 201)));
     const sleep = vi.fn(async () => {});
     // #when
-    await createPost(deps(fetch, sleep), CREDS, { text: 't', mediaIds: ['1'] });
+    const result = await createPost(deps(fetch, sleep), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
-    expect(sleep.mock.calls).toEqual([[X_RETRY_CAP_S * 1000]]);
+    expect({ result, slept: sleep.mock.calls, cancelled: cancel.mock.calls.length }).toEqual({ result: { postId: '1' }, slept: [[30_000]], cancelled: 1 });
+  });
+
+  it('gives up at once when the reset is more than 30 seconds away', async () => {
+    // #given
+    const fetch = fakeFetch(() => jsonResponse({ title: 'Too Many Requests' }, 429, { 'x-rate-limit-reset': resetIn(900) }));
+    const sleep = vi.fn(async () => {});
+    // #when
+    const result = await createPost(deps(fetch, sleep), CREDS, { text: 't', mediaIds: ['1'] });
+    // #then
+    expect({ result, calls: fetch.calls.length, slept: sleep.mock.calls.length }).toEqual({ result: { problem: 'X returned HTTP 429: Too Many Requests', outage: false }, calls: 1, slept: 0 });
   });
 
   it('gives up without waiting when X sends no reset time', async () => {
@@ -220,7 +274,7 @@ describe('429 handling', () => {
     // #when
     const result = await createPost(deps(fetch, sleep), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
-    expect({ result, calls: fetch.calls.length, slept: sleep.mock.calls.length }).toEqual({ result: { problem: 'X returned HTTP 429: Too Many Requests', permanent: false }, calls: 1, slept: 0 });
+    expect({ result, calls: fetch.calls.length, slept: sleep.mock.calls.length }).toEqual({ result: { problem: 'X returned HTTP 429: Too Many Requests', outage: false }, calls: 1, slept: 0 });
   });
 
   it('retries only once', async () => {
@@ -229,6 +283,6 @@ describe('429 handling', () => {
     // #when
     const result = await createPost(deps(fetch), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
-    expect({ calls: fetch.calls.length, permanent: 'permanent' in result && result.permanent }).toEqual({ calls: 2, permanent: false });
+    expect({ calls: fetch.calls.length, result }).toEqual({ calls: 2, result: { problem: 'X returned HTTP 429', outage: false } });
   });
 });
