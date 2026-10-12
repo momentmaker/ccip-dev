@@ -861,10 +861,42 @@ describe('broadcasts after finalize', () => {
     }).toEqual({ chats: ['@ccipdev', '42'], photo: true, channel: true, draft: true, history: '2026-10-09' });
   });
 
-  it('never broadcasts from the 06:00 run', async () => {
-    await seedMeta('2026-10-09', '2026-10-08');
+  it('sends the X draft and the channel preview to the drafts chat, and nothing to the channel, in drafts mode', async () => {
+    // #given
+    await seedMeta('2026-10-08', '2026-10-08');
     const f = net();
+    // #when
+    await runFinalize(harness({ now: NOW, ccip: api(), fetch: f, env: { ...ENV, BROADCASTS: 'drafts' } }).c, 'early');
+    // #then
+    const sent = photos(f);
+    expect({
+      chats: sent.map((p) => p.chat_id),
+      captions: [sent[0]?.caption.startsWith('#CCIP · Fri, Oct 9'), sent[1]?.caption.startsWith('<b>CCIP daily report') && sent[1]?.parse_mode === 'HTML'],
+    }).toEqual({ chats: ['42', '42'], captions: [true, true] });
+  });
+
+  it('re-sends nothing from the 06:00 run when the early run already sent the daily', async () => {
+    // #given the early run finalized and posted the 9th
+    await seedMeta('2026-10-08', '2026-10-08');
+    const f = net();
+    await runFinalize(harness({ now: NOW, ccip: api(), fetch: f, env: ENV }).c, 'early');
+    const afterEarly = photos(f).length;
+    // #when the late run finalizes the 9th again
     await runFinalize(harness({ now: '2026-10-10T06:00:00.000Z', ccip: api(), fetch: f, env: ENV }).c, 'late');
-    expect(photos(f)).toEqual([]);
+    // #then
+    expect({ afterEarly, afterLate: photos(f).length }).toEqual({ afterEarly: 2, afterLate: 2 });
+  });
+
+  it("posts yesterday's daily from the 06:00 run when the early run failed entirely", async () => {
+    // #given the early run never moved last_finalize_day past the 8th
+    await seedMeta('2026-10-08', '2026-10-08');
+    const f = net();
+    // #when
+    await runFinalize(harness({ now: '2026-10-10T06:00:00.000Z', ccip: api(), fetch: f, env: ENV }).c, 'late');
+    // #then to the channel and the drafts chat
+    expect(photos(f).map((p) => [p.chat_id, p.photo.split('?')[0]])).toEqual([
+      ['@ccipdev', 'https://ccip.dev/og/broadcast/daily/2026-10-09.png'],
+      ['42', 'https://ccip.dev/og/broadcast/daily/2026-10-09.png'],
+    ]);
   });
 });

@@ -94,7 +94,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
       throw err;
     }
     await triggerSiteBuild(c);
-    if (mode === 'early') await broadcastSafely(c, { kind: 'finalize', days: finalized });
+    await broadcastSafely(c, { kind: 'finalize', days: finalized });
   }
   if (failures.length > 0) throw new Error(summary);
 }

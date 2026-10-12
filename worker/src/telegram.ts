@@ -25,6 +25,7 @@ export async function sendTelegramMessage(
 }
 
 export const TELEGRAM_RETRY_CAP_S = 30;
+export const TELEGRAM_TIMEOUT_MS = 30_000;
 
 export interface TelegramPhoto {
   photo: string;
@@ -32,10 +33,15 @@ export interface TelegramPhoto {
   parseMode?: 'HTML';
 }
 
-/** Sends a photo by URL. A 429 is retried once after Telegram's retry_after, at most 30 s. Returns null, or what went wrong. */
-export async function sendTelegramPhoto(deps: Pick<Deps, 'fetch' | 'sleep'>, { token, chatId }: TelegramConfig, msg: TelegramPhoto): Promise<string | null> {
+/** Sends a photo by URL. A 429 is retried once after Telegram's retry_after, at most 30 s; each request times out after `timeoutMs`. Returns null, or what went wrong. */
+export async function sendTelegramPhoto(
+  deps: Pick<Deps, 'fetch' | 'sleep'>,
+  { token, chatId }: TelegramConfig,
+  msg: TelegramPhoto,
+  timeoutMs = TELEGRAM_TIMEOUT_MS,
+): Promise<string | null> {
   const body = JSON.stringify({ chat_id: chatId, photo: msg.photo, caption: msg.caption, ...(msg.parseMode ? { parse_mode: msg.parseMode } : {}) });
-  const post = () => deps.fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+  const post = () => deps.fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(timeoutMs) });
   try {
     let res = await post();
     if (res.status === 429) {

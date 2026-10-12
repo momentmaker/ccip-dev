@@ -31,9 +31,15 @@ export function fitLines(lines: readonly Line[], fits: (text: string) => boolean
 
 const DOMAIN = /[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}/gu;
 
-/** X and Telegram turn a name like "pump.fun" into a link; a one-dot leader (U+2024) looks the same and links nothing. */
+/**
+ * X and Telegram turn a name like "pump.fun" into a link; a one-dot leader (U+2024) looks the same and links nothing.
+ * A zero-width space after "@" and after the colon of "://" stops an untrusted name from mentioning anyone or opening a link.
+ */
 export function noLinks(name: string): string {
-  return name.replace(DOMAIN, (m) => m.replaceAll('.', '\u2024'));
+  return name
+    .replace(DOMAIN, (m) => m.replaceAll('.', '\u2024'))
+    .replaceAll('@', '@\u200b')
+    .replaceAll('://', ':\u200b//');
 }
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

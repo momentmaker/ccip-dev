@@ -44,6 +44,20 @@ describe('sendTelegramPhoto', () => {
     });
   });
 
+  it('gives up on a request that never answers, naming only the error', async () => {
+    // #given a fetch that settles only when its signal aborts, with a short timeout in place of the 30 s one
+    const fetch = fakeFetch(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+        }),
+    );
+    // #when
+    const failure = await sendTelegramPhoto({ fetch, sleep: async () => {} }, CONFIG, PHOTO, 20);
+    // #then
+    expect({ failure, signalled: fetch.calls[0]?.init?.signal instanceof AbortSignal }).toEqual({ failure: 'Telegram request failed (TimeoutError)', signalled: true });
+  });
+
   it('reports a failed request without the token', async () => {
     // #given
     const fetch = fakeFetch(async () => {

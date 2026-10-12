@@ -7,6 +7,7 @@ import { runFinalize } from './jobs/finalize';
 import { runHourly } from './jobs/hourly';
 import { runIngest } from './jobs/ingest';
 import { runPrices } from './jobs/prices';
+import { LATE_FINALIZE_HOUR_UTC } from './schedule';
 
 export type Job = [name: string, run: (c: RunContext) => Promise<void>];
 
@@ -18,7 +19,7 @@ export const JOBS: Readonly<Record<string, Job[]>> = {
   '*/5 * * * *': [['prices', runPrices]],
   '0 * * * *': [['hourly', runHourly]],
   '7 0 * * *': [['finalize', (c) => runFinalize(c, 'early')]],
-  '0 6 * * *': [['finalize', (c) => runFinalize(c, 'late')]],
+  [`0 ${LATE_FINALIZE_HOUR_UTC} * * *`]: [['finalize', (c) => runFinalize(c, 'late')]],
 };
 
 const POISON_HINT = ' — possibly a poison message (one message that makes every list page containing it fail); see runbook "Poison message"';

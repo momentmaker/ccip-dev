@@ -47,9 +47,10 @@ const card = (status = 200) =>
 async function finalizeRun(o: { now?: string; days: string[]; mode?: string; channel?: 'sent' | 'failed'; drafts?: 'sent' | 'failed'; fetch?: typeof fetch }) {
   const channel = recorder('telegram-channel', o.channel);
   const drafts = recorder('x-draft', o.drafts);
+  const preview = recorder('telegram-preview');
   const h = harness({ now: o.now ?? NOW, fetch: o.fetch ?? card(), env: { BROADCASTS: o.mode ?? 'on' } });
-  await runBroadcasts(h.c, { kind: 'finalize', days: o.days }, { channel: [channel.output], drafts: [drafts.output] });
-  return { channel: channel.sent, drafts: drafts.sent, alerts: h.alerts };
+  await runBroadcasts(h.c, { kind: 'finalize', days: o.days }, { channel: [channel.output], drafts: [drafts.output], preview: [preview.output] });
+  return { channel: channel.sent, drafts: drafts.sent, preview: preview.sent, alerts: h.alerts };
 }
 
 const keys = (sent: Broadcast[]) => sent.map((b) => b.key);
@@ -71,10 +72,67 @@ describe('runBroadcasts after finalize', () => {
     }).toEqual({ channel: [DAILY_KEY], drafts: [DAILY_KEY], image: true, x: true, html: true, claim: true });
   });
 
-  it('reaches only the X draft in drafts mode', async () => {
+  it('reaches only the owner in drafts mode: the X draft and the channel preview, not the channel', async () => {
     await seedDays(DAY);
-    const { channel, drafts } = await finalizeRun({ days: [DAY], mode: 'drafts' });
-    expect({ channel: keys(channel), drafts: keys(drafts) }).toEqual({ channel: [], drafts: [DAILY_KEY] });
+    const { channel, drafts, preview } = await finalizeRun({ days: [DAY], mode: 'drafts' });
+    expect({ channel: keys(channel), drafts: keys(drafts), preview: keys(preview) }).toEqual({ channel: [], drafts: [DAILY_KEY], preview: [DAILY_KEY] });
+  });
+
+  it('sends no preview in on mode', async () => {
+    await seedDays(DAY);
+    const { channel, drafts, preview } = await finalizeRun({ days: [DAY], mode: 'on' });
+    expect({ channel: keys(channel), drafts: keys(drafts), preview: keys(preview) }).toEqual({ channel: [DAILY_KEY], drafts: [DAILY_KEY], preview: [] });
+  });
+
+  it('keeps the claim when the mark fails once, and alerts that the post may repeat when it fails twice', async () => {
+    // #given the send succeeds, but writing `sent:` fails
+    await seedDays(DAY);
+    const failingMarks = (fails: number) => {
+      let failed = 0;
+      return new Proxy(env.DB, {
+        get(target, prop) {
+          if (prop !== 'prepare') {
+            const v: unknown = Reflect.get(target, prop, target);
+            return typeof v === 'function' ? v.bind(target) : v;
+          }
+          return (sql: string) => {
+            const stmt = target.prepare(sql);
+            return new Proxy(stmt, {
+              get(s, p) {
+                if (p !== 'bind') {
+                  const v: unknown = Reflect.get(s, p, s);
+                  return typeof v === 'function' ? v.bind(s) : v;
+                }
+                return (...args: unknown[]) => {
+                  if (String(args[1]).startsWith('sent:') && failed < fails) {
+                    failed++;
+                    throw new Error('D1_ERROR: busy');
+                  }
+                  return s.bind(...args);
+                };
+              },
+            });
+          };
+        },
+      });
+    };
+    const run = async (fails: number) => {
+      await resetStorage();
+      await seedDays(DAY);
+      const h = harness({ now: NOW, fetch: card(), db: failingMarks(fails), env: { BROADCASTS: 'on' } });
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [], preview: [] });
+      log.mockRestore();
+      return { alerts: h.alerts.map((a) => a.signature), claim: (await store.getMeta(env.DB, DAILY_KEY))?.split(':')[0] };
+    };
+    // #when
+    const once = await run(1);
+    const twice = await run(2);
+    // #then
+    expect({ once, twice }).toEqual({
+      once: { alerts: [], claim: 'sent' },
+      twice: { alerts: [`broadcast-mark:${DAILY_KEY}`], claim: 'pending' },
+    });
   });
 
   it('sends, claims and seeds nothing when off', async () => {
@@ -216,7 +274,7 @@ describe('broadcast claims', () => {
     const h = harness({ now: NOW, fetch: card(500), env: { BROADCASTS: 'on' } });
     const throwing = { ...h.c, alert: async () => { throw new Error('alerter down'); } };
     // #when
-    await runBroadcasts(throwing, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [] }).catch(() => {});
+    await runBroadcasts(throwing, { kind: 'finalize', days: [DAY] }, { channel: [recorder('telegram-channel').output], drafts: [], preview: [] }).catch(() => {});
     // #then
     expect(await store.getMeta(env.DB, DAILY_KEY)).toBeNull();
   });
@@ -228,7 +286,7 @@ describe('broadcast claims', () => {
     const boom: BroadcastOutput = { name: 'telegram-channel', send: async () => { throw new TypeError('secret-token in url'); } };
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     // #when
-    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [boom], drafts: [] });
+    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] }, { channel: [boom], drafts: [], preview: [] });
     const logged = log.mock.calls.map((a) => a.join(' '));
     log.mockRestore();
     // #then
@@ -259,6 +317,21 @@ describe('broadcast configuration', () => {
   it('falls back to the alert chat when TELEGRAM_DRAFTS_CHAT_ID is empty', async () => {
     expect(await draftChat({ TELEGRAM_DRAFTS_CHAT_ID: '' })).toEqual(['42']);
     expect(draftsOf({ TELEGRAM_DRAFTS_CHAT_ID: '' })).toBe(1);
+  });
+
+  it('sends the channel preview to the drafts chat with the Telegram caption as HTML', async () => {
+    // #given
+    const bodies: { chat_id: string; caption: string; parse_mode?: string }[] = [];
+    const f = fakeFetch((url, init) => {
+      if (url.endsWith('/sendPhoto')) bodies.push(JSON.parse(String(init?.body)));
+      return new Response('{"ok":true}');
+    });
+    const c = harness({ now: NOW, fetch: f, env: { ...ENV, TELEGRAM_DRAFTS_CHAT_ID: '99' } }).c;
+    // #when
+    const preview = telegramOutputs(c).preview;
+    await preview[0]?.send({ key: 'k', kind: 'daily', imageUrl: 'https://ccip.dev/x.png', facts: {} as never, xText: 'x', telegramHtml: '<b>t</b>' });
+    // #then
+    expect({ names: preview.map((o) => o.name), bodies }).toEqual({ names: ['telegram-preview'], bodies: [{ chat_id: '99', photo: 'https://ccip.dev/x.png', caption: '<b>t</b>', parse_mode: 'HTML' }] });
   });
 
   it('reads anything but drafts or on as off', () => {
@@ -300,7 +373,7 @@ describe('runBroadcasts for the Reserve', () => {
   const reserveRun = async (reserve: ReserveBody) => {
     const channel = recorder('telegram-channel');
     const h = harness({ now: '2026-10-08T17:00:00.000Z', fetch: card(), env: { BROADCASTS: 'on' } });
-    await runBroadcasts(h.c, { kind: 'reserve', reserve }, { channel: [channel.output], drafts: [] });
+    await runBroadcasts(h.c, { kind: 'reserve', reserve }, { channel: [channel.output], drafts: [], preview: [] });
     return keys(channel.sent);
   };
 
@@ -351,7 +424,7 @@ describe('runBroadcasts for the Reserve', () => {
     const fetch = card();
     const h = harness({ now: '2026-10-08T17:00:00.000Z', fetch, env: { BROADCASTS: 'on' } });
     // #when
-    await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 1e300, 12.5)]) }, { channel: [channel.output], drafts: [] });
+    await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 1e300, 12.5)]) }, { channel: [channel.output], drafts: [], preview: [] });
     // #then
     expect({
       alerts: h.alerts.map((a) => a.signature),

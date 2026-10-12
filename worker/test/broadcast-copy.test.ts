@@ -149,6 +149,24 @@ describe('links', () => {
     expect({ x: LINKLIKE.test(xText), tg: LINKLIKE.test(telegramHtml), shown: xText.includes('pump\u2024fun') && telegramHtml.includes('xStocks\u2024fi') }).toEqual({ x: false, tg: false, shown: true });
   });
 
+  it('puts a zero-width space after an @ and after the colon of ://', () => {
+    expect([noLinks('foo @bar'), noLinks('https://x')]).toEqual(['foo @\u200bbar', 'https:\u200b//x']);
+  });
+
+  it('keeps a verified handle as a mention while a symbol with an @ is neutralized, within the 280 limit', () => {
+    // #given a verified project handle next to a token symbol that tries to mention someone
+    const facts = withLeaders({ token: { ...DAILY.leaders.token!, symbol: 'AIRDROP@scam', project: p('Base', 'base') } });
+    // #when
+    const { xText, telegramHtml } = composeCopy(facts);
+    // #then
+    expect({
+      handle: xText.includes('@base'),
+      symbol: xText.includes('$AIRDROP@\u200bscam') && telegramHtml.includes('AIRDROP@\u200bscam'),
+      mentions: xText.match(/@\w+/g),
+      fits: xLength(xText) <= X_MAX,
+    }).toEqual({ handle: true, symbol: true, mentions: expect.arrayContaining(['@base']), fits: true });
+  });
+
   it('keeps names without a domain as they are', () => {
     expect([noLinks('St. Louis'), noLinks('$17.1M'), noLinks('Bungee (Socket)')]).toEqual(['St. Louis', '$17.1M', 'Bungee (Socket)']);
   });

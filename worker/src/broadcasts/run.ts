@@ -3,6 +3,7 @@ import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarge
 import { milestonesOn, RECORD_KINDS, recordsSetOn, recordValue, trackedMilestones } from '@ccip-dev/core/records';
 import type { RunContext } from '../context';
 import type { ReserveBody } from '../publish';
+import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
 import * as store from '../store';
 import { composeCopy, type Copy } from './copy';
 import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts, weeklyFacts, type BroadcastFacts, type FactsSource } from './facts';
@@ -53,6 +54,7 @@ export async function broadcastSafely(c: RunContext, request: BroadcastRequest, 
 /** New Reserve deposits, then yesterday's finalize broadcasts again: the ones already sent hold their keys, so only the rest go out. */
 export async function broadcastHourly(c: RunContext, reserve: ReserveBody): Promise<void> {
   await broadcastSafely(c, { kind: 'reserve', reserve });
+  if (c.deps.now().getUTCHours() === LATE_FINALIZE_HOUR_UTC) return;
   const yesterday = addDays(dayOf(c.deps.now()), -1);
   await broadcastSafely(c, { kind: 'finalize', days: [yesterday] }, async () => (await store.getMeta(c.env.DB, 'last_finalize_day')) === yesterday);
 }
@@ -163,7 +165,20 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
     if (result === 'sent') sent++;
     else failedOutputs.push(output.name);
   }
-  if (sent > 0) await store.setMeta(db, key, `sent:${now.toISOString()}`);
+  if (sent > 0) await markSent(c, key, `sent:${now.toISOString()}`);
   else await store.releaseMeta(db, key, claim);
   for (const name of failedOutputs) await c.alert(`broadcast-${name}:${key}`, `${key} was not sent to ${name}; the Worker logs say why`);
+}
+
+/** The post is out; a failed mark is retried once, then alerted, since the stale claim would let the hourly run post it again. */
+async function markSent(c: RunContext, key: string, value: string): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await store.setMeta(c.env.DB, key, value);
+      return;
+    } catch (err) {
+      console.error(`[broadcast] marking ${key} sent failed (attempt ${attempt + 1})`, err instanceof Error ? err.name : 'error');
+    }
+  }
+  await c.alert(`broadcast-mark:${key}`, `${key} went out but could not be marked sent, so the hourly run may post it again`);
 }

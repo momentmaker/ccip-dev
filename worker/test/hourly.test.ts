@@ -3,6 +3,7 @@ import { fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, NETWORKS 
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runHourly } from '../src/jobs/hourly';
+import { LATE_FINALIZE_HOUR_UTC } from '../src/schedule';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage, rpcFake } from './helpers';
 
@@ -140,7 +141,25 @@ describe('runHourly', () => {
     await runHourly(harness({ now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: f, env: env_ }).c);
     // #then
     const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)).photo.split('?')[0]);
-    expect(photos).toEqual(['https://ccip.dev/og/broadcast/daily/2026-10-07.png']);
+    expect(photos).toEqual(['https://ccip.dev/og/broadcast/daily/2026-10-07.png', 'https://ccip.dev/og/broadcast/daily/2026-10-07.png']);
+  });
+
+  it('leaves yesterday to the 06:00 late finalize, so the hourly run at that hour does not retry it', async () => {
+    // #given the same unsent daily, but the clock is at the late finalize's hour
+    for (const day of ['2026-10-05', '2026-10-06', '2026-10-07']) {
+      await store.replaceDaily(env.DB, { day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: 1, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 }, [], NOW);
+    }
+    await store.setMeta(env.DB, 'live_start_day', '2026-10-05');
+    await store.setMeta(env.DB, 'last_finalize_day', '2026-10-07');
+    const f = fakeFetch(
+      (url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } }) : url.startsWith('https://api.telegram.org/') ? jsonResponse({ ok: true, result: {} }) : undefined),
+      (url, init) => rpcFake({ balanceLink: 1n })(url, init),
+    );
+    const env_ = { BROADCASTS: 'drafts', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_ALERT_CHAT_ID: '42' };
+    // #when
+    await runHourly(harness({ now: `2026-10-08T0${LATE_FINALIZE_HOUR_UTC}:00:00.000Z`, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: f, env: env_ }).c);
+    // #then
+    expect(f.calls.filter((c) => c.url.endsWith('/sendPhoto'))).toEqual([]);
   });
 });
 

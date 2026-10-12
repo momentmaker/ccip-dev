@@ -18,10 +18,11 @@ export interface BroadcastOutput {
   send(b: Broadcast): Promise<'sent' | 'failed'>;
 }
 
-/** `channel` outputs post publicly; `drafts` outputs reach only the owner. */
+/** `channel` outputs post publicly; `drafts` and `preview` outputs reach only the owner. `preview` shows the channel's caption in drafts mode. */
 export interface OutputSet {
   channel: BroadcastOutput[];
   drafts: BroadcastOutput[];
+  preview: BroadcastOutput[];
 }
 
 export type BroadcastMode = 'off' | 'drafts' | 'on';
@@ -31,7 +32,7 @@ export function broadcastMode(env: Pick<Env, 'BROADCASTS'>): BroadcastMode {
 }
 
 export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {
-  return mode === 'on' ? [...set.channel, ...set.drafts] : set.drafts;
+  return mode === 'on' ? [...set.channel, ...set.drafts] : [...set.drafts, ...set.preview];
 }
 
 function photoOutput(c: RunContext, name: string, config: TelegramConfig, caption: (b: Broadcast) => { caption: string; parseMode?: 'HTML' }): BroadcastOutput {
@@ -46,7 +47,7 @@ function photoOutput(c: RunContext, name: string, config: TelegramConfig, captio
   };
 }
 
-/** The channel gets the card with the Telegram caption; the owner's drafts chat gets it with the X text, ready to paste. */
+/** The channel gets the card with the Telegram caption; the owner's drafts chat gets it with the X text, ready to paste, and in drafts mode with the channel caption too. */
 export function telegramOutputs(c: RunContext): OutputSet {
   const token = c.env.TELEGRAM_BOT_TOKEN;
   const channel = c.env.TELEGRAM_CHANNEL_ID;
@@ -54,5 +55,6 @@ export function telegramOutputs(c: RunContext): OutputSet {
   return {
     channel: token && channel ? [photoOutput(c, 'telegram-channel', { token, chatId: channel }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
     drafts: token && drafts ? [photoOutput(c, 'x-draft', { token, chatId: drafts }, (b) => ({ caption: b.xText }))] : [],
+    preview: token && drafts ? [photoOutput(c, 'telegram-preview', { token, chatId: drafts }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
   };
 }
