@@ -1,9 +1,9 @@
 import type { Dim } from '@ccip-dev/core';
-import { fakeFetch, NETWORKS } from '@ccip-dev/core/testing';
+import { fakeFetch, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Broadcast, BroadcastOutput } from '../src/broadcasts/outputs';
-import { broadcastMode, telegramOutputs } from '../src/broadcasts/outputs';
+import { broadcastMode, broadcastOutputs, selectOutputs, telegramOutputs } from '../src/broadcasts/outputs';
 import { broadcastHourly, RECORDS_SEED_KEY, RESERVE_SINCE_KEY, runBroadcasts } from '../src/broadcasts/run';
 import type { ReserveBody } from '../src/publish';
 import * as store from '../src/store';
@@ -513,5 +513,260 @@ describe('runBroadcasts for the Reserve', () => {
       sent: channel.sent.length,
       fetches: fetch.calls.length,
     }).toEqual({ alerts: [`broadcast-copy:broadcast:reserve:${TX2}`], claim: null, sent: 0, fetches: 0 });
+  });
+});
+
+describe('X posting output', () => {
+  const X_KEYS = { X_API_KEY: 'k-key', X_API_SECRET: 'k-secret', X_ACCESS_TOKEN: 't-token', X_ACCESS_SECRET: 't-secret' };
+  const ENV = { TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42' };
+  const BROADCAST: Broadcast = { key: 'broadcast:daily:2026-10-10', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: '#CCIP daily', telegramHtml: '<b>t</b>' };
+  const xPostOf = (extra: Record<string, string>, f?: typeof fetch) => broadcastOutputs(harness({ now: NOW, fetch: f, env: { ...ENV, ...extra } }).c).xPost ?? [];
+
+  it('is present only when all four keys are set and X_POSTS is not off', () => {
+    // #when
+    const names = (extra: Record<string, string>) => xPostOf(extra).map((o) => o.name);
+    const { X_ACCESS_SECRET: _omitted, ...threeKeys } = X_KEYS;
+    // #then
+    expect({
+      all: names(X_KEYS),
+      switchedOn: names({ ...X_KEYS, X_POSTS: 'on' }),
+      off: names({ ...X_KEYS, X_POSTS: 'off' }),
+      missingOne: names(threeKeys),
+      none: names({}),
+    }).toEqual({ all: ['x-post'], switchedOn: ['x-post'], off: [], missingOne: [], none: [] });
+  });
+
+  it('uploads the card, then posts the X text with that media id, and logs the public post id', async () => {
+    // #given
+    const f = fakeFetch(
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      (url) => (url.endsWith('/2/tweets') ? jsonResponse({ data: { id: 'post-9' } }, 201) : undefined),
+    );
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    const logged = log.mock.calls.map((a) => a.join(' '));
+    log.mockRestore();
+    // #then
+    expect({
+      result,
+      urls: f.calls.map((c) => c.url),
+      posted: JSON.parse(String(f.calls[1]?.init?.body)),
+      bytes: [...new Uint8Array(await ((f.calls[0]?.init?.body as FormData).get('media') as Blob).arrayBuffer())],
+      logged: logged.some((l) => l.includes('post-9') && l.includes(BROADCAST.key)),
+    }).toEqual({
+      result: 'sent',
+      urls: ['https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets'],
+      posted: { text: '#CCIP daily', media: { media_ids: ['media-1'] } },
+      bytes: PNG,
+      logged: true,
+    });
+  });
+
+  it('fails without posting when the upload fails, logging the problem and no key', async () => {
+    // #given
+    const f = fakeFetch(() => jsonResponse({ detail: 'Unauthorized' }, 401));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    const logged = log.mock.calls.map((a) => a.join(' ')).join('\n');
+    log.mockRestore();
+    // #then
+    expect({ result, calls: f.calls.length, logged: logged.includes('401') && logged.includes('Unauthorized'), leaked: Object.values(X_KEYS).some((v) => logged.includes(v)) }).toEqual({
+      result: 'failed', calls: 1, logged: true, leaked: false,
+    });
+  });
+
+  const uploadThen = (post: () => Response | Promise<Response>) =>
+    fakeFetch(
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      (url) => (url.endsWith('/2/tweets') ? post() : undefined),
+    );
+
+  it('fails when the post is refused for another reason after a good upload', async () => {
+    // #given
+    const f = uploadThen(() => jsonResponse({ detail: 'Forbidden' }, 403));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    log.mockRestore();
+    // #then
+    expect(result).toBe('failed');
+  });
+
+  it('counts a duplicate-content refusal as sent, since the broadcast is already on X', async () => {
+    // #given
+    const f = uploadThen(() => jsonResponse({ detail: 'You are not allowed to create a Tweet with duplicate content.' }, 403));
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    const logged = log.mock.calls.map((a) => a.join(' ')).join('\n');
+    log.mockRestore();
+    // #then
+    expect({ result, logged: logged.includes(`X already has ${BROADCAST.key} (duplicate content); counting it as sent`), leaked: Object.values(X_KEYS).some((v) => logged.includes(v)) }).toEqual({
+      result: 'sent', logged: true, leaked: false,
+    });
+  });
+
+  it('counts a 2xx post whose id cannot be read as sent', async () => {
+    // #given
+    const f = uploadThen(() => new Response('not json', { status: 201 }));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send(BROADCAST);
+    err.mockRestore();
+    log.mockRestore();
+    // #then
+    expect(result).toBe('sent');
+  });
+
+  it('refuses a broadcast with no X text, as a poll has none, without calling X', async () => {
+    // #given
+    const f = fakeFetch();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const result = await xPostOf(X_KEYS, f)[0]?.send({ ...BROADCAST, xText: '  \n' });
+    const logged = log.mock.calls.length;
+    log.mockRestore();
+    // #then
+    expect({ result, calls: f.calls.length, logged }).toEqual({ result: 'failed', calls: 0, logged: 1 });
+  });
+
+  it.each([
+    ['times out', () => { throw new DOMException('timed out', 'TimeoutError'); }],
+    ['answers 503', () => jsonResponse({}, 503)],
+  ])('stops calling X for the rest of the run once it %s', async (_name, post) => {
+    // #given two broadcasts sent through one output set
+    const f = uploadThen(post as () => Response);
+    const [output] = xPostOf(X_KEYS, f);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const first = await output?.send(BROADCAST);
+    const callsAfterFirst = f.calls.length;
+    const second = await output?.send({ ...BROADCAST, key: 'broadcast:weekly:2026-10-05' });
+    log.mockRestore();
+    // #then
+    expect({ first, second, secondCalls: f.calls.length - callsAfterFirst }).toEqual({ first: 'failed', second: 'failed', secondCalls: 0 });
+  });
+
+  it('keeps calling X after a refusal that is not an outage', async () => {
+    // #given
+    const f = uploadThen(() => jsonResponse({ detail: 'Forbidden' }, 403));
+    const [output] = xPostOf(X_KEYS, f);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    await output?.send(BROADCAST);
+    await output?.send({ ...BROADCAST, key: 'broadcast:weekly:2026-10-05' });
+    log.mockRestore();
+    // #then
+    expect(f.calls.length).toBe(4);
+  });
+
+  it('starts a new run with a closed circuit', async () => {
+    // #given the circuit tripped in one run
+    const f = uploadThen(() => jsonResponse({}, 503));
+    const harnessC = harness({ now: NOW, fetch: f, env: { ...ENV, ...X_KEYS } }).c;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await broadcastOutputs(harnessC).xPost?.[0]?.send(BROADCAST);
+    const before = f.calls.length;
+    // #when the next run builds its outputs
+    await broadcastOutputs(harnessC).xPost?.[0]?.send(BROADCAST);
+    log.mockRestore();
+    // #then
+    expect(f.calls.length - before).toBe(2);
+  });
+
+  it('replaces the X draft with the post in on mode, and leaves drafts mode alone', () => {
+    // #given
+    const out = (name: string): BroadcastOutput => ({ name, send: async () => 'sent' });
+    const set = { channel: [out('telegram-channel')], drafts: [out('x-draft')], preview: [out('telegram-preview')], xPost: [out('x-post')] };
+    // #then
+    expect({
+      on: selectOutputs(set, 'on').map((o) => o.name),
+      onWithoutX: selectOutputs({ ...set, xPost: [] }, 'on').map((o) => o.name),
+      xPostMissing: selectOutputs({ channel: set.channel, drafts: set.drafts, preview: set.preview }, 'on').map((o) => o.name),
+      drafts: selectOutputs(set, 'drafts').map((o) => o.name),
+    }).toEqual({ on: ['telegram-channel', 'x-post'], onWithoutX: ['telegram-channel', 'x-draft'], xPostMissing: ['telegram-channel', 'x-draft'], drafts: ['x-draft', 'telegram-preview'] });
+  });
+
+  it('keeps telegramOutputs free of X posting', () => {
+    expect(telegramOutputs(harness({ now: NOW, env: { ...ENV, ...X_KEYS } }).c).xPost ?? []).toEqual([]);
+  });
+});
+
+describe('X posting through a broadcast run', () => {
+  const ENV = {
+    BROADCASTS: 'on', TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42',
+    X_API_KEY: 'k-key', X_API_SECRET: 'k-secret', X_ACCESS_TOKEN: 't-token', X_ACCESS_SECRET: 't-secret',
+  };
+  const X_POST_KEY = `${DAILY_KEY}#x-post`;
+
+  /** The card, the Telegram API and X; `telegram` decides what sendPhoto answers per chat. */
+  function world(telegram: (chat: string) => boolean = () => true) {
+    const chats: string[] = [];
+    const f = fakeFetch(
+      (url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array(PNG), { headers: { 'content-type': 'image/png' } }) : undefined),
+      (url, init) => {
+        if (!url.endsWith('/sendPhoto')) return undefined;
+        const chat = String((init?.body as FormData).get('chat_id'));
+        chats.push(chat);
+        return telegram(chat) ? new Response('{"ok":true}') : new Response('{"ok":false}', { status: 500 });
+      },
+      (url) => (url.endsWith('/2/media/upload') ? jsonResponse({ data: { id: 'media-1' } }) : undefined),
+      (url) => (url.endsWith('/2/tweets') ? jsonResponse({ data: { id: 'post-9' } }, 201) : undefined),
+    );
+    const xCalls = () => f.calls.map((c) => c.url).filter((u) => u.startsWith('https://api.x.com/'));
+    return { f, chats, xCalls };
+  }
+  const run = async (f: typeof fetch) => {
+    const h = harness({ now: NOW, fetch: f, env: ENV });
+    await runBroadcasts(h.c, { kind: 'finalize', days: [DAY] });
+    return h;
+  };
+
+  it('uploads and posts to X in on mode, and sends the owner no X draft', async () => {
+    // #given
+    await seedDays(DAY);
+    const w = world();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    await run(w.f);
+    log.mockRestore();
+    // #then
+    expect({ x: w.xCalls(), chats: w.chats, marks: [await store.getMeta(env.DB, X_POST_KEY), await store.getMeta(env.DB, DAILY_KEY)].map((m) => m?.split(':')[0]) }).toEqual({
+      x: ['https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets'],
+      chats: ['@ccipdev'],
+      marks: ['sent', 'sent'],
+    });
+  });
+
+  it('makes no X call for a broadcast that is already sent', async () => {
+    // #given
+    await seedDays(DAY);
+    await store.setMeta(env.DB, DAILY_KEY, 'sent:2026-10-11T00:07:00.000Z');
+    const w = world();
+    // #when
+    await run(w.f);
+    // #then
+    expect({ x: w.xCalls(), all: w.f.calls.length }).toEqual({ x: [], all: 0 });
+  });
+
+  it('does not post to X again on the next run when only the channel failed the first time', async () => {
+    // #given the first run: X posts, the channel fails
+    await seedDays(DAY);
+    const first = world((chat) => chat !== '@ccipdev');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await run(first.f);
+    // #when the next run finds the channel up
+    const second = world();
+    await run(second.f);
+    log.mockRestore();
+    err.mockRestore();
+    // #then
+    expect({ firstX: first.xCalls().length, secondX: second.xCalls().length, secondChats: second.chats, closed: (await store.getMeta(env.DB, DAILY_KEY))?.split(':')[0] }).toEqual({
+      firstX: 2, secondX: 0, secondChats: ['@ccipdev'], closed: 'sent',
+    });
   });
 });

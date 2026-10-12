@@ -10,7 +10,7 @@ import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts,
 import { composeMomentCopy } from './moment-copy';
 import { isMomentFacts, loadMomentsSource, momentFacts, type MomentFacts, type MomentsSource } from './moment-facts';
 import { dueMoments, pickMoments, type DueMoment } from './moment-plan';
-import { broadcastMode, momentMode, selectOutputs, selectPollOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
+import { broadcastMode, broadcastOutputs, momentMode, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
 export const IMAGE_TIMEOUT_MS = 20_000;
@@ -30,7 +30,7 @@ interface Planned {
   facts: BroadcastFacts | MomentFacts;
 }
 
-export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = telegramOutputs(c)): Promise<void> {
+export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = broadcastOutputs(c)): Promise<void> {
   const mode = broadcastMode(c.env);
   if (mode === 'off') return;
   const enabled = selectOutputs(outputs, mode);
@@ -47,7 +47,8 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
 async function broadcastMoments(c: RunContext, days: readonly string[], outputs: OutputSet): Promise<void> {
   const mode = momentMode(c.env);
   if (mode === 'off' || !days.includes(addDays(dayOf(c.deps.now()), -1))) return;
-  const enabled = selectOutputs(outputs, mode);
+  // Until the moment X text tags only its subject, moments keep the owner's X draft and never reach x-post.
+  const enabled = selectOutputs({ ...outputs, xPost: [] }, mode);
   for (const p of await planMoments(c, await loadMomentsSource(c))) {
     try {
       await deliver(c, p, p.target.kind === 'poll' ? selectPollOutputs(outputs, mode) : enabled);

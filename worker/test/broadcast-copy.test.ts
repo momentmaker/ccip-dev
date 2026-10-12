@@ -60,9 +60,9 @@ describe('X posts', () => {
         '#CCIP · Sat, Oct 10',
         '1,313 messages · $17.1M moved',
         '$739 in fees · 0.5% paid in $LINK',
-        'Top token: $syrupUSDC @maplefinance · $6.1M (36%)',
-        'Top sender: @xStocksFi · 97 messages',
-        'Busiest lane: @ethereum → @arc · $5.2M',
+        'Top token: $syrupUSDC Maple · $6.1M (36%)',
+        'Top sender: xStocks · 97 messages',
+        'Busiest lane: Ethereum → Arc · $5.2M',
         '#Chainlink',
       ].join('\n'),
     );
@@ -77,12 +77,12 @@ describe('X posts', () => {
         '#CCIP this week · Oct 5–11',
         '14,103 messages ▲ 5.0% · $334.0M moved ▲ 17%',
         '$8.0K in fees ▲ 6.0% · 0.5% paid in $LINK',
-        'Top token: $syrupUSDC @maplefinance · $6.1M (36%)',
-        'Top sender: @xStocksFi · 97 messages',
-        'Top fee chains: @base · @BNBCHAIN · Ethereum',
+        'Top token: $syrupUSDC Maple · $6.1M (36%)',
+        'Top sender: xStocks · 97 messages',
+        'Top fee chains: Base · BNB Chain · Ethereum',
         '#Chainlink',
       ].join('\n'),
-      length: 259,
+      length: 247,
     });
   });
 
@@ -91,21 +91,29 @@ describe('X posts', () => {
       [
         '🚨 New all-time high for #CCIP: $57.3K in fees in one day',
         'Previous record: $47.8K (Mar 1), held for 130 days',
-        'Driven by @ADIChain → @ethereum · 5,712 messages',
-        '@chainlink $LINK',
+        'Driven by ADI → Ethereum · 5,712 messages',
+        '#Chainlink $LINK',
       ].join('\n'),
     );
   });
 
   it('writes the milestone and Reserve posts', () => {
     expect([composeCopy(MILESTONE).xText, composeCopy(RESERVE).xText]).toEqual([
-      ['🏁 New milestone for #CCIP: $2.5M in fees all time', 'Reached on Sat, Oct 10', '@chainlink $LINK'].join('\n'),
+      ['🏁 New milestone for #CCIP: $2.5M in fees all time', 'Reached on Sat, Oct 10', '#Chainlink $LINK'].join('\n'),
       [
         'The Chainlink Reserve just added 82,480 $LINK ($1.0M)',
         'Now 6.2M LINK · 62 weekly deposits in a row · on pace for 7M around Dec 16',
         '@chainlink #CCIP',
       ].join('\n'),
     ]);
+  });
+
+  it('mentions no account in daily, weekly, record and milestone posts, and only @chainlink in the Reserve post', () => {
+    // #when
+    const plain = [DAILY, WEEKLY, RECORD, MILESTONE].map((f) => composeCopy(f).xText);
+    const reserve = composeCopy(RESERVE).xText;
+    // #then
+    expect({ plain: plain.map((t) => t.includes('@')), reserve: reserve.match(/@\w+/g) }).toEqual({ plain: [false, false, false, false], reserve: ['@chainlink'] });
   });
 
   it('drops the busiest lane, then the top sender, then the top token until the post fits 280', () => {
@@ -153,18 +161,18 @@ describe('links', () => {
     expect([noLinks('foo @bar'), noLinks('https://x')]).toEqual(['foo @\u200bbar', 'https:\u200b//x']);
   });
 
-  it('keeps a verified handle as a mention while a symbol with an @ is neutralized, within the 280 limit', () => {
-    // #given a verified project handle next to a token symbol that tries to mention someone
+  it('tags nobody for a project while a symbol with an @ is neutralized, within the 280 limit', () => {
+    // #given a project with a verified handle next to a token symbol that tries to mention someone
     const facts = withLeaders({ token: { ...DAILY.leaders.token!, symbol: 'AIRDROP@scam', project: p('Base', 'base') } });
     // #when
     const { xText, telegramHtml } = composeCopy(facts);
     // #then
     expect({
-      handle: xText.includes('@base'),
+      project: xText.includes('Base'),
       symbol: xText.includes('$AIRDROP@\u200bscam') && telegramHtml.includes('AIRDROP@\u200bscam'),
       mentions: xText.match(/@\w+/g),
       fits: xLength(xText) <= X_MAX,
-    }).toEqual({ handle: true, symbol: true, mentions: expect.arrayContaining(['@base']), fits: true });
+    }).toEqual({ project: true, symbol: true, mentions: null, fits: true });
   });
 
   it('keeps names without a domain as they are', () => {

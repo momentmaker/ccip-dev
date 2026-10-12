@@ -25,6 +25,7 @@ CCIP_API_BASE = "https://api.ccip.chain.link/v2"
 BROADCASTS = "on"
 MOMENTS = "on"
 TELEGRAM_CHANNEL_ID = "@ccipdev"
+X_POSTS = "on"
 
 [observability]
 enabled = true
