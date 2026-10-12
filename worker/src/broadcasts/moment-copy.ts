@@ -38,22 +38,27 @@ function dayRange(from: string, to: string): string {
   return from.slice(0, 7) === to.slice(0, 7) ? `${shortDay(from)}–${Number(to.slice(8))}` : `${shortDay(from)} – ${shortDay(to)}`;
 }
 
+/** A first day that moved under $0.50 would read "$0 moved", so it names only its messages. */
+const firstDayUsd = (usd: number) => (Math.round(usd) > 0 ? formatUsd(usd) : null);
+
 function welcomeX(f: WelcomeFacts): Line[] {
   const partner = f.partners[0] ? `, with ${plain(f.partners[0])}` : '';
+  const moved = firstDayUsd(f.usd);
   return [
     { text: `🎉 Welcome to #CCIP, ${subject(f.chain)}` },
     { text: `Chain #${f.number} on CCIP: first message on ${shortDay(f.day)}${partner}` },
-    { text: `First day: ${plural(f.messages, 'message')} · ${formatUsd(f.usd)} moved` },
+    { text: `First day: ${plural(f.messages, 'message')}${moved === null ? '' : ` · ${moved} moved`}` },
     { text: '#Chainlink', drop: MOMENT_DROP.closing },
   ];
 }
 
 function welcomeTg(f: WelcomeFacts): Line[] {
   const chain = tgName(f.chain);
+  const moved = firstDayUsd(f.usd);
   return [
     { text: bold(`Welcome to CCIP, ${chain}`) },
     { text: `${chain} is chain ${bold(`#${f.number}`)} on CCIP. Its first message was on ${longDay(f.day)}.` },
-    { text: `First day: ${bold(formatCount(f.messages))} message${f.messages === 1 ? '' : 's'} and ${bold(formatUsd(f.usd))} moved.` },
+    { text: `First day: ${bold(formatCount(f.messages))} message${f.messages === 1 ? '' : 's'}${moved === null ? '' : ` and ${bold(moved)} moved`}.` },
     ...(f.partners.length > 0 ? [{ text: `Connected to ${andList(f.partners.slice(0, 3).map(tgName))}.`, drop: MOMENT_DROP.detail }] : []),
     { text: '' },
     { text: CLOSING_TG, drop: MOMENT_DROP.closing },

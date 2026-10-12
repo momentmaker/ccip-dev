@@ -22,6 +22,9 @@ export async function welcomeTree(selector: string, inputs: BroadcastInputs): Pr
   const sky = hubSky(replay, names, selector, arrival.day, arrival.day, { gold: selector, starFree: [TEXT_COLUMN] });
   const name = chainName(names, selector);
   const partners = arrival.partners.map((p) => chainName(names, p));
+  const messages = `${formatCount(arrival.messages)} message${arrival.messages === 1 ? '' : 's'}`;
+  // A first day that moved under $0.50 would read "$0 moved", so it names only its messages.
+  const firstDay: Child[] = Math.round(arrival.usd) > 0 ? [bold(`${messages} `), '· ', bold(`${formatUsd(arrival.usd)} `), 'moved'] : [bold(messages)];
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
     eyebrow: `New chain · ${cardDay(arrival.day)}`,
@@ -30,7 +33,7 @@ export async function welcomeTree(selector: string, inputs: BroadcastInputs): Pr
       eyebrow(`Chain #${arrival.number} on CCIP`, { marginTop: 24 }),
       bigText(name, nameSize(name)),
       columnLine(['First message ', bold(`${formatUtcDay(arrival.day)} `), ...(partners[0] ? ['with ', bold(partners[0])] : [])]),
-      columnLine(['First day: ', bold(`${formatCount(arrival.messages)} message${arrival.messages === 1 ? '' : 's'} `), '· ', bold(`${formatUsd(arrival.usd)} `), 'moved'], { fontSize: 24, color: COLORS.soft }),
+      columnLine(['First day: ', ...firstDay], { fontSize: 24, color: COLORS.soft }),
     ),
     insight: partners.length === 0 ? [] : ['Connected to ', ...partners.slice(0, 3).flatMap((p, i): Child[] => [...(i > 0 ? [' · '] : []), bold(p)])],
     cta: CHAINS_CTA,

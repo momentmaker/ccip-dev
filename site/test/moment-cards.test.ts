@@ -25,6 +25,15 @@ describe('welcome card', () => {
     });
   });
 
+  it('names only the messages when the first day moved $0', async () => {
+    // #given Tempo's first 10 messages carried no value
+    const free = withMoments({ arrivals: { ...MOMENTS.arrivals, chains: [{ ...MOMENTS.arrivals.chains[0]!, messages: 10, usd: 0 }] } });
+    // #when
+    const words = texts(await tree({ kind: 'welcome', selector: TEMPO }, free));
+    // #then
+    expect(words.slice(words.indexOf('First day: '), words.indexOf('Connected to '))).toEqual(['First day: ', '10 messages']);
+  });
+
   it('has no card for a chain moments.json does not list, or whose first day replay.json lacks', async () => {
     // #given replay.json ends on Oct 10
     const stale: typeof loadMoments = async (name) => (name === 'replay.json' ? ({ ...MOMENT_REPLAY, days: MOMENT_REPLAY.days.slice(0, -1) } as never) : loadMoments(name));

@@ -126,6 +126,15 @@ describe('moment Telegram captions', () => {
     ]);
   });
 
+  it('leaves the value out of the welcome when the first day moved $0, on X and on Telegram', () => {
+    // #given a chain whose first 10 messages carried no value
+    const free: WelcomeFacts = { ...WELCOME, messages: 10, usd: 0 };
+    // #when
+    const copy = composeMomentCopy(free);
+    // #then
+    expect([copy.xText.split('\n')[2], copy.telegramHtml.split('\n')[2]]).toEqual(['First day: 10 messages', 'First day: <b>10</b> messages.']);
+  });
+
   it("captions the poll card with last week's answer and how many called it, then this week's question", () => {
     // #given the poll with a closed poll from last week
     // #when
