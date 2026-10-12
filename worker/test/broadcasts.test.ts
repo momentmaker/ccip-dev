@@ -49,7 +49,7 @@ async function finalizeRun(o: { now?: string; days: string[]; mode?: string; cha
   const channel = recorder('telegram-channel', o.channel);
   const drafts = recorder('x-draft', o.drafts);
   const preview = recorder('telegram-preview');
-  const h = harness({ now: o.now ?? NOW, fetch: o.fetch ?? card(), env: { BROADCASTS: o.mode ?? 'on' } });
+  const h = harness({ now: o.now ?? NOW, fetch: o.fetch ?? card(), env: { BROADCASTS: o.mode ?? 'on', MOMENTS: 'off' } });
   await runBroadcasts(h.c, { kind: 'finalize', days: o.days }, { channel: [channel.output], drafts: [drafts.output], preview: [preview.output] });
   return { channel: channel.sent, drafts: drafts.sent, preview: preview.sent, alerts: h.alerts };
 }

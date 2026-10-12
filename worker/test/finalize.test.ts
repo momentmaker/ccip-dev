@@ -906,3 +906,41 @@ describe('broadcasts after finalize', () => {
     }).toEqual({ sent: [['@ccipdev', true], ['42', true]], cards: ['https://ccip.dev/og/broadcast/daily/2026-10-09.png'] });
   });
 });
+
+describe("last week's poll after Monday's finalize", () => {
+  const RECORD = {
+    chat_id: '@ccipdev', message_id: 7, question_kind: 'lane', question: 'Which lane will move the most value this week?',
+    options: [{ key: `${NETWORKS.base.chainSelector}>${NETWORKS.bsc.chainSelector}`, label: 'Base → BNB Chain' }, { key: 'other', label: 'Another lane' }],
+  };
+  const telegram = () =>
+    fakeFetch((url) => {
+      if (url.endsWith('/stopPoll')) return jsonResponse({ ok: true, result: { total_voter_count: 4, options: [{ voter_count: 3 }, { voter_count: 1 }] } });
+      if (url.startsWith('https://api.telegram.org/')) return jsonResponse({ ok: true, result: { message_id: 9 } });
+      if (url.startsWith('https://ccip.dev/og/')) return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } });
+      return undefined;
+    });
+  const sunday = () => fakeCcip({ messages: [listMessage({ id: 's11', sendTs: '2026-10-11T12:00:00.000Z' })] });
+
+  beforeEach(async () => {
+    // #given Sunday is due, and last week's poll was sent
+    await seedMeta('2026-10-10', '2026-10-10');
+    await store.setMeta(env.DB, 'poll:2026-10-05', JSON.stringify(RECORD));
+  });
+
+  it('is closed before moments.json is published, so the file carries its vote shares', async () => {
+    // #when
+    await runFinalize(harness({ now: '2026-10-12T00:07:00.000Z', ccip: sunday(), fetch: telegram(), env: { TELEGRAM_BOT_TOKEN: 'bot', TELEGRAM_CHANNEL_ID: '' } }).c, 'early');
+    // #then
+    const poll = (await readPublic('moments.json')).polls.find((p: { week: string }) => p.week === '2026-10-05');
+    expect({ votes: poll?.votes, total: poll?.total_votes }).toEqual({ votes: [75, 25], total: 4 });
+  });
+
+  it('is never closed by the 06:00 run', async () => {
+    // #given
+    const fetch = telegram();
+    // #when
+    await runFinalize(harness({ now: '2026-10-12T06:00:00.000Z', ccip: sunday(), fetch, env: { TELEGRAM_BOT_TOKEN: 'bot', TELEGRAM_CHANNEL_ID: '' } }).c, 'late');
+    // #then
+    expect(fetch.calls.filter((c) => c.url.endsWith('/stopPoll'))).toEqual([]);
+  });
+});

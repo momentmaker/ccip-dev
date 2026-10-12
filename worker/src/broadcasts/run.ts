@@ -10,7 +10,7 @@ import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts,
 import { composeMomentCopy } from './moment-copy';
 import { isMomentFacts, loadMomentsSource, momentFacts, type MomentFacts, type MomentsSource } from './moment-facts';
 import { dueMoments, pickMoments, type DueMoment } from './moment-plan';
-import { broadcastMode, momentMode, selectOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
+import { broadcastMode, momentMode, selectOutputs, selectPollOutputs, telegramOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
 export const IMAGE_TIMEOUT_MS = 20_000;
@@ -50,25 +50,28 @@ async function broadcastMoments(c: RunContext, days: readonly string[], outputs:
   const enabled = selectOutputs(outputs, mode);
   for (const p of await planMoments(c, await loadMomentsSource(c))) {
     try {
-      await deliver(c, p, enabled);
+      await deliver(c, p, p.target.kind === 'poll' ? selectPollOutputs(outputs, mode) : enabled);
     } catch (err) {
       await c.alert('broadcast-run', `${broadcastKey(p.target)} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }
 
-/** The budgeted moments due today that the day's budget still allows; the first run seeds them instead. */
+/** Monday's poll first, outside the budget and never seeded, then the budgeted moments due today. */
 async function planMoments(c: RunContext, src: MomentsSource): Promise<Planned[]> {
   const db = c.env.DB;
   const today = dayOf(c.deps.now());
+  const pollFacts = weekStart(today) === today ? momentFacts(src, { kind: 'poll', monday: today }) : null;
+  const poll: Planned[] = pollFacts === null ? [] : [{ target: { kind: 'poll', monday: today }, facts: pollFacts }];
   const due = dueMoments(src.moments, today);
-  if (await seedMoments(c, due)) return [];
+  if (await seedMoments(c, due)) return poll;
   const values = await store.getMetas(db, due.map((d) => broadcastKey(d.target)));
   const done = new Set([...values].filter(([, v]) => v.startsWith('sent:') || v.startsWith('seeded:')).map(([key]) => key));
-  return pickMoments(due, { done, sentToday: await store.momentsSentOn(db, today) }).flatMap((d) => {
+  const picked = pickMoments(due, { done, sentToday: await store.momentsSentOn(db, today) }).flatMap((d) => {
     const facts = momentFacts(src, d.target);
     return facts === null ? [] : [{ target: d.target, facts }];
   });
+  return [...poll, ...picked];
 }
 
 /** The first run marks every moment due today as seeded, without posting it, so switching moments on posts no old ones. */
@@ -210,19 +213,28 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
     return;
   }
   const broadcast: Broadcast = { key, kind: p.target.kind, image: checked.png, facts: p.facts, ...copy };
+  const sentNames = new Set(outputs.filter((o) => !remaining.includes(o)).map((o) => o.name));
   const failedOutputs: string[] = [];
+  let waiting = false;
   let unmarked = false;
   for (const output of remaining) {
+    // An output that follows another (the poll after its card) waits, without an alert, until that one has sent.
+    if (output.after !== undefined && !sentNames.has(output.after)) {
+      waiting = true;
+      continue;
+    }
     const result = await output.send(broadcast).catch((err) => {
       console.error(`[broadcast] output ${output.name} threw`, err instanceof Error ? err.name : 'error');
       return 'failed' as const;
     });
-    if (result === 'sent') unmarked = !(await markSent(c, outputKey(output), `sent:${now.toISOString()}`)) || unmarked;
-    else failedOutputs.push(output.name);
+    if (result === 'sent') {
+      sentNames.add(output.name);
+      unmarked = !(await markSent(c, outputKey(output), `sent:${now.toISOString()}`)) || unmarked;
+    } else failedOutputs.push(output.name);
   }
   // Every output sent, so the broadcast closes even if an output mark was lost; releasing it would post that output again.
   // With a failed output and a lost mark, the claim stays pending: releasing would re-send the unmarked output at once.
-  if (failedOutputs.length === 0) await markSent(c, key, `sent:${now.toISOString()}`);
+  if (failedOutputs.length === 0 && !waiting) await markSent(c, key, `sent:${now.toISOString()}`);
   else if (!unmarked) await store.releaseMeta(db, key, claim);
   for (const name of failedOutputs) await c.alert(`broadcast-${name}:${key}`, `${key} was not sent to ${name}; the Worker logs say why`);
 }

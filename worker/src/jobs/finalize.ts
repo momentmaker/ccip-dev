@@ -3,6 +3,7 @@ import {
   toJsonl, valueFee, type FeeClassifier, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
+import { closeLastWeekPoll } from '../broadcasts/poll';
 import { broadcastSafely } from '../broadcasts/run';
 import { publishHistoryFiles, retryPut } from '../publish';
 import { triggerSiteBuild } from '../site-build';
@@ -87,6 +88,7 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   }
   const summary = `finalize failed for ${failures.length} day(s); the first: ${failures[0]}`;
   if (failures.length < days.length) {
+    if (mode === 'early') await closeLastWeekPoll(c);
     try {
       await publishHistoryFiles(c);
     } catch (err) {
