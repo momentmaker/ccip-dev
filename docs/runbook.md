@@ -230,6 +230,7 @@ Alerts arrive in the Telegram chat.
 | `broadcast-mark:<key>#<output>` or `broadcast-mark:<key>` | A `sent:` key could not be written, even after one retry. For `<key>#<output>`, the post went out: set that row to `sent:<time>` by hand (`INSERT … 'sent:<time>'` into `meta`) so it is not sent again. For `<key>`, every output already sent, so nothing is at risk of a re-post. |
 | `broadcast-copy:<key>` | The post could not be written within X's 280 or Telegram's 1,024 even with every droppable line gone. Nothing was posted; read the alert. |
 | `broadcast-run` | The broadcast step itself failed (for example a D1 error while reading its facts). Finalize and the hourly job still finished; the next hourly run retries. |
+| `broadcast-run:<key>` | One moment failed in a way its own alerts did not catch (for example a D1 error while claiming its key); the moments after it were still posted. Read the error in the alert and the Worker logs. The hourly runs retry it while it is due; a key it left `pending:` is retried once the claim is an hour old. |
 | `reserve-read` | The Reserve balance read failed several hours in a row. Check the RPC endpoints. |
 | `reserve-scan` | The Reserve transfer scan failed several hours in a row. Check the RPC endpoints. |
 | `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. See "Missed Reserve outflow alert" if a crash may have eaten one. |

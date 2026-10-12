@@ -52,7 +52,8 @@ async function broadcastMoments(c: RunContext, days: readonly string[], outputs:
     try {
       await deliver(c, p, p.target.kind === 'poll' ? selectPollOutputs(outputs, mode) : enabled);
     } catch (err) {
-      await c.alert('broadcast-run', `${broadcastKey(p.target)} failed: ${err instanceof Error ? err.message : String(err)}`);
+      const key = broadcastKey(p.target);
+      await c.alert(`broadcast-run:${key}`, `${key} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }

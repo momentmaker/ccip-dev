@@ -207,6 +207,21 @@ describe('moments after finalize', () => {
     expect({ reports, channel, alerts }).toEqual({ reports: ['broadcast:daily:2026-10-12'], channel: [welcome(NEW[1]!)], alerts: [`broadcast-image:${welcome(NEW[0]!)}`] });
   });
 
+  it("alerts a moment that throws under its own broadcast-run:<key>, apart from the finalize's broadcast-run, and posts the next", async () => {
+    // #given the first welcome's card answers 500, and the alert for that fails too, so its delivery throws
+    const h = harness({ now: NOW, fetch: card(`welcome/${NEW[0]}`), env: { BROADCASTS: 'on', MOMENTS: 'on' } });
+    const alerts: string[] = [];
+    const alert = async (signature: string) => {
+      if (signature.startsWith('broadcast-image:')) throw new Error('alerter down');
+      alerts.push(signature);
+    };
+    const channel = recorder('telegram-channel');
+    // #when
+    await runBroadcasts({ ...h.c, alert }, { kind: 'finalize', days: [DAY] }, { channel: [channel.output], drafts: [], preview: [] });
+    // #then
+    expect({ alerts, channel: channel.sent }).toEqual({ alerts: [`broadcast-run:${welcome(NEW[0]!)}`], channel: ['broadcast:daily:2026-10-12', welcome(NEW[1]!)] });
+  });
+
   it('posts no moment with MOMENTS off, and sends moments only to the owner with MOMENTS drafts, while the reports post', async () => {
     // #when
     const off = await momentRun({ moments: 'off' });
