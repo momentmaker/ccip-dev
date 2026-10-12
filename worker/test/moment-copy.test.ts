@@ -176,6 +176,23 @@ describe('moment handles', () => {
     // #then five tokens are named, then "+1 more"
     expect({ handles: text.match(/@\w+/g), more: text.includes('· +1 more') }).toEqual({ handles: ['@project0', '@project1', '@project2', '@project3', '@project4'], more: true });
   });
+  it('caps a movers post at 5 handles across the headline, the dethroned leader and the climbers', () => {
+    // #given six verified chains named once each, and one repeated
+    const chain = (x: string) => ({ kind: 'chain' as const, player: p(x.toUpperCase(), x) });
+    const climber = (x: string, rank: number) => ({ board: 'fee_chains' as const, name: chain(x), rank, gain: 1, value: 1 });
+    const movers: MoversFacts = {
+      ...MOVERS,
+      headline: climber('one', 1),
+      dethroned: chain('two'),
+      climbers: [climber('three', 2), climber('four', 3), climber('five', 4), climber('six', 5), climber('one', 6)],
+    };
+    // #when
+    const text = composeMomentCopy(movers).xText;
+    // #then the first five are handles, the sixth is a plain name, and the repeat of the first stays a handle
+    expect({ handles: [...new Set(text.match(/@\w+/g))], plainSix: text.includes('SIX ▲1'), repeat: text.includes('@one ▲1 to #6') }).toEqual({
+      handles: ['@one', '@two', '@three', '@four', '@five'], plainSix: true, repeat: true,
+    });
+  });
 });
 
 describe('moment fitting', () => {
@@ -190,16 +207,39 @@ describe('moment fitting', () => {
     expect([kept(longClimbers), kept(longHeadline)]).toEqual([['New #1 on #CCIP', '#Chainlink $LINK'], ['New #1 on #CCIP']]);
   });
 
-  it('names fewer lanes in New on CCIP when 5 would not fit, with "+N more" for the rest, before dropping the network line', () => {
+  it('names fewer lanes in New on CCIP when 5 would not fit, with "+N more" for the rest, and drops the network line only when no list length fits with it', () => {
     // #given eight new lanes between chains with long names
     const lanes = Array.from({ length: 8 }, (_, i) => ({ key: `l${i}`, src: p(`Optimism Superchain ${i}`), dst: p(`Arbitrum Nova Orbit ${i}`), usd: 8 - i }));
     // #when
     const text = composeMomentCopy({ ...ROUNDUP, lanes }).xText;
     const [, lanesLine = ''] = text.split('\n');
-    // #then three lanes fit beside the tokens; the network line is the closing line, so it goes
-    expect({ fits: xLength(text) <= X_MAX, lanes: lanesLine.split(' → ').length - 1, more: lanesLine.endsWith('· +5 more'), lines: text.split('\n').length }).toEqual({
-      fits: true, lanes: 3, more: true, lines: 3,
+    // #then the lists shorten to two lanes, and the network line stays
+    expect({ fits: xLength(text) <= X_MAX, lanes: lanesLine.split(' → ').length - 1, more: lanesLine.endsWith('· +6 more'), lines: text.split('\n').length }).toEqual({
+      fits: true, lanes: 2, more: true, lines: 4,
     });
+  });
+
+  it('keeps the network line and names fewer lanes when 4 lanes fit with it', () => {
+    // #given six new lanes whose first four fit beside the tokens and the network line, but five do not
+    const lanes = Array.from({ length: 6 }, (_, i) => ({ key: `l${i}`, src: p(`Optimism Super ${i}`), dst: p(`Arbitrum Nova ${i}`), usd: 6 - i }));
+    const roundup = { ...ROUNDUP, lanes, tokens: ROUNDUP.tokens.slice(0, 1) };
+    // #when
+    const text = composeMomentCopy(roundup).xText;
+    const lanesLine = text.split('\n')[1] ?? '';
+    // #then
+    expect({ fits: xLength(text) <= X_MAX, lanes: lanesLine.split(' → ').length - 1, more: lanesLine.endsWith('· +2 more'), network: text.endsWith('933 lanes between 93 chains') }).toEqual({
+      fits: true, lanes: 4, more: true, network: true,
+    });
+  });
+
+  it('names fewer lanes and tokens on Telegram rather than overflowing 1,024', () => {
+    // #given five lanes and five tokens with 35-character names
+    const lanes = Array.from({ length: 5 }, (_, i) => ({ key: `l${i}`, src: p(long(35, 'S')), dst: p(long(35, 'D')), usd: 5 - i }));
+    const tokens = Array.from({ length: 5 }, (_, i) => ({ key: `t${i}`, symbol: long(35, 'T'), chain: p(long(35, 'C')), project: p(long(35, 'P')) }));
+    // #when
+    const caption = composeMomentCopy({ ...ROUNDUP, lanes, tokens }).telegramHtml;
+    // #then
+    expect({ fits: caption.length <= TELEGRAM_CAPTION_MAX, more: caption.includes('+') && caption.includes(' more') }).toEqual({ fits: true, more: true });
   });
 
   it('keeps every moment within 280 on X and 1,024 on Telegram with long names everywhere', () => {
@@ -234,7 +274,7 @@ describe('moment links', () => {
     expect({
       links: texts.filter((t) => LINKLIKE.test(t)),
       mention: texts.some((t) => /@scam/.test(t)),
-      neutralized: texts.some((t) => t.includes('AIRDROP@​scam')) && texts.some((t) => t.includes('pump․fun')),
+      neutralized: texts.some((t) => t.includes('AIRDROP@\u200bscam')) && texts.some((t) => t.includes('pump\u2024fun')),
     }).toEqual({ links: [], mention: false, neutralized: true });
   });
 });

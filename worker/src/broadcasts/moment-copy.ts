@@ -199,18 +199,24 @@ function roundupX(f: RoundupFacts, shown: number): Line[] {
   ];
 }
 
-/** Names up to 5 lanes and 5 tokens, fewer when X's 280 needs it, with "+N more" for the rest. */
+const joined = (lines: readonly Line[]) => lines.map((l) => l.text).join('\n');
+
+/** Names up to 5 lanes and 5 tokens, fewer when X's 280 needs it, with "+N more" for the rest; the network line goes only when no list length fits with it. */
 function roundupXText(f: RoundupFacts): string {
+  for (let shown = ROUNDUP_SHOWN; shown >= 1; shown--) {
+    const lines = roundupX(f, shown);
+    if (fitsX(joined(lines))) return joined(lines);
+  }
   for (let shown = ROUNDUP_SHOWN; shown > 1; shown--) {
     const lines = roundupX(f, shown);
-    if (fitsX(lines.filter((l) => l.drop === undefined).map((l) => l.text).join('\n'))) return fitLines(lines, fitsX);
+    if (fitsX(joined(lines.filter((l) => l.drop === undefined)))) return fitLines(lines, fitsX);
   }
   return fitLines(roundupX(f, 1), fitsX);
 }
 
-function roundupTg(f: RoundupFacts): Line[] {
-  const lanes = shownList(f.lanes, ROUNDUP_SHOWN, (l) => `${tgName(l.src)} → ${tgName(l.dst)}`);
-  const tokens = shownList(f.tokens, ROUNDUP_SHOWN, (t) => `${tgText(t.symbol)} on ${tgName(t.chain)}${t.project ? ` (${tgName(t.project)})` : ''}`);
+function roundupTg(f: RoundupFacts, shown: number): Line[] {
+  const lanes = shownList(f.lanes, shown, (l) => `${tgName(l.src)} → ${tgName(l.dst)}`);
+  const tokens = shownList(f.tokens, shown, (t) => `${tgText(t.symbol)} on ${tgName(t.chain)}${t.project ? ` (${tgName(t.project)})` : ''}`);
   return [
     { text: bold(`New on CCIP this week · ${dayRange(f.monday, addDays(f.monday, 4))}`) },
     ...(lanes ? [{ text: `New lanes: ${lanes}` }] : []),
@@ -219,6 +225,14 @@ function roundupTg(f: RoundupFacts): Line[] {
     { text: '' },
     { text: '#CCIP', drop: MOMENT_DROP.closing },
   ];
+}
+
+function roundupTelegram(f: RoundupFacts): string {
+  for (let shown = ROUNDUP_SHOWN; shown > 1; shown--) {
+    const lines = roundupTg(f, shown);
+    if (fitsTelegram(joined(lines))) return joined(lines);
+  }
+  return fitLines(roundupTg(f, 1), fitsTelegram);
 }
 
 /** "Base paid the most fees ($1.8K)", or for the fee question "CCIP fees rose 12% to $9.0K". */
@@ -266,7 +280,7 @@ function momentTelegram(f: MomentFacts): Line[] {
     case 'spotlight':
       return spotlightTg(f);
     case 'roundup':
-      return roundupTg(f);
+      return [{ text: roundupTelegram(f) }];
     case 'poll':
       return pollTg(f);
   }
