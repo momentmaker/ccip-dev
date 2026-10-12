@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CardSize } from '../worker/cards/frame';
 import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
-import { BROADCAST_FILES, DAY } from './fixtures/broadcast';
+import { BROADCAST_FILES, DAY, DEPOSIT_TX, RECORD_DAY } from './fixtures/broadcast';
 import chains from './fixtures/chains.json';
 import history from './fixtures/history.json';
 import reserve from './fixtures/reserve.json';
@@ -109,6 +109,26 @@ describe('handleOg', () => {
     ];
     // #then
     expect({ statuses, rendered: renderPng.mock.calls.length }).toEqual({ statuses: [404, 404, 404], rendered: 0 });
+  });
+
+  it('renders the record, milestone and Reserve cards from their own files, and 404s the ones the data does not hold', async () => {
+    // #given
+    const { get, dataUrls } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
+    // #when
+    const statuses = [
+      (await get(`/og/broadcast/record/messages/${RECORD_DAY}.png`)).status,
+      (await get(`/og/broadcast/record/link_share/${RECORD_DAY}.png`)).status,
+      (await get('/og/broadcast/milestone/messages/2000.png')).status,
+      (await get('/og/broadcast/milestone/messages/5000.png')).status,
+    ];
+    const before = dataUrls.length;
+    const reserve = (await get(`/og/broadcast/reserve/${DEPOSIT_TX}.png`)).status;
+    // #then the Reserve card reads reserve.json alone
+    expect({ statuses, reserve, read: dataUrls.slice(before).map((u) => u.replace('https://data.ccip.dev/v1/', '')) }).toEqual({
+      statuses: [200, 404, 200, 404],
+      reserve: 200,
+      read: ['reserve.json'],
+    });
   });
 
   it('answers 500, not the fallback card, when a broadcast card fails', async () => {

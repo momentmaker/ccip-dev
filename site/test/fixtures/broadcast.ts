@@ -1,4 +1,4 @@
-import { PUBLIC_SCHEMAS, type ChainsFile, type DayLeadersFile, type HistoryFile, type PublicFile, type PublicFileName, type ReplayFile } from '@ccip-dev/core/public';
+import { PUBLIC_SCHEMAS, type ChainsFile, type DayLeadersFile, type HistoryFile, type PublicFile, type PublicFileName, type ReplayFile, type ReserveFile } from '@ccip-dev/core/public';
 
 export const ETH = '5009297550715157269';
 export const BASE = '15971525489660198786';
@@ -67,11 +67,45 @@ export const CHAINS: ChainsFile = {
   chains: REPLAY.chains.map((c) => ({ selector: c.selector, name: c.name!, display_name: c.display_name, family: 'EVM', chain_id: '1', first_seen: null })),
 };
 
+export const DEPOSIT_TX = `0x${'ab'.repeat(32)}`;
+
+const transfer = (ts: string, tx: string, direction: 'in' | 'out', link: number, extra: Partial<ReserveFile['transfers'][number]> = {}) => ({
+  ts, tx, direction, counterparty: '0x5680681ed3767b96914ce741a308155c7fb9171d', link, price_usd: null, usd: null, value_now_usd: null, change_pct: null,
+  deposit: direction === 'in' && link >= 1000, ...extra,
+});
+
+/** Three weekly deposits; the last is the one broadcast. A 5-LINK gift and a 1-LINK outflow sit between them. */
+export const RESERVE: ReserveFile = {
+  ...envelope,
+  token: '0x514910771af9ca656af840dff83e8264ecf986ca',
+  reserve: '0x9a709b7b69ea42d5eeb1cebc48674c69e1569ec6',
+  latest: null,
+  series: [],
+  link_price_usd: 15,
+  cost_basis: null,
+  pace: null,
+  performance: null,
+  latest_transfer: null,
+  weekly: [
+    { week: '2026-08-31', deposits: 1, link: 100_000, usd: 1_000_000 },
+    { week: '2026-09-07', deposits: 1, link: 50_000, usd: 600_000 },
+    { week: '2026-09-14', deposits: 1, link: 60_000, usd: 750_000 },
+  ],
+  transfers: [
+    transfer('2026-09-01T10:00:00.000Z', '0x01', 'in', 100_000),
+    transfer('2026-09-02T12:00:00.000Z', '0x02', 'in', 5),
+    transfer('2026-09-08T15:00:00.000Z', '0x03', 'in', 50_000),
+    transfer('2026-09-10T09:00:00.000Z', '0x04', 'out', 1),
+    transfer('2026-09-15T15:00:00.000Z', DEPOSIT_TX, 'in', 60_000, { price_usd: 12.5, usd: 750_000, value_now_usd: 900_000, change_pct: 20 }),
+  ],
+};
+
 export const BROADCAST_FILES: Record<string, unknown> = {
   'history.json': HISTORY,
   'day-leaders.json': LEADERS,
   'replay.json': REPLAY,
   'chains.json': CHAINS,
+  'reserve.json': RESERVE,
 };
 
 export async function loadFixture<N extends PublicFileName>(name: N): Promise<PublicFile<N>> {

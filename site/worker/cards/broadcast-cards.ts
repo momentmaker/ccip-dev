@@ -1,15 +1,18 @@
-import { dayTotalsFacts, recordValueText, weekTotalsFacts, type BroadcastTarget } from '@ccip-dev/core/broadcasts';
-import { formatCount, formatFeeTotal, formatLinkAmount, formatShare, formatUsd } from '@ccip-dev/core/format';
+import {
+  allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, recordValueText, weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
+} from '@ccip-dev/core/broadcasts';
+import { formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
 import { chainName, chainNameMap, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
 import type { DayLeaders, Leader, PublicFile, PublicFileName, ReplayFile } from '@ccip-dev/core/public';
-import { recordsSetOn, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
+import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
 import { windowWeights } from '../../src/sky/weights';
 import { h, type Child, type VNode } from '../h';
-import { bold, boldArrows, broadcastFrame, cardDay, COLORS, date, dayNumber, deltaStat, feeBars, MONTH_DAY, mutedStat, statsPanel } from './broadcast-frame';
-import { ctaFor } from './cta';
+import { bold, boldArrows, broadcastFrame, cardDay, COLORS, date, dayNumber, deltaStat, eyebrow, feeBars, MONTH_DAY, mutedStat, row, statsPanel } from './broadcast-frame';
+import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph } from './glyphs';
 import { orbitSky, skyNodes, type OrbitSky } from './orbit-sky';
+import { reserveTree } from './reserve-card';
 
 export interface BroadcastInputs {
   load: <N extends PublicFileName>(name: N) => Promise<PublicFile<N>>;
@@ -135,6 +138,93 @@ async function weeklyTree(monday: string, inputs: BroadcastInputs): Promise<VNod
   });
 }
 
+export function bigSize(text: string): number {
+  return text.length <= 7 ? 132 : text.length <= 10 ? 104 : 80;
+}
+
+function headlineBody(o: { pill: string; title: string; value: string; lines: (VNode | null)[] }): VNode {
+  return h(
+    'div',
+    { style: { position: 'absolute', left: 52, top: 118, width: 660, display: 'flex', flexDirection: 'column' } },
+    row([glyph('star', 18, '#1a1205', { right: 8 }), o.pill], {
+      alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 999, backgroundImage: 'linear-gradient(90deg, #ffcf5a, #ff9f43)',
+      color: '#1a1205', fontWeight: 800, fontSize: 20, letterSpacing: 3,
+    }),
+    eyebrow(o.title, { marginTop: 24 }),
+    h('div', { style: { fontSize: bigSize(o.value), fontWeight: 800, letterSpacing: -4, lineHeight: 1.02, color: '#ffffff', textShadow: '0 0 40px rgba(255,207,90,0.35)' } }, o.value),
+    ...o.lines,
+  );
+}
+
+function previousLine(r: RecordSet): VNode {
+  const days = `${formatCount(r.stoodDays)} day${r.stoodDays === 1 ? '' : 's'}`;
+  return row(['Previous record ', bold(recordValueText(r.kind, r.previous.value)), ` on ${formatUtcDay(r.previous.day)} · stood ${days}`], { fontSize: 26, marginTop: 10, color: COLORS.muted, alignSelf: 'flex-start' });
+}
+
+function driverLine(r: RecordSet, d: RecordDriver | null, names: ChainNames): VNode | null {
+  if (d === null) return null;
+  const lane = boldArrows(laneLabel(names, d.lane), 20);
+  const style = { fontSize: 24, marginTop: 10, color: COLORS.soft, alignSelf: 'flex-start' };
+  if (r.kind === 'largest_fee') return row(['Paid on ', lane, d.symbol ? `, paid in ${d.symbol}` : ''], style);
+  return row(['Driven by ', lane, r.kind === 'value' ? `: ${formatUsd(d.usd)} moved` : `: ${formatCount(d.messages)} messages`], style);
+}
+
+const ALL_TIME: Record<TotalMetric, [string, (v: number) => string]> = {
+  messages: ['All-time messages now ', formatCount],
+  value: ['All-time value moved now ', formatUsd],
+  fees: ['All-time fees now ', formatFeeTotal],
+  link_amount: ['All-time LINK paid in fees now ', formatLink],
+};
+
+function allTimeInsight(metric: TotalMetric, total: number): Child[] {
+  const [lead, format] = ALL_TIME[metric];
+  return [lead, bold(format(total))];
+}
+
+async function recordTree(kind: RecordKind, day: string, inputs: BroadcastInputs): Promise<VNode | null> {
+  const [history, leaders, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('day-leaders.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const largest = history.largest_fees ?? [];
+  const record = recordsSetOn(history.days, largest, day).find((r) => r.kind === kind);
+  if (record === undefined) return null;
+  const names = namesOf(replay, chains);
+  const driver = recordDriver(record, leaders.days.find((d) => d.day === day) ?? null, largest);
+  const sky = skyFor(replay, names, day, day, { dim: true, gold: driver ? (driver.lane.split('>')[0] ?? null) : null });
+  const metric = RECORD_TOTAL[kind];
+  return broadcastFrame({
+    background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
+    eyebrow: `New all-time record · ${cardDay(day)}`,
+    body: headlineBody({ pill: 'NEW RECORD', title: RECORD_TITLES[kind], value: recordValueText(kind, record.value), lines: [previousLine(record), driverLine(record, driver, names)] }),
+    insight: allTimeInsight(metric, allTimeTotal(metric, history.days, day)),
+    cta: RECORDS_CTA,
+  });
+}
+
+const MILESTONE_TITLES: Record<MilestoneMetric, string> = {
+  messages: 'All-time messages on CCIP',
+  value: 'All-time value moved over CCIP',
+  fees: 'All-time fees paid to CCIP',
+};
+
+async function milestoneTree(metric: MilestoneMetric, threshold: number, inputs: BroadcastInputs): Promise<VNode | null> {
+  const [history, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
+  const milestone = trackedMilestones(history.days).find((m) => m.metric === metric && m.threshold === threshold);
+  if (milestone === undefined) return null;
+  const names = namesOf(replay, chains);
+  const sky = skyFor(replay, names, milestone.day, milestone.day, { dim: true });
+  return broadcastFrame({
+    background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
+    eyebrow: `Milestone · ${cardDay(milestone.day)}`,
+    body: headlineBody({
+      pill: 'MILESTONE',
+      title: MILESTONE_TITLES[metric],
+      value: metric === 'messages' ? formatCount(threshold) : formatThresholdUsd(threshold),
+      lines: [row([`Crossed on ${formatUtcDay(milestone.day)}`], { fontSize: 26, marginTop: 10, color: COLORS.muted })],
+    }),
+    insight: allTimeInsight(metric, allTimeTotal(metric, history.days, milestone.day)),
+    cta: RECORDS_CTA,
+  });
+}
+
 /** null when the published data has no such card: the route answers 404 and nothing is posted. */
 export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastInputs): Promise<VNode | null> {
   switch (target.kind) {
@@ -142,7 +232,11 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return dailyTree(target.day, inputs);
     case 'weekly':
       return weeklyTree(target.monday, inputs);
-    default:
-      return null;
+    case 'record':
+      return recordTree(target.record, target.day, inputs);
+    case 'milestone':
+      return milestoneTree(target.metric, target.threshold, inputs);
+    case 'reserve':
+      return reserveTree(target.tx, inputs.load);
   }
 }

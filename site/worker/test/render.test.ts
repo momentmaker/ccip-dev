@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import chains from '../../test/fixtures/chains.json';
 import topToken from '../../test/fixtures/top-token.json';
-import { BROADCAST_FILES, DAY } from '../../test/fixtures/broadcast';
+import { BROADCAST_FILES, DAY, DEPOSIT_TX } from '../../test/fixtures/broadcast';
 import { orbitSky, skyNodes } from '../cards/orbit-sky';
 import { h } from '../h';
 import worker from '../index';
@@ -57,6 +57,7 @@ afterEach(async () => {
   await caches.default.delete(new Request('https://ccip.dev/og/replay/base.png'));
   delete assets['/chains/ethereum-mainnet-base-1.svg'];
   await caches.default.delete(new Request(`https://ccip.dev/og/broadcast/daily/${DAY}.png`));
+  await caches.default.delete(new Request(`https://ccip.dev/og/broadcast/reserve/${DEPOSIT_TX}.png`));
 });
 
 describe('site Worker', () => {
@@ -69,6 +70,16 @@ describe('site Worker', () => {
     // #then
     const [r, g] = await pngPixel(png, 860, 300);
     expect({ height: new DataView(png.buffer).getUint32(20), hub: r > 200 && g < 60 }).toEqual({ height: 675, hub: true });
+  });
+
+  it('renders the Reserve broadcast card as a real 1200×675 PNG with the Chainlink hexagon mark', async () => {
+    // #given
+    stubData(BROADCAST_FILES);
+    // #when
+    const png = await renderCard(`/og/broadcast/reserve/${DEPOSIT_TX}.png`);
+    // #then the mark's #375BD2 stroke runs through (880, 200), just below its top corner
+    const [r, g, b] = await pngPixel(png, 880, 200);
+    expect({ height: new DataView(png.buffer).getUint32(20), mark: b > 180 && r < 100 && g < 130 }).toEqual({ height: 675, mark: true });
   });
 
   it('renders the home card as a real 1200×630 PNG fetching only our data', async () => {
