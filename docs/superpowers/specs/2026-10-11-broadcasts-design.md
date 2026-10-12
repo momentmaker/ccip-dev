@@ -83,7 +83,7 @@ Each post tags the projects and chains it features, so they reshare it.
   2. it builds the daily broadcast for yesterday, if yesterday is among the finalized days;
   3. it builds the weekly broadcast if yesterday is a Sunday (UTC);
   4. it builds the record broadcasts for the finalized days, live days only.
-- **The late 06:00 run never broadcasts.**
+- **The late 06:00 run broadcasts the days it finalized too.** The dedup keys make this a no-op when 00:07 already sent everything; it posts yesterday's daily (and Monday's weekly) when the early run failed. The hourly retry skips the 06 UTC hour, which the late run covers.
 - **Reserve job:** when it records a new inbound **deposit** (the same definition `reserveStats` counts as deposits), it first publishes `reserve.json`, then runs `runBroadcasts(c, { kind: 'reserve', tx })`.
 
 ### 4.3 Dedup
@@ -99,7 +99,7 @@ Each post tags the projects and chains it features, so they reshare it.
 
 ### 4.4 Mode
 - `BROADCASTS` (a Worker var) is `off`, `drafts` or `on`. The default is `off`.
-  - **drafts:** only the owner-draft output receives broadcasts.
+  - **drafts:** only the owner's drafts chat receives broadcasts: the X draft and a preview of the channel caption, each with its card.
   - **on:** all enabled outputs.
 - **Other settings:**
   - `TELEGRAM_CHANNEL_ID` (a var, `@ccipdev`).
@@ -281,7 +281,7 @@ These follow the mockups in the assets folder.
   - never for backfill days or rewinds;
   - first-run seeding posts nothing.
 - **Dedup:** a re-run doesn't post again; a total failure releases the claim; a partial success keeps it.
-- **Mode:** `drafts` reaches only the drafts output, and `off` sends nothing.
+- **Mode:** `drafts` reaches only the drafts chat (X draft and channel preview), `on` sends no preview, and `off` sends nothing.
 - **Copy:**
   - X stays within 280 characters, counted the way X counts (emoji count double);
   - lines drop in the defined order;
@@ -361,3 +361,10 @@ These were found while planning, partly by rendering cards. They override the se
 - The handles themselves come from a research pull request for owner review (plan Task 12). The implementer never merges it.
 
 **Coins:** coins with a radius of 22 px or more get a name label, as in the mockup.
+
+**Settled in the final review (2026-10-12):**
+- Reserve deposits older than 3 days are never posted, so turning broadcasts back on after a pause can't flood the channel.
+- The Reserve average says how many weeks it covers (1–4), on the card and in the copy.
+- A card answers 404 until its data is complete: all 7 days for a weekly, and the day in replay.json for any card with the chain sky. The hourly run retries it.
+- Untrusted names get U+200B after `@` and after the `:` of `://`, besides the dot swap, so they can't mention or link.
+- Telegram sends time out after 30 s; a failed sent-mark is retried once, then alerted.
