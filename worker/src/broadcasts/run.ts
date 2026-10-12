@@ -120,19 +120,22 @@ async function planReserve(c: RunContext, reserve: ReserveBody): Promise<Planned
     });
 }
 
-async function checkImage(c: RunContext, url: string): Promise<string | null> {
+async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array } | { problem: string }> {
   try {
     const res = await c.deps.fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
-    if (!res.ok) return `answered HTTP ${res.status}`;
-    if (!(res.headers.get('content-type') ?? '').startsWith('image/png')) return 'did not answer with a PNG';
-    await res.arrayBuffer();
-    return null;
+    if (!res.ok) return { problem: `answered HTTP ${res.status}` };
+    if (!(res.headers.get('content-type') ?? '').startsWith('image/png')) return { problem: 'did not answer with a PNG' };
+    return { png: new Uint8Array(await res.arrayBuffer()) };
   } catch (err) {
-    return `did not answer (${err instanceof Error ? err.name : 'error'})`;
+    return { problem: `did not answer (${err instanceof Error ? err.name : 'error'})` };
   }
 }
 
-/** Claims the key, checks the card, then sends to every output; the claim is kept once one output succeeds. */
+/**
+ * Claims the key, then sends the checked card to each output that has not sent yet; every output that sends is marked under
+ * `${key}#${name}`. The broadcast is marked sent only once all its outputs are, otherwise the claim is released and the next
+ * run sends just the missing ones.
+ */
 async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOutput[]): Promise<void> {
   const db = c.env.DB;
   const key = broadcastKey(p.target);
@@ -146,39 +149,49 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
   const now = c.deps.now();
   const claim = `pending:${now.toISOString()}`;
   if (!(await store.claimMeta(db, key, claim, `pending:${new Date(now.getTime() - CLAIM_STALE_MS).toISOString()}`))) return;
-  const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(p.target)}.png`;
-  const imageProblem = await checkImage(c, cardUrl);
-  if (imageProblem !== null) {
-    await store.releaseMeta(db, key, claim);
-    await c.alert(`broadcast-image:${key}`, `${key} was not posted: its card ${cardUrl} ${imageProblem}`);
+  const outputKey = (output: BroadcastOutput) => `${key}#${output.name}`;
+  const remaining: BroadcastOutput[] = [];
+  for (const output of outputs) {
+    if (!(await store.getMeta(db, outputKey(output)))?.startsWith('sent:')) remaining.push(output);
+  }
+  if (remaining.length === 0) {
+    await markSent(c, key, `sent:${now.toISOString()}`);
     return;
   }
-  // The query makes Telegram fetch the card afresh after a re-post; the card Worker ignores it.
-  const broadcast: Broadcast = { key, kind: p.target.kind, imageUrl: `${cardUrl}?v=${now.getTime()}`, facts: p.facts, ...copy };
-  let sent = 0;
+  const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(p.target)}.png`;
+  const checked = await checkImage(c, cardUrl);
+  if ('problem' in checked) {
+    await store.releaseMeta(db, key, claim);
+    await c.alert(`broadcast-image:${key}`, `${key} was not posted: its card ${cardUrl} ${checked.problem}`);
+    return;
+  }
+  const broadcast: Broadcast = { key, kind: p.target.kind, image: checked.png, facts: p.facts, ...copy };
   const failedOutputs: string[] = [];
-  for (const output of outputs) {
+  let unmarked = false;
+  for (const output of remaining) {
     const result = await output.send(broadcast).catch((err) => {
       console.error(`[broadcast] output ${output.name} threw`, err instanceof Error ? err.name : 'error');
       return 'failed' as const;
     });
-    if (result === 'sent') sent++;
+    if (result === 'sent') unmarked = !(await markSent(c, outputKey(output), `sent:${now.toISOString()}`)) || unmarked;
     else failedOutputs.push(output.name);
   }
-  if (sent > 0) await markSent(c, key, `sent:${now.toISOString()}`);
-  else await store.releaseMeta(db, key, claim);
+  // A lost output mark leaves the claim pending: releasing it would post that output again at once.
+  if (failedOutputs.length === 0 && !unmarked) await markSent(c, key, `sent:${now.toISOString()}`);
+  else if (!unmarked) await store.releaseMeta(db, key, claim);
   for (const name of failedOutputs) await c.alert(`broadcast-${name}:${key}`, `${key} was not sent to ${name}; the Worker logs say why`);
 }
 
 /** The post is out; a failed mark is retried once, then alerted, since the stale claim would let the hourly run post it again. */
-async function markSent(c: RunContext, key: string, value: string): Promise<void> {
+async function markSent(c: RunContext, key: string, value: string): Promise<boolean> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       await store.setMeta(c.env.DB, key, value);
-      return;
+      return true;
     } catch (err) {
       console.error(`[broadcast] marking ${key} sent failed (attempt ${attempt + 1})`, err instanceof Error ? err.name : 'error');
     }
   }
   await c.alert(`broadcast-mark:${key}`, `${key} went out but could not be marked sent, so the hourly run may post it again`);
+  return false;
 }

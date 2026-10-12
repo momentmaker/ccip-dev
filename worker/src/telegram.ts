@@ -28,20 +28,27 @@ export const TELEGRAM_RETRY_CAP_S = 30;
 export const TELEGRAM_TIMEOUT_MS = 30_000;
 
 export interface TelegramPhoto {
-  photo: string;
+  photo: Uint8Array;
   caption: string;
   parseMode?: 'HTML';
 }
 
-/** Sends a photo by URL. A 429 is retried once after Telegram's retry_after, at most 30 s; each request times out after `timeoutMs`. Returns null, or what went wrong. */
+/** Uploads a PNG. A 429 is retried once after Telegram's retry_after, at most 30 s; each request times out after `timeoutMs`. Returns null, or what went wrong. */
 export async function sendTelegramPhoto(
   deps: Pick<Deps, 'fetch' | 'sleep'>,
   { token, chatId }: TelegramConfig,
   msg: TelegramPhoto,
   timeoutMs = TELEGRAM_TIMEOUT_MS,
 ): Promise<string | null> {
-  const body = JSON.stringify({ chat_id: chatId, photo: msg.photo, caption: msg.caption, ...(msg.parseMode ? { parse_mode: msg.parseMode } : {}) });
-  const post = () => deps.fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(timeoutMs) });
+  // Built per request: a retry must re-send the whole body.
+  const post = () => {
+    const form = new FormData();
+    form.append('chat_id', chatId);
+    form.append('caption', msg.caption);
+    if (msg.parseMode) form.append('parse_mode', msg.parseMode);
+    form.append('photo', new Blob([msg.photo], { type: 'image/png' }), 'card.png');
+    return deps.fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(timeoutMs) });
+  };
   try {
     let res = await post();
     if (res.status === 429) {

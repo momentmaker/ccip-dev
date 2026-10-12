@@ -117,8 +117,9 @@ describe('runHourly', () => {
     await run();
     await run();
     // #then one broadcast, to the channel and the drafts chat
-    const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)).photo.split('?')[0]);
-    expect(photos).toEqual([`https://ccip.dev/og/broadcast/reserve/${TX2}.png`, `https://ccip.dev/og/broadcast/reserve/${TX2}.png`]);
+    const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => ((c.init?.body as FormData).get('photo') instanceof Blob ? 'uploaded' : 'missing'));
+    const cards = f.calls.filter((c) => c.url.startsWith('https://ccip.dev/og/')).map((c) => c.url);
+    expect({ photos, cards }).toEqual({ photos: ['uploaded', 'uploaded'], cards: [`https://ccip.dev/og/broadcast/reserve/${TX2}.png`] });
   });
 
   it("posts yesterday's daily from the hourly run when the 00:07 attempt could not", async () => {
@@ -140,8 +141,9 @@ describe('runHourly', () => {
     // #when
     await runHourly(harness({ now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: f, env: env_ }).c);
     // #then
-    const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)).photo.split('?')[0]);
-    expect(photos).toEqual(['https://ccip.dev/og/broadcast/daily/2026-10-07.png', 'https://ccip.dev/og/broadcast/daily/2026-10-07.png']);
+    const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => ((c.init?.body as FormData).get('photo') instanceof Blob ? 'uploaded' : 'missing'));
+    const cards = f.calls.filter((c) => c.url.startsWith('https://ccip.dev/og/')).map((c) => c.url);
+    expect({ photos, cards }).toEqual({ photos: ['uploaded', 'uploaded'], cards: ['https://ccip.dev/og/broadcast/daily/2026-10-07.png'] });
   });
 
   it('leaves yesterday to the 06:00 late finalize, so the hourly run at that hour does not retry it', async () => {

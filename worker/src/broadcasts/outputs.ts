@@ -7,7 +7,7 @@ import type { BroadcastFacts } from './facts';
 export interface Broadcast {
   key: string;
   kind: BroadcastTarget['kind'];
-  imageUrl: string;
+  image: Uint8Array;
   facts: BroadcastFacts;
   xText: string;
   telegramHtml: string;
@@ -39,7 +39,7 @@ function photoOutput(c: RunContext, name: string, config: TelegramConfig, captio
   return {
     name,
     async send(b) {
-      const failure = await sendTelegramPhoto(c.deps, config, { photo: b.imageUrl, ...caption(b) });
+      const failure = await sendTelegramPhoto(c.deps, config, { photo: b.image, ...caption(b) });
       if (failure === null) return 'sent';
       console.error(`[broadcast] ${name} failed for ${b.key}: ${failure}`);
       return 'failed';

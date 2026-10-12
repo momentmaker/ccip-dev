@@ -41,8 +41,9 @@ function recorder(name: string, result: 'sent' | 'failed' = 'sent') {
   return { output, sent };
 }
 
+const PNG = [137, 80, 78, 71];
 const card = (status = 200) =>
-  fakeFetch((url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array([137, 80, 78, 71]), { status, headers: { 'content-type': 'image/png' } }) : undefined));
+  fakeFetch((url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array(PNG), { status, headers: { 'content-type': 'image/png' } }) : undefined));
 
 async function finalizeRun(o: { now?: string; days: string[]; mode?: string; channel?: 'sent' | 'failed'; drafts?: 'sent' | 'failed'; fetch?: typeof fetch }) {
   const channel = recorder('telegram-channel', o.channel);
@@ -65,11 +66,11 @@ describe('runBroadcasts after finalize', () => {
     expect({
       channel: keys(channel),
       drafts: keys(drafts),
-      image: /^https:\/\/ccip\.dev\/og\/broadcast\/daily\/2026-10-10\.png\?v=\d+$/.test(channel[0]?.imageUrl ?? ''),
+      image: [...(channel[0]?.image ?? [])],
       x: drafts[0]?.xText.startsWith('#CCIP · Sat, Oct 10'),
       html: channel[0]?.telegramHtml.startsWith('<b>CCIP daily report · Sat, Oct 10, 2026</b>'),
       claim: (await store.getMeta(env.DB, DAILY_KEY))?.startsWith('sent:'),
-    }).toEqual({ channel: [DAILY_KEY], drafts: [DAILY_KEY], image: true, x: true, html: true, claim: true });
+    }).toEqual({ channel: [DAILY_KEY], drafts: [DAILY_KEY], image: PNG, x: true, html: true, claim: true });
   });
 
   it('reaches only the owner in drafts mode: the X draft and the channel preview, not the channel', async () => {
@@ -131,7 +132,7 @@ describe('runBroadcasts after finalize', () => {
     // #then
     expect({ once, twice }).toEqual({
       once: { alerts: [], claim: 'sent' },
-      twice: { alerts: [`broadcast-mark:${DAILY_KEY}`], claim: 'pending' },
+      twice: { alerts: [`broadcast-mark:${DAILY_KEY}#telegram-channel`], claim: 'pending' },
     });
   });
 
@@ -169,13 +170,51 @@ describe('runBroadcasts after finalize', () => {
     });
   });
 
-  it('keeps the claim when one output succeeds, alerting for the one that failed', async () => {
+  it('marks the broadcast and every output sent when all outputs succeed', async () => {
+    // #given
     await seedDays(DAY);
+    // #when
+    await finalizeRun({ days: [DAY] });
+    // #then
+    const sentKeys = await Promise.all([DAILY_KEY, `${DAILY_KEY}#telegram-channel`, `${DAILY_KEY}#x-draft`].map(async (k) => (await store.getMeta(env.DB, k))?.startsWith('sent:')));
+    expect(sentKeys).toEqual([true, true, true]);
+  });
+
+  it('releases the broadcast but keeps the draft sent when the channel fails, alerting for the channel', async () => {
+    // #given
+    await seedDays(DAY);
+    // #when
     const { alerts } = await finalizeRun({ days: [DAY], channel: 'failed' });
-    expect({ alerts: alerts.map((a) => a.signature), sent: (await store.getMeta(env.DB, DAILY_KEY))?.startsWith('sent:') }).toEqual({
-      alerts: [`broadcast-telegram-channel:${DAILY_KEY}`],
-      sent: true,
-    });
+    // #then
+    expect({
+      alerts: alerts.map((a) => a.signature),
+      broadcast: await store.getMeta(env.DB, DAILY_KEY),
+      draft: (await store.getMeta(env.DB, `${DAILY_KEY}#x-draft`))?.startsWith('sent:'),
+      channel: await store.getMeta(env.DB, `${DAILY_KEY}#telegram-channel`),
+    }).toEqual({ alerts: [`broadcast-telegram-channel:${DAILY_KEY}`], broadcast: null, draft: true, channel: null });
+  });
+
+  it('sends only the missing channel on the next run, then marks the broadcast sent', async () => {
+    // #given the channel failed the first time and the draft went out
+    await seedDays(DAY);
+    await finalizeRun({ days: [DAY], channel: 'failed' });
+    // #when
+    const retry = await finalizeRun({ days: [DAY] });
+    // #then
+    const marked = await Promise.all([DAILY_KEY, `${DAILY_KEY}#telegram-channel`, `${DAILY_KEY}#x-draft`].map(async (k) => (await store.getMeta(env.DB, k))?.startsWith('sent:')));
+    expect({ channel: keys(retry.channel), drafts: keys(retry.drafts), alerts: retry.alerts, marked }).toEqual({ channel: [DAILY_KEY], drafts: [], alerts: [], marked: [true, true, true] });
+  });
+
+  it('sends nothing and fetches no card when every output was already sent, marking the broadcast sent', async () => {
+    // #given
+    await seedDays(DAY);
+    await store.setMeta(env.DB, `${DAILY_KEY}#telegram-channel`, `sent:${NOW}`);
+    await store.setMeta(env.DB, `${DAILY_KEY}#x-draft`, `sent:${NOW}`);
+    const fetch = card();
+    // #when
+    const { channel, drafts } = await finalizeRun({ days: [DAY], fetch });
+    // #then
+    expect({ sent: channel.length + drafts.length, fetches: fetch.calls.length, broadcast: (await store.getMeta(env.DB, DAILY_KEY))?.startsWith('sent:') }).toEqual({ sent: 0, fetches: 0, broadcast: true });
   });
 
   it('posts nothing and alerts when the card answers 500, or does not answer in time', async () => {
@@ -302,11 +341,11 @@ describe('broadcast configuration', () => {
   const draftChat = async (extra: Record<string, string>) => {
     const sent: string[] = [];
     const f = fakeFetch((url, init) => {
-      if (url.endsWith('/sendPhoto')) sent.push(JSON.parse(String(init?.body)).chat_id);
+      if (url.endsWith('/sendPhoto')) sent.push(String((init?.body as FormData).get('chat_id')));
       return new Response('{"ok":true}');
     });
     const c = harness({ now: NOW, fetch: f, env: { ...ENV, ...extra } }).c;
-    await telegramOutputs(c).drafts[0]?.send({ key: 'k', kind: 'daily', imageUrl: 'https://ccip.dev/x.png', facts: {} as never, xText: 't', telegramHtml: 't' });
+    await telegramOutputs(c).drafts[0]?.send({ key: 'k', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: 't', telegramHtml: 't' });
     return sent;
   };
 
@@ -321,17 +360,20 @@ describe('broadcast configuration', () => {
 
   it('sends the channel preview to the drafts chat with the Telegram caption as HTML', async () => {
     // #given
-    const bodies: { chat_id: string; caption: string; parse_mode?: string }[] = [];
-    const f = fakeFetch((url, init) => {
-      if (url.endsWith('/sendPhoto')) bodies.push(JSON.parse(String(init?.body)));
+    const bodies: { chat_id: unknown; photo: number[]; caption: unknown; parse_mode: unknown }[] = [];
+    const f = fakeFetch(async (url, init) => {
+      if (url.endsWith('/sendPhoto')) {
+        const form = init?.body as FormData;
+        bodies.push({ chat_id: form.get('chat_id'), photo: [...new Uint8Array(await (form.get('photo') as Blob).arrayBuffer())], caption: form.get('caption'), parse_mode: form.get('parse_mode') });
+      }
       return new Response('{"ok":true}');
     });
     const c = harness({ now: NOW, fetch: f, env: { ...ENV, TELEGRAM_DRAFTS_CHAT_ID: '99' } }).c;
     // #when
     const preview = telegramOutputs(c).preview;
-    await preview[0]?.send({ key: 'k', kind: 'daily', imageUrl: 'https://ccip.dev/x.png', facts: {} as never, xText: 'x', telegramHtml: '<b>t</b>' });
+    await preview[0]?.send({ key: 'k', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: 'x', telegramHtml: '<b>t</b>' });
     // #then
-    expect({ names: preview.map((o) => o.name), bodies }).toEqual({ names: ['telegram-preview'], bodies: [{ chat_id: '99', photo: 'https://ccip.dev/x.png', caption: '<b>t</b>', parse_mode: 'HTML' }] });
+    expect({ names: preview.map((o) => o.name), bodies }).toEqual({ names: ['telegram-preview'], bodies: [{ chat_id: '99', photo: PNG, caption: '<b>t</b>', parse_mode: 'HTML' }] });
   });
 
   it('reads anything but drafts or on as off', () => {

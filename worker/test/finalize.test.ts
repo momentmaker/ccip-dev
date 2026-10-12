@@ -840,7 +840,12 @@ describe('broadcasts after finalize', () => {
       return undefined;
     });
   const photos = (f: FakeFetch) =>
-    f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => JSON.parse(String(c.init?.body)) as { chat_id: string; photo: string; caption: string; parse_mode?: string });
+    f.calls
+      .filter((c) => c.url.endsWith('/sendPhoto'))
+      .map((c) => {
+        const form = c.init?.body as FormData;
+        return { chat_id: String(form.get('chat_id')), photo: form.get('photo'), caption: String(form.get('caption')), parse_mode: form.get('parse_mode') ?? undefined };
+      });
 
   it("posts yesterday's daily to the channel and as an X draft once, after the early run publishes", async () => {
     // #given
@@ -854,11 +859,12 @@ describe('broadcasts after finalize', () => {
     const sent = photos(f);
     expect({
       chats: sent.map((p) => p.chat_id),
-      photo: sent.every((p) => /^https:\/\/ccip\.dev\/og\/broadcast\/daily\/2026-10-09\.png\?v=\d+$/.test(p.photo)),
+      photo: sent.every((p) => p.photo instanceof Blob),
+      cards: f.calls.filter((c) => c.url.startsWith('https://ccip.dev/og/')).map((c) => c.url),
       channel: sent[0]?.caption.startsWith('<b>CCIP daily report · Fri, Oct 9, 2026</b>') && sent[0]?.parse_mode === 'HTML',
       draft: sent[1]?.caption.startsWith('#CCIP · Fri, Oct 9') && sent[1]?.parse_mode === undefined,
       history: (await readPublic('history.json')).days.at(-1).day,
-    }).toEqual({ chats: ['@ccipdev', '42'], photo: true, channel: true, draft: true, history: '2026-10-09' });
+    }).toEqual({ chats: ['@ccipdev', '42'], photo: true, cards: ['https://ccip.dev/og/broadcast/daily/2026-10-09.png'], channel: true, draft: true, history: '2026-10-09' });
   });
 
   it('sends the X draft and the channel preview to the drafts chat, and nothing to the channel, in drafts mode', async () => {
@@ -894,9 +900,9 @@ describe('broadcasts after finalize', () => {
     // #when
     await runFinalize(harness({ now: '2026-10-10T06:00:00.000Z', ccip: api(), fetch: f, env: ENV }).c, 'late');
     // #then to the channel and the drafts chat
-    expect(photos(f).map((p) => [p.chat_id, p.photo.split('?')[0]])).toEqual([
-      ['@ccipdev', 'https://ccip.dev/og/broadcast/daily/2026-10-09.png'],
-      ['42', 'https://ccip.dev/og/broadcast/daily/2026-10-09.png'],
-    ]);
+    expect({
+      sent: photos(f).map((p) => [p.chat_id, p.photo instanceof Blob]),
+      cards: f.calls.filter((c) => c.url.startsWith('https://ccip.dev/og/')).map((c) => c.url),
+    }).toEqual({ sent: [['@ccipdev', true], ['42', true]], cards: ['https://ccip.dev/og/broadcast/daily/2026-10-09.png'] });
   });
 });

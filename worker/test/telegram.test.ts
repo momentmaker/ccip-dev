@@ -3,19 +3,60 @@ import { describe, expect, it, vi } from 'vitest';
 import { sendTelegramPhoto } from '../src/telegram';
 
 const CONFIG = { token: 'secret-token', chatId: '@ccipdev' };
-const PHOTO = { photo: 'https://ccip.dev/og/broadcast/daily/2026-10-10.png?v=1', caption: '<b>hi</b>', parseMode: 'HTML' as const };
+const PNG = new Uint8Array([137, 80, 78, 71]);
+const PHOTO = { photo: PNG, caption: '<b>hi</b>', parseMode: 'HTML' as const };
 
 describe('sendTelegramPhoto', () => {
-  it('posts the card by URL with its caption and parse mode', async () => {
+  const fields = async (init?: RequestInit) => {
+    const form = init?.body as FormData;
+    const photo = form.get('photo') as Blob;
+    return {
+      chat_id: form.get('chat_id'),
+      caption: form.get('caption'),
+      parse_mode: form.get('parse_mode'),
+      type: photo.type,
+      bytes: [...new Uint8Array(await photo.arrayBuffer())],
+    };
+  };
+
+  it('uploads the card as multipart with its caption and parse mode', async () => {
     // #given
     const fetch = fakeFetch(() => jsonResponse({ ok: true, result: {} }));
     // #when
     const failure = await sendTelegramPhoto({ fetch, sleep: async () => {} }, CONFIG, PHOTO);
     // #then
-    expect({ failure, url: fetch.calls[0]?.url, body: JSON.parse(String(fetch.calls[0]?.init?.body)) }).toEqual({
+    const init = fetch.calls[0]?.init;
+    expect({ failure, url: fetch.calls[0]?.url, isForm: init?.body instanceof FormData, headers: init?.headers, body: await fields(init) }).toEqual({
       failure: null,
       url: 'https://api.telegram.org/botsecret-token/sendPhoto',
-      body: { chat_id: '@ccipdev', photo: PHOTO.photo, caption: '<b>hi</b>', parse_mode: 'HTML' },
+      isForm: true,
+      headers: undefined,
+      body: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', bytes: [137, 80, 78, 71] },
+    });
+  });
+
+  it('leaves parse_mode out when none is set', async () => {
+    // #given
+    const fetch = fakeFetch(() => jsonResponse({ ok: true, result: {} }));
+    // #when
+    await sendTelegramPhoto({ fetch, sleep: async () => {} }, CONFIG, { photo: PNG, caption: 'plain' });
+    // #then
+    expect((fetch.calls[0]?.init?.body as FormData).has('parse_mode')).toBe(false);
+  });
+
+  it('sends a complete second multipart body on the 429 retry', async () => {
+    // #given
+    let calls = 0;
+    const fetch = fakeFetch(() => (++calls === 1 ? jsonResponse({ ok: false, error_code: 429, parameters: { retry_after: 1 } }, 429) : jsonResponse({ ok: true, result: {} })));
+    // #when
+    const failure = await sendTelegramPhoto({ fetch, sleep: async () => {} }, CONFIG, PHOTO);
+    // #then
+    const [first, second] = fetch.calls.map((c) => c.init?.body);
+    expect({ failure, distinct: first !== second, first: await fields({ body: first }), second: await fields({ body: second }) }).toEqual({
+      failure: null,
+      distinct: true,
+      first: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', bytes: [137, 80, 78, 71] },
+      second: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', bytes: [137, 80, 78, 71] },
     });
   });
 
