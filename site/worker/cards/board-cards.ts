@@ -19,6 +19,9 @@ const BOARD_TITLES: Record<BoardName, string> = {
 };
 const BY: Record<BoardName, string> = { fee_chains: 'by fees', tokens: 'by value', lanes: 'by value' };
 
+/** Characters the insight strip holds beside the call to action before its text is cut. */
+const INSIGHT_ROOM = { both: 56, lane: 48 };
+
 const addressOf = (key: string) => key.slice(key.indexOf(':') + 1);
 
 function entryName(board: BoardName, entry: BoardEntry, names: ChainNames): string {
@@ -42,14 +45,28 @@ function headlineName(text: string): VNode {
   return row(withArrows(text, Math.round(size * 0.55), '#ffffff'), { fontSize: size, fontWeight: 800, letterSpacing: -2, color: '#ffffff', marginTop: 6, flexWrap: 'wrap', maxWidth: 660 });
 }
 
+const ellipsized = { display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 } as const;
+const climberSize = (text: string) => (text.length <= 22 ? 22 : text.length <= 34 ? 20 : 18);
+
+/** A name that gives way to an ellipsis rather than a cut glyph; a lane's two ends shrink separately around their arrow. */
+function climberName(text: string): VNode {
+  const size = climberSize(text);
+  const parts = text.split(' → ');
+  const style = { ...ellipsized, fontWeight: 700, color: COLORS.strong, fontSize: size };
+  return row(
+    parts.flatMap((part, i): Child[] => [...(i > 0 ? [glyph('right', Math.round(size * 0.8), COLORS.strong, { left: 8, right: 8 })] : []), h('div', { style }, part)]),
+    { flex: 1, minWidth: 0 },
+  );
+}
+
 function climberRow(c: Climber, names: ChainNames): VNode {
   const gain: Child[] = c.gain === null ? ['new'] : [glyph('up', 16, COLORS.up, { right: 6 }), String(c.gain)];
   return row(
     [
-      h('div', { style: { width: 64, fontFamily: 'JetBrains Mono', fontWeight: 800, color: COLORS.strong, fontSize: 26 } }, `#${c.entry.rank}`),
-      h('div', { style: { display: 'flex', width: 300, overflow: 'hidden' } }, boldArrows(entryName(c.board, c.entry, names), 18)),
-      h('div', { style: { width: 150, color: COLORS.muted } }, BY[c.board]),
-      row(gain, { color: COLORS.up }),
+      h('div', { style: { width: 56, flexShrink: 0, fontFamily: 'JetBrains Mono', fontWeight: 800, color: COLORS.strong, fontSize: 26 } }, `#${c.entry.rank}`),
+      climberName(entryName(c.board, c.entry, names)),
+      h('div', { style: { width: 110, flexShrink: 0, marginLeft: 16, color: COLORS.muted } }, BY[c.board]),
+      row(gain, { width: 56, flexShrink: 0, color: COLORS.up }),
     ],
     { fontSize: 24, marginTop: 10 },
   );
@@ -68,10 +85,14 @@ export async function moversTree(monday: string, inputs: BroadcastInputs): Promi
   const sky = skyFor(replay, names, monday, sunday, { gold: goldOf(lead.board, lead.entry.key), starFree: [TEXT_COLUMN] });
   const detail: Child[] =
     head.kind === 'leader'
-      ? [`${valueText(head.board, head.entry.value)}`, ...(head.dethroned ? [' · took #1 from ', boldArrows(entryName(head.board, head.dethroned, names), 18)] : [])]
+      ? [valueText(head.board, head.entry.value), ...(head.dethroned ? [' · took #1 from ', boldArrows(entryName(head.board, head.dethroned, names), 18)] : [])]
       : [head.climber.gain === null ? `New in the top 10 at #${head.climber.entry.rank}` : `Up ${head.climber.gain} places to #${head.climber.entry.rank}`, ` · ${valueText(head.climber.board, head.climber.entry.value)}`];
   const topToken = week.boards.tokens[0];
   const busiest = week.boards.lanes[0];
+  const tokenName = topToken ? entryName('tokens', topToken, names) : '';
+  const laneName = busiest ? laneLabel(names, busiest.key) : '';
+  const showLane = busiest !== undefined && INSIGHT_ROOM.lane >= `Busiest lane: ${laneName}`.length;
+  const showToken = topToken !== undefined && INSIGHT_ROOM.both >= `Top token: ${tokenName} · Busiest lane: ${showLane ? laneName : ''}`.length;
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
     eyebrow: `Leaderboards · ${cardWeek(monday)}`,
@@ -90,13 +111,15 @@ export async function moversTree(monday: string, inputs: BroadcastInputs): Promi
           ),
     ),
     insight: [
-      ...(topToken ? ['Top token: ', bold(entryName('tokens', topToken, names))] : []),
-      ...(topToken && busiest ? [' · '] : []),
-      ...(busiest ? ['Busiest lane: ', boldArrows(laneLabel(names, busiest.key), 16)] : []),
+      ...(showToken ? ['Top token: ', bold(tokenName)] : []),
+      ...(showToken && showLane ? [' · '] : []),
+      ...(showLane ? ['Busiest lane: ', boldArrows(laneName, 16)] : []),
     ],
     cta: BOARDS_CTA,
   });
 }
+
+const chainSize = (text: string) => (text.length <= 10 ? 56 : text.length <= 15 ? 48 : 40);
 
 const pctOf = (now: number | null, before: number | null) => (now === null || before === null || before === 0 ? null : ((now - before) / before) * 100);
 
@@ -122,6 +145,7 @@ export async function spotlightTree(monday: string, inputs: BroadcastInputs): Pr
   const names = namesOf(replay, chains);
   const sky = hubSky(replay, names, s.selector, monday, sunday, { gold: s.selector });
   const partners = s.partners.map((p) => chainName(names, p));
+  const spotlightName = chainName(names, s.selector);
   const panel = h(
     'div',
     {
@@ -131,10 +155,8 @@ export async function spotlightTree(monday: string, inputs: BroadcastInputs): Pr
       },
     },
     row([glyph('up', 16, COLORS.up, { right: 8 }), 'FASTEST GROWER · VS LAST WEEK'], { fontSize: 18, fontWeight: 700, letterSpacing: 3, color: COLORS.up }),
-    row(
-      [h('span', { style: { fontSize: 56, fontWeight: 800, color: COLORS.strong, letterSpacing: -1.5, maxWidth: 300, overflow: 'hidden' } }, chainName(names, s.selector)), h('span', { style: { fontSize: 24, color: COLORS.muted, marginLeft: 16 } }, `#${s.rank} by messages`)],
-      { alignItems: 'flex-end', marginTop: 6 },
-    ),
+    h('div', { style: { ...ellipsized, flexShrink: 0, maxWidth: 480, fontSize: chainSize(spotlightName), fontWeight: 800, color: COLORS.strong, letterSpacing: -1.5, marginTop: 6 } }, spotlightName),
+    h('div', { style: { fontSize: 24, color: COLORS.muted } }, `#${s.rank} by messages`),
     h(
       'div',
       { style: { display: 'flex', marginTop: 4 } },
@@ -145,7 +167,7 @@ export async function spotlightTree(monday: string, inputs: BroadcastInputs): Pr
     h(
       'div',
       { style: { display: 'flex', flexDirection: 'column', marginTop: 16, paddingTop: 12, borderTop: '1px solid #1f2a3c' } },
-      partners.length === 0 ? null : row([sideLabel('TOP PARTNERS'), ...partners.flatMap((p, i): Child[] => [...(i > 0 ? [' · '] : []), bold(p)])], { fontSize: 20 }),
+      partners.length === 0 ? null : row([sideLabel('TOP PARTNERS'), row(partners.map((p, i) => row([h('div', { style: { ...ellipsized, maxWidth: 320, fontWeight: 700, color: COLORS.strong } }, p), ...(i < partners.length - 1 ? [' · '] : [])])), { flex: 1, minWidth: 0, flexWrap: 'wrap' })], { fontSize: 20, alignItems: 'flex-start' }),
       s.token === null ? null : row([sideLabel('TOP TOKEN'), bold(`${s.token.label ?? shortAddress(addressOf(s.token.key))} `), h('span', { style: { color: COLORS.muted } }, `· ${formatUsd(s.token.usd)} moved`)], { fontSize: 20, marginTop: 8 }),
     ),
   );

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { broadcastTree } from '../worker/cards/broadcast-cards';
 import { MISSING_GLYPHS } from '../worker/cards/glyphs';
 import type { VNode } from '../worker/h';
-import { BASE, ETH, MONDAY, texts } from './fixtures/broadcast';
+import { ARB, BASE, ETH, MONDAY, texts } from './fixtures/broadcast';
 import { loadMoments, MOMENT_REPLAY, MOMENTS, TEMPO, withMoments } from './fixtures/moments';
 
 const inputs = { load: loadMoments, icon: async (selector: string) => (selector === BASE ? 'data:image/svg+xml;base64,AAAA' : null) };
@@ -57,6 +57,44 @@ describe('countdown card', () => {
       words: ['1,000', '0', '400 now', '1,000', 'All-time now '],
       missing: null,
     });
+  });
+});
+
+const LONG_NAMES: Record<string, string> = { [BASE]: 'Ethereum Mainnet Optimism Superchain Rollup', [ARB]: 'Avalanche C-Chain', [ETH]: 'Polygon zkEVM' };
+const renamed = (chains: { selector: string; display_name: string }[]) => chains.map((c) => ({ ...c, display_name: LONG_NAMES[c.selector] ?? c.display_name }));
+const loadLong: typeof loadMoments = async (name) => {
+  const file = (await loadMoments(name)) as never as { chains: { selector: string; display_name: string }[] };
+  return name === 'replay.json' || name === 'chains.json' ? ({ ...file, chains: renamed(file.chains) } as never) : (file as never);
+};
+const styleOf = (card: VNode, word: string): Record<string, unknown> | null => {
+  const walk = (n: unknown): Record<string, unknown> | null => {
+    if (typeof n !== 'object' || n === null) return null;
+    const node = n as VNode;
+    const kids = ([] as unknown[]).concat(node.props?.children ?? []);
+    const style = (node.props?.style ?? null) as Record<string, unknown> | null;
+    if (kids.includes(word) && style?.textOverflow === 'ellipsis' && style.flexShrink !== undefined) return style;
+    for (const k of kids) { const found = walk(k);
+      if (found) return found; }
+    return null;
+  };
+  return walk(card);
+};
+
+describe('long chain names', () => {
+  it('never cut the spotlight name: it sizes down, then ends in an ellipsis, on its own row from the rank', async () => {
+    // #when
+    const card = await tree({ kind: 'spotlight', monday: MONDAY }, loadLong);
+    const name = styleOf(card, 'Ethereum Mainnet Optimism Superchain Rollup');
+    // #then
+    expect({ size: name?.fontSize, ellipsis: name?.textOverflow, nowrap: name?.whiteSpace, width: name?.maxWidth, words: texts(card).includes('Avalanche C-Chain') }).toEqual({ size: 40, ellipsis: 'ellipsis', nowrap: 'nowrap', width: 480, words: true });
+  });
+
+  it('keeps a lane climber on one row of flexible width, its two ends shrinking around the arrow', async () => {
+    // #when
+    const card = await tree({ kind: 'movers', monday: MONDAY }, loadLong);
+    const end = styleOf(card, 'Avalanche C-Chain');
+    // #then
+    expect({ size: end?.fontSize, ellipsis: end?.textOverflow, shrink: end?.flexShrink, words: texts(card).includes('Polygon zkEVM') }).toEqual({ size: 20, ellipsis: 'ellipsis', shrink: 1, words: true });
   });
 });
 
