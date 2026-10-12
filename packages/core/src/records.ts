@@ -223,6 +223,16 @@ export function formatThresholdUsd(value: number): string {
   return `$${Number.isInteger(n) ? n : n.toFixed(1)}${suffix}`;
 }
 
+/**
+ * An all-time total on its way to a milestone, compacted with two decimals and rounded down ("$2.43M"): one decimal, as
+ * formatUsd writes it, can read as the milestone itself ("$2.5M" for $2.46M), and rounding up could too ("$2.50M").
+ */
+export function formatProgressUsd(value: number): string {
+  const [size, suffix] = value >= 1e12 ? [1e12, 'T'] : value >= 1e9 ? [1e9, 'B'] : value >= 1e6 ? [1e6, 'M'] : value >= 1e3 ? [1e3, 'K'] : [1, ''];
+  if (size === 1) return `$${Math.floor(value)}`;
+  return `$${(Math.floor(value / (size / 100)) / 100).toFixed(2)}${suffix}`;
+}
+
 type MilestoneDay = Pick<DayStats, 'day' | 'messages' | 'usd_value'>;
 
 function runningMilestones<T extends { day: string }>(

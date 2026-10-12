@@ -1,7 +1,7 @@
 import { addDays } from '@ccip-dev/core';
 import { formatCount, formatFeeTotal, formatShare, formatUsd } from '@ccip-dev/core/format';
 import { calledShare, type BoardName, type Countdown } from '@ccip-dev/core/moments';
-import { formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
+import { formatProgressUsd, formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
 import type { Poll } from '@ccip-dev/core/public';
 import { arrow, bold, fitLines, longDay, noLinks, plural, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
 import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
@@ -78,12 +78,13 @@ const COUNTDOWN_TG: Record<MilestoneMetric, (t: number) => string> = {
 };
 
 const amount = (c: Pick<Countdown, 'metric'>, v: number) => (c.metric === 'messages' ? formatCount(v) : formatUsd(v));
+const totalText = (c: Pick<Countdown, 'metric'>, v: number) => (c.metric === 'messages' ? formatCount(v) : formatProgressUsd(v));
 const threshold = (c: Pick<Countdown, 'metric'>, v: number) => (c.metric === 'messages' ? formatCount(v) : formatThresholdUsd(v));
 
 function countdownX({ countdown: c }: CountdownFacts): Line[] {
   return [
     { text: `⏳ ${COUNTDOWN_X[c.metric](c.threshold)} is about ${plural(c.days_left, 'day')} away` },
-    { text: `${amount(c, c.total)} now, adding about ${amount(c, c.per_day)} a day` },
+    { text: `${totalText(c, c.total)} now, adding about ${amount(c, c.per_day)} a day` },
     { text: '#Chainlink', drop: MOMENT_DROP.closing },
   ];
 }
@@ -92,7 +93,7 @@ function countdownTg({ countdown: c }: CountdownFacts): Line[] {
   return [
     { text: bold(`CCIP countdown: ${tgText(COUNTDOWN_TG[c.metric](c.threshold))}`) },
     { text: `About ${bold(plural(c.days_left, 'day'))} away at the pace of the last 7 days, about ${bold(amount(c, c.per_day))} a day.` },
-    { text: `${bold(amount(c, c.total))} so far.` },
+    { text: `${bold(totalText(c, c.total))} so far.` },
     ...(c.previous ? [{ text: `Last milestone: ${threshold(c, c.previous.threshold)} on ${longDay(c.previous.day)}.`, drop: MOMENT_DROP.detail }] : []),
     { text: '' },
     { text: CLOSING_TG, drop: MOMENT_DROP.closing },

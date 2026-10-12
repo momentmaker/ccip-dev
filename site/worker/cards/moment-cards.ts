@@ -1,7 +1,7 @@
 import { formatCount, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
 import type { Countdown } from '@ccip-dev/core/moments';
 import { chainName } from '@ccip-dev/core/names';
-import { formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
+import { formatProgressUsd, formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
 import { h, type Child, type VNode } from '../h';
 import {
@@ -43,6 +43,7 @@ export async function welcomeTree(selector: string, inputs: BroadcastInputs): Pr
 }
 
 const amount = (metric: MilestoneMetric, v: number) => (metric === 'messages' ? formatCount(v) : formatUsd(v));
+const totalText = (metric: MilestoneMetric, v: number) => (metric === 'messages' ? formatCount(v) : formatProgressUsd(v));
 const thresholdText = (metric: MilestoneMetric, v: number) => (metric === 'messages' ? formatCount(v) : formatThresholdUsd(v));
 
 /** How far the total has come from the last milestone (or zero) to this one. */
@@ -59,7 +60,7 @@ function progressBar(c: Countdown): VNode {
       h('div', { style: { width: Math.max(18, Math.round(BAR_WIDTH * share)), height: 18, borderRadius: 9, backgroundImage: 'linear-gradient(90deg, #4a7ff0, #7de3ff)' } }),
     ),
     row(
-      [h('span', { style: { color: COLORS.muted } }, start), h('span', { style: { color: COLORS.soft, fontWeight: 700 } }, `${amount(c.metric, c.total)} now`), h('span', { style: { color: COLORS.muted } }, thresholdText(c.metric, c.threshold))],
+      [h('span', { style: { color: COLORS.muted } }, start), h('span', { style: { color: COLORS.soft, fontWeight: 700 } }, `${totalText(c.metric, c.total)} now`), h('span', { style: { color: COLORS.muted } }, thresholdText(c.metric, c.threshold))],
       { justifyContent: 'space-between', width: BAR_WIDTH, fontSize: 20, marginTop: 8 },
     ),
   );
@@ -89,7 +90,7 @@ export async function countdownTree(metric: MilestoneMetric, threshold: number, 
     ),
     insight: countdown.previous
       ? ['Last milestone: ', bold(thresholdText(metric, countdown.previous.threshold)), ` on ${formatUtcDay(countdown.previous.day)}`]
-      : ['All-time now ', bold(amount(metric, countdown.total))],
+      : ['All-time now ', bold(totalText(metric, countdown.total))],
     cta: RECORDS_CTA,
   });
 }

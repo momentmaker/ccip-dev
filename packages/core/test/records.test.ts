@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, feeThresholds, feesNote, feesSince, formatThresholdUsd, liveRecordBreaks, messageThresholds, milestonesOn, recordsSetOn, recordValue, trackedMilestones, valueThresholds, type DayStats, type FeeDayStats,
+  computeFeeMilestones, computeFeeRecords, computeMilestones, computeRecords, feeThresholds, feesNote, feesSince, formatProgressUsd, formatThresholdUsd, liveRecordBreaks, messageThresholds, milestonesOn, recordsSetOn, recordValue, trackedMilestones, valueThresholds, type DayStats, type FeeDayStats,
 } from '../src/records';
 
 const day = (d: string, messages: number, usd: number, senders: number, fee: number | null, median: number | null): DayStats => ({
@@ -191,6 +191,15 @@ describe('fee milestones', () => {
 
   it('formats thresholds in K, M, B and T', () => {
     expect([1e4, 2.5e4, 1e6, 2.5e6, 1e9].map(formatThresholdUsd)).toEqual(['$10K', '$25K', '$1M', '$2.5M', '$1B']);
+  });
+
+  it('writes a total short of a milestone with two decimals, rounded down, so it never reads as the milestone', () => {
+    // #given totals just under $2.5M, $1M and $1B, and smaller ones
+    const totals = [2_430_000, 2_499_999.99, 999_999.99, 2_290_000, 999_999_999, 12_345.67, 950.8];
+    // #when
+    const written = totals.map(formatProgressUsd);
+    // #then
+    expect(written).toEqual(['$2.43M', '$2.49M', '$999.99K', '$2.29M', '$999.99M', '$12.34K', '$950']);
   });
 
   it('dates each all-time fee total by the first day the running total reaches it', () => {

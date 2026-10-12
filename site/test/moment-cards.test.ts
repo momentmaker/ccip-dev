@@ -50,10 +50,19 @@ describe('countdown card', () => {
     expect({ words: texts(card).slice(texts(card).indexOf('ccip.dev')), bar: JSON.stringify(card).includes('"width":516,"height":18') }).toEqual({
       words: [
         'ccip.dev', 'Countdown · Mon, Oct 12, 2026', 'COUNTDOWN', 'All-time fees paid to CCIP', '$2.5M', 'About ', '7 days ', 'away at ', '$11.6K ', 'a day',
-        '$2M · Jul 20', '$2.4M now', '$2.5M', 'Last milestone: ', '$2M', ' on Jul 20, 2026', 'Every record: ', 'ccip.dev/records',
+        '$2M · Jul 20', '$2.43M now', '$2.5M', 'Last milestone: ', '$2M', ' on Jul 20, 2026', 'Every record: ', 'ccip.dev/records',
       ],
       bar: true,
     });
+  });
+
+  it('writes a total just short of its milestone so it reads short of it, in the bar and in the strip', async () => {
+    // #given fees at $2,496,000 on the way to $2.5M, with no milestone before
+    const near = withMoments({ countdowns: [{ ...MOMENTS.countdowns[0]!, total: 2_496_000, per_day: 1_000, days_left: 4, previous: null }] });
+    // #when
+    const words = texts(await tree({ kind: 'countdown', metric: 'fees', threshold: 2.5e6 }, near));
+    // #then
+    expect(words.slice(words.indexOf('0'), words.indexOf('Every record: '))).toEqual(['0', '$2.49M now', '$2.5M', 'All-time now ', '$2.49M']);
   });
 
   it('starts the bar from zero before the first milestone, and has no card for a threshold moments.json does not count down to', async () => {

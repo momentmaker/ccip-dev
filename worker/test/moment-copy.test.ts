@@ -76,7 +76,7 @@ describe('moment X posts', () => {
     // #then
     expect(texts).toEqual([
       '🎉 Welcome to #CCIP, @tempo\nChain #93 on CCIP: first message on Oct 11, with Ethereum\nFirst day: 38 messages · $412.5K moved\n#Chainlink',
-      '⏳ $2.5M in all-time #CCIP fees is about 7 days away\n$2.4M now, adding about $11.6K a day\n#Chainlink',
+      '⏳ $2.5M in all-time #CCIP fees is about 7 days away\n$2.43M now, adding about $11.6K a day\n#Chainlink',
       'New #1 on #CCIP: @base paid the most fees last week ($1.8K), taking the top spot from BNB Chain\n' +
         'Climbers: Arbitrum ▲6 to #3 by fees · syrupUSDT ▲9 to #7 by value · Ink → Ethereum new at #9 by value\n#Chainlink $LINK',
       'Chain spotlight: @base is the fastest-growing chain on #CCIP this week\n3,412 messages (▲ 85% vs last week) · $96.4M moved · $1.8K in fees\n' +
@@ -115,7 +115,7 @@ describe('moment Telegram captions', () => {
       '<b>Welcome to CCIP, Tempo</b>\nTempo is chain <b>#93</b> on CCIP. Its first message was on Sun, Oct 11, 2026.\n' +
         'First day: <b>38</b> messages and <b>$412.5K</b> moved.\nConnected to Ethereum, Base and Arbitrum.\n\n#CCIP #Chainlink $LINK',
       '<b>CCIP countdown: $2.5M in fees all time</b>\nAbout <b>7 days</b> away at the pace of the last 7 days, about <b>$11.6K</b> a day.\n' +
-        '<b>$2.4M</b> so far.\nLast milestone: $2M on Mon, Jul 20, 2026.\n\n#CCIP #Chainlink $LINK',
+        '<b>$2.43M</b> so far.\nLast milestone: $2M on Mon, Jul 20, 2026.\n\n#CCIP #Chainlink $LINK',
       '<b>CCIP leaderboards · Oct 5–11</b>\nNew #1: Base paid the most fees last week (<b>$1.8K</b>), taking the top spot from BNB Chain.\n' +
         'Climbers: Arbitrum ▲6 to #3 by fees · syrupUSDT ▲9 to #7 by value · Ink → Ethereum new at #9 by value\n\n#CCIP #Chainlink $LINK',
       '<b>Chain spotlight: Base</b>\nBase is the fastest-growing chain on CCIP this week, and #2 by messages.\n' +
@@ -124,6 +124,15 @@ describe('moment Telegram captions', () => {
       '<b>New on CCIP this week · Oct 5–9</b>\nNew lanes: Ethereum → Tempo · Base → Monad · Plasma → Arc\n' +
         'New tokens: USDat on Ethereum (Saturn) · PST on Base (Huma Finance)\nCCIP now runs <b>933</b> lanes between <b>93</b> chains.\n\n#CCIP',
     ]);
+  });
+
+  it('writes a countdown total just short of its milestone so it reads short of it, on X and on Telegram', () => {
+    // #given fees at $2,496,000 on the way to $2.5M
+    const near: CountdownFacts = { kind: 'countdown', countdown: { ...COUNTDOWN.countdown, total: 2_496_000, per_day: 1_000, days_left: 4 } };
+    // #when
+    const copy = composeMomentCopy(near);
+    // #then
+    expect([copy.xText.split('\n')[1], copy.telegramHtml.split('\n')[2]]).toEqual(['$2.49M now, adding about $1.0K a day', '<b>$2.49M</b> so far.']);
   });
 
   it('leaves the value out of the welcome when the first day moved $0, on X and on Telegram', () => {
