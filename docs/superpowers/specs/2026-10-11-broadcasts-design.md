@@ -306,3 +306,58 @@ These follow the mockups in the assets folder.
 | A record storm after a backfill or rewind. | Live days only; first-run seeding; per-record keys. |
 | Telegram can't fetch a cold or slow card. | The image-first warm-up and check. |
 | SVG filters are too slow to render at the edge. | Seeded stars, at most 11 coins and 12 lanes; measure render time in tests and fall back to no blur if needed. |
+
+## 11. Settled during planning (2026-10-11)
+
+These were found while planning, partly by rendering cards. They override the sections above where they differ.
+
+**Rendering:**
+- Inside the sky SVG image, gradients, blur filters, clip paths and dashed strokes render. Nested `<image>` icons and `<text>` do not.
+  - The sky SVG holds only shapes and gradients.
+  - Coins are card elements: a round box with `overflow: hidden` around the icon at 125% clips it to a circle (pixel-checked).
+  - Name labels are card elements too.
+- Lane gradients use user-space coordinates; bounding-box gradients draw nothing on straight strokes.
+- **Glyphs:** the card font has no `→ ▲ ▼ ★ ▶ ≈`. They are drawn as small SVGs, and "≈ 7M LINK" reads "ON PACE FOR 7M".
+- **Fonts:** Inter 800 and JetBrains Mono 800 are embedded; both are already site dependencies.
+- **Render time:** sky cards take about 1 s to render.
+
+**Card routes:**
+- A broadcast card never falls back to `og-default.png`. It answers 404 when the data doesn't exist and 500 on failure, so the image check can't pass a fallback.
+- Broadcast routes read their data with `cache: 'no-store'`.
+- The photo URL sent to Telegram carries `?v=<claim time>`, so a re-post isn't served from Telegram's cache; the card Worker ignores the query.
+
+**`day-leaders.json`:**
+- It also carries each day's busiest lane by value and top fee lane, and `weeks[].fee_chains` for the last 8 weeks.
+- It is rebuilt in full at each finalize with window-function queries, about 1.5M D1 rows read a day.
+- The daily card shows the leaders in a row under the 2×2 stats.
+
+**Retries and safety:**
+- The hourly job re-runs yesterday's broadcasts; claims prevent duplicates. A failed post is retried within an hour, and deleting a key re-posts it.
+- Records come only from live days in the last 3 days, so a rewind can't post old records.
+- **Reserve:**
+  - The first run sets a watermark (`broadcast:reserve:since`), so old deposits never post.
+  - Nothing posts before the transfer scan has caught up.
+  - An unpriced deposit waits for its price.
+  - Facts are taken as of the deposit.
+  - The call is `{ kind: 'reserve', reserve }`.
+- A deposit is `direction === 'in'` and at least 1,000 LINK, the same rule as `reserveStats`.
+
+**Copy:**
+- X is counted with a dependency-free counter based on twitter-text's v3 weights: emoji and code points outside the Latin ranges count 2. Text is normalized to NFC.
+- **Drop order, extended:** a record's driver line drops first, and the weekly fee-chains line drops before the closing hashtag.
+- A name that reads as a domain (e.g. "pump.fun") has its dots replaced with U+2024, so no platform turns it into a link.
+- Numbers use the site's formatters, so they can differ slightly from the examples above (e.g. "$1.0M"). LINK amounts under 100 get two decimals (`formatLinkAmount`).
+- Telegram's 1,024 limit is checked on the raw HTML, tags included.
+- In `on` mode the owner X draft is still sent, until the X API output exists.
+
+**Calls to action:**
+- Be The Oracle's entry is `null` until the game has a URL.
+- The weekly strip shows only the call-to-action address, as its mockup does.
+
+**Labels:**
+- A project's `[[tokens]]` entries are `{ chain, address, source }`.
+- A token tags its project only when the project is `verified = true` and has an `x`.
+- The weekly label job lists handle gaps in its pull request (`labels/handle-gaps.md`); it doesn't invent handles.
+- The handles themselves come from a research pull request for owner review (plan Task 12). The implementer never merges it.
+
+**Coins:** coins with a radius of 22 px or more get a name label, as in the mockup.
