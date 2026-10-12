@@ -1,1 +1,21 @@
-{}
+{
+  "0g-mainnet": { "x": "0G_labs", "source": "https://0g.ai/" },
+  "arc-mainnet": { "x": "arc", "source": "https://www.arc.io/" },
+  "avalanche-mainnet": { "x": "avax", "source": "https://www.avalanche.com/" },
+  "binance_smart_chain-mainnet": { "x": "BNBChain", "source": "https://www.bnbchain.org/en" },
+  "bittensor-mainnet": { "x": "bittensor", "source": "https://www.bittensor.com/" },
+  "ethereum-mainnet": { "x": "ethereum", "source": "https://ethereum.org/" },
+  "ethereum-mainnet-arbitrum-1": { "x": "arbitrum", "source": "https://arbitrum.foundation/" },
+  "ethereum-mainnet-base-1": { "x": "base", "source": "https://www.base.org/" },
+  "ethereum-mainnet-ink-1": { "x": "inkonchain", "source": "https://inkonchain.com/" },
+  "ethereum-mainnet-mantle-1": { "x": "Mantle_Official", "source": "https://www.mantle.xyz/" },
+  "gravity-mainnet": { "x": "GravityChain", "source": "https://gravity.xyz/" },
+  "hyperliquid-mainnet": { "x": "hyperliquidx", "source": "https://hyperliquid.xyz/" },
+  "monad-mainnet": { "x": "monad", "source": "https://monad.xyz/" },
+  "plasma-mainnet": { "x": "plasma", "source": "https://www.plasma.org/" },
+  "robinhood-mainnet": { "x": "RobinhoodApp", "source": "https://robinhood.com/us/en/crypto/chain/" },
+  "ronin-mainnet": { "x": "Ronin_Network", "source": "https://www.roninchain.com/" },
+  "sei-mainnet": { "x": "SeiNetwork", "source": "https://www.sei.io/" },
+  "solana-mainnet": { "x": "solana", "source": "https://solana.com/twitter" },
+  "tempo-mainnet": { "x": "tempo", "source": "https://tempo.xyz/" }
+}

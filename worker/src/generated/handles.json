@@ -1,4 +1,73 @@
 {
-  "chains": {},
-  "tokens": []
+  "chains": {
+    "0g-mainnet": "0G_labs",
+    "arc-mainnet": "arc",
+    "avalanche-mainnet": "avax",
+    "binance_smart_chain-mainnet": "BNBChain",
+    "bittensor-mainnet": "bittensor",
+    "ethereum-mainnet": "ethereum",
+    "ethereum-mainnet-arbitrum-1": "arbitrum",
+    "ethereum-mainnet-base-1": "base",
+    "ethereum-mainnet-ink-1": "inkonchain",
+    "ethereum-mainnet-mantle-1": "Mantle_Official",
+    "gravity-mainnet": "GravityChain",
+    "hyperliquid-mainnet": "hyperliquidx",
+    "monad-mainnet": "monad",
+    "plasma-mainnet": "plasma",
+    "robinhood-mainnet": "RobinhoodApp",
+    "ronin-mainnet": "Ronin_Network",
+    "sei-mainnet": "SeiNetwork",
+    "solana-mainnet": "solana",
+    "tempo-mainnet": "tempo"
+  },
+  "tokens": [
+    {
+      "chain": "plasma-mainnet",
+      "address": "0xb77e872a68c62cfc0dfb02c067ecc3da23b4bbf3",
+      "project": "Aave",
+      "x": "aave"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+      "project": "Huma Finance",
+      "x": "humafinance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+      "project": "Lido",
+      "x": "lidofinance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x87b65c4aaffa76881f9e96f3e7ed945ddfc3cd7a",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "robinhood-mainnet",
+      "address": "0x40858070814a57fdf33a613ae84fe0a8b4a874f7",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x23238f20b894f29041f48d88ee91131c395aaa71",
+      "project": "Saturn",
+      "x": "saturn_credit"
+    }
+  ]
 }

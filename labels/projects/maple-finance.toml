@@ -1,0 +1,25 @@
+name = "Maple Finance"
+x = "maplefinance"
+url = "https://maple.finance"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b"
+source = "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d"
+source = "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x87b65C4aAFFA76881f9E96F3e7ED945ddFC3Cd7A"
+source = "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration"
+
+[[tokens]]
+chain = "robinhood-mainnet"
+address = "0x40858070814a57FdF33a613ae84fE0a8b4a874f7"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
