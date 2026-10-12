@@ -71,7 +71,7 @@ describe('skyNodes', () => {
       icon: (iconCoin!.props.children as VNode).props.width,
       rim: style(iconCoin!).boxShadow,
       letter: [letterCoin!.props.children, style(letterCoin!).backgroundColor],
-      labels: labels.map((l) => l.props.children),
+      labels: labels.map((l) => (l.props.children as VNode).props.children),
     }).toEqual({
       svg: true,
       clip: [46, 'hidden', 92],
@@ -79,6 +79,18 @@ describe('skyNodes', () => {
       rim: '0 0 0 2px rgba(255,255,255,0.28)',
       letter: ['C', LETTERMARK_BG],
       labels: ['Chain a'],
+    });
+  });
+
+  it('ends a long label in an ellipsis inside its fixed box instead of clipping both sides', () => {
+    // #given a chain whose name is longer than the 180px label box
+    const sky = orbitSky({ chains: [{ ...chain('a', 100), name: 'Ethereum Mainnet Optimism Superchain' }], lanes: [], seed: 1 });
+    // #when
+    const label = skyNodes(sky, new Map()).at(-1)!;
+    // #then
+    expect({ box: style(label).width, text: style(label.props.children as VNode) }).toEqual({
+      box: 180,
+      text: { maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     });
   });
 });

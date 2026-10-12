@@ -10,7 +10,7 @@ import { windowWeights } from '../../src/sky/weights';
 import { h, type Child, type VNode } from '../h';
 import { bold, boldArrows, broadcastFrame, cardDay, COLORS, date, dayNumber, deltaStat, eyebrow, feeBars, MONTH_DAY, mutedStat, row, statsPanel, TEXT_COLUMN } from './broadcast-frame';
 import { ctaFor, RECORDS_CTA } from './cta';
-import { glyph } from './glyphs';
+import { glyph, withArrows } from './glyphs';
 import { orbitSky, skyNodes, type OrbitSky, type StarFreeZone } from './orbit-sky';
 import { reserveTree } from './reserve-card';
 
@@ -51,6 +51,8 @@ export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: 
   });
 }
 
+const hasReplayDay = (replay: ReplayFile, day: string) => replay.days.some((d) => d.day === day);
+
 const addressOf = (key: string) => key.slice(key.indexOf(':') + 1);
 
 function leaderCell(label: string, name: string, value: string): VNode {
@@ -90,7 +92,7 @@ async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | 
   const [history, leaders, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('day-leaders.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const totals = dayTotalsFacts(history.days, day);
   const lead = leaders.days.find((d) => d.day === day);
-  if (totals === null || lead === undefined) return null;
+  if (totals === null || lead === undefined || !hasReplayDay(replay, day)) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, day, day);
   const record = recordsSetOn(history.days, history.largest_fees ?? [], day)[0];
@@ -116,7 +118,9 @@ async function weeklyTree(monday: string, inputs: BroadcastInputs): Promise<VNod
   const [history, leaders, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('day-leaders.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const totals = weekTotalsFacts(history.days, monday);
   const week = leaders.weeks.find((w) => w.week === monday);
-  if (totals === null || week === undefined) return null;
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  const complete = weekDays.every((d) => history.days.some((x) => x.day === d));
+  if (!complete || totals === null || week === undefined || !hasReplayDay(replay, addDays(monday, 6))) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, monday, addDays(monday, 6));
   return broadcastFrame({
@@ -168,11 +172,19 @@ function previousLine(r: RecordSet): VNode {
   return columnRow(['Previous record ', bold(`${recordValueText(r.kind, r.previous.value)} `), `on ${formatUtcDay(r.previous.day)} · stood ${days}`], { fontSize: 26, color: COLORS.muted });
 }
 
+/** The route, with a trailing piece glued to its last chain so the two wrap together and the tail never starts a line. */
+function routeWithTail(route: string, tail: string): VNode {
+  const parts = withArrows(route, 20, COLORS.strong);
+  const last = parts.pop();
+  const closing = row([last ?? '', h('span', { style: { color: COLORS.soft, fontWeight: 400 } }, tail)], { flexShrink: 0 });
+  return row([...parts, closing], { color: COLORS.strong, fontWeight: 700, maxWidth: COLUMN_WIDTH, flexWrap: 'wrap' });
+}
+
 function driverLine(r: RecordSet, d: RecordDriver | null, names: ChainNames): VNode | null {
   if (d === null) return null;
-  const lane = boldArrows(laneLabel(names, d.lane), 20, { maxWidth: COLUMN_WIDTH, flexWrap: 'wrap' });
   const style = { fontSize: 24, color: COLORS.soft };
-  if (r.kind === 'largest_fee') return columnRow(['Paid on ', lane, d.symbol ? `, paid in ${d.symbol}` : ''], style);
+  if (r.kind === 'largest_fee') return columnRow(['Paid on ', routeWithTail(laneLabel(names, d.lane), d.symbol ? `, paid in ${d.symbol}` : '')], style);
+  const lane = boldArrows(laneLabel(names, d.lane), 20, { maxWidth: COLUMN_WIDTH, flexWrap: 'wrap' });
   return columnRow(['Driven by ', lane, r.kind === 'value' ? `: ${formatUsd(d.usd)} moved` : `: ${formatCount(d.messages)} messages`], style);
 }
 
@@ -192,7 +204,7 @@ async function recordTree(kind: RecordKind, day: string, inputs: BroadcastInputs
   const [history, leaders, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('day-leaders.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const largest = history.largest_fees ?? [];
   const record = recordsSetOn(history.days, largest, day).find((r) => r.kind === kind);
-  if (record === undefined) return null;
+  if (record === undefined || !hasReplayDay(replay, day)) return null;
   const names = namesOf(replay, chains);
   const driver = recordDriver(record, leaders.days.find((d) => d.day === day) ?? null, largest);
   const sky = skyFor(replay, names, day, day, { dim: true, gold: driver ? (driver.lane.split('>')[0] ?? null) : null, starFree: [TEXT_COLUMN] });
@@ -215,7 +227,7 @@ const MILESTONE_TITLES: Record<MilestoneMetric, string> = {
 async function milestoneTree(metric: MilestoneMetric, threshold: number, inputs: BroadcastInputs): Promise<VNode | null> {
   const [history, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const milestone = trackedMilestones(history.days).find((m) => m.metric === metric && m.threshold === threshold);
-  if (milestone === undefined) return null;
+  if (milestone === undefined || !hasReplayDay(replay, milestone.day)) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, milestone.day, milestone.day, { dim: true, starFree: [TEXT_COLUMN] });
   return broadcastFrame({

@@ -68,6 +68,7 @@ export const CHAINS: ChainsFile = {
 };
 
 export const DEPOSIT_TX = `0x${'ab'.repeat(32)}`;
+export const OUTFLOW_TX = `0x${'ef'.repeat(32)}`;
 
 const transfer = (ts: string, tx: string, direction: 'in' | 'out', link: number, extra: Partial<ReserveFile['transfers'][number]> = {}) => ({
   ts, tx, direction, counterparty: '0x5680681ed3767b96914ce741a308155c7fb9171d', link, price_usd: null, usd: null, value_now_usd: null, change_pct: null,
@@ -95,7 +96,7 @@ export const RESERVE: ReserveFile = {
     transfer('2026-09-01T10:00:00.000Z', '0x01', 'in', 100_000),
     transfer('2026-09-02T12:00:00.000Z', '0x02', 'in', 5),
     transfer('2026-09-08T15:00:00.000Z', '0x03', 'in', 50_000),
-    transfer('2026-09-10T09:00:00.000Z', '0x04', 'out', 1),
+    transfer('2026-09-10T09:00:00.000Z', OUTFLOW_TX, 'out', 1),
     transfer('2026-09-15T15:00:00.000Z', DEPOSIT_TX, 'in', 60_000, { price_usd: 12.5, usd: 750_000, value_now_usd: 900_000, change_pct: 20 }),
   ],
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CardSize } from '../worker/cards/frame';
 import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
-import { BROADCAST_FILES, DAY, DEPOSIT_TX, RECORD_DAY } from './fixtures/broadcast';
+import { BROADCAST_FILES, DAY, DEPOSIT_TX, OUTFLOW_TX, RECORD_DAY } from './fixtures/broadcast';
 import chains from './fixtures/chains.json';
 import history from './fixtures/history.json';
 import reserve from './fixtures/reserve.json';
@@ -132,10 +132,10 @@ describe('handleOg', () => {
   });
 
   it('answers 404 without rendering for a Reserve transaction that is not a deposit', async () => {
-    // #given 0x04 is a 1-LINK outflow
+    // #given OUTFLOW_TX is a 1-LINK outflow
     const { get, renderPng } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
     // #when
-    const status = (await get('/og/broadcast/reserve/0x04.png')).status;
+    const status = (await get(`/og/broadcast/reserve/${OUTFLOW_TX}.png`)).status;
     // #then
     expect({ status, rendered: renderPng.mock.calls.length }).toEqual({ status: 404, rendered: 0 });
   });

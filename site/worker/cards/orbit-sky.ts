@@ -188,13 +188,8 @@ function coinNode(c: OrbitCoin, src: string | null, dim: boolean): VNode {
 function labelNode(c: OrbitCoin, dim: boolean): VNode {
   return h(
     'div',
-    {
-      style: {
-        position: 'absolute', left: c.x - 90, top: r1(c.y + c.r + 6), width: 180, display: 'flex', justifyContent: 'center', fontSize: 17, fontWeight: 700,
-        color: '#c9d3e6', opacity: dim ? DIM : 1, whiteSpace: 'nowrap', overflow: 'hidden',
-      },
-    },
-    c.name,
+    { style: { position: 'absolute', left: c.x - 90, top: r1(c.y + c.r + 6), width: 180, display: 'flex', justifyContent: 'center', fontSize: 17, fontWeight: 700, color: '#c9d3e6', opacity: dim ? DIM : 1 } },
+    h('div', { style: { maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c.name),
   );
 }
 

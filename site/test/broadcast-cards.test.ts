@@ -5,7 +5,7 @@ import { bigSize, broadcastTree } from '../worker/cards/broadcast-cards';
 import { reserveSvg } from '../worker/cards/reserve-card';
 import { ctaFor } from '../worker/cards/cta';
 import { MISSING_GLYPHS } from '../worker/cards/glyphs';
-import { BASE, DAY, DEPOSIT_TX, HISTORY, loadFixture, MONDAY, RECORD_DAY, texts } from './fixtures/broadcast';
+import { BASE, DAY, DEPOSIT_TX, HISTORY, loadFixture, MONDAY, OUTFLOW_TX, RECORD_DAY, texts } from './fixtures/broadcast';
 
 const inputs = { load: loadFixture, icon: async (selector: string) => (selector === BASE ? 'data:image/svg+xml;base64,AAAA' : null) };
 const tree = async (target: Parameters<typeof broadcastTree>[0]) => (await broadcastTree(target, inputs)) as VNode;
@@ -44,6 +44,38 @@ describe('daily broadcast card', () => {
     const cards = [await broadcastTree({ kind: 'daily', day: '2026-09-01' }, inputs), await broadcastTree({ kind: 'daily', day: '2026-10-09' }, inputs)];
     // #then
     expect(cards).toEqual([null, null]);
+  });
+});
+
+describe('cards from incomplete data', () => {
+  const endingOn = (name: 'history.json' | 'replay.json', lastDay: string): typeof loadFixture => async (n) => {
+    const file = await loadFixture(n);
+    if (n !== name) return file;
+    const { days } = file as { days: { day: string }[] };
+    return { ...file, days: days.filter((d) => d.day <= lastDay) } as typeof file;
+  };
+
+  it('has no weekly card while history.json lacks a day of the week', async () => {
+    // #given history.json ends on Saturday, Oct 10
+    const load = endingOn('history.json', '2026-10-10');
+    // #when
+    const card = await broadcastTree({ kind: 'weekly', monday: MONDAY }, { ...inputs, load });
+    // #then
+    expect(card).toBeNull();
+  });
+
+  it('has no daily, weekly, record or milestone card when replay.json lacks the day it draws', async () => {
+    // #given replay.json is stale: it ends on Oct 6, before every day these cards draw
+    const load = endingOn('replay.json', '2026-10-06');
+    // #when
+    const cards = await Promise.all([
+      broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load }),
+      broadcastTree({ kind: 'weekly', monday: MONDAY }, { ...inputs, load }),
+      broadcastTree({ kind: 'record', record: 'messages', day: RECORD_DAY }, { ...inputs, load }),
+      broadcastTree({ kind: 'milestone', metric: 'messages', threshold: 2000 }, { ...inputs, load }),
+    ]);
+    // #then
+    expect(cards).toEqual([null, null, null, null]);
   });
 });
 
@@ -143,7 +175,7 @@ describe('Reserve broadcast card', () => {
   it('has no card for a gift, an outflow or an unknown transaction', async () => {
     expect([
       await broadcastTree({ kind: 'reserve', tx: '0x02' }, inputs),
-      await broadcastTree({ kind: 'reserve', tx: '0x04' }, inputs),
+      await broadcastTree({ kind: 'reserve', tx: OUTFLOW_TX }, inputs),
       await broadcastTree({ kind: 'reserve', tx: `0x${'cd'.repeat(32)}` }, inputs),
     ]).toEqual([null, null, null]);
   });
@@ -159,8 +191,8 @@ describe('Reserve broadcast card', () => {
       ...texts(await tree({ kind: 'reserve', tx: DEPOSIT_TX })),
     ];
     // #then
-    expect({ words: words.length > 0, milestones: new Set(milestones.map((m) => m.metric)).size, missing: words.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({
-      words: true, milestones: expect.any(Number), missing: [],
+    expect({ words: words.length > 0, milestones: milestones.length > 0, missing: words.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({
+      words: true, milestones: true, missing: [],
     });
   });
 });
