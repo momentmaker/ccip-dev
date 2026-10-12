@@ -80,12 +80,13 @@ function chainFirstDays(lanes: readonly store.FirstDayRow[]): Map<string, string
   return first;
 }
 
+/** A chain's number is its place among every chain by first day, and on a shared first day by selector (compared as text), so each number is unique. */
 function chainArrivals(chainFirst: ReadonlyMap<string, string>, recentLanes: readonly store.LeaderRow[], since: string): ChainArrival[] {
-  const firstDays = [...chainFirst.values()];
   return [...chainFirst]
-    .filter(([, day]) => day >= since)
     .sort(([a, dayA], [b, dayB]) => compare(dayA, dayB) || compare(a, b))
-    .map(([selector, day]) => {
+    .map(([selector, day], i) => ({ selector, day, number: i + 1 }))
+    .filter(({ day }) => day >= since)
+    .map(({ selector, day, number }) => {
       const rows = recentLanes.filter((r) => r.day === day && laneEnds(r.key)?.includes(selector));
       const partners = new Map<string, number>();
       for (const r of rows) {
@@ -95,7 +96,7 @@ function chainArrivals(chainFirst: ReadonlyMap<string, string>, recentLanes: rea
       return {
         selector,
         day,
-        number: firstDays.filter((d) => d <= day).length,
+        number,
         partners: [...partners].sort(([a, va], [b, vb]) => vb - va || compare(a, b)).slice(0, FIRST_PARTNERS).map(([s]) => s),
         messages: sum(rows.map((r) => r.messages)),
         usd: cents(sum(rows.map((r) => r.usd_value))),

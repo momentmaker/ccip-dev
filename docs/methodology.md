@@ -93,7 +93,7 @@
 
 Besides the daily and weekly reports, @ccipdev posts moments: short posts about one chain, token or week. Each is computed from the same data as the site, after each day is finalized. They go to the Telegram channel and to X; the poll goes to Telegram only.
 
-- **A new chain** is welcomed the day after its first CCIP message, on either side of a lane. Its number is how many chains had sent or received a message by that day. Its first partners are the chains on its lanes that day, by value.
+- **A new chain** is welcomed the day after its first CCIP message, on either side of a lane. Its number is how many chains had sent or received a message by that day; chains that arrive on the same day are numbered in selector order, so no two share a number. Its first partners are the chains on its lanes that day, by value.
 - **A countdown** names the next all-time milestone (the messages, value and fee thresholds of the Records page) when it is 2 to 7 days away at the pace of the last 7 days. Under 2 days the milestone post itself is about to come.
 - **Movers** compare last week's top 10 (Monday to Sunday) with the week before's, on three boards: chains by fees paid, tokens by value and lanes by value. A new #1 leads (fees first, then tokens, then lanes); otherwise the biggest climb does. Climbers gained 3 places or more, or entered the top 10.
 - **The spotlight** is the chain whose messages (sent and received) grew the most against the week before, among chains with at least 100 messages last week and 50 the week before, and whose first message came no later than the first day of the week before, so a partial first week cannot inflate its rise. A chain is not spotlighted again within 4 weeks.

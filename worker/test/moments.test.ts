@@ -73,6 +73,16 @@ describe('moments.json arrivals', () => {
     });
   });
 
+  it('numbers two chains that arrive on the same day apart, in selector order', async () => {
+    // #given Solana also sent its first message on Oct 11, to Ethereum
+    const SOL = NETWORKS.solana.chainSelector;
+    await store.replaceDaily(env.DB, totals('2026-10-11'), [lane('2026-10-11', TEMPO, ETH, 30, 400_000), lane('2026-10-11', BASE, TEMPO, 8, 12_500), lane('2026-10-11', ETH, BASE, 1, 5), lane('2026-10-11', SOL, ETH, 2, 50)], NOW);
+    // #when
+    const { chains } = (await build()).arrivals;
+    // #then
+    expect(chains.map((c) => [c.selector, c.number])).toEqual([[SOL, 4], [TEMPO, 5]]);
+  });
+
   it('lists the lanes whose first message fell in the last 30 days, with their first-day totals', async () => {
     // #when Sep 12 is the first of the 30 days through Oct 11
     const { lanes } = (await build()).arrivals;
