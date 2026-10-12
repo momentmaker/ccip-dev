@@ -43,7 +43,7 @@ export function noLinks(name: string): string {
 }
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const xName = (p: Player) => (p.x ? `@${p.x}` : noLinks(p.name));
+const plainName = (p: Player) => noLinks(p.name);
 const tgName = (p: Player) => escapeHtml(noLinks(p.name));
 const tgText = (s: string) => escapeHtml(noLinks(s));
 
@@ -73,11 +73,11 @@ function leaderLinesX(l: LeaderFacts): Line[] {
   const lines: Line[] = [];
   if (l.token) {
     const share = l.token.sharePct === null ? '' : ` (${formatShare(l.token.sharePct)})`;
-    const project = l.token.project ? xName(l.token.project) : null;
+    const project = l.token.project ? plainName(l.token.project) : null;
     lines.push({ text: words(`Top token: $${noLinks(l.token.symbol)}`, project, `· ${formatUsd(l.token.usd)}${share}`), drop: DROP.token });
   }
-  if (l.sender) lines.push({ text: `Top sender: ${xName(l.sender.player)} · ${plural(l.sender.messages, 'message')}`, drop: DROP.sender });
-  if (l.lane) lines.push({ text: `Busiest lane: ${xName(l.lane.src)} → ${xName(l.lane.dst)} · ${formatUsd(l.lane.usd)}`, drop: DROP.lane });
+  if (l.sender) lines.push({ text: `Top sender: ${plainName(l.sender.player)} · ${plural(l.sender.messages, 'message')}`, drop: DROP.sender });
+  if (l.lane) lines.push({ text: `Busiest lane: ${plainName(l.lane.src)} → ${plainName(l.lane.dst)} · ${formatUsd(l.lane.usd)}`, drop: DROP.lane });
   return lines;
 }
 
@@ -139,7 +139,7 @@ function weeklyX(f: WeeklyFacts): Line[] {
     { text: words(plural(t.messages.value ?? 0, 'message'), arrow(t.messages.pct), `· ${formatUsd(t.value.value)} moved`, arrow(t.value.pct)) },
     ...feesX(t.fees.value, arrow(t.fees.pct), t.linkSharePct),
     ...leaderLinesX(f.leaders),
-    ...(f.feeChains.length > 0 ? [{ text: `Top fee chains: ${f.feeChains.map((c) => xName(c.player)).join(' · ')}`, drop: DROP.feeChains }] : []),
+    ...(f.feeChains.length > 0 ? [{ text: `Top fee chains: ${f.feeChains.map((c) => plainName(c.player)).join(' · ')}`, drop: DROP.feeChains }] : []),
     { text: '#Chainlink', drop: DROP.closing },
   ];
 }
@@ -186,8 +186,8 @@ function recordX(f: RecordFacts): Line[] {
   return [
     { text: `🚨 New all-time high for #CCIP: ${HEADLINE[r.kind](recordValueText(r.kind, r.value), '$LINK')}` },
     { text: `Previous record: ${recordValueText(r.kind, r.previous.value)} (${shortDay(r.previous.day)}), held for ${plural(r.stoodDays, 'day')}` },
-    ...driverLine(f, xName, noLinks),
-    { text: '@chainlink $LINK', drop: DROP.closing },
+    ...driverLine(f, plainName, noLinks),
+    { text: '#Chainlink $LINK', drop: DROP.closing },
   ];
 }
 
@@ -207,7 +207,7 @@ function milestoneX(f: MilestoneFacts): Line[] {
   return [
     { text: `🏁 New milestone for #CCIP: ${f.milestone.label} all time` },
     { text: `Reached on ${postDay(f.milestone.day)}` },
-    { text: '@chainlink $LINK', drop: DROP.closing },
+    { text: '#Chainlink $LINK', drop: DROP.closing },
   ];
 }
 
