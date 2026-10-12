@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { CardSize } from '../worker/cards/frame';
 import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
 import chains from './fixtures/chains.json';
 import history from './fixtures/history.json';
@@ -54,7 +55,7 @@ function setup(overrides: Partial<OgDeps> = {}, broken: string[] = [], data: Rec
   };
   const pending: Promise<unknown>[] = [];
   const ctx = { waitUntil: (p: Promise<unknown>) => void pending.push(p) };
-  const renderPng = vi.fn(async (_tree: unknown) => PNG);
+  const renderPng = vi.fn(async (_tree: unknown, _size: CardSize) => PNG);
   const deps: OgDeps = { fetch: fetchFn, renderPng, cache: new MemoryCache(), ...overrides };
   const get = async (path: string) => {
     const res = await handleOg(new Request(`${origin}${path}`), env, ctx, deps);
@@ -73,6 +74,12 @@ function imgSrcs(node: unknown): string[] {
 }
 
 describe('handleOg', () => {
+  it('renders the classic cards at 1200×630', async () => {
+    const { get, renderPng } = setup();
+    await get('/og/home.png');
+    expect(renderPng.mock.calls[0]![1]).toEqual({ width: 1200, height: 630 });
+  });
+
   it('places the coins from /card-coins.json on the card', async () => {
     const coins = { coins: [{ x: 100, y: 80, d: 32, src: 'data:image/svg+xml;base64,AAAA' }] };
     const { get, renderPng } = setup({}, [], DATA, { '/card-coins.json': JSON.stringify(coins) });

@@ -30,3 +30,9 @@ export function missingIcons(chains: readonly { selector: string; name: string |
 export function iconFiles(): string[] {
   return [...bySelector.values()].map((e) => e.file);
 }
+
+export const LETTERMARK_BG = '#2a3446';
+
+export function lettermarkLetter(displayName: string): string {
+  return /[a-z0-9]/i.exec(displayName)?.[0]?.toUpperCase() ?? '?';
+}

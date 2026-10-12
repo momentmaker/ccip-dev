@@ -1,11 +1,8 @@
 import { render } from '@cf-wasm/og/node';
+import { LETTERMARK_BG, lettermarkLetter } from '../../src/lib/chain-icons';
 import { INTER_700 } from '../../worker/fonts';
 
-export const LETTERMARK_BG = '#2a3446';
-
-export function lettermarkLetter(displayName: string): string {
-  return /[a-z0-9]/i.exec(displayName)?.[0]?.toUpperCase() ?? '?';
-}
+export { LETTERMARK_BG, lettermarkLetter };
 
 export async function lettermarkSvg(displayName: string): Promise<string> {
   const tree = {

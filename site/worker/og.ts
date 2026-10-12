@@ -8,7 +8,7 @@ import { sponsorView } from '../src/lib/sponsor';
 import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
 import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
-import { cardTree, SPARK_H, SPARK_W, sparkSvg } from './cards/frame';
+import { CARD_SIZE, cardTree, SPARK_H, SPARK_W, sparkSvg, type CardSize } from './cards/frame';
 import type { VNode } from './h';
 
 export const FALLBACK_MAX_AGE = 60;
@@ -20,7 +20,7 @@ export interface OgEnv {
 
 export interface OgDeps {
   fetch: typeof fetch;
-  renderPng: (tree: VNode) => Promise<Uint8Array>;
+  renderPng: (tree: VNode, size: CardSize) => Promise<Uint8Array>;
   cache: Pick<Cache, 'match' | 'put'> | null;
 }
 
@@ -159,6 +159,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
         sparkDataUri: spark ? toDataUri(spark) : null,
         sponsorLine: sponsorView(sponsor).cardLine,
       }),
+      CARD_SIZE,
     );
     const response = new Response(new Uint8Array(png), { headers: { 'content-type': 'image/png', 'cache-control': `public, max-age=${built.maxAge}` } });
     if (deps.cache) ctx.waitUntil(deps.cache.put(cacheKey, response.clone()));

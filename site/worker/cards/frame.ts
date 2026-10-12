@@ -4,6 +4,13 @@ import type { CardSpec } from './content';
 
 export const CARD_W = 1200;
 export const CARD_H = 630;
+
+export interface CardSize {
+  width: number;
+  height: number;
+}
+
+export const CARD_SIZE: CardSize = { width: CARD_W, height: CARD_H };
 export const SKY_W = 640;
 const PAD_X = 72;
 export const SPARK_X = PAD_X;
