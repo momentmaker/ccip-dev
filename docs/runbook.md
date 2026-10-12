@@ -136,7 +136,7 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 - **Mode** (`BROADCASTS` under `[vars]` in `worker/wrangler.toml`; change it and push):
   - `off` (the default): nothing is posted, claimed or seeded.
   - `drafts`: only the owner gets anything, in the drafts chat (`TELEGRAM_DRAFTS_CHAT_ID`, or `TELEGRAM_ALERT_CHAT_ID` when that is unset). Each broadcast arrives twice: the card with the ready-to-paste X text (`x-draft`), and the card with the caption the channel would get (`telegram-preview`), so both texts can be checked before `on`.
-  - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`) and the X draft. Before switching to `on`, add the bot to @ccipdev as an administrator with "Post messages".
+  - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`) and the X post (`x-post`, see "X posting"); without the X keys, the X draft to the owner instead. Before switching to `on`, add the bot to @ccipdev as an administrator with "Post messages".
 - **Drafts chat:** `TELEGRAM_DRAFTS_CHAT_ID` is optional. Either add it under `[vars]` in `worker/wrangler.toml`, or set it with `wrangler secret put TELEGRAM_DRAFTS_CHAT_ID`. When unset (or empty), drafts go to the alert chat.
 - **Before `drafts`:** do not switch to `drafts` until the card routes are deployed on the site; otherwise every broadcast alerts `broadcast-image` every hour.
 - **Testing with drafts:** set `drafts` and push. The next hourly run sends yesterday's daily to the drafts chat; the next 00:07 finalize sends the new one, and Monday's adds the weekly. Check the cards and the text for a few days, then set `on`.
@@ -152,6 +152,21 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 - **Re-post one** (say, after fixing a wrong number): delete its key and its output keys, outside 23:55–00:30 UTC. The next hourly run posts it again if it is yesterday's daily, weekly or record, or a deposit after `broadcast:reserve:since`. Older ones are not re-posted. Each output keeps its own key, `<key>#telegram-channel`, `<key>#x-draft` and `<key>#telegram-preview`, written when that output sends; a broadcast is done only when all its outputs are. To re-post only to the channel, delete `<key>` and `<key>#telegram-channel` and keep the other `#` rows. A broadcast sent before 2026-10-12 has no `#` rows, so deleting its key re-posts every output, including the X draft to the owner's chat. The bot uploads the card it fetched, and the card is cached at the edge for 15 minutes, so a re-post within 15 minutes of a data fix can still show the old card; wait it out first.
   `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key = 'broadcast:daily:<day>' OR key LIKE 'broadcast:daily:<day>#%'"`
 - **A card:** open its URL, for example `https://ccip.dev/og/broadcast/daily/<day>.png`. Cards are cached for 15 minutes. One that has no data answers 404, and one that fails answers 500; neither is posted.
+
+### X posting
+
+In `on` mode the Worker posts the card with the X text to X through the X API (pay-as-you-go). Posts never contain a link, so each costs $0.015. The X text names projects and chains in plain text and tags no account, except `@chainlink` on Reserve deposits.
+
+- **Setup in the X developer console:**
+  1. Under user authentication, set App permissions to "Read and write" and Type of App to "Web App, Automated App or Bot". Use `https://ccip.dev` for both the callback and the website.
+  2. Under Keys and tokens, generate the API Key and Secret, and the Access Token and Secret. Generate the access token *after* setting Read and write.
+  3. The access token posts as the account that owns the developer account.
+  4. Turn on the account's "Automated" label, and say it's a bot in the bio.
+- **Secrets** (each value is typed at the prompt; never put them in `wrangler.toml`):
+  `pnpm --filter @ccip-dev/worker exec wrangler secret put X_API_KEY`, and likewise `X_API_SECRET`, `X_ACCESS_TOKEN` and `X_ACCESS_SECRET`.
+- **What it does:** when all four keys are set and `X_POSTS` isn't `"off"`, `on` mode posts to X and the X draft to the owner stops. `X_POSTS = "off"` (under `[vars]`) stops X posting, and the drafts come back. `drafts` mode never posts to X.
+- **Cost:** $0.015 a post, with no links ever. When the balance is empty the post fails: the `broadcast-x-post:<key>` alert fires hourly and the hourly runs retry until credit is added.
+- **Re-post to X only:** delete `<key>` and `<key>#x-post`.
 
 ## Incidents and alerts
 
@@ -180,6 +195,7 @@ Alerts arrive in the Telegram chat.
 | `day-leaders-publish` | `day-leaders.json` was not published; the other history files still were. The broadcast cards read it, so that finalize's daily and weekly cards answer 404 and are not posted (the hourly runs retry them once the next publish works). Read the error in the alert and the finalize logs. |
 | `broadcast-image:<key>` | The broadcast's card answered an error or did not answer within 20 s, so nothing was posted and its key was released. Open the card URL in the alert; watch it with `pnpm --filter @ccip-dev/site exec wrangler tail ccip-dev-site --search "card"`. The hourly run retries yesterday's broadcasts. |
 | `broadcast-telegram-channel:<key>` | The channel post failed. The Worker logs give Telegram's answer; a 400 "chat not found" or 403 means the bot lost its admin rights in `@ccipdev`. The key is released and the next hourly run retries the channel alone; the other outputs are not sent again. A bot that lost its admin rights alerts every hour until the day rolls over. |
+| `broadcast-x-post:<key>` | The post to X failed; the Worker logs give the step (upload or post), X's HTTP status and its detail. 401 or 403 means bad keys, a token generated before Read and write was set, or a duplicate post; 402 or 403 can mean no API credit; 429 means rate-limited. It alerts every hour until fixed. |
 | `broadcast-x-draft:<key>` | The X draft did not reach the drafts chat; read the Worker logs. |
 | `broadcast-telegram-preview:<key>` | The drafts-mode preview of the channel caption did not reach the drafts chat; read the Worker logs. |
 | `broadcast-mark:<key>#<output>` or `broadcast-mark:<key>` | A `sent:` key could not be written, even after one retry. For `<key>#<output>`, the post went out: set that row to `sent:<time>` by hand (`INSERT … 'sent:<time>'` into `meta`) so it is not sent again. For `<key>`, every output already sent, so nothing is at risk of a re-post. |
