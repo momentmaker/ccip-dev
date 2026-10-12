@@ -125,7 +125,8 @@ async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array
     const res = await c.deps.fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
     if (!res.ok) return { problem: `answered HTTP ${res.status}` };
     if (!(res.headers.get('content-type') ?? '').startsWith('image/png')) return { problem: 'did not answer with a PNG' };
-    return { png: new Uint8Array(await res.arrayBuffer()) };
+    const png = new Uint8Array(await res.arrayBuffer());
+    return png.byteLength === 0 ? { problem: 'answered an empty PNG' } : { png };
   } catch (err) {
     return { problem: `did not answer (${err instanceof Error ? err.name : 'error'})` };
   }
@@ -176,8 +177,9 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
     if (result === 'sent') unmarked = !(await markSent(c, outputKey(output), `sent:${now.toISOString()}`)) || unmarked;
     else failedOutputs.push(output.name);
   }
-  // A lost output mark leaves the claim pending: releasing it would post that output again at once.
-  if (failedOutputs.length === 0 && !unmarked) await markSent(c, key, `sent:${now.toISOString()}`);
+  // Every output sent, so the broadcast closes even if an output mark was lost; releasing it would post that output again.
+  // With a failed output and a lost mark, the claim stays pending: releasing would re-send the unmarked output at once.
+  if (failedOutputs.length === 0) await markSent(c, key, `sent:${now.toISOString()}`);
   else if (!unmarked) await store.releaseMeta(db, key, claim);
   for (const name of failedOutputs) await c.alert(`broadcast-${name}:${key}`, `${key} was not sent to ${name}; the Worker logs say why`);
 }

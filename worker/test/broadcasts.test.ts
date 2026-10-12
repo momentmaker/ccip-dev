@@ -85,7 +85,7 @@ describe('runBroadcasts after finalize', () => {
     expect({ channel: keys(channel), drafts: keys(drafts), preview: keys(preview) }).toEqual({ channel: [DAILY_KEY], drafts: [DAILY_KEY], preview: [] });
   });
 
-  it('keeps the claim when the mark fails once, and alerts that the post may repeat when it fails twice', async () => {
+  it('marks the broadcast sent when an output mark fails once, and alerts but still closes the broadcast when it fails twice', async () => {
     // #given the send succeeds, but writing `sent:` fails
     await seedDays(DAY);
     const failingMarks = (fails: number) => {
@@ -132,7 +132,7 @@ describe('runBroadcasts after finalize', () => {
     // #then
     expect({ once, twice }).toEqual({
       once: { alerts: [], claim: 'sent' },
-      twice: { alerts: [`broadcast-mark:${DAILY_KEY}#telegram-channel`], claim: 'pending' },
+      twice: { alerts: [`broadcast-mark:${DAILY_KEY}#telegram-channel`], claim: 'sent' },
     });
   });
 
@@ -203,6 +203,45 @@ describe('runBroadcasts after finalize', () => {
     // #then
     const marked = await Promise.all([DAILY_KEY, `${DAILY_KEY}#telegram-channel`, `${DAILY_KEY}#x-draft`].map(async (k) => (await store.getMeta(env.DB, k))?.startsWith('sent:')));
     expect({ channel: keys(retry.channel), drafts: keys(retry.drafts), alerts: retry.alerts, marked }).toEqual({ channel: [DAILY_KEY], drafts: [], alerts: [], marked: [true, true, true] });
+  });
+
+  it('keeps the channel sent and retries only the X draft when the draft fails', async () => {
+    // #given the channel sent and the draft failed
+    await seedDays(DAY);
+    const first = await finalizeRun({ days: [DAY], drafts: 'failed' });
+    const afterFirst = { broadcast: await store.getMeta(env.DB, DAILY_KEY), channel: (await store.getMeta(env.DB, `${DAILY_KEY}#telegram-channel`))?.startsWith('sent:') };
+    // #when
+    const retry = await finalizeRun({ days: [DAY] });
+    // #then
+    expect({ alerts: first.alerts.map((a) => a.signature), afterFirst, channel: keys(retry.channel), drafts: keys(retry.drafts), done: (await store.getMeta(env.DB, DAILY_KEY))?.startsWith('sent:') }).toEqual({
+      alerts: [`broadcast-x-draft:${DAILY_KEY}`],
+      afterFirst: { broadcast: null, channel: true },
+      channel: [],
+      drafts: [DAILY_KEY],
+      done: true,
+    });
+  });
+
+  it('posts only to the channel after drafts mode sent the X draft and the preview failed', async () => {
+    // #given
+    await seedDays(DAY);
+    await finalizeRun({ days: [DAY], mode: 'drafts' });
+    await store.setMeta(env.DB, DAILY_KEY, null);
+    await store.setMeta(env.DB, `${DAILY_KEY}#telegram-preview`, null);
+    // #when
+    const { channel, drafts } = await finalizeRun({ days: [DAY], mode: 'on' });
+    // #then
+    expect({ channel: keys(channel), drafts: keys(drafts) }).toEqual({ channel: [DAILY_KEY], drafts: [] });
+  });
+
+  it('treats a 200 PNG with an empty body as a card problem and uploads nothing', async () => {
+    // #given
+    await seedDays(DAY);
+    const empty = fakeFetch((url) => (url.startsWith('https://ccip.dev/og/') ? new Response(new Uint8Array(0), { headers: { 'content-type': 'image/png' } }) : undefined));
+    // #when
+    const { channel, drafts, alerts } = await finalizeRun({ days: [DAY], fetch: empty });
+    // #then
+    expect({ sent: channel.length + drafts.length, alerts: alerts.map((a) => a.signature), claim: await store.getMeta(env.DB, DAILY_KEY) }).toEqual({ sent: 0, alerts: [`broadcast-image:${DAILY_KEY}`], claim: null });
   });
 
   it('sends nothing and fetches no card when every output was already sent, marking the broadcast sent', async () => {

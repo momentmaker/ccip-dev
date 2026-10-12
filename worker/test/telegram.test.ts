@@ -15,6 +15,7 @@ describe('sendTelegramPhoto', () => {
       caption: form.get('caption'),
       parse_mode: form.get('parse_mode'),
       type: photo.type,
+      filename: (photo as File).name,
       bytes: [...new Uint8Array(await photo.arrayBuffer())],
     };
   };
@@ -31,7 +32,7 @@ describe('sendTelegramPhoto', () => {
       url: 'https://api.telegram.org/botsecret-token/sendPhoto',
       isForm: true,
       headers: undefined,
-      body: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', bytes: [137, 80, 78, 71] },
+      body: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', filename: 'card.png', bytes: [137, 80, 78, 71] },
     });
   });
 
@@ -55,8 +56,8 @@ describe('sendTelegramPhoto', () => {
     expect({ failure, distinct: first !== second, first: await fields({ body: first }), second: await fields({ body: second }) }).toEqual({
       failure: null,
       distinct: true,
-      first: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', bytes: [137, 80, 78, 71] },
-      second: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', bytes: [137, 80, 78, 71] },
+      first: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', filename: 'card.png', bytes: [137, 80, 78, 71] },
+      second: { chat_id: '@ccipdev', caption: '<b>hi</b>', parse_mode: 'HTML', type: 'image/png', filename: 'card.png', bytes: [137, 80, 78, 71] },
     });
   });
 
