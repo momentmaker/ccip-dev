@@ -63,6 +63,13 @@ const RECORD_TEXT: Record<RecordKind, (value: number) => string> = {
   link_share: (v) => `${formatShare(v)} paid in LINK`,
 };
 
+const JOINED_SHOWN = 3;
+
+function joinedNames(names: string[]): string {
+  const shown = names.slice(0, JOINED_SHOWN).join(' · ');
+  return names.length > JOINED_SHOWN ? `${shown} · +${names.length - JOINED_SHOWN} more` : shown;
+}
+
 /**
  * The end card's rows: the month's totals always, then fees, records, new chains and the busiest lane when it has them.
  * The value moved is rounded down, as the counter above it stops.
@@ -71,7 +78,7 @@ export function monthCardRows(s: MonthSummary): string[] {
   const rows = [`${formatCount(s.messages)} messages · ${formatUsdDown(s.usd)} moved`];
   if (s.fees !== null) rows.push(`${formatFeeTotal(s.fees)} in fees${s.linkSharePct === null ? '' : ` · ${linkShareText(s.linkSharePct)}`}`);
   if (s.records.length > 0) rows.push(`Records: ${s.records.map((r) => RECORD_TEXT[r.kind](r.value)).join(' · ')}`);
-  if (s.joined.length > 0) rows.push(`New on CCIP: ${s.joined.map((c) => c.name).join(' · ')}`);
+  if (s.joined.length > 0) rows.push(`New on CCIP: ${joinedNames(s.joined.map((c) => c.name))}`);
   if (s.busiestLane) rows.push(`Busiest lane: ${s.busiestLane.src.name} → ${s.busiestLane.dst.name} · ${formatUsd(s.busiestLane.usd)}`);
   return rows;
 }

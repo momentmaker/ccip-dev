@@ -1,5 +1,5 @@
 import { formatUsdDown } from '@ccip-dev/core/format';
-import { monthDays, monthSummary } from '@ccip-dev/core/month';
+import { monthDays, monthSummary, type MonthSummary } from '@ccip-dev/core/month';
 import { describe, expect, it } from 'vitest';
 import { monthCardRows, monthCut, monthReplay } from '../src/replay/director/month';
 import { Show } from '../src/replay/director/show';
@@ -141,6 +141,16 @@ describe('monthCardRows', () => {
       'New on CCIP: BNB Chain · Mode',
       'Busiest lane: Arbitrum One → Base · $195.0M',
     ]);
+  });
+
+  it('names three new chains and counts the rest', () => {
+    // #given
+    const names = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const busy = { ...monthSummary('2026-09', { days: history, largest: LARGEST_FEES, replay }), joined: names.map((name) => ({ name })) } as unknown as MonthSummary;
+    // #when
+    const row = monthCardRows(busy).find((r) => r.startsWith('New on CCIP'));
+    // #then
+    expect(row).toBe('New on CCIP: A · B · C · +3 more');
   });
 
   const empty = { month: '2026-06', label: 'June 2026', messages: 0, usd: 0, fees: null, linkSharePct: null, records: [], joined: [], busiestLane: null };

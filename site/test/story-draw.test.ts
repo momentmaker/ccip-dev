@@ -432,3 +432,51 @@ describe('drawStory for the month cut', () => {
     expect({ rows: rows.length, late: rows.every((r) => late.includes(r)), early: rows.some((r) => early.includes(r)) }).toEqual({ rows: 5, late: true, early: false });
   });
 });
+
+describe('the month cut end card under the loop and with long rows', () => {
+  const data = { replay: monthsReplay(), history: monthsHistory(), largest: LARGEST_FEES };
+  const cut = monthCut(data, '2026-09')!;
+  const month = new Show({ replay: cut.replay, history: data.history, stars: buildLayout(cut.replay.chains), length: 30, focus: null, eligible: () => true, month: cut.month });
+  const monthAssets = { names: chainNameMap(data.replay.chains), coins: new Map<string, CanvasImageSource>(), ticks: [] };
+  const alphaOf = (t: number, text: string) => {
+    const drawn: Drawn[] = [];
+    drawStory(fontCtx(drawn), month.frameAt(t), layoutFor(1080, 1080), monthAssets);
+    return drawn.find((d) => d.text === text)?.alpha ?? 0;
+  };
+
+  it('dissolves the end card and its title as the loop blends in, and holds them opaque before', () => {
+    // #given
+    const totals = month.frameAt(28).endCard![0]!;
+    // #when
+    const result = { held: alphaOf(28, totals), last: alphaOf(29.9, totals), title: alphaOf(29.9, 'ccip.dev') };
+    // #then
+    expect(result.held).toBe(1);
+    expect(result.last).toBeLessThan(0.3);
+    expect(result.title).toBeLessThan(0.3);
+  });
+
+  it('cuts an overlong row with an ellipsis at the minimum size', () => {
+    // #given
+    const drawn: Drawn[] = [];
+    const frame = { ...month.frameAt(28), endCard: ['word '.repeat(60)] };
+    // #when
+    drawStory(fontCtx(drawn), frame, layoutFor(1080, 1080), monthAssets);
+    const row = drawn.find((d) => d.text.endsWith('…'))!;
+    // #then
+    expect(row.text.endsWith('…')).toBe(true);
+    expect(px(row.font)).toBeGreaterThanOrEqual(16);
+    expect(px(row.font)).toBeLessThan(17);
+  });
+
+  it('draws a card of only totals without gaps', () => {
+    // #given
+    const drawn: Drawn[] = [];
+    const frame = { ...month.frameAt(28), endCard: ['100 messages · $1M moved'] };
+    // #when
+    drawStory(fontCtx(drawn), frame, layoutFor(1080, 1080), monthAssets);
+    const row = drawn.find((d) => d.text === frame.endCard[0])!;
+    // #then
+    const box = layoutFor(1080, 1080).endCard;
+    expect(row.y).toBeCloseTo(box.y + box.h / 2, 5);
+  });
+});

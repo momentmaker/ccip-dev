@@ -51,6 +51,23 @@ function setFittedFont(ctx: Ctx, text: string, weight: number, basePx: number, f
   return Math.min(width, maxWidth);
 }
 
+const MIN_ROW_FRACTION = 2 / 3;
+
+/** Shrinks a row to fit, but not below two thirds of its size: past that it is cut with an ellipsis at a whole character. */
+function fitRow(ctx: Ctx, text: string, weight: number, basePx: number, family: string, maxWidth: number): string {
+  ctx.font = `${weight} ${basePx}px ${family}`;
+  const fits = (s: string) => ctx.measureText(s).width * MIN_ROW_FRACTION <= maxWidth;
+  let row = text;
+  if (!fits(row)) {
+    const chars = [...text];
+    let n = chars.length;
+    while (n > 0 && !fits(`${chars.slice(0, n).join('').trimEnd()}…`)) n--;
+    row = `${chars.slice(0, n).join('').trimEnd()}…`;
+  }
+  setFittedFont(ctx, row, weight, basePx, family, maxWidth);
+  return row;
+}
+
 function roundRect(ctx: Ctx, b: Box, r: number): void {
   ctx.beginPath();
   ctx.moveTo(b.x + r, b.y);
@@ -327,7 +344,7 @@ function drawWatermark(ctx: Ctx, l: StoryLayout): void {
 
 /** The month cut's end card: its rows fade in as the finale starts, the totals first and brightest, each shrunk to fit. */
 function drawEndCard(ctx: Ctx, rows: readonly string[], frame: ShowFrame, l: StoryLayout): void {
-  const alpha = ease((frame.finale - 0.05) / 0.15);
+  const alpha = ease((frame.finale - 0.05) / 0.15) * (1 - frame.loop);
   if (alpha <= 0 || rows.length === 0) return;
   const u = l.unit;
   const b = l.endCard;
@@ -345,8 +362,7 @@ function drawEndCard(ctx: Ctx, rows: readonly string[], frame: ShowFrame, l: Sto
   ctx.textBaseline = 'middle';
   rows.forEach((row, i) => {
     ctx.fillStyle = i === 0 ? FG : MUTED;
-    setFittedFont(ctx, row, i === 0 ? 800 : 600, 24 * u, SANS, b.w - 48 * u);
-    ctx.fillText(row, l.width / 2, top + rowH * (i + 0.5));
+    ctx.fillText(fitRow(ctx, row, i === 0 ? 800 : 600, 24 * u, SANS, b.w - 48 * u), l.width / 2, top + rowH * (i + 0.5));
   });
   ctx.restore();
 }
@@ -356,7 +372,8 @@ export function endTitleAlpha(finale: number, afterParticles: boolean): number {
 }
 
 function drawEndTitle(ctx: Ctx, frame: ShowFrame, l: StoryLayout, afterParticles: boolean): void {
-  const alpha = endTitleAlpha(frame.finale, afterParticles);
+  const monthFade = frame.endCard ? 1 - frame.loop : 1;
+  const alpha = endTitleAlpha(frame.finale, afterParticles) * monthFade;
   if (alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha = alpha;
