@@ -32,3 +32,14 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      # The LinkMarine bot deploys once the owner has created its database and bucket and set DISCORD_BOT (docs/runbook.md, "Discord bot").
+      - run: pnpm --filter @ccip-dev/discord exec wrangler d1 migrations apply ccip-dev-marines --remote
+        if: vars.DISCORD_BOT == 'on'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      - run: pnpm --filter @ccip-dev/discord exec wrangler deploy
+        if: vars.DISCORD_BOT == 'on'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

@@ -7,6 +7,7 @@
     "test": "pnpm -r test && vitest run",
     "typecheck": "pnpm -r typecheck && tsc --noEmit",
     "canary": "tsx scripts/canary.ts",
+    "discord:register": "tsx scripts/discord/register.ts",
     "discord:snapshot": "tsx scripts/discord/snapshot.ts",
     "backfill:crawl": "tsx scripts/backfill/crawl.ts",
     "backfill:sources": "tsx scripts/backfill/sources.ts",

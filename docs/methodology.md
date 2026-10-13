@@ -105,6 +105,15 @@ Besides the daily and weekly reports, @ccipdev posts moments: short posts about 
 
 On the 1st of each month @ccipdev posts a 30-second video of the month before: the replay, cut to that month. It shows only the month's days and the chains and lanes that moved in it. Its value counter, its fees counter and its leaderboard count the month alone, from zero. A chain whose first CCIP message came that month gets its "joins" beat, and an all-time milestone or record crossed that month gets its beat. The end card gives the month's messages, value moved, fees paid and the share of fees paid in LINK, the all-time records set that month (by the Records page's rules) and the chains that joined (three of each, then "+N more"), and the month's busiest lane by value. The value moved is rounded down there and in the post, as the counter shows it. The post's caption is written from the same month summary the end card shows, recorded with the video.
 
+## LinkMarine bot
+
+The LinkMarine Discord app's intel cards read the same public files as this site, so their numbers match its pages.
+- **SITREP** (`/cciptoday`): today's totals from `today.json`, as of its `updated_at`. "On pace for" divides today's messages by the share of the UTC day gone, rounded to three figures; it compares with yesterday's total from `history.json`, and is left out before 01:00 UTC. The top lanes are today's five biggest by value.
+- **Chain dossier** (`/ccipchain`): all-time messages and value count both directions (messages from the chain and to it), from `replay.json`; the rank is by that value among every chain CCIP has seen. Fees are those paid on the chain as the source (`top/src_chain.json`), with its rank by the last 7 days' fees when in the top 3. The week and the partners are the last 7 finalized days.
+- **The vault** (`/linkreserve`): `reserve.json` as the Reserve page reads it. The weekly bars leave out the current week until it has a deposit.
+- **Hall of records** (`/cciprecords`): the five all-time records by the Records page's rules; the newest is the one set on the latest day.
+- **Callsigns:** three different tags from `docs/callsigns/tags.toml`, each drawn with a chance proportional to the square root of its number of SFW memes in the chainlinkme.me archive. The rarity score is the sum of −ln(chance) over the three tags; the tier cut-offs and the percentile ("rarer than N in 100 Marines") come from 200,000 simulated draws, so that about 60% of Marines are Common, 25% Uncommon, 12% Rare and 3% Legendary.
+
 ## Coverage
 History starts on **2023-07-06**. This is the first CCIP mainnet message (2023-07-06 22:34:59 UTC). All-time
 figures are labeled "since 2023-07-06".

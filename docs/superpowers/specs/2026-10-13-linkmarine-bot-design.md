@@ -132,8 +132,8 @@ D1 `ccip-dev-marines`, table `marines`:
 - `card_key` (null until stamped).
 
 R2 `ccip-dev-marines`:
-- `memes/<filename>`: copied from the pinned archive URL at enlistment, so a card never depends on GitHub again;
-- `cards/<serial>.png` (static) and `cards/<serial>.<anim ext>` (Rare and up).
+- `memes/<filename>.png`: each meme, copied from the pinned archive URL at enlistment and kept as a 240×240 PNG, so a card never depends on GitHub again;
+- `cards/<serial>.png` (static) and `cards/<serial>.gif` (Rare and up).
 
 ### 5.4 The reveal
 
@@ -296,6 +296,12 @@ Each medal shows its value, its label and its date. The most recently set record
 - **A data fetch failure or an unparseable file** gets the private "Intel is unavailable" reply and the alert `discord-data:<file>`, once an hour.
 - **A render failure:** an intel command gets the private internal-failure reply. Enlistment keeps the saved draw (§5.4). Both alert `discord-render:<kind>`, once an hour.
 - **Meme copy failure** (GitHub unreachable): the enlistment is still saved, and the card is stamped later by `/dogtag`, which retries the copy. It alerts `discord-memes`.
+- **Other alerts, each once an hour:**
+  - `discord-render:marine` also covers memes missing from storage right after copying, a card that could not be read back, and stamping that passed its deadline;
+  - `discord-upload`: Discord refused a card upload (the post falls back from the GIF to the PNG to text);
+  - `discord-store:marine`: the card rendered but R2 or `card_key` would not keep it;
+  - `discord-draw`: all 20 draws clashed;
+  - `discord-command:<name>`: a command failed unexpectedly.
 - **Concurrent `/enlist`:** the second request gets the "already enlisted" path once the first commits, through the UNIQUE (platform, user_id) constraint.
 - **Alerts** use the same Telegram alert chat and dedupe pattern as the other Workers.
 
@@ -323,7 +329,7 @@ Vitest in workerd, like `worker/`:
    - that resvg renders the etched-meme filter (grayscale and contrast).
 
    If the glint fails, Rare and up stay static. If the filter fails, the etching falls back to a tinted overlay.
-2. **Merge.** The deploy creates the Worker, with no commands registered yet.
+2. **Merge.** The deploy of the bot is gated by the repository variable `DISCORD_BOT`, because the D1 database id must exist and be committed first. Once the owner sets it to `on`, the deploy creates the Worker, with no commands registered yet.
 3. **Owner steps:**
    - create the Discord app;
    - set the interactions URL;

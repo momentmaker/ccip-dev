@@ -208,6 +208,39 @@ On the 1st of each month a 30-second square video of last month's CCIP activity 
 - **Token:** the `upload` job runs in the `production` environment and uses `CF_DEPLOY_TOKEN` with `wrangler r2 object put … --remote`. The token needs Workers R2 Storage: Edit, which the owner added on 2026-10-12. GitHub gets no X or Telegram secret; those stay in the Worker.
 - **Alerts:** `monthly-video-missing:<YYYY-MM>`, `monthly-video-size:<YYYY-MM>`, `broadcast-video:<key>` and `broadcast-run:monthly` (in the `broadcast-run` row), below. A failed workflow run also shows in GitHub Actions, which emails the owner.
 
+## Discord bot (LinkMarine)
+
+LinkMarine is a Discord app for the LinkMarine server: `/enlist` draws a permanent callsign of three meme tags and stamps it on a pair of dog tags, `/dogtag [marine]` shows a Marine's card, and `/cciptoday`, `/ccipchain <chain>`, `/linkreserve` and `/cciprecords` post CCIP intel as cards. Spec: `docs/superpowers/specs/2026-10-13-linkmarine-bot-design.md`.
+
+- **How it runs:** the `ccip-dev-discord` Worker (`discord/`) answers `POST https://discord.ccip.dev/interactions`. It checks Discord's Ed25519 signature (401 without it), answers PING and `/ccipchain` autocomplete at once, and defers every command (Discord shows "thinking"), doing the work after the reply. Cards are drawn by the site Worker's `LinkMarineCards` entrypoint over the private `SITE` service binding; no route serves them. Marines live in D1 `ccip-dev-marines`; cards, memes and avatars in R2 `ccip-dev-marines` (`cards/<serial>.png`, and `.gif` for Rare and up; `memes/<file>.png`, each meme as a 240 px PNG; `avatars/<serial>.png`; `intel/…png`, each intel card kept 5 minutes). Intel comes from `https://data.ccip.dev/v1/`, kept 60 s. Replies are public; errors are private.
+- **Callsigns:** `docs/callsigns/tags.toml` (the allowed tags) and `docs/callsigns/lore.toml` (the BLOOD and FAITH lines, by weight) are read with the `../chainlinkmeme` checkout into `discord/src/data/callsigns.json` by `pnpm discord:snapshot` (add `--archive <path>` when the checkout is elsewhere). Commit that file; the deploy ships it. A new snapshot changes the odds of future draws only: a Marine's callsign, serial, tier, memes, lore and stamped name never change.
+- **Look at the cards:** `pnpm --filter @ccip-dev/site cards:linkmarine` writes every tier of the dog tag card, the Rare and Legendary glints and the four intel cards to `site/linkmarine-cards/` (git-ignored), from fixtures and the mockup's three memes in `../chainlinkmeme`.
+- **One-time setup (the owner, in order).** Until `DISCORD_BOT` is `on`, a merge deploys nothing of the bot, so nothing here is urgent.
+  1. Create the app at https://discord.com/developers/applications: name it LinkMarine. Note its Application ID and Public Key (General Information). Under Bot, reset the token once and keep it for step 7 only.
+  2. Create the database and the bucket:
+     `pnpm --filter @ccip-dev/discord exec wrangler d1 create ccip-dev-marines`
+     `pnpm --filter @ccip-dev/discord exec wrangler r2 bucket create ccip-dev-marines`
+     Copy the printed `database_id` into `discord/wrangler.toml`, replacing the zeros.
+  3. Put the LinkMarine server's id (Discord: Developer Mode on, right-click the server, Copy Server ID) in `discord/wrangler.toml` as `DISCORD_GUILD_ID`. Commit both edits (`git add discord/wrangler.toml && git commit`) and push. Until `DISCORD_GUILD_ID` is set the Worker turns every command away.
+  4. Switch the deploy on: `gh variable set DISCORD_BOT --body on`, then `gh workflow run deploy`. It applies `discord/migrations/` and deploys the Worker at `discord.ccip.dev`.
+  5. Secrets (each command prompts for its value):
+     `pnpm --filter @ccip-dev/discord exec wrangler secret put DISCORD_PUBLIC_KEY` (the app's Public Key)
+     `pnpm --filter @ccip-dev/discord exec wrangler secret put DISCORD_APPLICATION_ID`
+     `pnpm --filter @ccip-dev/discord exec wrangler secret put TELEGRAM_BOT_TOKEN`
+     `pnpm --filter @ccip-dev/discord exec wrangler secret put TELEGRAM_ALERT_CHAT_ID` (the alert chat's, with the same values as the data Worker has them; without these two, alerts are only logged)
+  6. In the app's General Information, set Interactions Endpoint URL to `https://discord.ccip.dev/interactions` and save; Discord checks it with a PING, so the public key must be set first.
+  7. Register the commands from your machine, the token never on a command line (bash/zsh: `read -rs DISCORD_BOT_TOKEN && export DISCORD_BOT_TOKEN`; fish: `read -s -x DISCORD_BOT_TOKEN`), then `DISCORD_APPLICATION_ID=<application id> pnpm discord:register` (fish: `env DISCORD_APPLICATION_ID=<application id> pnpm discord:register`), then clear the token (`unset DISCORD_BOT_TOKEN`; fish: `set -e DISCORD_BOT_TOKEN`). It prints the six commands. Run it again after any change to `discord/src/commands.ts`.
+  8. Invite the app with the `applications.commands` scope only, which gives it no roles and no permissions: `https://discord.com/oauth2/authorize?client_id=<application id>&scope=applications.commands`.
+  9. Launch checks, in a test channel of the LinkMarine server:
+      - `/enlist` first, as Marine #0001; then announce.
+      - `/ccipchain` with a chain that does not exist (type a made-up name rather than picking a suggestion): the "No chain called" reply must be private, shown only to you ("Only you can see this"). If it is public, stop and tell the developer.
+      - Enlist a second account until a Rare or Legendary tag draws (or `/dogtag` one): the glint must autoplay in the channel. If it shows as a still, the GIF did not animate in Discord's client; tell the developer.
+- **Re-stamp a card** (for example after a fix to the card): clear it and the next `/dogtag` stamps it again.
+  `pnpm --filter @ccip-dev/discord exec wrangler d1 execute ccip-dev-marines --remote --command "UPDATE marines SET card_key = NULL WHERE serial = <serial>"`
+  `pnpm --filter @ccip-dev/discord exec wrangler r2 object delete ccip-dev-marines/cards/<serial>.png --remote` (and `cards/<serial>.gif` for Rare and up).
+- **Turn it off:** remove the Interactions Endpoint URL in the Developer Portal (Discord stops sending commands), or `gh variable set DISCORD_BOT --body off` to stop deploying it.
+- **Alerts:** `discord-data:<file>`, `discord-render:<kind>`, `discord-memes`, `discord-upload`, `discord-store:marine`, `discord-draw` and `discord-command:<name>`, below, in the same chat as the other Workers' alerts, each at most once an hour.
+
 ## Incidents and alerts
 
 Alerts arrive in the Telegram chat.
@@ -252,6 +285,13 @@ Alerts arrive in the Telegram chat.
 | `reserve-scan` | The Reserve transfer scan failed several hours in a row. Check the RPC endpoints. |
 | `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. See "Missed Reserve outflow alert" if a crash may have eaten one. |
 | `reserve-mismatch` | Transfers do not net to the balance. Re-scan from an earlier block (see "Health checks"). |
+| `discord-data:<file>` | An intel command could not read or parse the public file. The Marine was told "Intel is unavailable right now". Open `https://data.ccip.dev/v1/<file>`; check `status.json` and the data Worker. |
+| `discord-render:<kind>` | A card could not be drawn or stamped. For an intel kind, the command answered privately. For `marine`, an enlistment kept its draw and said the tag is being stamped, and the Marine's next `/dogtag` tries again; the same signature also reports memes missing from storage right after copying, a card that could not be read back, and stamping that passed its 18 s deadline (the card is still kept if it finishes within 28 s). Read the error in the alert and `pnpm --filter @ccip-dev/site exec wrangler tail ccip-dev-site`. |
+| `discord-memes` | A meme could not be copied from `raw.githubusercontent.com` at the snapshot's commit. The enlistment is saved; the next `/dogtag` copies it again. If it repeats, check the file is in the chainlinkmeme repository at that commit. |
+| `discord-upload` | Discord refused a card upload, a Marine's GIF or PNG. The bot falls back from the GIF to the PNG to a line of text, so the Marine got the best one that went through; the next `/dogtag` posts the stored card again. Read the status in the alert; a repeat means Discord keeps refusing the upload, so check the channel and the card's size in R2. |
+| `discord-store:marine` | A rendered card could not be saved to R2 (or its `card_key` could not be recorded in D1). The Marine still got the card; the next `/dogtag` stamps it again. If it repeats, check the `ccip-dev-marines` bucket and database. |
+| `discord-draw` | Twenty draws in a row clashed with callsigns already taken; the Marine was told something went wrong and may run `/enlist` again. Many Marines for few tags: allow more tags in `docs/callsigns/tags.toml` and run `pnpm discord:snapshot`. |
+| `discord-command:<name>` | A command failed in a way its own checks did not catch (for example a D1 error). The Marine got the private "Something went wrong". Read the error in the alert and `pnpm --filter @ccip-dev/discord exec wrangler tail ccip-dev-discord`. |
 | `ccip.dev watchdog: …` | `status.json` is old, unreadable, or ingest lag is high. Check the Worker and the CCIP API. |
 
 ### Re-finalize a day
