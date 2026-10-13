@@ -4,8 +4,11 @@ import type { BoardRow } from '../src/replay/director/leaderboard';
 import { Show } from '../src/replay/director/show';
 import { drawStory, endTitleAlpha, loadCanvasFonts } from '../src/replay/story/draw';
 import { layoutFor } from '../src/replay/story/layout';
+import { formatFeeTotal } from '../src/lib/format';
 import { chainNameMap } from '../src/lib/names';
+import { monthCut } from '../src/replay/director/month';
 import { buildLayout } from '../src/sky/layout';
+import { LARGEST_FEES, monthsHistory, monthsReplay } from './fixtures/months';
 import replayJson from './fixtures/replay.json';
 
 const replay = replayJson as ReplayFile;
@@ -392,5 +395,40 @@ describe('loadCanvasFonts', () => {
 
   it('settles even when a face fails to load, so drawing and recording never hang on fonts', async () => {
     await expect(loadCanvasFonts({ load: async () => Promise.reject(new Error('offline')) })).resolves.toBeUndefined();
+  });
+});
+
+describe('drawStory for the month cut', () => {
+  const data = { replay: monthsReplay(), history: monthsHistory(), largest: LARGEST_FEES };
+  const cut = monthCut(data, '2026-09')!;
+  const month = new Show({ replay: cut.replay, history: data.history, stars: buildLayout(cut.replay.chains), length: 30, focus: null, eligible: () => true, month: cut.month });
+  const monthAssets = { names: chainNameMap(data.replay.chains), coins: new Map<string, CanvasImageSource>(), ticks: [] };
+
+  it('draws the fees counter under the value moved, and the all-time cut does not', () => {
+    // #given
+    const frame = month.frameAt(15);
+    const drawn: Drawn[] = [];
+    const allTime: string[] = [];
+    // #when
+    drawStory(fontCtx(drawn), frame, layoutFor(1080, 1080), monthAssets);
+    drawStory(fakeCtx(allTime), show.frameAt(15), layoutFor(1080, 1080), assets);
+    // #then
+    expect({
+      value: fontOf(drawn, formatFeeTotal(frame.story.fees!)),
+      label: drawn.some((d) => d.text === 'in fees'),
+      allTime: allTime.includes('in fees'),
+    }).toEqual({ value: '600 40px "JetBrains Mono", monospace', label: true, allTime: false });
+  });
+
+  it('draws every end card row once the finale is under way, and none as it starts', () => {
+    // #given
+    const rows = month.frameAt(28).endCard!;
+    const late: string[] = [];
+    const early: string[] = [];
+    // #when
+    drawStory(fakeCtx(late), month.frameAt(28), layoutFor(1080, 1080), monthAssets);
+    drawStory(fakeCtx(early), month.frameAt(26), layoutFor(1080, 1080), monthAssets);
+    // #then
+    expect({ rows: rows.length, late: rows.every((r) => late.includes(r)), early: rows.some((r) => early.includes(r)) }).toEqual({ rows: 5, late: true, early: false });
   });
 });

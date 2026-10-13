@@ -1,4 +1,4 @@
-import { formatCount, formatUtcDay } from '../../lib/format';
+import { formatCount, formatFeeTotal, formatUtcDay } from '../../lib/format';
 import { chainName, type ChainNames } from '../../lib/names';
 import { stripCells, stripColumns, type BoardRow } from '../director/leaderboard';
 import type { ShowFrame } from '../director/show';
@@ -148,6 +148,23 @@ function drawCounter(ctx: Ctx, frame: ShowFrame, l: StoryLayout): void {
   ctx.font = `400 ${26 * u}px ${SANS}`;
   ctx.fillStyle = MUTED;
   ctx.fillText(`moved · ${formatCount(frame.story.messages)} messages · ${chainCount(frame.story.chains)}`, l.sub.x, l.sub.y);
+  ctx.restore();
+}
+
+function drawFees(ctx: Ctx, fees: number, l: StoryLayout): void {
+  const u = l.unit;
+  const value = formatFeeTotal(fees);
+  const baseline = l.fees.y + 40 * u;
+  ctx.save();
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.font = `600 ${40 * u}px ${MONO}`;
+  ctx.fillStyle = FG;
+  ctx.fillText(value, l.fees.x, baseline);
+  const after = l.fees.x + ctx.measureText(value).width + 12 * u;
+  ctx.font = `400 ${26 * u}px ${SANS}`;
+  ctx.fillStyle = MUTED;
+  ctx.fillText('in fees', after, baseline);
   ctx.restore();
 }
 
@@ -308,6 +325,32 @@ function drawWatermark(ctx: Ctx, l: StoryLayout): void {
   ctx.restore();
 }
 
+/** The month cut's end card: its rows fade in as the finale starts, the totals first and brightest, each shrunk to fit. */
+function drawEndCard(ctx: Ctx, rows: readonly string[], frame: ShowFrame, l: StoryLayout): void {
+  const alpha = ease((frame.finale - 0.05) / 0.15);
+  if (alpha <= 0 || rows.length === 0) return;
+  const u = l.unit;
+  const b = l.endCard;
+  const rowH = Math.min(32 * u, (b.h - 20 * u) / rows.length);
+  const top = b.y + (b.h - rowH * rows.length) / 2;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  roundRect(ctx, b, 18 * u);
+  ctx.fillStyle = CARD;
+  ctx.fill();
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth = 2 * u;
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  rows.forEach((row, i) => {
+    ctx.fillStyle = i === 0 ? FG : MUTED;
+    setFittedFont(ctx, row, i === 0 ? 800 : 600, 24 * u, SANS, b.w - 48 * u);
+    ctx.fillText(row, l.width / 2, top + rowH * (i + 0.5));
+  });
+  ctx.restore();
+}
+
 export function endTitleAlpha(finale: number, afterParticles: boolean): number {
   return afterParticles ? ease((finale - 0.6) / 0.2) : ease((finale - 0.3) / 0.4);
 }
@@ -334,10 +377,12 @@ export function drawStory(ctx: Ctx, frame: ShowFrame, layout: StoryLayout, asset
   }
   drawDate(ctx, frame, layout);
   drawCounter(ctx, frame, layout);
+  if (frame.story.fees !== undefined) drawFees(ctx, frame.story.fees, layout);
   if (chrome) drawTimeline(ctx, frame, layout, assets);
   drawBoard(ctx, frame, layout, assets);
   if (frame.card) drawCard(ctx, frame, layout, assets);
   if (frame.slam) drawSlam(ctx, frame, layout);
   if (chrome) drawWatermark(ctx, layout);
+  if (frame.endCard) drawEndCard(ctx, frame.endCard, frame, layout);
   if (frame.phase === 'finale') drawEndTitle(ctx, frame, layout, opts.titleAfterParticles ?? false);
 }

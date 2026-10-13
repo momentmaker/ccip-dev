@@ -15,12 +15,16 @@ export interface StoryLayout {
   date: Box;
   counter: Box;
   sub: Box;
+  /** The month cut's fees counter, under the value moved. */
+  fees: Box;
   board: Box;
   watermark: Box;
   timeline: Box;
   card: Box;
   slam: Box;
   title: Box;
+  /** The month cut's end card, under the end title, where the beat cards were. */
+  endCard: Box;
 }
 
 export function aspectOf(width: number, height: number): StoryAspect {
@@ -45,20 +49,22 @@ export function layoutFor(width: number, height: number): StoryLayout {
   const date: Box = { x: pad, y: pad, w: 560 * u, h: 56 * u };
   const counter: Box = { x: pad, y: pad + 64 * u, w: 640 * u, h: 110 * u };
   const sub: Box = { x: pad, y: pad + 180 * u, w: 640 * u, h: 34 * u };
+  const fees: Box = { x: pad, y: pad + 226 * u, w: 640 * u, h: 48 * u };
   const timelineH = 40 * u;
   const slam = centered(width, Math.min(900 * u, width - 2 * pad), height / 2 - 100 * u, 200 * u);
   const title = centered(width, Math.min(1200 * u, width - 2 * pad), height / 2 - 130 * u, 260 * u);
+  const endCard = centered(width, Math.min(900 * u, width - 2 * pad), title.y + title.h, 176 * u);
   if (aspect === 'wide') {
     const boardW = 380 * u;
     const board: Box = { x: width - pad - boardW, y: pad, w: boardW, h: 360 * u };
     const watermark: Box = { x: width - pad - boardW, y: height - pad - 30 * u, w: boardW, h: 30 * u };
     const timeline: Box = { x: pad, y: height - pad - timelineH, w: width - 2 * pad - boardW - 40 * u, h: timelineH };
     const card = centered(width, 640 * u, timeline.y - 24 * u - 90 * u, 90 * u);
-    return { aspect, unit: u, width, height, date, counter, sub, board, watermark, timeline, card, slam, title };
+    return { aspect, unit: u, width, height, date, counter, sub, fees, board, watermark, timeline, card, slam, title, endCard };
   }
   const watermark: Box = { x: width - pad - 300 * u, y: pad, w: 300 * u, h: 30 * u };
   const timeline: Box = { x: pad, y: height - pad - timelineH, w: width - 2 * pad, h: timelineH };
   const board: Box = { x: pad, y: timeline.y - 16 * u - 120 * u, w: width - 2 * pad, h: 120 * u };
   const card = centered(width, 640 * u, board.y - 24 * u - 90 * u, 90 * u);
-  return { aspect, unit: u, width, height, date, counter, sub, board, watermark, timeline, card, slam, title };
+  return { aspect, unit: u, width, height, date, counter, sub, fees, board, watermark, timeline, card, slam, title, endCard };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aspectOf, intersects, layoutFor, type Box } from '../src/replay/story/layout';
+import { aspectOf, END_TITLE_PX, intersects, layoutFor, type Box } from '../src/replay/story/layout';
 import { odometer, rollOf } from '../src/replay/story/odometer';
 
 const sizes: [number, number][] = [[1920, 1080], [1080, 1080], [1080, 1920], [390, 390], [390, 693], [693, 390]];
@@ -13,18 +13,24 @@ describe('aspectOf', () => {
 
 describe.each(sizes)('layoutFor(%s, %s)', (w, h) => {
   const l = layoutFor(w, h);
-  const reserved = [l.date, l.counter, l.sub, l.board, l.watermark, l.timeline, l.card];
+  const reserved = [l.date, l.counter, l.sub, l.fees, l.board, l.watermark, l.timeline, l.card];
 
   it('keeps every box inside the canvas', () => {
-    for (const b of [...reserved, l.slam, l.title]) expect(inside(b, w, h)).toBe(true);
+    for (const b of [...reserved, l.slam, l.title, l.endCard]) expect(inside(b, w, h)).toBe(true);
   });
 
   it('never overlaps two reserved boxes', () => {
     for (let i = 0; i < reserved.length; i++) for (let j = i + 1; j < reserved.length; j++) expect(intersects(reserved[i]!, reserved[j]!)).toBe(false);
   });
 
-  it('keeps the milestone slam clear of the counter, card, board and timeline', () => {
-    for (const b of [l.counter, l.card, l.board, l.timeline]) expect(intersects(l.slam, b)).toBe(false);
+  it('keeps the milestone slam clear of the counter, fees, card, board and timeline', () => {
+    for (const b of [l.counter, l.fees, l.card, l.board, l.timeline]) expect(intersects(l.slam, b)).toBe(false);
+  });
+
+  it('keeps the end card clear of every box the finale shows, and below the end title', () => {
+    // #then the beat card's box is free in the finale: every card ends with the story
+    for (const b of [l.date, l.counter, l.sub, l.fees, l.board, l.watermark, l.timeline]) expect(intersects(l.endCard, b)).toBe(false);
+    expect(l.endCard.y).toBeGreaterThanOrEqual(h / 2 + (END_TITLE_PX * l.unit) / 2);
   });
 });
 
