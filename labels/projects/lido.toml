@@ -8,3 +8,9 @@ verified = true
 chain = "ethereum-mainnet"
 address = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
 source = "https://docs.lido.fi/deployed-contracts/"
+
+# Source: https://docs.lido.fi/deployed-contracts/#ccip-direct-staking-base
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x328de900860816d29d1367f6903a24d8ed40c997"
+note = "CCIP Direct Staking CustomSenderReferral (Lido docs, Base)"

@@ -1,0 +1,17 @@
+name = "Derive"
+x = "DeriveXYZ"
+url = "https://www.derive.xyz"
+kind = "protocol"
+verified = true
+
+# Source: https://github.com/derivexyz/derive-bridges/blob/master/test/foundry/Migration.t.sol (DERIVE_SAFE, 3-of-5 Safe v1.4.1).
+# The HyperEVM and Base Safes at this address have the same five owners and 3-of-5 threshold (getOwners/getThreshold).
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x169a99b9958386a5d91e732ed08b344946a92391"
+note = "Derive 3-of-5 Safe (derive-bridges DERIVE_SAFE)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x169a99b9958386a5d91e732ed08b344946a92391"
+note = "Derive 3-of-5 Safe (derive-bridges DERIVE_SAFE)"

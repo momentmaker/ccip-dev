@@ -14,3 +14,9 @@ note = "EnsoShortcuts (EnsoBuild/shortcuts-client-contracts broadcast 43114)"
 chain = "ethereum-mainnet"
 address = "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003"
 note = "EnsoShortcuts (EnsoBuild/shortcuts-client-contracts broadcast 1)"
+
+# Source: https://docs.enso.build/pages/build/reference/deployments (EnsoShortcuts, Monad 143)
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76"
+note = "EnsoShortcuts (Enso docs, Monad)"

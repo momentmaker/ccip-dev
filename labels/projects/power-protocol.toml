@@ -1,0 +1,12 @@
+name = "Power Protocol"
+x = "PowerPrtcl"
+url = "https://powerprotocol.xyz"
+kind = "issuer"
+# Unverified: Power does not publish this Safe. It has the same five owners as 0x9eba6157b4841a57c4cd3359c2bf95ee0a0363df,
+# the owner() of the POWER token and its CCIP pool, and holds about 22% of POWER supply.
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x4e0a04bae389054006ac87b6eff796a23207e140"
+note = "POWER treasury Safe (same signers as the POWER token owner)"

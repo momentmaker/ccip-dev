@@ -1,0 +1,12 @@
+name = "ether.fi"
+x = "ether_fi"
+url = "https://www.ether.fi"
+kind = "protocol"
+# Unverified: ether.fi does not publish this vault. Its share token is "Liquid Monad ETH" (liquidMonadETH), and ether.fi's
+# documented liquidETH BoringVault 0xf0bb20865277abd641a307ece5ee04e79073416c holds all of its shares on Ethereum.
+verified = false
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0xa024063b630d554078bbf985718b22f3c6870ee0"
+note = "Liquid Monad ETH BoringVault (sub-vault of Liquid ETH)"

@@ -19,3 +19,8 @@ note = "BaseBridgeSettler (0x Settler)"
 chain = "monad-mainnet"
 address = "0xcbc823dce84215f5660922dd4d26f03ef6c04da1"
 note = "MonadBridgeSettler (0x Settler)"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0xebf4b796b858210fbbbdab0a51bca61f1d9c1fe5"
+note = "PlasmaBridgeSettler (0x Settler registry ownerOf(5))"
