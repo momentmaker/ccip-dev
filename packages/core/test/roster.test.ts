@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { rarerThan } from '../src/linkmarine';
-import { ALL_MARINES, callsignsPerTag, census, constellation, marineTags, mostWanted, plankSeats, rankOf, ranked, ROSTER_SCHEMA, tagBoard, tagFacts, tickerItems, wallMarines } from '../src/roster';
+import { ALL_MARINES, callsignsPerTag, census, constellation, marineTags, mostWanted, plankSeats, rankOf, ranked, ROSTER_SCHEMA, tagBoard, tagFacts, tagsDrawn, tickerItems, wallMarines } from '../src/roster';
 import { ROSTER_FIXTURE } from '../src/testing';
 
 const serials = (marines: { serial: number }[]) => marines.map((m) => m.serial);
@@ -119,6 +119,30 @@ describe('the tag board', () => {
     const board = tagBoard({ ...ROSTER_FIXTURE, marines: [...ROSTER_FIXTURE.marines, old] });
     // #then
     expect(board.map((t) => t.tag)).not.toContain('ghost');
+  });
+});
+
+describe('tags drawn', () => {
+  it('counts snapshot tags carried by at least one Marine, excluding old snapshot tags', () => {
+    // #then
+    expect(tagsDrawn(ROSTER_FIXTURE)).toBe(6);
+  });
+
+  it('excludes snapshot tags not carried and counts only snapshot tags even if a Marine carries old ones', () => {
+    // #given the only Marine carries an old "ghost" tag not in the snapshot
+    const ghost = { ...ROSTER_FIXTURE, marines: [{ ...ROSTER_FIXTURE.marines[0]!, tags: ['ghost', 'zoomer', 'samurai'] as [string, string, string] }] };
+    // #then
+    expect(tagsDrawn(ghost)).toBe(2);
+  });
+
+  it('reflects tags drawn correctly in the ticker stat', () => {
+    // #given the only Marine carries "ghost" not in the snapshot, plus two snapshot tags
+    const ghost = { ...ROSTER_FIXTURE, marines: [{ ...ROSTER_FIXTURE.marines[0]!, tags: ['ghost', 'zoomer', 'samurai'] as [string, string, string] }] };
+    // #when
+    const ticker = tickerItems(ghost);
+    // #then the TAGS DRAWN stat should be 2/8, not 3/8
+    const tagStat = ticker.find((i) => i.kind === 'stat' && i.label === 'TAGS DRAWN');
+    expect(tagStat).toEqual({ kind: 'stat', label: 'TAGS DRAWN', value: '2/8' });
   });
 });
 

@@ -106,6 +106,12 @@ export function tagBoard(roster: RosterFile): BoardTag[] {
     .map((t) => ({ ...t, carriers: facts.get(t.tag)?.carriers ?? 0, discoverer: facts.get(t.tag)?.discoverer ?? null }));
 }
 
+/** How many of the snapshot's tags at least one Marine carries: the "n" of "n/N tags drawn". */
+export function tagsDrawn(roster: RosterFile): number {
+  const facts = tagFacts(roster.marines);
+  return roster.snapshot.tags.filter((t) => facts.has(t.tag)).length;
+}
+
 export const MOST_WANTED = 5;
 
 /** "2026-10-13": the UTC day, which the most-wanted posters turn over on. */
@@ -140,7 +146,7 @@ function tickerStats(roster: RosterFile): TickerItem[] {
   const seatsLeft = PLANK_SEATS - roster.marines.filter((m) => m.serial <= PLANK_SEATS).length;
   const stats = [
     stat('MARINES', String(roster.marines.length)),
-    stat('TAGS DRAWN', `${tagFacts(roster.marines).size}/${roster.snapshot.tags.length}`),
+    stat('TAGS DRAWN', `${tagsDrawn(roster)}/${roster.snapshot.tags.length}`),
     stat('LEGENDARIES', String(roster.marines.filter((m) => m.tier === 'legendary').length)),
   ];
   return seatsLeft > 0 ? [...stats, stat('PLANK-OWNER SEATS LEFT', String(seatsLeft))] : stats;
