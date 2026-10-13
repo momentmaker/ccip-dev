@@ -40,6 +40,14 @@ describe('the roster page', () => {
     expect(text(html())).toMatch(/WANTED zoomer ABOUT 1 IN 7 CALLSIGNS ONE MEME IN THE ARCHIVE REWARD · DISCOVERER CREDIT/);
   });
 
+  it('counts the hero’s tags drawn like the board, ignoring a tag the snapshot lacks', () => {
+    // #given a Marine carrying "ghost", which the snapshot dropped, and "zoomer", which it holds
+    const ghost = { ...ROSTER_FIXTURE.marines[0]!, serial: 5, callsign: 'ghost-zoomer-pepe', tags: ['ghost', 'zoomer', 'pepe'] as [string, string, string] };
+    const out = text(html({ roster: { ...ROSTER_FIXTURE, marines: [...ROSTER_FIXTURE.marines, ghost] } }));
+    // #then
+    expect({ hero: out.includes('Tags drawn 7 /8'), board: out.includes('TAGS DRAWN · 7 OF 8') }).toEqual({ hero: true, board: true });
+  });
+
   it('says the board is full when every tag is drawn', () => {
     // #given every tag drawn
     const full = { ...ROSTER_FIXTURE, snapshot: { ...ROSTER_FIXTURE.snapshot, tags: ROSTER_FIXTURE.snapshot.tags.filter((t) => t.tag !== 'zoomer' && t.tag !== 'samurai') } };
