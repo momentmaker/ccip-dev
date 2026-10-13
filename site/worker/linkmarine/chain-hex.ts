@@ -1,7 +1,8 @@
 import { iconHref, LETTERMARK_BG, lettermarkLetter } from '../../src/lib/chain-icons';
 import { bytesToBase64, type AssetFetcher } from '../cards/coin-icons';
 import { h, type VNode } from '../h';
-import { font, hexImage, hexPoints, INK, px } from './art';
+import { chainSlug } from '../../src/lib/chain-slug';
+import { drawable, font, hexImage, hexPoints, INK, px } from './art';
 
 /** A chain's icon as the cards draw it: the logo, the hexagon's fill behind it, and the glow and frame around it. */
 export interface ChainArt {
@@ -18,7 +19,17 @@ export function iconBackground(svg: string): string {
   if (!first) return LETTERMARK_BG;
   const fill = /\sfill="([^"]*)"/.exec(first)?.[1];
   if (fill === undefined) return '#000000';
-  return HEX.test(fill) ? fill.toLowerCase() : LETTERMARK_BG;
+  const gradient = /^url\(#([^)]+)\)$/.exec(fill)?.[1];
+  const color = gradient ? firstStop(svg, gradient) : fill;
+  return color !== undefined && HEX.test(color) ? color.toLowerCase() : LETTERMARK_BG;
+}
+
+/** The first stop's colour of the gradient with this id, which is where its fill starts. */
+function firstStop(svg: string, id: string): string | undefined {
+  const start = new RegExp(`<(?:linear|radial)Gradient\\b[^>]*\\sid="${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`).exec(svg);
+  if (!start) return undefined;
+  const stop = /<stop\b[^>]*>/.exec(svg.slice(start.index + start[0].length))?.[0];
+  return stop && /\sstop-color="([^"]*)"/.exec(stop)?.[1];
 }
 
 const rgb = (hex: string): [number, number, number] => {
@@ -59,6 +70,11 @@ export async function chainArt(assets: AssetFetcher, selector: string): Promise<
 export async function chainArts(assets: AssetFetcher, selectors: readonly string[]): Promise<Map<string, ChainArt>> {
   const unique = [...new Set(selectors)];
   return new Map(await Promise.all(unique.map(async (s) => [s, await chainArt(assets, s)] as const)));
+}
+
+/** A chain's name as the fonts can draw it; a name with nothing drawable falls back to its slug in capitals. */
+export function chainLabel(chain: { selector: string; name: string }): string {
+  return drawable(chain.name) || chainSlug({ selector: chain.selector, display_name: chain.name, name: null }).toUpperCase();
 }
 
 export const NO_ART: ChainArt = { src: null, bg: LETTERMARK_BG, glow: INK.lane };

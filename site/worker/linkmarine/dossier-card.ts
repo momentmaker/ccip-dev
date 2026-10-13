@@ -2,8 +2,9 @@ import { formatCount, formatUsd } from '@ccip-dev/core/format';
 import type { DossierCard } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
 import { artLayer, at, capDay, DOT_FILTER, font, halo, INK, onCurve, pulse, px, r1 } from './art';
-import { chainHexFrame, chainHexIcon, chainHexUnder, NO_ART, type ChainArt } from './chain-hex';
+import { chainHexFrame, chainHexIcon, chainHexUnder, chainLabel, NO_ART, type ChainArt } from './chain-hex';
 import { asOf, b, bend, BLUE_TEXT, bulletRow, caption, daySeed, eyebrow, intelFrame, textRow } from './intel-frame';
+import { textWidthEm } from './inter-black';
 import { laneLabel } from './sitrep-card';
 
 const HERO = { x: 200, y: 218, r: 66 };
@@ -12,9 +13,20 @@ export const PARTNER_SLOTS: readonly { x: number; y: number }[] = [{ x: 340, y: 
 const PARTNER_R = 25;
 const BARS = { x: 470, step: 26, width: 16, bottom: 352, max: 44 };
 
-/** The title shrinks with the name, so it stays on one line in the right column. */
-export function titleSize(name: string): number {
-  return name.length <= 7 ? 72 : name.length <= 10 ? 56 : name.length <= 14 ? 42 : 32;
+export const TITLE_WIDTH = 290;
+const TITLE_TRACKING = -0.02;
+const widthEm = (text: string) => textWidthEm(text, TITLE_TRACKING);
+
+/** The title on one line at up to 72, or on two at up to 56 split at the best space, sized from Inter 900's real advances to fit its column. */
+export function titleFit(name: string): { lines: string[]; size: number } {
+  const oneLine = Math.floor(TITLE_WIDTH / widthEm(name));
+  if (Math.min(72, oneLine) >= 40) return { lines: [name], size: Math.min(72, oneLine) };
+  const spaces = [...name].flatMap((ch, i) => (ch === ' ' ? [i] : []));
+  if (spaces.length === 0) return { lines: [name], size: Math.max(24, oneLine) };
+  const splits = spaces.map((i) => [name.slice(0, i), name.slice(i + 1)] as const);
+  const longer = (pair: readonly [string, string]) => Math.max(widthEm(pair[0]), widthEm(pair[1]));
+  const best = splits.reduce((a, c) => (longer(c) < longer(a) ? c : a));
+  return { lines: [...best], size: Math.max(26, Math.min(56, Math.floor(TITLE_WIDTH / longer(best)))) };
 }
 
 function orbitSvg(card: DossierCard, arts: ReadonlyMap<string, ChainArt>): { under: string; over: string; defs: string; labels: { x: number; y: number; text: string }[] } {
@@ -54,21 +66,21 @@ export function highlight(card: DossierCard): string {
 /** /ccipchain: one chain as the hero, its partners of the last 7 days in orbit, its all-time numbers and its week. */
 export function dossierTree(card: DossierCard, arts: ReadonlyMap<string, ChainArt>): VNode {
   const orbit = orbitSvg(card, arts);
-  const name = card.chain.name.toUpperCase();
+  const title = titleFit(chainLabel(card.chain).toUpperCase());
   return intelFrame(
     daySeed(card.asOf),
     [{ x: 197.6, y: 214, color: '#1b3fa0', stop: 0.45 }, { x: 684, y: 0, color: '#1d3a7a', stop: 0.55 }],
     { body: orbit.under, defs: orbit.defs },
-    chainHexIcon(HERO.x, HERO.y, HERO.r, arts.get(card.chain.selector) ?? NO_ART, card.chain.name),
-    ...card.partners.slice(0, PARTNER_SLOTS.length).map((p, i) => chainHexIcon(PARTNER_SLOTS[i]!.x, PARTNER_SLOTS[i]!.y, PARTNER_R, arts.get(p.chain.selector) ?? NO_ART, p.chain.name)),
+    chainHexIcon(HERO.x, HERO.y, HERO.r, arts.get(card.chain.selector) ?? NO_ART, chainLabel(card.chain)),
+    ...card.partners.slice(0, PARTNER_SLOTS.length).map((p, i) => chainHexIcon(PARTNER_SLOTS[i]!.x, PARTNER_SLOTS[i]!.y, PARTNER_R, arts.get(p.chain.selector) ?? NO_ART, chainLabel(p.chain))),
     artLayer(orbit.over),
     ...orbit.labels.map((l) => laneLabel(l.x, l.y, l.text)),
     eyebrow(440, 26, 'CHAIN DOSSIER · CCIP'),
     at(
       440,
       50,
-      { flexDirection: 'column', width: px(290) },
-      h('div', { style: { ...font('Inter', 900, titleSize(name), INK.text, -0.02), lineHeight: 0.9, ...BLUE_TEXT } }, name),
+      { flexDirection: 'column', width: px(TITLE_WIDTH) },
+      h('div', { style: { display: 'flex', flexDirection: 'column', ...font('Inter', 900, title.size, INK.text, TITLE_TRACKING), lineHeight: 0.95, ...BLUE_TEXT } }, ...title.lines.map((line) => h('div', { style: { display: 'flex' } }, line))),
       textRow([highlight(card)], { color: INK.paleGold, marginTop: px(8) }),
       bulletRow([b(formatCount(card.messages)), ' messages · ', b(formatUsd(card.usd)), ' moved'], { marginTop: px(14) }),
       bulletRow([b(formatUsd(card.feesUsd)), ' in fees, all time']),

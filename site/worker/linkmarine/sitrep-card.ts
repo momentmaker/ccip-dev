@@ -2,7 +2,7 @@ import { formatCount, formatDuration, formatFeeTotal, formatShare, formatUsd } f
 import type { IntelLane, SitrepCard } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
 import { artLayer, at, DOT_FILTER, font, INK, MONO, onCurve, pulse, px, r1 } from './art';
-import { chainHexFrame, chainHexIcon, chainHexUnder, NO_ART, type ChainArt } from './chain-hex';
+import { chainHexFrame, chainHexIcon, chainHexUnder, chainLabel, NO_ART, type ChainArt } from './chain-hex';
 import { b, bend, BLUE_TEXT, bulletRow, caption, capWeekday, change, clock, daySeed, eyebrow, intelFrame, textRow } from './intel-frame';
 
 const RADAR = { x: 590, y: 215 };
@@ -80,7 +80,7 @@ function paceRow(card: SitrepCard): VNode {
 export function sitrepTree(card: SitrepCard, arts: ReadonlyMap<string, ChainArt>): VNode {
   const placed = placeLanes(card.lanes.slice(0, 5));
   const radar = radarSvg(placed, arts, dayFraction(card.updatedAt));
-  const chains = new Map(placed.flatMap((p) => [[p.lane.src.selector, { ...p.a, name: p.lane.src.name }], [p.lane.dst.selector, { ...p.b, name: p.lane.dst.name }]] as const));
+  const chains = new Map(placed.flatMap((p) => [[p.lane.src.selector, { ...p.a, name: chainLabel(p.lane.src) }], [p.lane.dst.selector, { ...p.b, name: chainLabel(p.lane.dst) }]] as const));
   const live = h(
     'div',
     { style: { display: 'flex', alignItems: 'center', color: INK.live, marginRight: px(10) } },

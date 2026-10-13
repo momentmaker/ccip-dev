@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LETTERMARK_BG } from '../src/lib/chain-icons';
 import { glowColor, iconBackground } from '../worker/linkmarine/chain-hex';
-import { dossierTree, highlight, titleSize } from '../worker/linkmarine/dossier-card';
+import { dossierTree, highlight, titleFit, TITLE_WIDTH } from '../worker/linkmarine/dossier-card';
+import { textWidthEm } from '../worker/linkmarine/inter-black';
 import { dayFraction, placeLanes, roughCount, sitrepTree } from '../worker/linkmarine/sitrep-card';
 import { texts } from './fixtures/broadcast';
 import { DOSSIER, DRAWABLE_TEXT, SITREP } from './fixtures/linkmarine';
@@ -19,6 +20,13 @@ describe('the chain hexagons', () => {
     ];
     // #then
     expect(fills).toEqual(['#627eea', '#cf0', '#000000', LETTERMARK_BG]);
+  });
+
+  it("takes a gradient background's first stop colour", () => {
+    // #when
+    const svg = '<svg viewBox="0 0 32 32"><defs><linearGradient id="a" x1="0"><stop stop-color="#102d3c"/><stop offset="1" stop-color="#ffcb67"/></linearGradient></defs><rect width="32" height="32" fill="url(#a)"/></svg>';
+    // #then
+    expect(iconBackground(svg)).toBe('#102d3c');
   });
 
   it('glows in the background\'s hue, lit enough for the night sky, and pale blue for a grey', () => {
@@ -82,12 +90,31 @@ describe('the dossier card', () => {
     );
   });
 
-  it('adds the fee rank only for a top-3 chain, and shrinks a long name to fit', () => {
+  it('adds the fee rank only for a top-3 chain', () => {
     // #then
-    expect({ plain: highlight({ ...DOSSIER, rank: 40, feeRank: null }), sizes: ['BASE', 'ETHEREUM', 'ARBITRUM ONE', 'BINANCE SMART CHAIN'].map(titleSize) }).toEqual({
-      plain: '#40 of 92 all time',
-      sizes: [72, 56, 42, 32],
-    });
+    expect(highlight({ ...DOSSIER, rank: 40, feeRank: null })).toBe('#40 of 92 all time');
+  });
+
+  it('sizes the title from the real Inter 900 advances', () => {
+    // #then
+    expect(textWidthEm('BASE', -0.02) * 72).toBeCloseTo(191.6, 0);
+  });
+
+  it.each(['BASE', 'ETHEREUM', 'AVALANCHE', 'ZKSYNC', 'ARBITRUM ONE', 'BINANCE SMART CHAIN', 'POLYGON KATANA', 'ZK SYNC ERA MAINNET'])('fits the title %s in its column', (name) => {
+    // #when
+    const { lines, size } = titleFit(name);
+    // #then
+    expect(lines.map((l) => textWidthEm(l, -0.02) * size).filter((w) => w > TITLE_WIDTH)).toEqual([]);
+  });
+
+  it('keeps a short name on one line at full size, and splits a long one at its best space', () => {
+    // #then
+    expect([titleFit('BASE'), titleFit('BINANCE SMART CHAIN').lines, titleFit('ETHEREUM').lines.length, titleFit('A'.repeat(30)).size >= 24]).toEqual([
+      { lines: ['BASE'], size: 72 },
+      ['BINANCE', 'SMART CHAIN'],
+      1,
+      true,
+    ]);
   });
 
   it('writes no character the card fonts lack', () => {
@@ -95,5 +122,42 @@ describe('the dossier card', () => {
     const words = [...texts(sitrepTree(SITREP, NO_ARTS)), ...texts(dossierTree(DOSSIER, NO_ARTS))];
     // #then
     expect(words.filter((w) => !DRAWABLE_TEXT.test(w))).toEqual([]);
+  });
+});
+
+describe('names the fonts cannot draw', () => {
+  it('falls back to the chain slug in capitals, and draws no stray glyph', () => {
+    // #given a chain named in CJK, and one with an emoji
+    const cjk = { selector: '42', name: '日本' };
+    const emoji = { selector: '7', name: 'Zeta 🚀' };
+    // #when
+    const words = [...texts(dossierTree({ ...DOSSIER, chain: cjk, partners: [{ chain: emoji, usd: 1 }] }, NO_ARTS)), ...texts(sitrepTree({ ...SITREP, lanes: [{ src: cjk, dst: emoji, usd: 5 }] }, NO_ARTS))];
+    // #then
+    expect({ title: words.includes('42'), stray: words.filter((w) => !DRAWABLE_TEXT.test(w)) }).toEqual({ title: true, stray: [] });
+  });
+});
+
+const svgs = (tree: unknown) => [...JSON.stringify(tree).matchAll(/data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)/g)].map((m) => atob(m[1]!));
+
+describe('the cards with nothing to draw', () => {
+  it('draws the SITREP radar rings only when there are no lanes', () => {
+    // #when
+    const art = svgs(sitrepTree({ ...SITREP, lanes: [] }, NO_ARTS)).join('');
+    // #then
+    expect({ rings: art.includes('r="210"'), lanes: art.includes('stroke-linecap="round"'), nan: art.includes('NaN') }).toEqual({ rings: true, lanes: false, nan: false });
+  });
+
+  it('draws the dossier without partners', () => {
+    // #when
+    const tree = dossierTree({ ...DOSSIER, partners: [] }, NO_ARTS);
+    // #then
+    expect({ nan: svgs(tree).join('').includes('NaN'), title: texts(tree).includes('BASE') }).toEqual({ nan: false, title: true });
+  });
+
+  it('draws seven zero bars as stubs, with no NaN', () => {
+    // #when
+    const art = svgs(dossierTree({ ...DOSSIER, days: DOSSIER.days.map((d) => ({ ...d, messages: 0 })) }, NO_ARTS)).join('');
+    // #then
+    expect({ stubs: art.match(/height="2" rx="3"/g)?.length, nan: art.includes('NaN') }).toEqual({ stubs: 7, nan: false });
   });
 });
