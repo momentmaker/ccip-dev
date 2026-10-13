@@ -125,7 +125,29 @@ export interface FakeBot extends Bot {
 export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
   const clock = { ms: Date.parse('2026-10-13T10:40:00.000Z') };
   const alerts: { signature: string; text: string }[] = [];
-  const timers: { at: number; resolve: (value: null) => void }[] = [];
+  const timers: { at: number; resolve: (value: null) => void; weak: boolean }[] = [];
+  let pumping = false;
+  /** Virtual time: while anything sleeps, the clock jumps to the earliest timer once the other work has settled. Deadlines alone never move it. */
+  const pump = () => {
+    if (pumping) return;
+    pumping = true;
+    setTimeout(() => {
+      pumping = false;
+      if (!timers.some((t) => !t.weak)) return;
+      clock.ms = Math.max(clock.ms, Math.min(...timers.map((t) => t.at)));
+      for (const due of timers.filter((t) => t.at <= clock.ms)) {
+        timers.splice(timers.indexOf(due), 1);
+        due.resolve(null);
+      }
+      pump();
+    }, 0);
+  };
+  const timer = (ms: number, weak: boolean) =>
+    new Promise<null>((resolve) => {
+      if (ms <= 0) return resolve(null);
+      timers.push({ at: clock.ms + ms, resolve, weak });
+      pump();
+    });
   return {
     db: env.DB,
     bucket: env.MARINES,
@@ -135,15 +157,8 @@ export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
     alert: async (signature, text) => {
       alerts.push({ signature, text });
     },
-    sleep: async (ms) => {
-      clock.ms += ms;
-      for (const timer of timers.filter((t) => t.at <= clock.ms)) timer.resolve(null);
-    },
-    deadline: (ms) =>
-      new Promise<null>((resolve) => {
-        if (ms <= 0) resolve(null);
-        else timers.push({ at: clock.ms + ms, resolve });
-      }),
+    sleep: async (ms) => void (await timer(ms, false)),
+    deadline: (ms) => timer(ms, true),
     now: () => new Date(clock.ms),
     random: seededRandom(42),
     snapshot: SNAPSHOT,

@@ -259,8 +259,31 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     expect({ last: bot.discord.calls.at(-1)!.content, cardKey: marine.cardKey, alerts: bot.alerts.map((a) => a.signature) }).toEqual({ last: marine.callsign, cardKey: null, alerts: ['discord-store:marine'] });
   });
 
-  it('gives up on a card still stamping 18 s after the command arrived, leaving /dogtag to finish it', async () => {
-    // #given a renderer that takes 25 s
+  it('posts a card stamped at 17 s, and the stamping line at 18 s for one that would take until 19 s', async () => {
+    // #given two renderers on the fake clock, 17 s and 19 s slow
+    const [early, late] = [fakeBot(), fakeBot()];
+    for (const [bot, ms] of [[early, 17_000], [late, 19_000]] as const) {
+      bot.renderer.renderMarineCard = async () => {
+        await bot.sleep(ms);
+        return PNG_BYTES;
+      };
+    }
+    const t0 = early.clock.ms;
+    // #when
+    await enlistCommand(early, command('enlist'));
+    await resetStorage();
+    await enlistCommand(late, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ early: early.discord.calls.at(-1), late: late.discord.calls.at(-1), lateAlerts: late.alerts.map((a) => a.signature) }).toEqual({
+      early: expect.objectContaining({ file: expect.stringMatching(/^marine-1\./), at: t0 + 17_000 }),
+      late: { kind: 'edit', content: TEXT.stamping(marine), at: t0 + 18_000 },
+      lateAlerts: ['discord-render:marine'],
+    });
+  });
+
+  it('leaves /dogtag to finish a card that passed the deadline, and still reports it once done', async () => {
+    // #given a card that takes 25 s
     const bot = fakeBot();
     bot.renderer.renderMarineCard = async () => {
       await bot.sleep(25_000);
@@ -270,17 +293,111 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     await enlistCommand(bot, command('enlist'));
     // #then
     const marine = (await findMarine(env.DB, 'discord', ME))!;
-    expect(bot.discord.calls.at(-1)).toEqual({ kind: 'edit', content: TEXT.stamping(marine), at: bot.clock.ms });
+    expect({ cardKey: marine.cardKey, alerts: bot.alerts.map((a) => a.text) }).toEqual({ cardKey: 'cards/1.png', alerts: ["stamping Marine #1's card passed the deadline"] });
   });
 
-  it('offers the final edit only the time left before 28 s for a 429', async () => {
-    // #given a command received 22 s ago, so the stamping deadline has passed
+  it('waits out a final 429 only for the time left before 28 s, and posts the stamping line', async () => {
+    // #given a command received 26 s ago, and Discord asking for 10 s on the final edit
     const bot = fakeBot();
-    const waits = refusing(bot, () => false);
+    const sent: string[] = [];
+    let limited = true;
+    const fetchFn = (async (_url: string, init?: RequestInit) => {
+      sent.push(String(init?.body));
+      if (limited) {
+        limited = false;
+        return new Response(JSON.stringify({ retry_after: 10 }), { status: 429 });
+      }
+      return new Response(null, { status: 200 });
+    }) as unknown as typeof fetch;
+    bot.discord = discordApi('app', { fetch: fetchFn, sleep: bot.sleep }) as FakeBot['discord'];
+    const startedAt = bot.clock.ms - 26_000;
     // #when
-    await enlistCommand(bot, command('enlist'), bot.clock.ms - 22_000);
+    await enlistCommand(bot, command('enlist'), startedAt);
     // #then
-    expect(waits.at(-1)).toBe(2_000);
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ waited: bot.clock.ms - startedAt, last: JSON.parse(sent.at(-1)!).content }).toEqual({ waited: 28_000, last: TEXT.stamping(marine) });
+  });
+
+  it('keeps every step edit to 3 s without waiting on a 429, so a slow Discord still gets the card in by 17 s', async () => {
+    // #given each step edit would take 8 s
+    const bot = fakeBot();
+    const inner = bot.discord;
+    const limits: (number | undefined)[][] = [];
+    bot.discord = {
+      ...inner,
+      async editOriginal(token, content, file, maxWaitMs, timeoutMs) {
+        if (file) return inner.editOriginal(token, content, file, maxWaitMs, timeoutMs);
+        limits.push([maxWaitMs, timeoutMs]);
+        await bot.sleep(Math.min(8_000, timeoutMs ?? 8_000));
+        throw new Error('aborted');
+      },
+    };
+    const t0 = bot.clock.ms;
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    expect({ limits, last: bot.discord.calls.at(-1) }).toEqual({
+      limits: [[0, 3000], [0, 3000], [0, 3000], [0, 3000]],
+      last: expect.objectContaining({ file: expect.stringMatching(/^marine-1\./), at: t0 + 16_000 }),
+    });
+  });
+
+  it('leaves the Marine on record, deletes nothing and alerts when every Discord edit fails', async () => {
+    // #given
+    const bot = fakeBot();
+    const refuse = async () => {
+      throw new Error('Discord returned HTTP 500');
+    };
+    bot.discord = { ...bot.discord, editOriginal: refuse };
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    expect({ marine: (await findMarine(env.DB, 'discord', ME))?.serial, private: bot.discord.calls.length, alerts: bot.alerts.map((a) => a.signature) }).toEqual({ marine: 1, private: 0, alerts: ['discord-upload'] });
+  });
+
+  it("answers an enlisted Marine's second /enlist with their callsign line when R2 cannot be read", async () => {
+    // #given
+    await enlistCommand(fakeBot(), command('enlist'));
+    const bucket = new Proxy(env.MARINES, {
+      get(target, prop) {
+        if (prop === 'get') return async () => Promise.reject(new Error('R2 is down'));
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bot = fakeBot({ bucket });
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect(bot.discord.calls.map((c) => [c.kind, c.content])).toEqual([['edit', TEXT.stamping(marine)]]);
+  });
+
+  it("names the other member, not the asker, when their card cannot be uploaded", async () => {
+    // #given
+    await enlistCommand(fakeBot(), command('enlist', [], { member: { user: { id: OTHER, username: 'rory' } } }));
+    const bot = fakeBot();
+    bot.discord = { ...bot.discord, editOriginal: async (_t, content, file) => { if (file) throw new Error('HTTP 413'); bot.discord.calls.push({ kind: 'edit', content, at: bot.clock.ms }); } };
+    // #when
+    await dogtagCommand(bot, other());
+    // #then
+    expect(bot.discord.calls.map((c) => c.content)).toEqual([TEXT.tagStamping('Rory')]);
+  });
+
+  it('alerts when the memes are missing from R2 right after the copy', async () => {
+    // #given
+    const bucket = new Proxy(env.MARINES, {
+      get(target, prop) {
+        if (prop === 'get') return async (key: string) => (key.startsWith('memes/') ? null : target.get(key));
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bot = fakeBot({ bucket });
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    expect(bot.alerts.map((a) => [a.signature, a.text])).toEqual([['discord-render:marine', "Marine #1's memes were missing from storage right after copying"]]);
   });
 
   it('starts the avatar fetch with the meme copies, not after them', async () => {
@@ -308,5 +425,24 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     await botHandlers(bot).commands.enlist!(command('enlist', [], { member: undefined }));
     // #then
     expect(sent).toEqual(['DELETE @original ', `POST tok ${JSON.stringify({ content: TEXT.internal, flags: 64, allowed_mentions: { parse: [] } })}`]);
+  });
+});
+
+describe('a failing command', () => {
+  it('answers the Marine before it alerts', async () => {
+    // #given
+    const events: string[] = [];
+    const fetchFn = (async (_url: string, init?: RequestInit) => {
+      events.push(String(init?.method));
+      return new Response(null, { status: 204 });
+    }) as unknown as typeof fetch;
+    const bot = fakeBot({
+      discord: discordApi('app', { fetch: fetchFn, sleep: async () => {} }),
+      alert: async (signature) => void events.push(`alert ${signature}`),
+    });
+    // #when
+    await botHandlers(bot).commands.enlist!(command('enlist', [], { member: undefined }));
+    // #then
+    expect(events).toEqual(['DELETE', 'POST', 'alert discord-command:enlist']);
   });
 });

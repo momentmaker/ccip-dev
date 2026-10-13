@@ -15,6 +15,7 @@ export const TEXT = {
   already: "You're already enlisted, Marine.",
   stamping: (m: Marine) => `You're \`${m.callsign}\`, Marine #${serialText(m.serial)}. Your tag is being stamped; run \`/dogtag\` in a minute.`,
   notEnlisted: (name: string) => `${name} hasn't enlisted yet. \`/enlist\``,
+  tagStamping: (name: string) => `${name}'s tag is being stamped; try \`/dogtag\` again in a minute.`,
   internal: "Something went wrong. It's been reported.",
 } as const;
 
@@ -163,27 +164,36 @@ export async function marineCard(bot: Bot, marine: Marine, avatarSource: string 
 }
 
 const timeLeft = (bot: Bot, startedAt: number) => Math.max(0, FINAL_EDIT_BY_MS - (bot.now().getTime() - startedAt));
+const elapsed = (bot: Bot, startedAt: number) => bot.now().getTime() - startedAt;
+
+/** A cosmetic step is abandoned after this long, and never waits out a 429. */
+const STEP_TIMEOUT_MS = 3_000;
+/** A card upload leaves at least this long for the next fallback. */
+const FALLBACK_ROOM_MS = 3_000;
+const MIN_ATTEMPT_MS = 1_000;
 
 /**
- * The last edit: the card with `text`, else the static card, else the stamping line alone. A refused upload is reported
- * as discord-upload; the stamping line is what a Marine whose draw is saved must always end up with.
+ * The last edit: the card with `text`, else the static card, else `fallback` alone. A refused upload is reported as
+ * discord-upload. Each card attempt is cut short so the next one still has room before waitUntil ends.
  */
-async function postCard(bot: Bot, token: string, text: string, cards: Cards | null, marine: Marine, startedAt: number, reports: Report[]): Promise<void> {
+async function postCard(bot: Bot, token: string, text: string, cards: Cards | null, fallback: string, marine: Marine, startedAt: number, reports: Report[]): Promise<void> {
   for (const file of cards ?? []) {
+    const left = timeLeft(bot, startedAt);
     try {
-      await bot.discord.editOriginal(token, text, file, timeLeft(bot, startedAt));
+      await bot.discord.editOriginal(token, text, file, left, Math.max(MIN_ATTEMPT_MS, left - FALLBACK_ROOM_MS));
       return;
     } catch (err) {
       reports.push({ signature: 'discord-upload', text: `${file.name} could not be posted for Marine #${marine.serial}: ${reason(err)}` });
     }
   }
-  await bot.discord.editOriginal(token, TEXT.stamping(marine), null, timeLeft(bot, startedAt));
+  const left = timeLeft(bot, startedAt);
+  await bot.discord.editOriginal(token, fallback, null, left, Math.max(MIN_ATTEMPT_MS, left));
 }
 
 /** A step of the reveal: losing one costs a frame of the animation, never the Marine's card. */
-async function softEdit(bot: Bot, token: string, content: string, startedAt: number): Promise<void> {
+async function softEdit(bot: Bot, token: string, content: string): Promise<void> {
   try {
-    await bot.discord.editOriginal(token, content, null, timeLeft(bot, startedAt));
+    await bot.discord.editOriginal(token, content, null, 0, STEP_TIMEOUT_MS);
   } catch (err) {
     console.warn(`reveal edit skipped: ${reason(err)}`);
   }
@@ -191,21 +201,40 @@ async function softEdit(bot: Bot, token: string, content: string, startedAt: num
 
 /**
  * The reveal: the draw is already saved; the card stamps while the tags are shown, a second apart, then it is edited
- * in. Whatever fails, the last edit is the card or the stamping line, and the public reveal is never deleted.
+ * in. Steps are cosmetic: each is cut at 3 s, and none starts within a second of the stamping deadline. The card races
+ * the deadline alone; a text-only edit after the card would wipe it, so the steps always finish first. Whatever fails,
+ * the last edit is the card or the stamping line, and the public reveal is never deleted.
  */
 export async function reveal(bot: Bot, token: string, marine: Marine, avatarSource: string | null, startedAt: number, reports: Report[]): Promise<void> {
   const stamping = stampCard(bot, marine, avatarSource, reports);
-  await softEdit(bot, token, TEXT.drawing, startedAt);
-  for (const step of revealSteps(marine.tags, marine.tier)) {
-    await bot.sleep(STEP_MS);
-    await softEdit(bot, token, step, startedAt);
+  const stepsOver = () => elapsed(bot, startedAt) >= STAMP_DEADLINE_MS - STEP_MS;
+  let lastStepAt = bot.now().getTime();
+  for (const step of [TEXT.drawing, ...revealSteps(marine.tags, marine.tier)]) {
+    if (stepsOver()) break;
+    if (step !== TEXT.drawing) await bot.sleep(STEP_MS);
+    if (stepsOver()) break;
+    await softEdit(bot, token, step);
+    lastStepAt = bot.now().getTime();
   }
-  const cards = await Promise.race([bot.deadline(startedAt + STAMP_DEADLINE_MS - bot.now().getTime()), Promise.all([stamping, bot.sleep(STEP_MS)]).then(([c]) => c)]);
+  const outcome = await Promise.race([bot.deadline(startedAt + STAMP_DEADLINE_MS - bot.now().getTime()).then(() => 'late' as const), stamping]);
+  const cards = outcome === 'late' ? null : outcome;
+  if (outcome === 'late') reports.push({ signature: 'discord-render:marine', text: `stamping Marine #${marine.serial}'s card passed the deadline` });
+  else if (cards && bot.now().getTime() - lastStepAt < STEP_MS) await bot.sleep(STEP_MS - (bot.now().getTime() - lastStepAt));
   try {
-    await postCard(bot, token, marine.callsign, cards, marine, startedAt, reports);
+    await postCard(bot, token, marine.callsign, cards, TEXT.stamping(marine), marine, startedAt, reports);
   } catch (err) {
     console.error(`Marine #${marine.serial}: the final edit failed: ${reason(err)}`);
   }
+  if (outcome === 'late') await Promise.race([stamping, bot.deadline(startedAt + FINAL_EDIT_BY_MS - bot.now().getTime())]);
+}
+
+/** The Marine's stored card, or null: a failed read is reported, never thrown, and a slow one gives up at the deadline. */
+async function storedCard(bot: Bot, marine: Marine, source: string, startedAt: number, reports: Report[]): Promise<Cards | null> {
+  const read = marineCard(bot, marine, source, reports).catch((err: unknown) => {
+    reports.push({ signature: 'discord-render:marine', text: `Marine #${marine.serial}'s card could not be read: ${reason(err)}` });
+    return null;
+  });
+  return Promise.race([bot.deadline(startedAt + STAMP_DEADLINE_MS - bot.now().getTime()).then(() => null), read]);
 }
 
 export async function enlistCommand(bot: Bot, interaction: Interaction, startedAt = bot.now().getTime()): Promise<void> {
@@ -223,8 +252,8 @@ export async function enlistCommand(bot: Bot, interaction: Interaction, startedA
       reports.push({ signature: 'discord-draw', text: `every one of 20 draws for ${who.user.id} clashed with a callsign already taken` });
       await bot.discord.privateFollowup(interaction.token, TEXT.internal);
     } else if (result.kind === 'already') {
-      const cards = await marineCard(bot, result.marine, source, reports);
-      await postCard(bot, interaction.token, TEXT.already, cards, result.marine, startedAt, reports);
+      const cards = await storedCard(bot, result.marine, source, startedAt, reports);
+      await postCard(bot, interaction.token, TEXT.already, cards, TEXT.stamping(result.marine), result.marine, startedAt, reports);
     } else {
       await reveal(bot, interaction.token, result.marine, source, startedAt, reports);
     }
@@ -254,7 +283,8 @@ export async function dogtagCommand(bot: Bot, interaction: Interaction, startedA
   const reports: Report[] = [];
   try {
     const cards = await marineCard(bot, marine, avatarUrl(whose.user, whose.member, interaction.guild_id), reports);
-    if (cards) await postCard(bot, interaction.token, marine.callsign, cards, marine, startedAt, reports);
+    const fallback = whose.self ? TEXT.stamping(marine) : TEXT.tagStamping(displayName(whose.user, whose.member));
+    if (cards) await postCard(bot, interaction.token, marine.callsign, cards, fallback, marine, startedAt, reports);
     else await bot.discord.privateFollowup(interaction.token, TEXT.internal);
   } finally {
     await flush(bot, reports);
