@@ -60,3 +60,50 @@ describe('the roster page', () => {
     expect([text(html({ roster: null })).includes('Loading the roster'), text(html({ roster: null, failed: true })).includes('The roster is out of reach right now. Retrying…')]).toEqual([true, true]);
   });
 });
+
+describe('the roster page, part 2', () => {
+  it('ranks the rarest ten by score, each linking to the Marine', () => {
+    // #when
+    const out = html();
+    // #then
+    expect([...out.matchAll(/class="mr-rarest-row" href="([^"]+)"/g)].map((m) => m[1])).toEqual(['/marines/0002/', '/marines/0004/', '/marines/0003/', '/marines/0001/']);
+  });
+
+  it('seats the first four plank owners and leaves 96 seats open', () => {
+    // #when
+    const out = html();
+    // #then
+    expect({ taken: out.match(/class="mr-seat mr-metal-/g)?.length, open: out.match(/class="mr-seat"/g)?.length }).toEqual({ taken: 4, open: 96 });
+  });
+
+  it('hangs every Marine on the wall by rarity, each a labelled link to its page', () => {
+    // #when
+    const out = html();
+    // #then
+    expect([...out.matchAll(/class="mr-wall-link" href="([^"]+)" aria-label="([^"]+)"/g)].map((m) => [m[1], m[2]])).toEqual([
+      ['/marines/0002/', 'LINK MARINE #0002, painting-space-prophecy, Legendary'],
+      ['/marines/0004/', 'LINK MARINE #0004, comfy-painting-sergey, Rare'],
+      ['/marines/0003/', 'LINK MARINE #0003, pepe-sergey-prophecy, Uncommon'],
+      ['/marines/0001/', 'LINK MARINE #0001, sergey-pepe-comfy, Common'],
+    ]);
+  });
+
+  it('loads no meme on a tag’s back until it first flips', () => {
+    // #then the wall has no meme images; only the posters and planets do
+    expect(html().match(/<li><a class="mr-wall-link"[\s\S]*?<\/a><\/li>/g)?.some((li) => li.includes('<img'))).toBe(false);
+  });
+
+  it('draws a planet per carried tag, in both the wide and the narrow sky', () => {
+    // #when
+    const out = html();
+    // #then six tags are carried: six wide planets, and the same six narrow (up to twelve)
+    expect(out.match(/class="mr-planet"/g)?.length).toBe(12);
+  });
+
+  it('says there are no Marines yet on an empty roster, and hides the rarest ten and the sky', () => {
+    // #when
+    const out = text(html({ roster: { ...ROSTER_FIXTURE, marines: [] } }));
+    // #then
+    expect([out.includes('No Marines yet. Be #0001: /enlist'), out.includes('The hardest draws in the corps.'), out.includes('The meme constellation.')]).toEqual([true, false, false]);
+  });
+});

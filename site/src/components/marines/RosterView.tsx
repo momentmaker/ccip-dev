@@ -2,9 +2,13 @@ import { ALL_MARINES, tagsDrawn, type RosterFile, type WallQuery } from '@ccip-d
 import { useState } from 'react';
 import { useNow } from '../hooks';
 import Census from './Census';
+import Constellation from './Constellation';
 import MostWanted from './MostWanted';
+import PlankOwners from './PlankOwners';
+import RarestTen from './RarestTen';
 import Ticker from './Ticker';
 import { useRoster } from './use-roster';
+import Wall from './Wall';
 
 function Hero({ roster }: { roster: RosterFile | null }) {
   const dash = '—';
@@ -42,7 +46,7 @@ function Hero({ roster }: { roster: RosterFile | null }) {
 
 /** The roster page's sections, from the roster as loaded: pure, so it renders on the server for tests and as the loading shell. */
 export function RosterPage({ roster, failed, now }: { roster: RosterFile | null; failed: boolean; now: Date }) {
-  const [, setQuery] = useState<WallQuery>(ALL_MARINES);
+  const [query, setQuery] = useState<WallQuery>(ALL_MARINES);
   const pickTag = (tag: string) => {
     setQuery({ ...ALL_MARINES, tag });
     document.getElementById('wall')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -69,6 +73,10 @@ export function RosterPage({ roster, failed, now }: { roster: RosterFile | null;
       <Ticker roster={roster} />
       <Census roster={roster} onPickTag={pickTag} />
       <MostWanted roster={roster} now={now} />
+      <RarestTen roster={roster} />
+      <PlankOwners roster={roster} />
+      <Wall roster={roster} query={query} onQuery={setQuery} />
+      <Constellation roster={roster} onPickTag={pickTag} />
     </>
   );
 }
