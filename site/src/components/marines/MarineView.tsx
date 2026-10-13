@@ -21,17 +21,27 @@ function CardImage({ marine }: { marine: RosterMarine }) {
   );
 }
 
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.warn(`copy link: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+}
+
 function CopyLink({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   return (
     <button
       type="button"
       className="mr-btn"
       onClick={() => {
-        void navigator.clipboard.writeText(url).then(() => setCopied(true));
+        void copyToClipboard(url).then((ok) => setState(ok ? 'copied' : 'failed'));
       }}
     >
-      {copied ? 'Link copied' : 'Copy link'}
+      <span aria-live="polite">{state === 'copied' ? 'Link copied' : state === 'failed' ? 'Copy failed' : 'Copy link'}</span>
     </button>
   );
 }

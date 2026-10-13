@@ -1,8 +1,8 @@
 import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { MarinePage } from '../src/components/marines/MarineView';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MarinePage, copyToClipboard } from '../src/components/marines/MarineView';
 
 const html = (props: Partial<Parameters<typeof MarinePage>[0]> = {}) => renderToString(createElement(MarinePage, { roster: ROSTER_FIXTURE, failed: false, serial: 2, ...props }));
 const text = (out: string) => out.replace(/<!--.*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
@@ -40,5 +40,32 @@ describe('a Marine’s page', () => {
   it('waits for the serial and the roster before saying anything is missing', () => {
     // #then
     expect([text(html({ serial: undefined })), text(html({ roster: null })), text(html({ roster: null, failed: true }))].map((t) => t.includes('No Marine'))).toEqual([false, false, false]);
+  });
+});
+
+describe('copying the page link', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reports success when the clipboard accepts the link', async () => {
+    // #given
+    vi.stubGlobal('navigator', { clipboard: { writeText: async () => undefined } });
+    // #then
+    expect(await copyToClipboard('https://ccip.dev/marines/0002/')).toBe(true);
+  });
+
+  it('reports failure, and warns, when the clipboard rejects', async () => {
+    // #given
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText: async () => Promise.reject(new Error('denied')) } });
+    // #then
+    expect([await copyToClipboard('x'), warn.mock.calls[0]?.[0]]).toEqual([false, 'copy link: denied']);
+  });
+
+  it('reports failure when there is no clipboard at all', async () => {
+    // #given
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('navigator', {});
+    // #then
+    expect(await copyToClipboard('x')).toBe(false);
   });
 });
