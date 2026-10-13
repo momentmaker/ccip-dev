@@ -30,6 +30,8 @@ export interface Interaction {
   token: string;
   application_id: string;
   guild_id?: string;
+  /** Where it ran: 0 a server, 1 a DM with the app, 2 a private channel. */
+  context?: number;
   member?: DiscordMember;
   user?: DiscordUser;
   data?: {

@@ -54,7 +54,7 @@ describe('the interactions endpoint', () => {
     const work: Promise<unknown>[] = [];
     const endless: Handlers = { commands: { cciptoday: () => new Promise<void>(() => {}) }, autocomplete: async () => [] };
     // #when
-    const res = await handleInteraction(command('cciptoday'), GUILD, endless, (p) => void work.push(p));
+    const res = await handleInteraction(command('cciptoday'), 'all', endless, (p) => void work.push(p));
     // #then
     expect({ reply: await res.json(), handedOver: work.length }).toEqual({ reply: { type: 5 }, handedOver: 1 });
   });
@@ -88,40 +88,79 @@ describe('the interactions endpoint', () => {
     expect(res.status).toBe(401);
   });
 
-  it('turns away a command from another server or a DM privately, and gives their autocomplete nothing', async () => {
+  const TURNED_AWAY = { type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } };
+  const OTHER_SERVER = '1100000000000000002';
+
+  it('lets any server through when the setting is "all"', async () => {
     // #given
     const h = handlers();
-    const elsewhere = command('cciptoday', [], { guild_id: '999' });
-    const dm = { ...command('cciptoday'), guild_id: undefined };
-    const complete = { ...command('ccipchain', [{ name: 'chain', type: 3, value: 'ba', focused: true }], { guild_id: '999' }), type: 4 };
     // #when
-    const replies = await Promise.all([elsewhere, dm, complete].map(async (i) => (await handleInteraction(i, GUILD, h, () => {})).json()));
+    const replies = await Promise.all([GUILD, OTHER_SERVER].map(async (guild_id) => (await handleInteraction(command('cciptoday', [], { guild_id }), 'all', h, (p) => void p)).json()));
     // #then
-    expect({ replies, ran: h.ran }).toEqual({
-      replies: [
-        { type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } },
-        { type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } },
-        { type: 8, data: { choices: [] } },
-      ],
-      ran: [],
-    });
+    expect({ replies, ran: h.ran }).toEqual({ replies: [{ type: 5 }, { type: 5 }], ran: ['cciptoday', 'cciptoday'] });
   });
 
-  it('turns everything away while DISCORD_GUILD_ID is empty', async () => {
-    // #when
-    const res = await handleInteraction(command('cciptoday', [], { guild_id: '' }), '', handlers(), () => {});
-    // #then
-    expect(await res.json()).toEqual({ type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } });
-  });
-
-  it('turns a DM away when DISCORD_GUILD_ID is missing altogether', async () => {
-    // #given a DM, which has no guild_id to compare, and no server id configured
+  it('lets a listed server through and turns an unlisted one away, whatever the list spacing', async () => {
+    // #given
     const h = handlers();
-    const dm = { ...command('cciptoday'), guild_id: undefined };
+    const setting = ` ${GUILD} ,, 1100000000000000009 `;
     // #when
-    const res = await handleInteraction(dm, undefined, h, () => {});
+    const listed = await handleInteraction(command('cciptoday'), setting, h, () => {});
+    const unlisted = await handleInteraction(command('cciptoday', [], { guild_id: OTHER_SERVER }), setting, h, () => {});
     // #then
-    expect({ reply: await res.json(), ran: h.ran }).toEqual({ reply: { type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } }, ran: [] });
+    expect({ listed: await listed.json(), unlisted: await unlisted.json(), ran: h.ran }).toEqual({ listed: { type: 5 }, unlisted: TURNED_AWAY, ran: ['cciptoday'] });
+  });
+
+  it('gives autocomplete from an unlisted server no choices, and a listed one its choices', async () => {
+    // #given
+    const complete = (guild_id: string) => ({ ...command('ccipchain', [{ name: 'chain', type: 3, value: 'ba', focused: true }], { guild_id }), type: 4 });
+    // #when
+    const replies = await Promise.all([OTHER_SERVER, GUILD].map(async (id) => (await handleInteraction(complete(id), GUILD, handlers(), () => {})).json()));
+    // #then
+    expect(replies).toEqual([{ type: 8, data: { choices: [] } }, { type: 8, data: { choices: [{ name: 'Base', value: '15971525489660198786' }] } }]);
+  });
+
+  it.each([['empty', ''], ['blank', ' , '], ['missing', undefined]])('turns everything away while the setting is %s', async (_label, setting) => {
+    // #given
+    const h = handlers();
+    const complete = { ...command('ccipchain', [{ name: 'chain', type: 3, value: 'ba', focused: true }]), type: 4 };
+    // #when
+    const replies = await Promise.all([command('cciptoday'), complete].map(async (i) => (await handleInteraction(i, setting, h, () => {})).json()));
+    // #then
+    expect({ replies, ran: h.ran }).toEqual({ replies: [TURNED_AWAY, { type: 8, data: { choices: [] } }], ran: [] });
+  });
+
+  it('turns a DM away even when the setting is "all"', async () => {
+    // #given
+    const h = handlers();
+    const dms = [{ ...command('cciptoday'), guild_id: undefined }, command('cciptoday', [], { guild_id: '' })];
+    // #when
+    const replies = await Promise.all(dms.map(async (i) => (await handleInteraction(i, 'all', h, () => {})).json()));
+    // #then
+    expect({ replies, ran: h.ran }).toEqual({ replies: [TURNED_AWAY, TURNED_AWAY], ran: [] });
+  });
+
+  it.each([[1], [2]])('turns away an interaction in context %i even when the setting is "all"', async (context) => {
+    // #given
+    const h = handlers();
+    // #when
+    const res = await handleInteraction(command('cciptoday', [], { context }), 'all', h, () => {});
+    // #then
+    expect({ reply: await res.json(), ran: h.ran }).toEqual({ reply: TURNED_AWAY, ran: [] });
+  });
+
+  it('lets a guild-context interaction through', async () => {
+    // #when
+    const res = await handleInteraction(command('cciptoday', [], { context: 0 }), 'all', handlers(), () => {});
+    // #then
+    expect(await res.json()).toEqual({ type: 5 });
+  });
+
+  it('answers PING with PONG whatever the setting', async () => {
+    // #when
+    const replies = await Promise.all([undefined, '', 'all'].map(async (s) => (await handleInteraction({ ...command('x'), type: 1, guild_id: undefined }, s, handlers(), () => {})).json()));
+    // #then
+    expect(replies).toEqual([{ type: 1 }, { type: 1 }, { type: 1 }]);
   });
 
   it('answers an unknown command privately at once', async () => {

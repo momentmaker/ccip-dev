@@ -8,6 +8,20 @@ import { verifyDiscordRequest } from './verify';
 
 export const ONLY_HERE = 'LinkMarine only serves the LinkMarine server.';
 
+const GUILD_CONTEXT = 0;
+
+/**
+ * Whether LinkMarine serves this interaction: only inside a server (never a DM or a user-installed context), and only a
+ * server the setting allows. `all` allows any; otherwise a comma-separated list of server ids; empty or missing allows none.
+ */
+export function serverAllowed(setting: string | undefined, interaction: Interaction): boolean {
+  if (!interaction.guild_id) return false;
+  if (interaction.context !== undefined && interaction.context !== GUILD_CONTEXT) return false;
+  const allowed = (setting ?? '').trim();
+  if (allowed === 'all') return true;
+  return allowed.split(',').some((id) => id.trim() !== '' && id.trim() === interaction.guild_id);
+}
+
 export interface Handlers {
   /** Each command's work, run after the deferred reply. */
   commands: Readonly<Record<string, (interaction: Interaction) => Promise<void>>>;
@@ -18,11 +32,11 @@ const choices = (list: { name: string; value: string }[]) => json({ type: Respon
 
 /**
  * Answers a verified interaction: PING with PONG, autocomplete at once, and a command with a deferred reply while its
- * work runs in `waitUntil`. A command from anywhere but the LinkMarine server is turned away privately.
+ * work runs in `waitUntil`. A command from a server the `servers` setting does not allow, or from a DM, is turned away privately.
  */
-export async function handleInteraction(interaction: Interaction, guildId: string | undefined, handlers: Handlers, waitUntil: (work: Promise<unknown>) => void): Promise<Response> {
+export async function handleInteraction(interaction: Interaction, servers: string | undefined, handlers: Handlers, waitUntil: (work: Promise<unknown>) => void): Promise<Response> {
   if (interaction.type === InteractionType.PING) return json({ type: ResponseType.PONG });
-  const here = Boolean(guildId) && interaction.guild_id === guildId;
+  const here = serverAllowed(servers, interaction);
   if (interaction.type === InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE) {
     if (!here) return choices([]);
     try {
@@ -126,6 +140,6 @@ export default {
     if (!valid) return new Response('Invalid request signature', { status: 401 });
     const interaction = parseInteraction(body);
     if (!interaction) return new Response('Invalid interaction', { status: 400 });
-    return handleInteraction(interaction, env.DISCORD_GUILD_ID, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
+    return handleInteraction(interaction, env.DISCORD_SERVERS, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
   },
 } satisfies ExportedHandler<Env>;

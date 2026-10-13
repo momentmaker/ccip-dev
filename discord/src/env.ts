@@ -5,7 +5,8 @@ export interface Env {
   MARINES: R2Bucket;
   /** The site Worker's LinkMarineCards entrypoint. */
   SITE: LinkMarineRenderer;
-  DISCORD_GUILD_ID: string;
+  /** "all", or the server ids allowed (comma-separated); empty turns every command away. */
+  DISCORD_SERVERS?: string;
   DISCORD_PUBLIC_KEY?: string;
   DISCORD_APPLICATION_ID?: string;
   TELEGRAM_BOT_TOKEN?: string;

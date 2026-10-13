@@ -17,4 +17,11 @@ describe('the commands', () => {
     // #then
     expect(ccipchain?.options?.[0]).toMatchObject({ name: 'chain', max_length: 64 });
   });
+
+  it('limits every command to server installs and server channels, so no user install or DM can run one', () => {
+    // #then
+    expect(COMMANDS.map((c) => ({ name: c.name, integration_types: c.integration_types, contexts: c.contexts }))).toEqual(
+      COMMANDS.map((c) => ({ name: c.name, integration_types: [0], contexts: [0] })),
+    );
+  });
 });
