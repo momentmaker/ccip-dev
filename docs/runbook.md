@@ -265,6 +265,8 @@ A 404 is cached for 60 s, and a 503 is never cached.
 
 **Wiping test Marines** must also delete R2 `web/` (as well as `cards/` and `avatars/`). Do it before the roster is announced: the edge can serve a wiped serial's old web card for up to a day. Memes may stay.
 
+After deleting R2 `web/`, also purge the edge copies: Cloudflare dashboard → Caching → Configuration → Purge Cache → Custom Purge, with `https://discord.ccip.dev/roster.json` and `https://discord.ccip.dev/web/<n>.png` for each wiped serial. Browsers may still hold a wiped card for up to a day.
+
 ## Incidents and alerts
 
 Alerts arrive in the Telegram chat.
