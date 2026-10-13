@@ -1,6 +1,6 @@
 import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { sendTelegramPhoto, sendTelegramPoll, stopTelegramPoll } from '../src/telegram';
+import { sendTelegramPhoto, sendTelegramPoll, sendTelegramVideo, stopTelegramPoll } from '../src/telegram';
 
 const CONFIG = { token: 'secret-token', chatId: '@ccipdev' };
 const PNG = new Uint8Array([137, 80, 78, 71]);
@@ -193,5 +193,50 @@ describe('stopTelegramPoll', () => {
       { problem: 'Telegram answered without vote counts' },
       { problem: 'Telegram returned HTTP 400: Bad Request: chat not found' },
     ]);
+  });
+});
+
+describe('sendTelegramVideo', () => {
+  const MP4 = new Blob([new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])], { type: 'video/mp4' });
+  const VIDEO = { video: MP4, filename: 'ccip-2026-09.mp4', caption: '<b>CCIP in September 2026</b>', parseMode: 'HTML' as const, width: 1080, height: 1080, durationS: 30 };
+  const fields = async (init?: RequestInit) => {
+    const form = init?.body as FormData;
+    const video = form.get('video') as File;
+    return {
+      chat_id: form.get('chat_id'), caption: form.get('caption'), parse_mode: form.get('parse_mode'), width: form.get('width'), height: form.get('height'),
+      duration: form.get('duration'), supports_streaming: form.get('supports_streaming'), filename: video.name, bytes: video.size,
+    };
+  };
+
+  it('uploads the video as multipart with its caption, size, duration and streaming flag', async () => {
+    // #given
+    const fetch = fakeFetch(() => jsonResponse({ ok: true, result: { message_id: 5 } }));
+    // #when
+    const failure = await sendTelegramVideo({ fetch, sleep: async () => {} }, CONFIG, VIDEO);
+    // #then
+    expect({ failure, url: fetch.calls[0]?.url, body: await fields(fetch.calls[0]?.init) }).toEqual({
+      failure: null,
+      url: 'https://api.telegram.org/botsecret-token/sendVideo',
+      body: {
+        chat_id: '@ccipdev', caption: '<b>CCIP in September 2026</b>', parse_mode: 'HTML', width: '1080', height: '1080', duration: '30', supports_streaming: 'true',
+        filename: 'ccip-2026-09.mp4', bytes: 8,
+      },
+    });
+  });
+
+  it("re-sends the whole video once after a 429, and names Telegram's refusal but not the token", async () => {
+    // #given
+    let calls = 0;
+    const retried = fakeFetch(() => (++calls === 1 ? jsonResponse({ ok: false, parameters: { retry_after: 2 } }, 429) : jsonResponse({ ok: true, result: {} })));
+    const refused = fakeFetch(() => jsonResponse({ ok: false, description: 'Request Entity Too Large' }, 413));
+    const sleep = vi.fn(async () => {});
+    // #when
+    const results = [await sendTelegramVideo({ fetch: retried, sleep }, CONFIG, VIDEO), await sendTelegramVideo({ fetch: refused, sleep }, CONFIG, VIDEO)];
+    // #then
+    expect({ results, waits: sleep.mock.calls, second: await fields(retried.calls[1]?.init) }).toEqual({
+      results: [null, 'Telegram returned HTTP 413: Request Entity Too Large'],
+      waits: [[2000]],
+      second: expect.objectContaining({ filename: 'ccip-2026-09.mp4', bytes: 8 }),
+    });
   });
 });

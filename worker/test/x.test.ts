@@ -1,6 +1,6 @@
 import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { createPost, oauth1Header, uploadImage, X_RETRY_CAP_S, type XCredentials } from '../src/x';
+import { createPost, oauth1Header, uploadImage, uploadVideo, X_PROCESSING_WAIT_S, X_RETRY_CAP_S, X_VIDEO_CHUNK_BYTES, type XCredentials } from '../src/x';
 
 const CREDS: XCredentials = { apiKey: 'api-key-1', apiSecret: 'api-secret-2', accessToken: 'access-token-3', accessSecret: 'access-secret-4' };
 const PNG = new Uint8Array([137, 80, 78, 71]);
@@ -284,5 +284,87 @@ describe('429 handling', () => {
     const result = await createPost(deps(fetch), CREDS, { text: 't', mediaIds: ['1'] });
     // #then
     expect({ calls: fetch.calls.length, result }).toEqual({ calls: 2, result: { problem: 'X returned HTTP 429', outage: false } });
+  });
+});
+
+describe('uploadVideo', () => {
+  /** 9 MB: two full 4 MB segments and a 1 MB one. */
+  const MP4 = new Blob([new Uint8Array(2 * X_VIDEO_CHUNK_BYTES + 1024 * 1024)], { type: 'video/mp4' });
+  const UPLOAD = 'https://api.x.com/2/media/upload';
+  const processing = (state: string, check_after_secs?: number, error?: string) => ({ data: { id: '77', processing_info: { state, check_after_secs, ...(error ? { error: { message: error } } : {}) } } });
+
+  /** X's answers to each step; `status` answers the STATUS polls in turn, its last answer repeating. */
+  function xVideo(o: { finalize?: unknown; status?: unknown[]; append?: Response } = {}) {
+    let polls = 0;
+    return fakeFetch((url) => {
+      if (url === `${UPLOAD}/initialize`) return jsonResponse({ data: { id: '77', media_key: '7_77', expires_after_secs: 86_400 } });
+      if (url === `${UPLOAD}/77/append`) return o.append?.clone() ?? jsonResponse({ data: { expires_at: 1 } });
+      if (url === `${UPLOAD}/77/finalize`) return jsonResponse(o.finalize ?? processing('pending', 5));
+      if (url === `${UPLOAD}?command=STATUS&media_id=77`) {
+        const answers = o.status ?? [processing('succeeded')];
+        return jsonResponse(answers[Math.min(polls++, answers.length - 1)]);
+      }
+      return undefined;
+    });
+  }
+
+  it('initializes a tweet_video, appends it in 4 MB segments, finalizes, waits for processing and returns its id', async () => {
+    // #given
+    const fetch = xVideo({ status: [processing('in_progress', 10), processing('succeeded')] });
+    const sleep = vi.fn(async () => {});
+    // #when
+    const result = await uploadVideo(deps(fetch, sleep), CREDS, MP4);
+    // #then
+    const appends = fetch.calls.filter((c) => c.url.endsWith('/append')).map((c) => c.init?.body as FormData);
+    expect({
+      result,
+      steps: fetch.calls.map((c) => `${c.init?.method} ${c.url.slice(UPLOAD.length)}`),
+      init: JSON.parse(String(fetch.calls[0]?.init?.body)),
+      segments: appends.map((f) => [f.get('segment_index'), (f.get('media') as Blob).size]),
+      signed: fetch.calls.every((c) => authOf(c.init).startsWith('OAuth ')),
+      waits: sleep.mock.calls,
+    }).toEqual({
+      result: { mediaId: '77' },
+      steps: ['POST /initialize', 'POST /77/append', 'POST /77/append', 'POST /77/append', 'POST /77/finalize', 'GET ?command=STATUS&media_id=77', 'GET ?command=STATUS&media_id=77'],
+      init: { media_type: 'video/mp4', total_bytes: MP4.size, media_category: 'tweet_video' },
+      segments: [['0', X_VIDEO_CHUNK_BYTES], ['1', X_VIDEO_CHUNK_BYTES], ['2', 1024 * 1024]],
+      signed: true,
+      waits: [[5000], [10_000]],
+    });
+  });
+
+  it('takes a finalize without processing info as ready', async () => {
+    // #given
+    const fetch = xVideo({ finalize: { data: { id: '77' } } });
+    // #when
+    const result = await uploadVideo(deps(fetch), CREDS, MP4);
+    // #then
+    expect({ result, polled: fetch.calls.some((c) => c.url.includes('STATUS')) }).toEqual({ result: { mediaId: '77' }, polled: false });
+  });
+
+  it(`gives up after ${X_PROCESSING_WAIT_S} s of processing, and on processing that failed, neither an outage`, async () => {
+    // #given
+    const slow = xVideo({ status: [processing('in_progress', 50)] });
+    const broken = xVideo({ status: [processing('failed', undefined, 'Unsupported video format')] });
+    const sleep = vi.fn(async () => {});
+    // #when
+    const results = [await uploadVideo(deps(slow, sleep), CREDS, MP4), await uploadVideo(deps(broken), CREDS, MP4)];
+    // #then 5 s, then 50, 50 and the last 15 s of the 2 minutes
+    expect({ results, waits: sleep.mock.calls.flat() }).toEqual({
+      results: [
+        { problem: 'X was still processing the video after 120 s', outage: false },
+        { problem: 'X could not process the video: Unsupported video format', outage: false },
+      ],
+      waits: [5000, 50_000, 50_000, 15_000],
+    });
+  });
+
+  it('names the step that failed, and calls a 5xx an outage', async () => {
+    // #given
+    const fetch = xVideo({ append: jsonResponse({ title: 'Service Unavailable' }, 503) });
+    // #when
+    const result = await uploadVideo(deps(fetch), CREDS, MP4);
+    // #then nothing after the failed segment is sent
+    expect({ result, calls: fetch.calls.length }).toEqual({ result: { problem: 'append 0: X returned HTTP 503: Service Unavailable', outage: true }, calls: 2 });
   });
 });

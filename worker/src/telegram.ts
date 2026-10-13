@@ -57,6 +57,49 @@ export async function sendTelegramPhoto(
   }
 }
 
+/** A 30 MB upload gets longer than a card: Telegram must take it all before it answers. */
+export const TELEGRAM_VIDEO_TIMEOUT_MS = 120_000;
+
+export interface TelegramVideo {
+  video: Blob;
+  filename: string;
+  caption: string;
+  parseMode?: 'HTML';
+  width: number;
+  height: number;
+  durationS: number;
+}
+
+/**
+ * Uploads an MP4 that plays inline (Bot API sendVideo, multipart, at most 50 MB), with sendTelegramPhoto's 429 retry.
+ * Returns null, or what went wrong.
+ */
+export async function sendTelegramVideo(
+  deps: Pick<Deps, 'fetch' | 'sleep'>,
+  { token, chatId }: TelegramConfig,
+  msg: TelegramVideo,
+  timeoutMs = TELEGRAM_VIDEO_TIMEOUT_MS,
+): Promise<string | null> {
+  const post = () => {
+    const form = new FormData();
+    form.append('chat_id', chatId);
+    form.append('caption', msg.caption);
+    if (msg.parseMode) form.append('parse_mode', msg.parseMode);
+    form.append('width', String(msg.width));
+    form.append('height', String(msg.height));
+    form.append('duration', String(msg.durationS));
+    form.append('supports_streaming', 'true');
+    form.append('video', msg.video, msg.filename);
+    return deps.fetch(`https://api.telegram.org/bot${token}/sendVideo`, { method: 'POST', body: form, signal: AbortSignal.timeout(timeoutMs) });
+  };
+  try {
+    const res = await withRetryAfter(deps, post);
+    return res.ok ? null : `Telegram returned HTTP ${res.status}${await description(res)}`;
+  } catch (error) {
+    return failedRequest(error);
+  }
+}
+
 export interface TelegramPoll {
   question: string;
   options: readonly string[];

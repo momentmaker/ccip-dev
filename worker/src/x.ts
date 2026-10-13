@@ -76,22 +76,23 @@ function secondsUntilReset(res: Response, nowMs: number): number | null {
 }
 
 /**
- * A signed POST. `request` runs per attempt because a retry must re-send the whole body, and each attempt gets its own nonce.
+ * A signed request. `request` runs per attempt because a retry must re-send the whole body, and each attempt gets its own nonce.
  * A 429 is retried once when x-rate-limit-reset is at most 30 s away; with a later reset or none it is given up at once. Returns the response
  * body of a 2xx, or what went wrong. The problem text never holds a key, the Authorization header or the URL.
  */
-async function signedPost(
+async function signedRequest(
   deps: XDeps,
   creds: XCredentials,
+  method: 'GET' | 'POST',
   path: string,
-  request: () => { body: BodyInit; headers?: Record<string, string> },
+  request: () => { body: BodyInit | null; headers?: Record<string, string> },
   timeoutMs: number,
 ): Promise<{ json: unknown } | (XProblem & { duplicate: boolean })> {
   const url = `${API}${path}`;
   const attempt = async () => {
     const { body, headers } = request();
-    const authorization = await oauth1Header('POST', url, creds, { nonce: freshNonce(), timestamp: String(Math.floor(deps.clock() / 1000)) });
-    return deps.fetch(url, { method: 'POST', headers: { ...headers, authorization }, body, signal: AbortSignal.timeout(timeoutMs) });
+    const authorization = await oauth1Header(method, url, creds, { nonce: freshNonce(), timestamp: String(Math.floor(deps.clock() / 1000)) });
+    return deps.fetch(url, { method, headers: { ...headers, authorization }, body, signal: AbortSignal.timeout(timeoutMs) });
   };
   try {
     let res = await attempt();
@@ -112,6 +113,9 @@ async function signedPost(
     return { problem: `X request failed (${error instanceof Error ? error.name : 'unknown error'})`, outage: true, duplicate: false };
   }
 }
+
+const signedPost = (deps: XDeps, creds: XCredentials, path: string, request: () => { body: BodyInit | null; headers?: Record<string, string> }, timeoutMs: number) =>
+  signedRequest(deps, creds, 'POST', path, request, timeoutMs);
 
 /** Ids are strings only: a 19-digit JSON number has already lost precision. */
 const idOf = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null);
@@ -134,6 +138,67 @@ export async function uploadImage(deps: XDeps, creds: XCredentials, png: Uint8Ar
   const json = (sent.json ?? {}) as { data?: { id?: unknown }; id?: unknown; media_id_string?: unknown };
   const mediaId = idOf(json.data?.id) ?? idOf(json.id) ?? idOf(json.media_id_string);
   return mediaId === null ? { problem: 'X accepted the upload but sent no media id', outage: false } : { mediaId };
+}
+
+/** X takes appended segments of at most 5 MB; 4 MB leaves room for the multipart envelope. */
+export const X_VIDEO_CHUNK_BYTES = 4 * 1024 * 1024;
+/** How long one run waits for X to process a video; past it the post fails and the next hourly run uploads it again. */
+export const X_PROCESSING_WAIT_S = 120;
+
+type Processing = { state?: unknown; check_after_secs?: unknown; error?: { message?: unknown } } | undefined;
+const processingOf = (json: unknown): Processing => (json as { data?: { processing_info?: Processing } } | null)?.data?.processing_info;
+const stillProcessing = (info: Processing) => info?.state === 'pending' || info?.state === 'in_progress';
+
+/**
+ * Uploads an MP4 for a post with X's v2 chunked upload: initialize (tweet_video), append it in 4 MB segments, finalize,
+ * then poll the processing status for up to 2 minutes. Each failure names its step; a timeout, a network error or a 5xx
+ * is an outage. Still processing, or processing that failed, is a problem but not an outage.
+ */
+export async function uploadVideo(deps: XDeps, creds: XCredentials, mp4: Blob, timeoutMs = X_TIMEOUT_MS): Promise<{ mediaId: string } | XProblem> {
+  const started = await signedPost(
+    deps,
+    creds,
+    '/media/upload/initialize',
+    () => ({ body: JSON.stringify({ media_type: 'video/mp4', total_bytes: mp4.size, media_category: 'tweet_video' }), headers: { 'content-type': 'application/json' } }),
+    timeoutMs,
+  );
+  if ('problem' in started) return { problem: `initialize: ${started.problem}`, outage: started.outage };
+  const mediaId = idOf((started.json as { data?: { id?: unknown } } | null)?.data?.id);
+  if (mediaId === null) return { problem: 'X started the upload but sent no media id', outage: false };
+  for (let segment = 0; segment * X_VIDEO_CHUNK_BYTES < mp4.size; segment++) {
+    const chunk = mp4.slice(segment * X_VIDEO_CHUNK_BYTES, (segment + 1) * X_VIDEO_CHUNK_BYTES);
+    const appended = await signedPost(
+      deps,
+      creds,
+      `/media/upload/${mediaId}/append`,
+      () => {
+        const form = new FormData();
+        form.append('segment_index', String(segment));
+        form.append('media', chunk, 'video.mp4');
+        return { body: form };
+      },
+      timeoutMs,
+    );
+    if ('problem' in appended) return { problem: `append ${segment}: ${appended.problem}`, outage: appended.outage };
+  }
+  const finalized = await signedPost(deps, creds, `/media/upload/${mediaId}/finalize`, () => ({ body: null }), timeoutMs);
+  if ('problem' in finalized) return { problem: `finalize: ${finalized.problem}`, outage: finalized.outage };
+  let info = processingOf(finalized.json);
+  let waited = 0;
+  while (stillProcessing(info)) {
+    if (waited >= X_PROCESSING_WAIT_S) return { problem: `X was still processing the video after ${waited} s`, outage: false };
+    const wait = Math.min(Math.max(1, Number(info?.check_after_secs) || 1), X_PROCESSING_WAIT_S - waited);
+    await deps.sleep(wait * 1000);
+    waited += wait;
+    const status = await signedRequest(deps, creds, 'GET', `/media/upload?command=STATUS&media_id=${mediaId}`, () => ({ body: null }), timeoutMs);
+    if ('problem' in status) return { problem: `status: ${status.problem}`, outage: status.outage };
+    info = processingOf(status.json);
+  }
+  if (info?.state === 'failed') {
+    const why = typeof info.error?.message === 'string' ? `: ${info.error.message.slice(0, 200)}` : '';
+    return { problem: `X could not process the video${why}`, outage: false };
+  }
+  return { mediaId };
 }
 
 /**
