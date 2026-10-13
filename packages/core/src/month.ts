@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { issuePath } from './http';
 import { shortChainName } from './names';
 import type { DayTotals, LargestFee, ReplayFile } from './public';
 import { RECORD_KINDS, recordsSetOn, type RecordSet } from './records';
@@ -12,6 +14,8 @@ export const MONTHLY_VIDEO = { width: 1024, height: 1024, durationS: 30, maxByte
 export const MONTHLY_POST_DAYS = 3;
 
 export const monthlyVideoKey = (month: string) => `videos/monthly/${month}.mp4`;
+/** The month summary the video's end card was drawn from, recorded with it: the post's caption is written from it. */
+export const monthlySummaryKey = (month: string) => `videos/monthly/${month}.json`;
 
 export function isMonth(value: string): boolean {
   return MONTH_RE.test(value);
@@ -82,7 +86,7 @@ export interface MonthSummary {
   busiestLane: MonthLane | null;
 }
 
-/** What history.json and replay.json publish: the site reads these files, and the Worker builds the same rows from D1. */
+/** What history.json and replay.json publish, as the month page reads them. */
 export interface MonthSource {
   days: readonly DayTotals[];
   largest: readonly LargestFee[];
@@ -127,7 +131,7 @@ function busiestLane(replay: MonthSource['replay'], first: string, last: string)
   return lanes[0] ?? null;
 }
 
-/** The month's totals and highlights, from the same rows as the files the month page plays, so a caption and the video's end card agree. */
+/** The month's totals and highlights, from the files the month page plays: its end card shows them. */
 export function monthSummary(month: string, src: MonthSource): MonthSummary {
   const { first, last } = monthBounds(month);
   const rows = src.days.filter((d) => d.day >= first && d.day <= last);
@@ -147,4 +151,43 @@ export function monthSummary(month: string, src: MonthSource): MonthSummary {
       .map((c) => ({ selector: c.selector, name: shortChainName(c) })),
     busiestLane: busiestLane(src.replay, first, last),
   };
+}
+
+/** What the record hook hands over as summary.json, and the workflow puts at monthlySummaryKey. */
+export interface MonthlySummaryFile {
+  month: string;
+  summary: MonthSummary;
+}
+
+const MonthChainSchema = z.object({ selector: z.string(), name: z.string() });
+const RecordValueSchema = z.object({ day: z.string(), value: z.number() });
+
+export const MonthlySummaryFileSchema = z.object({
+  month: z.string(),
+  summary: z.object({
+    month: z.string(),
+    label: z.string(),
+    messages: z.number(),
+    usd: z.number(),
+    fees: z.number().nullable(),
+    linkSharePct: z.number().nullable(),
+    records: z.array(RecordValueSchema.extend({ kind: z.enum(RECORD_KINDS), previous: RecordValueSchema, stoodDays: z.number() })),
+    joined: z.array(MonthChainSchema),
+    busiestLane: z.object({ key: z.string(), src: MonthChainSchema, dst: MonthChainSchema, usd: z.number() }).nullable(),
+  }),
+});
+
+/** The summary in a summary.json for `month`, or what is wrong with the file. */
+export function parseMonthlySummary(text: string, month: string): { summary: MonthSummary } | { problem: string } {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return { problem: 'is not JSON' };
+  }
+  const parsed = MonthlySummaryFileSchema.safeParse(json);
+  if (!parsed.success) return { problem: `is not a month summary (${issuePath(parsed.error)}: ${parsed.error.issues[0]?.message ?? 'invalid'})` };
+  const named = [parsed.data.month, parsed.data.summary.month].find((m) => m !== month);
+  if (named !== undefined) return { problem: `is for ${named}, not ${month}` };
+  return { summary: parsed.data.summary };
 }

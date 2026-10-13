@@ -1,8 +1,5 @@
-import { buildReplay, feeClassifier } from '@ccip-dev/core';
-import { monthBounds, monthSummary, type MonthSummary } from '@ccip-dev/core/month';
+import { monthlySummaryKey, parseMonthlySummary, type MonthSummary } from '@ccip-dev/core/month';
 import type { RunContext } from '../context';
-import { historyDays, LARGEST_FEES_LIMIT, largestFeeEntries } from '../publish';
-import * as store from '../store';
 
 export interface MonthlyFacts {
   kind: 'monthly';
@@ -11,14 +8,13 @@ export interface MonthlyFacts {
 }
 
 /**
- * The month's totals and highlights, from D1 through the functions that write history.json and replay.json, with the
- * largest fees as of the month's last day: the files the month page read when the video was recorded on the 1st. So the
- * caption and the video's end card agree.
+ * The month summary the workflow recorded with the video, which its end card was drawn from. The caption is written from
+ * it, not from D1, so it matches the video even after the 06:00 late finalize or a backfill rewrites the month's rows.
  */
-export async function loadMonthlyFacts(c: RunContext, month: string): Promise<MonthlyFacts> {
-  const db = c.env.DB;
-  const days = await historyDays(c);
-  const largest = await largestFeeEntries(c, monthBounds(month).last, LARGEST_FEES_LIMIT, feeClassifier(await store.linkFeeTokens(db)));
-  const replay = buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db));
-  return { kind: 'monthly', month, summary: monthSummary(month, { days, largest, replay }) };
+export async function loadMonthlyFacts(c: RunContext, month: string): Promise<MonthlyFacts | { problem: string }> {
+  const key = monthlySummaryKey(month);
+  const object = await c.env.ARCHIVE.get(key);
+  if (object === null) return { problem: `${key} is not in the archive bucket` };
+  const parsed = parseMonthlySummary(await object.text(), month);
+  return 'problem' in parsed ? { problem: `${key} ${parsed.problem}` } : { kind: 'monthly', month, summary: parsed.summary };
 }

@@ -1,11 +1,17 @@
+import { parseMonthlySummary, type MonthSummary } from '@ccip-dev/core/month';
 import { describe, expect, it, vi } from 'vitest';
-import { AUDIO_FILE, createRecordHook, VIDEO_FILE, type RecordHookDeps } from '../src/replay/record-hook';
+import { AUDIO_FILE, createRecordHook, SUMMARY_FILE, VIDEO_FILE, type RecordHookDeps } from '../src/replay/record-hook';
 import { wavBytes } from '../src/replay/wav';
 
 const MP4 = new Blob([new Uint8Array([0, 0, 0, 32, 102, 116, 121, 112])], { type: 'video/mp4' });
+const SEPTEMBER: MonthSummary = {
+  month: '2026-09', label: 'September 2026', messages: 7_725, usd: 940_120_000, fees: 3_900, linkSharePct: 40, records: [], joined: [{ selector: '1', name: 'Mode' }], busiestLane: null,
+};
+const RECORDED = { video: VIDEO_FILE, audio: AUDIO_FILE, summary: SUMMARY_FILE };
 
 function deps(o: Partial<RecordHookDeps> = {}) {
   const files: { name: string; type: string; size: number }[] = [];
+  const blobs = new Map<string, Blob>();
   const lines: string[] = [];
   const record = vi.fn<RecordHookDeps['record']>(async (_aspect, _length, onProgress) => {
     for (const f of [0.05, 0.1, 0.12, 0.5, 1]) onProgress(f);
@@ -14,29 +20,35 @@ function deps(o: Partial<RecordHookDeps> = {}) {
   const d: RecordHookDeps = {
     canRecord: async () => true,
     record,
-    download: (blob, name) => files.push({ name, type: blob.type, size: blob.size }),
+    download: (blob, name) => {
+      files.push({ name, type: blob.type, size: blob.size });
+      blobs.set(name, blob);
+    },
     log: (line) => lines.push(line),
+    summary: { month: '2026-09', summary: SEPTEMBER },
     ...o,
   };
-  return { d, files, lines, record };
+  return { d, files, blobs, lines, record };
 }
 
 describe('the record hook', () => {
-  it('records the cut and hands over a silent MP4 and a WAV soundtrack, logging each tenth once', async () => {
+  it('records the cut and hands over a silent MP4, a WAV soundtrack and the month summary, logging each tenth once', async () => {
     // #given
-    const { d, files, lines, record } = deps();
+    const { d, files, blobs, lines, record } = deps();
     // #when
     const result = await createRecordHook(d)({ aspect: '1:1', length: 30 });
     // #then 2 frames of 2 channels of 16 bits after the 44-byte header
-    expect({ result, files, lines, asked: record.mock.calls[0]?.slice(0, 2) }).toEqual({
-      result: { video: VIDEO_FILE, audio: AUDIO_FILE },
+    expect({ result, files: files.map((f) => ({ ...f, size: f.name === SUMMARY_FILE ? 'json' : f.size })), lines, asked: record.mock.calls[0]?.slice(0, 2) }).toEqual({
+      result: RECORDED,
       files: [
         { name: 'video.mp4', type: 'video/mp4', size: MP4.size },
         { name: 'audio.wav', type: 'audio/wav', size: 44 + 8 },
+        { name: 'summary.json', type: 'application/json', size: 'json' },
       ],
       lines: ['ccipRecord: 0%', 'ccipRecord: 10%', 'ccipRecord: 50%', 'ccipRecord: 100%'],
       asked: ['1:1', 30],
     });
+    expect(parseMonthlySummary(await blobs.get(SUMMARY_FILE)!.text(), '2026-09')).toEqual({ summary: SEPTEMBER });
   });
 
   it('fails with a clear message when the browser cannot encode H.264, and records nothing', async () => {
@@ -72,7 +84,7 @@ describe('the record hook', () => {
     const second = await hook({ aspect: '1:1', length: 30 }).catch((e: Error) => e.message);
     finish();
     // #then
-    expect({ second, first: await first }).toEqual({ second: 'ccipRecord: a recording is already running', first: { video: VIDEO_FILE, audio: AUDIO_FILE } });
+    expect({ second, first: await first }).toEqual({ second: 'ccipRecord: a recording is already running', first: RECORDED });
   });
 });
 
@@ -88,7 +100,7 @@ describe('the record hook, guarded across calls', () => {
     const [first, second] = await both;
     // #then
     expect({ first, second, recorded: record.mock.calls.length }).toEqual({
-      first: { video: VIDEO_FILE, audio: AUDIO_FILE },
+      first: RECORDED,
       second: 'ccipRecord: a recording is already running',
       recorded: 1,
     });
@@ -110,7 +122,7 @@ describe('the record hook, guarded across calls', () => {
     // #then
     expect({ reinstalled, after, refusedBrowser: String(refusedBrowser).startsWith('ccipRecord: this browser') }).toEqual({
       reinstalled: 'ccipRecord: a recording is already running',
-      after: { video: VIDEO_FILE, audio: AUDIO_FILE },
+      after: RECORDED,
       refusedBrowser: true,
     });
   });

@@ -56,14 +56,16 @@ jobs:
         env:
           MONTH: ${{ steps.month.outputs.month }}
         run: pnpm video:mux out/video/video.mp4 out/video/audio.wav "out/video/${MONTH}.mp4"
-      - name: Check the video
+      - name: Check the video and its summary
         env:
           MONTH: ${{ steps.month.outputs.month }}
-        run: pnpm video:check "out/video/${MONTH}.mp4"
+        run: pnpm video:check "out/video/${MONTH}.mp4" out/video/summary.json "${MONTH}"
       - uses: actions/upload-artifact@v7
         with:
           name: monthly-video-${{ steps.month.outputs.month }}
-          path: out/video/${{ steps.month.outputs.month }}.mp4
+          path: |
+            out/video/${{ steps.month.outputs.month }}.mp4
+            out/video/summary.json
           retention-days: 7
           if-no-files-found: error
   upload:
@@ -84,9 +86,13 @@ jobs:
         with:
           name: monthly-video-${{ needs.record.outputs.month }}
           path: out/video
+      # The summary goes first, so the Worker never finds a video without the summary its caption is written from.
       - name: Upload to the archive bucket
         env:
           MONTH: ${{ needs.record.outputs.month }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm --filter @ccip-dev/worker exec wrangler r2 object put "ccip-dev-archive/videos/monthly/${MONTH}.mp4" --file "${GITHUB_WORKSPACE}/out/video/${MONTH}.mp4" --content-type video/mp4 --remote
+        run: |
+          set -euo pipefail
+          pnpm --filter @ccip-dev/worker exec wrangler r2 object put "ccip-dev-archive/videos/monthly/${MONTH}.json" --file "${GITHUB_WORKSPACE}/out/video/summary.json" --content-type application/json --remote
+          pnpm --filter @ccip-dev/worker exec wrangler r2 object put "ccip-dev-archive/videos/monthly/${MONTH}.mp4" --file "${GITHUB_WORKSPACE}/out/video/${MONTH}.mp4" --content-type video/mp4 --remote

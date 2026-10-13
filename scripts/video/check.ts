@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { MONTHLY_VIDEO } from '@ccip-dev/core/month';
+import { MONTHLY_VIDEO, parseMonthlySummary } from '@ccip-dev/core/month';
 
 export interface ProbeStream {
   codec_type?: string;
@@ -39,16 +40,26 @@ export function videoProblems(probe: Probe): string[] {
   return problems;
 }
 
-/** `pnpm video:check <file>`: fails the workflow, so nothing is uploaded, unless the file is the video the Worker may post. */
-function main(file: string | undefined): void {
-  if (!file) throw new Error('usage: pnpm video:check <file.mp4>');
+/** Why the summary.json recorded with `month`'s video must not be uploaded (`text` null when the file is missing); empty when it may. */
+export function summaryProblems(text: string | null, month: string): string[] {
+  if (text === null) return ['summary.json is missing'];
+  const parsed = parseMonthlySummary(text, month);
+  return 'problem' in parsed ? [`summary.json ${parsed.problem}`] : [];
+}
+
+/**
+ * `pnpm video:check <video.mp4> <summary.json> <YYYY-MM>`: fails the workflow, so nothing is uploaded, unless the file is
+ * the video the Worker may post and the summary is the month's, which the Worker writes the caption from.
+ */
+function main([file, summary, month]: string[]): void {
+  if (!file || !summary || !month) throw new Error('usage: pnpm video:check <video.mp4> <summary.json> <YYYY-MM>');
   const json = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration,size:stream=codec_type,codec_name,width,height,pix_fmt', '-of', 'json', file], { encoding: 'utf8' });
-  const problems = videoProblems(JSON.parse(json) as Probe);
+  const problems = [...videoProblems(JSON.parse(json) as Probe), ...summaryProblems(existsSync(summary) ? readFileSync(summary, 'utf8') : null, month)];
   if (problems.length > 0) {
     console.error(`${file} is not a valid monthly video: ${problems.join('; ')}`);
     process.exit(1);
   }
-  console.log(`${file} is valid: ${json.replace(/\s+/g, ' ')}`);
+  console.log(`${file} is valid: ${json.replace(/\s+/g, ' ')}; ${summary} is ${month}'s summary`);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main(process.argv[2]);
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main(process.argv.slice(2));

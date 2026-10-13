@@ -67,9 +67,9 @@ async function broadcastMoments(c: RunContext, days: readonly string[], outputs:
 }
 
 /**
- * Last month's video, on the 1st to the 3rd, once the workflow has put it in the archive bucket. It follows the MOMENTS
- * switch, outside the moments' daily budget, and is claimed and sent like every broadcast. A video still missing on the
- * 1st from 06:00, or one of 50 MB or more, alerts once and is not posted.
+ * Last month's video, on the 1st to the 3rd, once the workflow has put it and its month summary in the archive bucket. It
+ * follows the MOMENTS switch, outside the moments' daily budget, and is claimed and sent like every broadcast. A video or
+ * summary still missing or unusable on the 1st from 06:00, or a video of 50 MB or more, alerts once and is not posted.
  */
 async function broadcastMonthly(c: RunContext, outputs: OutputSet): Promise<void> {
   const mode = momentMode(c.env);
@@ -83,18 +83,20 @@ async function broadcastMonthly(c: RunContext, outputs: OutputSet): Promise<void
     console.warn(`[broadcast] MOMENTS is ${mode} but no output is configured`);
     return;
   }
-  const video = await c.env.ARCHIVE.head(monthlyVideoKey(month));
-  if (video === null) {
+  const missing = async (what: string) => {
     if (now.getUTCDate() === 1 && now.getUTCHours() >= MONTHLY_MISSING_HOUR_UTC) {
-      await alertOnce(c, `monthly-video-missing:${month}`, `The ${monthLabel(month)} video is not in the archive bucket (${monthlyVideoKey(month)}), so it is not posted. Check the monthly-video workflow's run.`);
+      await alertOnce(c, `monthly-video-missing:${month}`, `The ${monthLabel(month)} video is not posted: ${what}. Check the monthly-video workflow's run.`);
     }
-    return;
-  }
+  };
+  const video = await c.env.ARCHIVE.head(monthlyVideoKey(month));
+  if (video === null) return missing(`${monthlyVideoKey(month)} is not in the archive bucket`);
   if (video.size >= MONTHLY_VIDEO.maxBytes) {
     await alertOnce(c, `monthly-video-size:${month}`, `The ${monthLabel(month)} video is ${(video.size / 1e6).toFixed(1)} MB, over the 50 MB Telegram takes, so it is not posted.`);
     return;
   }
-  await deliver(c, { target, facts: await loadMonthlyFacts(c, month) }, enabled);
+  const facts = await loadMonthlyFacts(c, month);
+  if ('problem' in facts) return missing(`its summary ${facts.problem}`);
+  await deliver(c, { target, facts }, enabled);
 }
 
 /** Alerts `signature` once ever, where c.alert repeats hourly: an `alerted:<signature>` row in meta remembers it. */

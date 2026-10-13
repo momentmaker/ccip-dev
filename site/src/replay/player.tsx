@@ -288,6 +288,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs, month = false
         recordCut({ showInput, stars, assets, coins: () => settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins) }, aspect, lengthS, onProgress),
       download: downloadBlob,
       log: (line) => console.log(line),
+      summary: { month: monthView.month.month, summary: monthView.month.summary },
     });
     document.documentElement.dataset.month = 'ready';
     return () => {

@@ -8,7 +8,7 @@ import { launchChrome, probePage, probeProblems } from './browser';
 
 const READY_TIMEOUT_MS = 120_000;
 const DOWNLOAD_WAIT_MS = 30_000;
-export const RECORDED_FILES = ['video.mp4', 'audio.wav'] as const;
+export const RECORDED_FILES = ['video.mp4', 'audio.wav', 'summary.json'] as const;
 
 /** The month to record: `--month`, or the month before `now`'s (UTC). */
 export function pickMonth(arg: string | undefined, now: Date): string {
@@ -21,7 +21,7 @@ export function monthPageUrl(base: string, month: string): string {
   return `${base.replace(/\/+$/, '')}/replay/month/?m=${month}`;
 }
 
-/** `pnpm video:monthly --month YYYY-MM`: records the month page's cut in Chrome and saves video.mp4 and audio.wav to `--out`. */
+/** `pnpm video:monthly --month YYYY-MM`: records the month page's cut in Chrome and saves video.mp4, audio.wav and summary.json to `--out`. */
 async function main(): Promise<void> {
   const { values } = parseArgs({ options: { month: { type: 'string' }, base: { type: 'string', default: 'https://ccip.dev' }, out: { type: 'string', default: 'out/video' } } });
   const month = pickMonth(values.month, new Date());
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     await page.evaluate(() => (window as unknown as { ccipRecord: (r: { aspect: string; length: number }) => Promise<unknown> }).ccipRecord({ aspect: '1:1', length: 30 }));
     for (const deadline = Date.now() + DOWNLOAD_WAIT_MS; downloads.length < RECORDED_FILES.length && Date.now() < deadline; ) await new Promise((r) => setTimeout(r, 200));
     const names = downloads.map((d) => d.suggestedFilename());
-    if (!RECORDED_FILES.every((f) => names.includes(f))) throw new Error(`the page handed over ${names.join(', ') || 'nothing'}, not ${RECORDED_FILES.join(' and ')}`);
+    if (!RECORDED_FILES.every((f) => names.includes(f))) throw new Error(`the page handed over ${names.join(', ') || 'nothing'}, not ${RECORDED_FILES.join(', ')}`);
     for (const d of downloads) await d.saveAs(path.join(out, d.suggestedFilename()));
     console.log(`Recorded ${month} in ${Math.round((Date.now() - started) / 1000)} s: ${RECORDED_FILES.map((f) => path.join(out, f)).join(', ')}`);
   } finally {

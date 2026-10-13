@@ -85,9 +85,10 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
 **Record hook.**
 - The month page exposes a small hook for automation: `window.ccipRecord({ aspect: '1:1', length: 30 })`.
 - It records with the existing offline recorder: deterministic, 30 fps, H.264 `avc1.640028` at 8 Mbps.
-- It returns two files through the page's download path:
+- It returns three files through the page's download path:
   - the video **without audio** (`video.mp4`);
-  - the rendered soundtrack as **WAV** (`audio.wav`, 48 kHz stereo).
+  - the rendered soundtrack as **WAV** (`audio.wav`, 48 kHz stereo);
+  - the month summary the end card is drawn from (`summary.json`, `{ month, summary }`), which the Worker writes the caption from.
 - Chrome on Linux can't encode AAC, which is why the audio comes out separately.
 - When the browser can't record H.264, the hook fails with a clear message.
 - The record button for people is unchanged.
@@ -100,16 +101,18 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
      - launches headless Chrome with software WebGL (SwiftShader);
      - opens `https://ccip.dev/replay/month/?m=YYYY-MM`;
      - waits for the page to be ready and calls the hook;
-     - saves both downloads.
+     - saves the three downloads.
   3. Re-encode and mux them with ffmpeg (`pnpm video:mux`): `-vf scale=1024:1024:flags=lanczos:out_range=tv,format=yuv420p -c:v libx264 -profile:v high -preset medium -crf 18 -r 30 -c:a aac -b:a 128k -shortest -movflags +faststart`. Reason: X's documented 1280×1024 limit and its 4:2:0 requirement; the in-page recording stays 1080².
   4. Validate with ffprobe. The job fails, uploading nothing, unless the file has:
      - a duration of 29.5–30.5 s;
      - 1024×1024 and `yuv420p`;
      - H.264 video;
      - AAC audio;
-     - a size under 50 MB.
-  5. **Dry run:** attach the MP4 to the run and stop.
-  6. **Otherwise:** upload it to the private R2 archive bucket as `videos/monthly/YYYY-MM.mp4`, using `wrangler r2 object put` and the existing `CF_DEPLOY_TOKEN` (now with R2 Edit).
+     - a size under 50 MB;
+
+     and unless `summary.json` parses as a month summary that names the month.
+  5. **Dry run:** attach the MP4 and the summary to the run and stop.
+  6. **Otherwise:** upload them to the private R2 archive bucket, the summary first as `videos/monthly/YYYY-MM.json`, then the video as `videos/monthly/YYYY-MM.mp4`, using `wrangler r2 object put` and the existing `CF_DEPLOY_TOKEN` (now with R2 Edit). The summary goes first so the Worker never finds a video without it.
 - **Time:** a few minutes of software rendering is expected. The job has a 30-minute timeout.
 - **Feasibility first:** the plan's first task runs a short headless recording on a real GitHub runner. It confirms that Chrome stable's WebCodecs H.264 encoder and WebGL via SwiftShader work there before anything else depends on them.
 
@@ -120,13 +123,14 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
 - It uses the same atomic claim and per-output keys as every broadcast.
 
 **When.**
-- The hourly run plans last month's video on the 1st, 2nd and 3rd of the month, once `videos/monthly/YYYY-MM.mp4` exists in the archive bucket.
+- The hourly run plans last month's video on the 1st, 2nd and 3rd of the month, once `videos/monthly/YYYY-MM.mp4` and its summary `videos/monthly/YYYY-MM.json` exist in the archive bucket.
 - It follows the `MOMENTS` switch, combined with `BROADCASTS` as for moments.
 - It is outside the 2-a-day moment budget.
 
 **No video, no post.**
 - Before claiming, the Worker checks that the object exists and is under 50 MB. That takes the place of 3a's card check.
 - An object that is too big alerts once and isn't posted.
+- Then, still before claiming, it reads the summary and validates it. A missing or invalid summary counts as a missing video.
 
 **Outputs.**
 - **Telegram channel:** `sendVideo` as a multipart upload, with the HTML caption, `width`, `height`, `duration` and `supports_streaming`.
@@ -150,10 +154,10 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
 
   The "New on CCIP" line drops first when the text is too long, then the hashtag line.
 - **Telegram:** the same in fuller sentences with bold numbers, plus the records set that month.
-- **Numbers:** the Worker computes the totals from the same daily rows `history.json` publishes, so the caption and the video's end card can't disagree.
+- **Numbers:** the Worker builds the caption from the month summary recorded with the video (`videos/monthly/YYYY-MM.json`), the object the end card was drawn from, so the caption and the video's end card can't disagree. That holds on every retry, even after the 06:00 late finalize or a backfill rewrites the month's rows in D1.
 
 **Missing video.**
-- On the 1st, an hourly run at 06:00 UTC or later that finds no `videos/monthly/<last month>.mp4` alerts `monthly-video-missing:YYYY-MM` once.
+- On the 1st, an hourly run at 06:00 UTC or later that finds no `videos/monthly/<last month>.mp4`, or no valid summary beside it, alerts `monthly-video-missing:YYYY-MM` once. The alert names the missing file or what is wrong with the summary.
 
 **Memory.** A 30 MB video read from R2 fits within the Worker's limits.
 
@@ -177,9 +181,12 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
   - the end card's rows, including when one is empty;
   - `layoutFor` with the new counter box never overlaps, in every aspect.
 - **Month page:** an invalid month or a future month shows the empty state.
-- **Record hook:** in a workerd- or node-friendly test where possible, the hook returns two files of the right types. The headless recording itself is covered by the feasibility task and a dry run.
+- **Record hook:** in a workerd- or node-friendly test where possible, the hook returns three files of the right types, and `summary.json` reads back as the month summary it was given. The headless recording itself is covered by the feasibility task and a dry run.
+- **Month summary (core and the check):** a real month summary round-trips through JSON and the schema unchanged; a file that is missing, not JSON, not a month summary or for another month is refused, by the parser and by `pnpm video:check`.
 - **Worker:**
   - planning on the 1st–3rd only, and only when the object exists;
+  - the facts read from the recorded summary, and a missing or invalid summary treated as a missing video;
+  - a retried output keeps the recorded summary's numbers after D1's rows for the month change;
   - the size check;
   - the missing-video alert, once;
   - the `MOMENTS` switch;

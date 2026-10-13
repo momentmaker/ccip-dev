@@ -1,3 +1,4 @@
+import type { MonthlySummaryFile } from '@ccip-dev/core/month';
 import type { Aspect } from './player';
 import { ASPECT_SIZE, AVC_CODEC } from './recorder';
 import { REPLAY_LENGTHS, type ReplayLength } from './timeline';
@@ -5,6 +6,7 @@ import { wavBytes, type PcmAudio } from './wav';
 
 export const VIDEO_FILE = 'video.mp4';
 export const AUDIO_FILE = 'audio.wav';
+export const SUMMARY_FILE = 'summary.json';
 
 export interface RecordRequest {
   aspect: string;
@@ -14,6 +16,7 @@ export interface RecordRequest {
 export interface RecordedFiles {
   video: string;
   audio: string;
+  summary: string;
 }
 
 export interface RecordHookDeps {
@@ -22,11 +25,13 @@ export interface RecordHookDeps {
   record: (aspect: Aspect, length: ReplayLength, onProgress: (fraction: number) => void) => Promise<{ video: Blob; audio: PcmAudio }>;
   download: (blob: Blob, filename: string) => void;
   log: (line: string) => void;
+  /** The month summary the cut's end card is drawn from: the Worker writes the post's caption from it. */
+  summary: MonthlySummaryFile;
 }
 
 declare global {
   interface Window {
-    /** The month page's hook for the monthly video workflow: the silent MP4 and the WAV soundtrack arrive as two downloads. */
+    /** The month page's hook for the monthly video workflow: the silent MP4, the WAV soundtrack and the month summary arrive as three downloads. */
     ccipRecord?: (request: RecordRequest) => Promise<RecordedFiles>;
   }
 }
@@ -49,8 +54,8 @@ function progressLog(log: (line: string) => void): (fraction: number) => void {
 }
 
 /**
- * The record hook: checks the request and the browser, records, then hands over the video and its soundtrack as
- * `video.mp4` and `audio.wav`. One recording at a time; a request it cannot serve fails with the reason.
+ * The record hook: checks the request and the browser, records, then hands over the video, its soundtrack and the month
+ * summary as `video.mp4`, `audio.wav` and `summary.json`. One recording at a time; a request it cannot serve fails with the reason.
  */
 export function createRecordHook(deps: RecordHookDeps): (request: RecordRequest) => Promise<RecordedFiles> {
   return async ({ aspect, length }) => {
@@ -64,7 +69,8 @@ export function createRecordHook(deps: RecordHookDeps): (request: RecordRequest)
       const { video, audio } = await deps.record(aspect, length, progressLog(deps.log));
       deps.download(new Blob([video], { type: 'video/mp4' }), VIDEO_FILE);
       deps.download(new Blob([wavBytes(audio)], { type: 'audio/wav' }), AUDIO_FILE);
-      return { video: VIDEO_FILE, audio: AUDIO_FILE };
+      deps.download(new Blob([JSON.stringify(deps.summary)], { type: 'application/json' }), SUMMARY_FILE);
+      return { video: VIDEO_FILE, audio: AUDIO_FILE, summary: SUMMARY_FILE };
     } finally {
       busy = false;
     }

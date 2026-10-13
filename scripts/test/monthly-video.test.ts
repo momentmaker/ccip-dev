@@ -1,8 +1,9 @@
+import { monthSummary } from '@ccip-dev/core/month';
 import { describe, expect, it } from 'vitest';
 import { probeProblems } from '../video/browser';
-import { videoProblems, type Probe } from '../video/check';
+import { summaryProblems, videoProblems, type Probe } from '../video/check';
 import { muxArgs } from '../video/mux';
-import { monthPageUrl, pickMonth } from '../video/monthly';
+import { monthPageUrl, pickMonth, RECORDED_FILES } from '../video/monthly';
 
 describe('probeProblems', () => {
   it('passes a browser with WebGL2 and an H.264 encoder, and names what another lacks', () => {
@@ -137,5 +138,39 @@ describe('muxArgs', () => {
     expect(args.join(' ')).toBe(
       '-y -v error -i video.mp4 -i audio.wav -vf scale=1024:1024:flags=lanczos:out_range=tv,format=yuv420p -c:v libx264 -profile:v high -preset medium -crf 18 -r 30 -c:a aac -b:a 128k -shortest -movflags +faststart out.mp4',
     );
+  });
+});
+
+describe('summaryProblems', () => {
+  const summary = monthSummary('2026-09', { days: [], largest: [], replay: { chains: [], lanes: [], days: [] } });
+
+  it("passes the month's summary.json", () => {
+    // #given
+    const text = JSON.stringify({ month: '2026-09', summary });
+    // #when
+    const problems = summaryProblems(text, '2026-09');
+    // #then
+    expect(problems).toEqual([]);
+  });
+
+  it('fails a summary.json that is missing, not JSON, not a month summary, or for another month', () => {
+    // #given
+    const texts = [null, '{', JSON.stringify({ month: '2026-09' }), JSON.stringify({ month: '2026-08', summary: { ...summary, month: '2026-08' } })];
+    // #when
+    const problems = texts.map((text) => summaryProblems(text, '2026-09'));
+    // #then
+    expect(problems).toEqual([
+      ['summary.json is missing'],
+      ['summary.json is not JSON'],
+      ['summary.json is not a month summary (summary: Invalid input: expected object, received undefined)'],
+      ['summary.json is for 2026-08, not 2026-09'],
+    ]);
+  });
+});
+
+describe('RECORDED_FILES', () => {
+  it('waits for the video, its soundtrack and the month summary', () => {
+    // #then
+    expect(RECORDED_FILES).toEqual(['video.mp4', 'audio.wav', 'summary.json']);
   });
 });

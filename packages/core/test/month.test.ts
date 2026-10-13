@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  isMonth, isPlayableMonth, monthBounds, monthDays, monthLabel, monthlyDue, monthlyVideoKey, monthSummary, nextMonth, previousMonth, type MonthSource,
+  isMonth, isPlayableMonth, monthBounds, monthDays, monthLabel, monthlyDue, monthlySummaryKey, monthlyVideoKey, monthSummary, nextMonth, parseMonthlySummary, previousMonth,
+  type MonthSource,
 } from '../src/month';
 import type { DayTotals, ReplayFile } from '../src/public';
 
@@ -18,6 +19,7 @@ describe('months', () => {
       previous: [previousMonth('2027-01'), previousMonth('2026-10')],
       label: monthLabel('2026-10'),
       key: monthlyVideoKey('2026-09'),
+      summaryKey: monthlySummaryKey('2026-09'),
     }).toEqual({
       valid: [true, true, false, false, false, false],
       bounds: { first: '2028-02-01', last: '2028-02-29' },
@@ -26,6 +28,7 @@ describe('months', () => {
       previous: ['2026-12', '2026-09'],
       label: 'October 2026',
       key: 'videos/monthly/2026-09.mp4',
+      summaryKey: 'videos/monthly/2026-09.json',
     });
   });
 
@@ -115,5 +118,44 @@ describe('monthSummary', () => {
       messages: 100, fees: null, link: null, records: [], joined: ['Ethereum', 'Base'],
     });
     expect(monthSummary('2026-07', SOURCE).busiestLane).toBeNull();
+  });
+});
+
+describe('parseMonthlySummary', () => {
+  it('reads back a month summary written as JSON, unchanged', () => {
+    // #given September with every record kind, a new chain and a lane, and August with no fees, records or lane
+    const summaries = [monthSummary('2026-09', SOURCE), monthSummary('2026-08', { ...SOURCE, days: SOURCE.days.slice(0, 1), largest: [] })];
+    // #when
+    const parsed = summaries.map((summary) => parseMonthlySummary(JSON.stringify({ month: summary.month, summary }), summary.month));
+    // #then
+    expect(parsed).toEqual(summaries.map((summary) => ({ summary })));
+  });
+
+  it('names what is wrong with a file that is not JSON, not a month summary, or for another month', () => {
+    // #given
+    const summary = monthSummary('2026-09', SOURCE);
+    const { usd: _usd, ...noValue } = summary;
+    const files = [
+      'not json',
+      JSON.stringify({ month: '2026-09', summary: noValue }),
+      JSON.stringify({ month: '2026-09', summary: { ...summary, messages: '420' } }),
+      JSON.stringify({ month: '2026-09', summary: { ...summary, records: [{ ...summary.records[0], kind: 'senders' }] } }),
+      JSON.stringify({ month: '2026-08', summary }),
+      JSON.stringify({ month: '2026-09', summary: { ...summary, month: '2026-08' } }),
+    ];
+    // #when
+    const problems = files.map((text) => {
+      const parsed = parseMonthlySummary(text, '2026-09');
+      return 'problem' in parsed ? parsed.problem : null;
+    });
+    // #then
+    expect(problems).toEqual([
+      'is not JSON',
+      'is not a month summary (summary.usd: Invalid input: expected number, received undefined)',
+      'is not a month summary (summary.messages: Invalid input: expected number, received string)',
+      'is not a month summary (summary.records.0.kind: Invalid option: expected one of "messages"|"value"|"fees"|"largest_fee"|"link_share")',
+      'is for 2026-08, not 2026-09',
+      'is for 2026-08, not 2026-09',
+    ]);
   });
 });

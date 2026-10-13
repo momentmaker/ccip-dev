@@ -1,62 +1,51 @@
-import { monthSummary } from '@ccip-dev/core/month';
-import type { HistoryFile, ReplayFile } from '@ccip-dev/core/public';
-import { NETWORKS } from '@ccip-dev/core/testing';
+import type { MonthSummary } from '@ccip-dev/core/month';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadMonthlyFacts } from '../src/broadcasts/monthly';
-import { publishHistoryFiles } from '../src/publish';
-import * as store from '../src/store';
-import { harness, readPublic, resetStorage, seedRegistry } from './helpers';
+import { harness, resetStorage } from './helpers';
 
 beforeEach(resetStorage);
 
-const ETH = NETWORKS.ethereum.chainSelector;
-const BASE = NETWORKS.base.chainSelector;
-const BSC = NETWORKS.bsc.chainSelector;
-const NOW = '2026-10-02T01:00:00.000Z';
+const SUMMARY_KEY = 'videos/monthly/2026-09.json';
+const SEPTEMBER: MonthSummary = {
+  month: '2026-09',
+  label: 'September 2026',
+  messages: 4_050,
+  usd: 93e6,
+  fees: 510,
+  linkSharePct: 40,
+  records: [{ kind: 'messages', day: '2026-09-10', value: 150, previous: { day: '2026-08-30', value: 100 }, stoodDays: 11 }],
+  joined: [{ selector: '3', name: 'BNB Chain' }],
+  busiestLane: { key: '3>1', src: { selector: '3', name: 'BNB Chain' }, dst: { selector: '1', name: 'Ethereum' }, usd: 63e6 },
+};
 
-/** Aug 30 to Oct 1: Ethereum → Base every day, BNB Chain → Ethereum from Sep 10; fees from Sep 1, 40% of them in LINK. */
-async function seedMonths(): Promise<void> {
-  await seedRegistry([NETWORKS.ethereum, NETWORKS.base, NETWORKS.bsc], []);
-  for (let ms = Date.parse('2026-08-30T00:00:00Z'); ms <= Date.parse('2026-10-01T00:00:00Z'); ms += 86_400_000) {
-    const day = new Date(ms).toISOString().slice(0, 10);
-    const fee = day >= '2026-09-01' ? 10 : null;
-    const lanes = [{ day, dim: 'lane' as const, key: `${ETH}>${BASE}`, messages: 100, usd_value: 1e6, fee_usd: fee }];
-    if (day >= '2026-09-10') lanes.push({ day, dim: 'lane' as const, key: `${BSC}>${ETH}`, messages: 50, usd_value: 3e6, fee_usd: fee });
-    const messages = lanes.reduce((s, l) => s + l.messages, 0);
-    const usd = lanes.reduce((s, l) => s + l.usd_value, 0);
-    await store.replaceDaily(env.DB, { day, messages, token_messages: 0, usd_value: usd, fee_usd: fee === null ? null : fee * lanes.length, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 }, lanes, NOW);
-    if (fee !== null) await store.setFeeGroupTotals(env.DB, day, { link_usd: fee * lanes.length * 0.4, native_usd: fee * lanes.length * 0.6, stable_usd: 0, link_amount: 1 });
-  }
-}
+const load = () => loadMonthlyFacts(harness({ now: '2026-10-01T02:00:00.000Z' }).c, '2026-09');
 
 describe('loadMonthlyFacts', () => {
-  it("sums the month from D1: its totals, LINK share, new chains and busiest lane", async () => {
+  it('reads the month summary the workflow recorded with the video, as it was written', async () => {
     // #given
-    await seedMonths();
-    const h = harness({ now: NOW });
+    await env.ARCHIVE.put(SUMMARY_KEY, JSON.stringify({ month: '2026-09', summary: SEPTEMBER }));
     // #when
-    const { summary } = await loadMonthlyFacts(h.c, '2026-09');
-    // #then 9 days of one lane and 21 of two
-    expect({
-      label: summary.label, messages: summary.messages, usd: summary.usd, fees: summary.fees, link: summary.linkSharePct,
-      joined: summary.joined.map((c) => c.name), lane: summary.busiestLane && [summary.busiestLane.src.name, summary.busiestLane.dst.name, summary.busiestLane.usd],
-    }).toEqual({
-      label: 'September 2026', messages: 9 * 100 + 21 * 150, usd: 9 * 1e6 + 21 * 4e6, fees: 9 * 10 + 21 * 20, link: 40,
-      joined: ['BNB Chain'], lane: ['BNB Chain', 'Ethereum', 21 * 3e6],
-    });
+    const facts = await load();
+    // #then
+    expect(facts).toEqual({ kind: 'monthly', month: '2026-09', summary: SEPTEMBER });
   });
 
-  it('agrees with the month summary of the history.json and replay.json the month page reads', async () => {
-    // #given the files the finalize publishes
-    await seedMonths();
-    const h = harness({ now: NOW });
-    await publishHistoryFiles(h.c);
-    const history = (await readPublic('history.json')) as HistoryFile;
-    const replay = (await readPublic('replay.json')) as ReplayFile;
+  it.each([
+    ['missing', null, `${SUMMARY_KEY} is not in the archive bucket`],
+    ['not JSON', '{"month": "2026-09"', `${SUMMARY_KEY} is not JSON`],
+    [
+      'not a month summary',
+      JSON.stringify({ month: '2026-09', summary: { ...SEPTEMBER, fees: '510' } }),
+      `${SUMMARY_KEY} is not a month summary (summary.fees: Invalid input: expected number, received string)`,
+    ],
+    ['for another month', JSON.stringify({ month: '2026-08', summary: { ...SEPTEMBER, month: '2026-08' } }), `${SUMMARY_KEY} is for 2026-08, not 2026-09`],
+  ])('names the problem with a summary that is %s', async (_case, text, problem) => {
+    // #given
+    if (text !== null) await env.ARCHIVE.put(SUMMARY_KEY, text);
     // #when
-    const { summary } = await loadMonthlyFacts(h.c, '2026-09');
+    const facts = await load();
     // #then
-    expect(summary).toEqual(monthSummary('2026-09', { days: history.days, largest: history.largest_fees ?? [], replay }));
+    expect(facts).toEqual({ problem });
   });
 });
