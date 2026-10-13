@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startPoller, type Visibility } from '../src/lib/poller';
+import { startLoop, startPoller, type Visibility } from '../src/lib/poller';
 import status from './fixtures/status.json';
 
 function fakeVisibility(initial = true) {
@@ -88,5 +88,30 @@ describe('startPoller', () => {
     stop();
     await vi.advanceTimersByTimeAsync(600_000);
     expect(f.calls()).toBe(1);
+  });
+});
+
+describe('startLoop', () => {
+  it('loads at once, then after each delay, handing failures their count', async () => {
+    // #given a load that fails once, then succeeds
+    const seen: string[] = [];
+    let calls = 0;
+    const stop = startLoop({
+      load: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error('down');
+        return calls;
+      },
+      onData: (n) => void seen.push(`data ${n}`),
+      onError: (_err, failures) => void seen.push(`error ${failures}`),
+      delayMs: () => 60_000,
+      visibility: { isVisible: () => true, onChange: () => () => {} },
+    });
+    // #when
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(60_000);
+    stop();
+    // #then
+    expect(seen).toEqual(['error 1', 'data 2']);
   });
 });

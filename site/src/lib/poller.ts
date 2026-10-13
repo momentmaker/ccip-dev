@@ -23,7 +23,17 @@ export interface PollerOptions<N extends PublicFileName> {
   visibility?: Visibility;
 }
 
-export function startPoller<N extends PublicFileName>(opts: PollerOptions<N>): () => void {
+export interface LoopOptions<T> {
+  load: () => Promise<T>;
+  onData: (data: T) => void;
+  onError: (error: unknown, failures: number) => void;
+  /** How long to wait before the next load, given the failures in a row. */
+  delayMs: (failures: number) => number;
+  visibility?: Visibility;
+}
+
+/** Loads at once and then after each delay, only while the page is visible, at once again when it reappears; returns stop. */
+export function startLoop<T>(opts: LoopOptions<T>): () => void {
   const visibility = opts.visibility ?? documentVisibility;
   let failures = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -37,19 +47,19 @@ export function startPoller<N extends PublicFileName>(opts: PollerOptions<N>): (
   const schedule = () => {
     if (stopped || !visibility.isVisible()) return;
     clear();
-    timer = setTimeout(() => void tick(), pollDelay(failures));
+    timer = setTimeout(() => void tick(), opts.delayMs(failures));
   };
   const tick = async () => {
     timer = null;
     if (stopped || inFlight || !visibility.isVisible()) return;
     inFlight = true;
     try {
-      const data = await fetchPublic(opts.name, { fetch: opts.fetch, base: opts.base });
+      const data = await opts.load();
       failures = 0;
       if (!stopped) opts.onData(data);
     } catch (err) {
       failures += 1;
-      if (!stopped) opts.onError(err instanceof DataError ? err : new DataError(opts.name, String(err)), failures);
+      if (!stopped) opts.onError(err, failures);
     } finally {
       inFlight = false;
       schedule();
@@ -68,4 +78,14 @@ export function startPoller<N extends PublicFileName>(opts: PollerOptions<N>): (
     unsubscribe();
     clear();
   };
+}
+
+export function startPoller<N extends PublicFileName>(opts: PollerOptions<N>): () => void {
+  return startLoop({
+    load: () => fetchPublic(opts.name, { fetch: opts.fetch, base: opts.base }),
+    onData: opts.onData,
+    onError: (err, failures) => opts.onError(err instanceof DataError ? err : new DataError(opts.name, String(err)), failures),
+    delayMs: pollDelay,
+    visibility: opts.visibility,
+  });
 }

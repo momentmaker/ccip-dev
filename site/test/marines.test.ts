@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { marinePath, marineTitle, marineUrl, memeUrl, serialFromPath, webCardUrl } from '../src/lib/marines';
+import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
+import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, rarestBarPct, serialFromPath, shareLine, tierName, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
 
 describe('Marine URLs', () => {
   it('pads the page path, and keeps the web card on the bare serial', () => {
@@ -21,5 +22,49 @@ describe('Marine URLs', () => {
   it('reads the serial from a Marine page path, and nothing else', () => {
     // #then
     expect(['/marines/0007/', '/marines/7', '/marines/0/', '/marines/marine/', '/marines/', '/marines/1234567890/'].map(serialFromPath)).toEqual([7, 7, null, null, null, null]);
+  });
+});
+
+describe('wording', () => {
+  it('names tiers, dates enlistments, draws pips and writes the share line', () => {
+    // #then
+    expect([tierName('legendary'), enlistedText('2026-10-13'), pipText(1), pipText(5), pipText(400), shareLine(ROSTER_FIXTURE.marines[1]!)]).toEqual([
+      'Legendary',
+      '13 Oct 2026',
+      '◆◆◆',
+      '◆◆◇',
+      '◇◇◇',
+      'LINK MARINE #0002 · painting-space-prophecy · LEGENDARY',
+    ]);
+  });
+
+  it('runs a rarest-ten bar from 20% at the roster’s lowest score to 100% at its highest', () => {
+    // #then
+    expect([rarestBarPct(14.2, 14.2, 18.74), rarestBarPct(18.74, 14.2, 18.74), rarestBarPct(16.47, 14.2, 18.74), rarestBarPct(15, 15, 15)]).toEqual([20, 100, 60, 100]);
+  });
+});
+
+describe('the constellation layout', () => {
+  /** A planet's box: its hexagon (size × 1.12) and its label below. */
+  const box = (p: { x: number; y: number; size: number }) => ({ left: p.x - p.size / 2, right: p.x + p.size / 2, top: p.y - p.size * 0.56, bottom: p.y + p.size * 0.56 + PLANET_LABEL_H });
+  const overlaps = (ps: { x: number; y: number; size: number }[]) =>
+    ps.flatMap((p, i) => ps.slice(i + 1).map((q) => [box(p), box(q)])).filter(([a, b]) => a!.left < b!.right && b!.left < a!.right && a!.top < b!.bottom && b!.top < a!.bottom).length;
+  const outside = (ps: { x: number; y: number; size: number }[], f: PlanetFrame) => ps.map(box).filter((b) => b.left < 0 || b.top < 0 || b.right > f.width || b.bottom > f.height).length;
+
+  it('never overlaps two planets or leaves the frame, wide or narrow, however the carriers fall', () => {
+    // #given
+    const cases = [Array(24).fill(3), Array.from({ length: 24 }, (_, i) => 30 - i), [1]];
+    // #when
+    const wide = cases.map((c) => planetLayout(c, WIDE_FRAME));
+    const narrow = cases.map((c) => planetLayout(c.slice(0, 12), NARROW_FRAME));
+    // #then
+    expect([...wide.map((p) => [overlaps(p), outside(p, WIDE_FRAME)]), ...narrow.map((p) => [overlaps(p), outside(p, NARROW_FRAME)])]).toEqual(Array(6).fill([0, 0]));
+  });
+
+  it('lays the same carriers out the same way every time, the busiest planet biggest and nearest the middle', () => {
+    // #when
+    const [a, b] = [planetLayout([9, 3, 1], WIDE_FRAME), planetLayout([9, 3, 1], WIDE_FRAME)];
+    // #then
+    expect({ same: a, biggest: a[0]!.size, central: Math.abs(a[0]!.x - WIDE_FRAME.width / 2) < WIDE_FRAME.width / WIDE_FRAME.cols }).toEqual({ same: b, biggest: WIDE_FRAME.max, central: true });
   });
 });
