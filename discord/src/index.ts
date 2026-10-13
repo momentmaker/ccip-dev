@@ -1,5 +1,7 @@
+import { createBot, type Bot } from './bot';
 import type { Env } from './env';
 import { deferred, InteractionType, json, privateReply, ResponseType, type Interaction } from './interactions';
+import { dogtagCommand, enlistCommand, TEXT } from './marines';
 import { verifyDiscordRequest } from './verify';
 
 export const ONLY_HERE = 'LinkMarine only serves the LinkMarine server.';
@@ -37,8 +39,30 @@ export async function handleInteraction(interaction: Interaction, guildId: strin
   return deferred();
 }
 
-/** Until the commands exist: none, and no suggestions. */
-export const NO_HANDLERS: Handlers = { commands: {}, autocomplete: async () => [] };
+/** A command that fails unexpectedly is reported to the alert chat and answered privately. */
+function guarded(bot: Bot, command: (bot: Bot, interaction: Interaction) => Promise<void>): (interaction: Interaction) => Promise<void> {
+  return async (interaction) => {
+    try {
+      await command(bot, interaction);
+    } catch (err) {
+      const name = interaction.data?.name ?? 'unknown';
+      console.error(`/${name} failed: ${err instanceof Error ? err.stack : String(err)}`);
+      try {
+        await bot.alert(`discord-command:${name}`, `/${name} failed: ${err instanceof Error ? err.message : String(err)}`);
+        await bot.discord.privateFollowup(interaction.token, TEXT.internal);
+      } catch (reportErr) {
+        console.error(`/${name}: the failure could not be reported: ${reportErr instanceof Error ? reportErr.message : String(reportErr)}`);
+      }
+    }
+  };
+}
+
+export function botHandlers(bot: Bot): Handlers {
+  return {
+    commands: { enlist: guarded(bot, enlistCommand), dogtag: guarded(bot, dogtagCommand) },
+    autocomplete: async () => [],
+  };
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -46,6 +70,6 @@ export default {
     const body = await request.text();
     const valid = await verifyDiscordRequest(env.DISCORD_PUBLIC_KEY ?? '', request.headers.get('X-Signature-Ed25519'), request.headers.get('X-Signature-Timestamp'), body);
     if (!valid) return new Response('Invalid request signature', { status: 401 });
-    return handleInteraction(JSON.parse(body) as Interaction, env.DISCORD_GUILD_ID, NO_HANDLERS, (work) => ctx.waitUntil(work));
+    return handleInteraction(JSON.parse(body) as Interaction, env.DISCORD_GUILD_ID, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
   },
 } satisfies ExportedHandler<Env>;

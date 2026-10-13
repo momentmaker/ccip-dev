@@ -1,5 +1,7 @@
-import type { LinkMarineRenderer } from '@ccip-dev/core/linkmarine';
+import { seededRandom, type LinkMarineRenderer } from '@ccip-dev/core/linkmarine';
 import { env } from 'cloudflare:workers';
+import type { Bot } from '../src/bot';
+import type { Attachment, DiscordApi } from '../src/discord-api';
 import { simulate, type CallsignSnapshot } from '../src/draw';
 import type { CommandOption, Interaction } from '../src/interactions';
 
@@ -82,4 +84,64 @@ export function fakeFetch(routes: Record<string, () => Response> = {}): typeof f
     return route ? routes[route]!() : new Response('not found', { status: 404 });
   };
   return Object.assign(f as typeof fetch, { urls });
+}
+
+export interface DiscordCall {
+  kind: 'edit' | 'private';
+  content: string;
+  file?: string;
+  at: number;
+}
+
+/** Records what the bot sends Discord, and when on the fake clock. */
+export function fakeDiscord(clock: { ms: number }): DiscordApi & { calls: DiscordCall[] } {
+  const calls: DiscordCall[] = [];
+  return {
+    calls,
+    async editOriginal(_token: string, content: string, file: Attachment | null = null) {
+      calls.push({ kind: 'edit', content, ...(file ? { file: file.name } : {}), at: clock.ms });
+    },
+    async privateFollowup(_token: string, content: string) {
+      calls.push({ kind: 'private', content, at: clock.ms });
+    },
+  };
+}
+
+/** Memes and avatars served as images. */
+export const ARCHIVE_ROUTES = {
+  'https://raw.githubusercontent.com/momentmaker/chainlinkmeme/c0ffee/memes/': () => new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])),
+  'https://cdn.discordapp.com/': () => new Response(PNG_BYTES),
+};
+
+export interface FakeBot extends Bot {
+  discord: ReturnType<typeof fakeDiscord>;
+  renderer: ReturnType<typeof fakeRenderer>;
+  fetch: ReturnType<typeof fakeFetch>;
+  alerts: { signature: string; text: string }[];
+  clock: { ms: number };
+}
+
+/** A bot on the test D1 and R2, with fakes around them; sleeping advances the fake clock. */
+export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
+  const clock = { ms: Date.parse('2026-10-13T10:40:00.000Z') };
+  const alerts: { signature: string; text: string }[] = [];
+  return {
+    db: env.DB,
+    bucket: env.MARINES,
+    renderer: fakeRenderer(),
+    discord: fakeDiscord(clock),
+    fetch: fakeFetch(ARCHIVE_ROUTES),
+    alert: async (signature, text) => {
+      alerts.push({ signature, text });
+    },
+    sleep: async (ms) => {
+      clock.ms += ms;
+    },
+    now: () => new Date(clock.ms),
+    random: seededRandom(42),
+    snapshot: SNAPSHOT,
+    alerts,
+    clock,
+    ...overrides,
+  } as FakeBot;
 }
