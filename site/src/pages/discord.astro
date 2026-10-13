@@ -157,11 +157,32 @@ const SAFE = [
           Add to Discord
         </a>
       </div>
+      <p class="roster-line"><span id="roster-count" hidden></span><a href="/marines/">See the roster</a></p>
     </section>
   </div>
 </Base>
 
+<script>
+  import { ROSTER_URL } from '../config';
+
+  // "N Marines enlisted · " from the live roster; on any failure only the link shows.
+  const count = document.getElementById('roster-count');
+  fetch(ROSTER_URL)
+    .then((res) => (res.ok ? res.json() : null))
+    .then((roster: { marines?: unknown } | null) => {
+      const marines = roster?.marines;
+      const n = Array.isArray(marines) ? marines.length : null;
+      if (count && n !== null) {
+        count.textContent = `${n.toLocaleString('en-US')} ${n === 1 ? 'Marine' : 'Marines'} enlisted · `;
+        count.hidden = false;
+      }
+    })
+    .catch(() => {});
+</script>
+
 <style>
+  .roster-line { margin-top: 18px; font: 600 14px var(--font-mono); color: var(--soft); }
+  .roster-line a { color: var(--blue-2); }
   .dc { max-width: 1120px; margin: 0 auto; --blurple: #5865f2; --ink: #c3cad5; --soft: #aab3c0; --code: #c9cdfb; }
   .eyebrow { font: 600 12px var(--font-mono); letter-spacing: 0.16em; color: var(--blue-2); text-transform: uppercase; }
   .dc h1 { font-size: clamp(34px, 5vw, 52px); line-height: 1.04; margin: 14px 0 16px; }

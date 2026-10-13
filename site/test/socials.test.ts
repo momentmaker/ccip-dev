@@ -59,8 +59,8 @@ describe('the /discord/ page source', () => {
     expect(page).not.toContain('discord.com/oauth2');
   });
 
-  it('leaves out the roster counter', () => {
-    expect(page).not.toMatch(/enlisted so far|roster is coming/i);
+  it('links the roster and counts its Marines from ROSTER_URL', () => {
+    expect([page.includes('href="/marines/"'), page.includes('ROSTER_URL'), page.includes('enlisted · ')]).toEqual([true, true, true]);
   });
 });
 
@@ -72,5 +72,13 @@ describe('the menus', () => {
 
   it('mentions the bot on the about page', () => {
     expect(source('../src/pages/about.astro')).toContain('ccip.dev on Discord');
+  });
+
+  it('lists the roster in the header menu, the footer links and the about page', () => {
+    expect([
+      source('../src/components/Header.astro').includes("{ href: '/marines/', label: 'LinkMarines' }"),
+      source('../src/components/Footer.astro').includes('<a href="/marines/">LinkMarines</a>'),
+      source('../src/pages/about.astro').includes('Every enlisted Marine is on the roster: <a href="/marines/">ccip.dev/marines</a>.'),
+    ]).toEqual([true, true, true]);
   });
 });

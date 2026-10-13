@@ -251,6 +251,20 @@ LinkMarine is a public Discord app, which any server's admin may install: `/enli
 - **Turn it off:** set `DISCORD_SERVERS = ""` in `discord/wrangler.toml` and deploy (the Worker turns every command away), or remove the Interactions Endpoint URL in the Developer Portal (Discord stops sending commands). `gh variable set DISCORD_BOT --body off` only stops deploying it.
 - **Alerts:** `discord-data:<file>`, `discord-render:<kind>`, `discord-memes`, `discord-upload`, `discord-store:marine`, `discord-draw` and `discord-command:<name>`, below, in the same chat as the other Workers' alerts, each at most once an hour.
 
+### The public roster
+
+The bot also answers three public, read-only routes on `discord.ccip.dev`, which `ccip.dev/marines/` reads (spec: `docs/superpowers/specs/2026-10-13-linkmarines-roster-design.md`):
+
+| Route | What it serves | Cache |
+|---|---|---|
+| `/roster.json` | Every Marine by callsign: never a Discord name, avatar or id | 60 s |
+| `/memes/<file>.png` | The 240 px memes; one no Marine holds yet is copied from the pinned archive on first request | a year, immutable |
+| `/web/<serial>.png` | The dog tag card without the name and avatar row, rendered once into R2 `web/` | a day |
+
+A 404 is cached for 60 s, and a 503 is never cached.
+
+**Wiping test Marines** must also delete R2 `web/` (as well as `cards/` and `avatars/`). Do it before the roster is announced: the edge can serve a wiped serial's old web card for up to a day. Memes may stay.
+
 ## Incidents and alerts
 
 Alerts arrive in the Telegram chat.
