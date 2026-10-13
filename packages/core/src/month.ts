@@ -116,16 +116,15 @@ function busiestLane(replay: MonthSource['replay'], first: string, last: string)
     if (d.day < first || d.day > last) continue;
     for (const [lane, , value] of d.lanes) usd.set(lane, (usd.get(lane) ?? 0) + value);
   }
-  const chain = (index: number): MonthChain => {
-    const c = replay.chains[index]!;
-    return { selector: c.selector, name: shortChainName(c) };
+  const chain = (index: number | undefined): MonthChain | null => {
+    const c = index === undefined ? undefined : replay.chains[index];
+    return c ? { selector: c.selector, name: shortChainName(c) } : null;
   };
   const lanes = [...usd].flatMap(([lane, value]) => {
     const ends = replay.lanes[lane];
-    if (!ends) return [];
-    const src = chain(ends[0]);
-    const dst = chain(ends[1]);
-    return [{ key: `${src.selector}>${dst.selector}`, src, dst, usd: value }];
+    const src = chain(ends?.[0]);
+    const dst = chain(ends?.[1]);
+    return src && dst ? [{ key: `${src.selector}>${dst.selector}`, src, dst, usd: value }] : [];
   });
   lanes.sort((a, b) => b.usd - a.usd || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   return lanes[0] ?? null;

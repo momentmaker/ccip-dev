@@ -169,7 +169,17 @@ describe('formatUsdDown', () => {
     [999_999, '$999.9K'],
     [-5, '$0'],
   ])('rounds %s down to %s', (value, text) => {
-    expect(formatUsdDown(value)).toBe(text);
+    // #when
+    const shown = formatUsdDown(value);
+    // #then
+    expect(shown).toBe(text);
+  });
+
+  it('shows a dash for a value that is not a number, as the other formatters do', () => {
+    // #when
+    const shown = [NaN, Infinity, -Infinity].map(formatUsdDown);
+    // #then
+    expect(shown).toEqual([DASH, DASH, DASH]);
   });
 });
 

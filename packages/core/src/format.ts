@@ -53,6 +53,7 @@ export function formatFeeTotal(value: number | null | undefined): string {
  * where formatUsd says "$1.4B". The month video's end card and caption use it, so they read as its counter stops.
  */
 export function formatUsdDown(value: number): string {
+  if (!usable(value)) return DASH;
   const v = Math.max(0, value);
   const [size, suffix] = SCALES.find(([s]) => v >= s) ?? [1, ''];
   const step = suffix === '' ? 1 : 0.1;

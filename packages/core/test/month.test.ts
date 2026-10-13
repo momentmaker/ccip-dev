@@ -11,7 +11,8 @@ const totals = (day: string, messages: number, usd: number, fee: number | null =
 
 describe('months', () => {
   it('knows a month, its days, its neighbours and its name', () => {
-    expect({
+    // #when
+    const known = {
       valid: ['2026-10', '2026-12', '2026-1', '2026-13', '2026-10-01', 'x'].map(isMonth),
       bounds: monthBounds('2028-02'),
       days: monthDays('2026-09').length,
@@ -20,7 +21,9 @@ describe('months', () => {
       label: monthLabel('2026-10'),
       key: monthlyVideoKey('2026-09'),
       summaryKey: monthlySummaryKey('2026-09'),
-    }).toEqual({
+    };
+    // #then
+    expect(known).toEqual({
       valid: [true, true, false, false, false, false],
       bounds: { first: '2028-02-01', last: '2028-02-29' },
       days: 30,
@@ -35,17 +38,20 @@ describe('months', () => {
   it('plays a month only once its last day is in the data and CCIP had begun by then', () => {
     // #given data from 2023-07-06 to 2026-10-11
     const data = { first: '2023-07-06', lastDay: '2026-10-11' };
+    // #when
+    const playable = ['2026-09', '2023-07', '2026-10', '2026-11', '2023-06', '2026-13', 'soon'].map((m) => isPlayableMonth(m, data));
+    const noData = isPlayableMonth('2026-09', { first: null, lastDay: null });
     // #then September is over, October is not, and June 2023 came before the first message
-    expect(['2026-09', '2023-07', '2026-10', '2026-11', '2023-06', '2026-13', 'soon'].map((m) => isPlayableMonth(m, data))).toEqual([
-      true, true, false, false, false, false, false,
-    ]);
-    expect(isPlayableMonth('2026-09', { first: null, lastDay: null })).toBe(false);
+    expect({ playable, noData }).toEqual({ playable: [true, true, false, false, false, false, false], noData: false });
   });
 
   it("is due on the 1st to the 3rd for the month before, and not after", () => {
-    expect(['2026-10-01T00:30:00Z', '2026-10-03T23:59:00Z', '2026-10-04T00:00:00Z', '2027-01-02T12:00:00Z', '2026-10-31T12:00:00Z'].map((iso) => monthlyDue(new Date(iso)))).toEqual([
-      '2026-09', '2026-09', null, '2026-12', null,
-    ]);
+    // #given
+    const times = ['2026-10-01T00:30:00Z', '2026-10-03T23:59:00Z', '2026-10-04T00:00:00Z', '2027-01-02T12:00:00Z', '2026-10-31T12:00:00Z'];
+    // #when
+    const due = times.map((iso) => monthlyDue(new Date(iso)));
+    // #then
+    expect(due).toEqual(['2026-09', '2026-09', null, '2026-12', null]);
   });
 });
 
@@ -118,6 +124,15 @@ describe('monthSummary', () => {
       messages: 100, fees: null, link: null, records: [], joined: ['Ethereum', 'Base'],
     });
     expect(monthSummary('2026-07', SOURCE).busiestLane).toBeNull();
+  });
+
+  it('skips a lane whose chain is not in the file, rather than failing the month', () => {
+    // #given September's biggest lane, $50M on Sep 3, names a chain index replay.json does not have
+    const replay = { ...SOURCE.replay, lanes: [...SOURCE.replay.lanes, [0, 9]] as [number, number][], days: [...SOURCE.replay.days, { day: '2026-09-03', lanes: [[4, 1, 5e7]] as [number, number, number][] }] };
+    // #when
+    const lane = monthSummary('2026-09', { ...SOURCE, replay }).busiestLane;
+    // #then
+    expect(lane?.key).toBe('1>2');
   });
 });
 
