@@ -1,19 +1,25 @@
-import type { BroadcastTarget } from '@ccip-dev/core/broadcasts';
+import type { PostTarget } from '@ccip-dev/core/broadcasts';
 import { clip, parsePollRecord, POLL_OPTION_MAX, POLL_QUESTION_MAX, pollRecordKey, type PollRecord } from '@ccip-dev/core/moments';
 import type { RunContext } from '../context';
 import type { Env } from '../env';
 import * as store from '../store';
-import { sendTelegramPhoto, sendTelegramPoll, type TelegramConfig } from '../telegram';
-import { createPost, uploadImage, type XCredentials } from '../x';
+import { sendTelegramPhoto, sendTelegramPoll, sendTelegramVideo, type TelegramConfig } from '../telegram';
+import { createPost, uploadImage, uploadVideo, type XCredentials } from '../x';
 import { noLinks } from './copy';
 import type { BroadcastFacts } from './facts';
 import type { MomentFacts } from './moment-facts';
+import type { MonthlyFacts } from './monthly';
+
+/** What a broadcast posts: its card, or for the monthly broadcast its video. */
+export type BroadcastMedia =
+  | { kind: 'image'; png: Uint8Array }
+  | { kind: 'video'; mp4: Blob; filename: string; width: number; height: number; durationS: number };
 
 export interface Broadcast {
   key: string;
-  kind: BroadcastTarget['kind'];
-  image: Uint8Array;
-  facts: BroadcastFacts | MomentFacts;
+  kind: PostTarget['kind'];
+  media: BroadcastMedia;
+  facts: BroadcastFacts | MomentFacts | MonthlyFacts;
   xText: string;
   telegramHtml: string;
 }
@@ -62,11 +68,16 @@ export function selectPollOutputs(set: OutputSet, mode: Exclude<BroadcastMode, '
   return mode === 'on' ? [...set.channel, ...(set.channelPoll ?? [])] : [...set.preview, ...(set.draftsPoll ?? [])];
 }
 
-function photoOutput(c: RunContext, name: string, config: TelegramConfig, caption: (b: Broadcast) => { caption: string; parseMode?: 'HTML' }): BroadcastOutput {
+/** Sends the card as a photo, or the monthly video as a video that plays inline. */
+function mediaOutput(c: RunContext, name: string, config: TelegramConfig, caption: (b: Broadcast) => { caption: string; parseMode?: 'HTML' }): BroadcastOutput {
   return {
     name,
     async send(b) {
-      const failure = await sendTelegramPhoto(c.deps, config, { photo: b.image, ...caption(b) });
+      const { media } = b;
+      const failure =
+        media.kind === 'video'
+          ? await sendTelegramVideo(c.deps, config, { video: media.mp4, filename: media.filename, width: media.width, height: media.height, durationS: media.durationS, ...caption(b) })
+          : await sendTelegramPhoto(c.deps, config, { photo: media.png, ...caption(b) });
       if (failure === null) return 'sent';
       console.error(`[broadcast] ${name} failed for ${b.key}: ${failure}`);
       return 'failed';
@@ -125,9 +136,9 @@ export function telegramOutputs(c: RunContext): OutputSet {
   const drafts = c.env.TELEGRAM_DRAFTS_CHAT_ID || c.env.TELEGRAM_ALERT_CHAT_ID;
   return {
     xPost: [],
-    channel: token && channel ? [photoOutput(c, 'telegram-channel', { token, chatId: channel }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
-    drafts: token && drafts ? [photoOutput(c, 'x-draft', { token, chatId: drafts }, (b) => ({ caption: b.xText }))] : [],
-    preview: token && drafts ? [photoOutput(c, 'telegram-preview', { token, chatId: drafts }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
+    channel: token && channel ? [mediaOutput(c, 'telegram-channel', { token, chatId: channel }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
+    drafts: token && drafts ? [mediaOutput(c, 'x-draft', { token, chatId: drafts }, (b) => ({ caption: b.xText }))] : [],
+    preview: token && drafts ? [mediaOutput(c, 'telegram-preview', { token, chatId: drafts }, (b) => ({ caption: b.telegramHtml, parseMode: 'HTML' }))] : [],
     channelPoll: token && channel ? [pollOutput(c, { token, chatId: channel }, 'telegram-channel')] : [],
     draftsPoll: token && drafts ? [pollOutput(c, { token, chatId: drafts }, 'telegram-preview')] : [],
   };
@@ -146,7 +157,7 @@ function xPostOutput(c: RunContext, creds: XCredentials, circuit: { down: boolea
     async send(b) {
       if (b.xText.trim() === '') return failed(name, b.key, 'the broadcast has no X text, so it is not posted to X');
       if (circuit.down) return failed(name, b.key, 'X failed earlier in this run, so it is not called again');
-      const uploaded = await uploadImage(c.deps, creds, b.image);
+      const uploaded = b.media.kind === 'video' ? await uploadVideo(c.deps, creds, b.media.mp4) : await uploadImage(c.deps, creds, b.media.png);
       if ('problem' in uploaded) {
         circuit.down = uploaded.outage;
         return failed(name, b.key, `upload: ${uploaded.problem}`);

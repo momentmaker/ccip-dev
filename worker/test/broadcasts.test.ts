@@ -66,7 +66,7 @@ describe('runBroadcasts after finalize', () => {
     expect({
       channel: keys(channel),
       drafts: keys(drafts),
-      image: [...(channel[0]?.image ?? [])],
+      image: channel[0]?.media.kind === 'image' ? [...channel[0].media.png] : null,
       x: drafts[0]?.xText.startsWith('#CCIP · Sat, Oct 10'),
       html: channel[0]?.telegramHtml.startsWith('<b>CCIP daily report · Sat, Oct 10, 2026</b>'),
       claim: (await store.getMeta(env.DB, DAILY_KEY))?.startsWith('sent:'),
@@ -384,7 +384,7 @@ describe('broadcast configuration', () => {
       return new Response('{"ok":true}');
     });
     const c = harness({ now: NOW, fetch: f, env: { ...ENV, ...extra } }).c;
-    await telegramOutputs(c).drafts[0]?.send({ key: 'k', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: 't', telegramHtml: 't' });
+    await telegramOutputs(c).drafts[0]?.send({ key: 'k', kind: 'daily', media: { kind: 'image', png: new Uint8Array(PNG) }, facts: {} as never, xText: 't', telegramHtml: 't' });
     return sent;
   };
 
@@ -410,7 +410,7 @@ describe('broadcast configuration', () => {
     const c = harness({ now: NOW, fetch: f, env: { ...ENV, TELEGRAM_DRAFTS_CHAT_ID: '99' } }).c;
     // #when
     const preview = telegramOutputs(c).preview;
-    await preview[0]?.send({ key: 'k', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: 'x', telegramHtml: '<b>t</b>' });
+    await preview[0]?.send({ key: 'k', kind: 'daily', media: { kind: 'image', png: new Uint8Array(PNG) }, facts: {} as never, xText: 'x', telegramHtml: '<b>t</b>' });
     // #then
     expect({ names: preview.map((o) => o.name), bodies }).toEqual({ names: ['telegram-preview'], bodies: [{ chat_id: '99', photo: PNG, caption: '<b>t</b>', parse_mode: 'HTML' }] });
   });
@@ -519,7 +519,7 @@ describe('runBroadcasts for the Reserve', () => {
 describe('X posting output', () => {
   const X_KEYS = { X_API_KEY: 'k-key', X_API_SECRET: 'k-secret', X_ACCESS_TOKEN: 't-token', X_ACCESS_SECRET: 't-secret' };
   const ENV = { TELEGRAM_BOT_TOKEN: 'bot-token', TELEGRAM_CHANNEL_ID: '@ccipdev', TELEGRAM_ALERT_CHAT_ID: '42' };
-  const BROADCAST: Broadcast = { key: 'broadcast:daily:2026-10-10', kind: 'daily', image: new Uint8Array(PNG), facts: {} as never, xText: '#CCIP daily', telegramHtml: '<b>t</b>' };
+  const BROADCAST: Broadcast = { key: 'broadcast:daily:2026-10-10', kind: 'daily', media: { kind: 'image', png: new Uint8Array(PNG) }, facts: {} as never, xText: '#CCIP daily', telegramHtml: '<b>t</b>' };
   const xPostOf = (extra: Record<string, string>, f?: typeof fetch) => broadcastOutputs(harness({ now: NOW, fetch: f, env: { ...ENV, ...extra } }).c).xPost ?? [];
 
   it('is present only when all four keys are set and X_POSTS is not off', () => {

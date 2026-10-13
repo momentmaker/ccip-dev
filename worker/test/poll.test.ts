@@ -231,7 +231,7 @@ describe('the poll output', () => {
     poll: { week: MONDAY, question_kind: 'fee_chain', question: QUESTION, options: [...OPTIONS.slice(0, 2), { key: 'x', label: 'pump.fun' }], answer: null, outcome: null, votes: null, total_votes: null },
     last: null,
   };
-  const broadcast: Broadcast = { key: POLL_KEY, kind: 'poll', image: new Uint8Array(PNG), facts, xText: '', telegramHtml: 'caption' };
+  const broadcast: Broadcast = { key: POLL_KEY, kind: 'poll', media: { kind: 'image', png: new Uint8Array(PNG) }, facts, xText: '', telegramHtml: 'caption' };
 
   it('follows the card in its own chat, sends the poll with no link in it, and keeps its message id for next Monday', async () => {
     // #given

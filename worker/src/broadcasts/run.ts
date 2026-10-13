@@ -1,5 +1,6 @@
 import { addDays, dayOf, weekStart } from '@ccip-dev/core';
-import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarget } from '@ccip-dev/core/broadcasts';
+import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarget, type PostTarget } from '@ccip-dev/core/broadcasts';
+import { MONTHLY_VIDEO, monthLabel, monthlyDue, monthlyVideoKey } from '@ccip-dev/core/month';
 import { milestonesOn, RECORD_KINDS, recordsSetOn, recordValue, trackedMilestones } from '@ccip-dev/core/records';
 import type { RunContext } from '../context';
 import type { ReserveBody } from '../publish';
@@ -10,7 +11,11 @@ import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts,
 import { composeMomentCopy } from './moment-copy';
 import { isMomentFacts, loadMomentsSource, momentFacts, type MomentFacts, type MomentsSource } from './moment-facts';
 import { dueMoments, pickMoments, type DueMoment } from './moment-plan';
-import { broadcastMode, broadcastOutputs, momentMode, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastOutput, type OutputSet } from './outputs';
+import { loadMonthlyFacts, type MonthlyFacts } from './monthly';
+import { composeMonthlyCopy } from './monthly-copy';
+import {
+  broadcastMode, broadcastOutputs, momentMode, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastMedia, type BroadcastOutput, type OutputSet,
+} from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
 export const IMAGE_TIMEOUT_MS = 20_000;
@@ -22,15 +27,18 @@ export const RESERVE_SINCE_KEY = 'broadcast:reserve:since';
 /** A deposit older than this is never posted, so a pause or a long card outage cannot release a flood of stale ones. */
 export const RESERVE_MAX_AGE_DAYS = 3;
 export const MOMENTS_SEED_KEY = 'broadcast:moments:seeded';
+/** The workflow records last month's video at 01:15 on the 1st; one still missing from this hour on alerts. */
+export const MONTHLY_MISSING_HOUR_UTC = 6;
 
-export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | { kind: 'reserve'; reserve: ReserveBody };
+export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | { kind: 'reserve'; reserve: ReserveBody } | { kind: 'monthly' };
 
 interface Planned {
-  target: BroadcastTarget;
-  facts: BroadcastFacts | MomentFacts;
+  target: PostTarget;
+  facts: BroadcastFacts | MomentFacts | MonthlyFacts;
 }
 
 export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = broadcastOutputs(c)): Promise<void> {
+  if (request.kind === 'monthly') return broadcastMonthly(c, outputs);
   const mode = broadcastMode(c.env);
   if (mode === 'off') return;
   const enabled = selectOutputs(outputs, mode);
@@ -56,6 +64,42 @@ async function broadcastMoments(c: RunContext, days: readonly string[], outputs:
       await c.alert(`broadcast-run:${key}`, `${key} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+}
+
+/**
+ * Last month's video, on the 1st to the 3rd, once the workflow has put it in the archive bucket. It follows the MOMENTS
+ * switch, outside the moments' daily budget, and is claimed and sent like every broadcast. A video still missing on the
+ * 1st from 06:00, or one of 50 MB or more, alerts once and is not posted.
+ */
+async function broadcastMonthly(c: RunContext, outputs: OutputSet): Promise<void> {
+  const mode = momentMode(c.env);
+  const now = c.deps.now();
+  const month = monthlyDue(now);
+  if (mode === 'off' || month === null) return;
+  const target: PostTarget = { kind: 'monthly', month };
+  if ((await store.getMeta(c.env.DB, broadcastKey(target)))?.startsWith('sent:')) return;
+  const enabled = selectOutputs(outputs, mode);
+  if (enabled.length === 0) {
+    console.warn(`[broadcast] MOMENTS is ${mode} but no output is configured`);
+    return;
+  }
+  const video = await c.env.ARCHIVE.head(monthlyVideoKey(month));
+  if (video === null) {
+    if (now.getUTCDate() === 1 && now.getUTCHours() >= MONTHLY_MISSING_HOUR_UTC) {
+      await alertOnce(c, `monthly-video-missing:${month}`, `The ${monthLabel(month)} video is not in the archive bucket (${monthlyVideoKey(month)}), so it is not posted. Check the monthly-video workflow's run.`);
+    }
+    return;
+  }
+  if (video.size >= MONTHLY_VIDEO.maxBytes) {
+    await alertOnce(c, `monthly-video-size:${month}`, `The ${monthLabel(month)} video is ${(video.size / 1e6).toFixed(1)} MB, over the 50 MB Telegram takes, so it is not posted.`);
+    return;
+  }
+  await deliver(c, { target, facts: await loadMonthlyFacts(c, month) }, enabled);
+}
+
+/** Alerts `signature` once ever, where c.alert repeats hourly: an `alerted:<signature>` row in meta remembers it. */
+async function alertOnce(c: RunContext, signature: string, text: string): Promise<void> {
+  if (await store.claimMeta(c.env.DB, `alerted:${signature}`, c.deps.now().toISOString(), '')) await c.alert(signature, text);
 }
 
 /** Monday's poll first, outside the budget and never seeded, then the budgeted moments due today. */
@@ -98,12 +142,17 @@ export async function broadcastSafely(c: RunContext, request: BroadcastRequest, 
   }
 }
 
-/** New Reserve deposits, then yesterday's finalize broadcasts again: the ones already sent hold their keys, so only the rest go out. */
+/**
+ * New Reserve deposits, then yesterday's finalize broadcasts again (the ones already sent hold their keys, so only the rest
+ * go out), then last month's video while it is due, the 06:00 hour included.
+ */
 export async function broadcastHourly(c: RunContext, reserve: ReserveBody): Promise<void> {
   await broadcastSafely(c, { kind: 'reserve', reserve });
-  if (c.deps.now().getUTCHours() === LATE_FINALIZE_HOUR_UTC) return;
-  const yesterday = addDays(dayOf(c.deps.now()), -1);
-  await broadcastSafely(c, { kind: 'finalize', days: [yesterday] }, async () => (await store.getMeta(c.env.DB, 'last_finalize_day')) === yesterday);
+  if (c.deps.now().getUTCHours() !== LATE_FINALIZE_HOUR_UTC) {
+    const yesterday = addDays(dayOf(c.deps.now()), -1);
+    await broadcastSafely(c, { kind: 'finalize', days: [yesterday] }, async () => (await store.getMeta(c.env.DB, 'last_finalize_day')) === yesterday);
+  }
+  await broadcastSafely(c, { kind: 'monthly' });
 }
 
 async function planFinalize(c: RunContext, days: readonly string[]): Promise<Planned[]> {
@@ -167,6 +216,28 @@ async function planReserve(c: RunContext, reserve: ReserveBody): Promise<Planned
     });
 }
 
+type Media = { media: BroadcastMedia } | { alert: string; problem: string };
+
+async function cardMedia(c: RunContext, target: BroadcastTarget): Promise<Media> {
+  const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(target)}.png`;
+  const checked = await checkImage(c, cardUrl);
+  return 'problem' in checked ? { alert: 'broadcast-image', problem: `its card ${cardUrl} ${checked.problem}` } : { media: { kind: 'image', png: checked.png } };
+}
+
+/** The video the workflow put in the archive bucket, posted under the month's name. */
+async function videoMedia(c: RunContext, month: string): Promise<Media> {
+  const key = monthlyVideoKey(month);
+  try {
+    const object = await c.env.ARCHIVE.get(key);
+    if (object === null) return { alert: 'broadcast-video', problem: `its video ${key} is no longer in the archive bucket` };
+    const blob = await object.blob();
+    const { width, height, durationS } = MONTHLY_VIDEO;
+    return { media: { kind: 'video', mp4: blob.slice(0, blob.size, 'video/mp4'), filename: `ccip-${month}.mp4`, width, height, durationS } };
+  } catch (err) {
+    return { alert: 'broadcast-video', problem: `its video ${key} could not be read (${err instanceof Error ? err.name : 'error'})` };
+  }
+}
+
 async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array } | { problem: string }> {
   try {
     const res = await c.deps.fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
@@ -180,7 +251,7 @@ async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array
 }
 
 /**
- * Claims the key, then sends the checked card to each output that has not sent yet; every output that sends is marked under
+ * Claims the key, then sends the checked card (the read video, for the monthly broadcast) to each output that has not sent yet; every output that sends is marked under
  * `${key}#${name}`. The broadcast is marked sent only once all its outputs are, otherwise the claim is released and the next
  * run sends just the missing ones.
  */
@@ -189,7 +260,7 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
   const key = broadcastKey(p.target);
   let copy: Copy;
   try {
-    copy = isMomentFacts(p.facts) ? composeMomentCopy(p.facts) : composeCopy(p.facts);
+    copy = p.facts.kind === 'monthly' ? composeMonthlyCopy(p.facts) : isMomentFacts(p.facts) ? composeMomentCopy(p.facts) : composeCopy(p.facts);
   } catch (err) {
     await c.alert(`broadcast-copy:${key}`, `${key} was not posted: ${err instanceof Error ? err.message : String(err)}`);
     return;
@@ -206,14 +277,13 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
     await markSent(c, key, `sent:${now.toISOString()}`);
     return;
   }
-  const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(p.target)}.png`;
-  const checked = await checkImage(c, cardUrl);
-  if ('problem' in checked) {
+  const loaded = p.target.kind === 'monthly' ? await videoMedia(c, p.target.month) : await cardMedia(c, p.target);
+  if ('problem' in loaded) {
     await store.releaseMeta(db, key, claim);
-    await c.alert(`broadcast-image:${key}`, `${key} was not posted: its card ${cardUrl} ${checked.problem}`);
+    await c.alert(`${loaded.alert}:${key}`, `${key} was not posted: ${loaded.problem}`);
     return;
   }
-  const broadcast: Broadcast = { key, kind: p.target.kind, image: checked.png, facts: p.facts, ...copy };
+  const broadcast: Broadcast = { key, kind: p.target.kind, media: loaded.media, facts: p.facts, ...copy };
   const sentNames = new Set(outputs.filter((o) => !remaining.includes(o)).map((o) => o.name));
   const failedOutputs: string[] = [];
   let waiting = false;
