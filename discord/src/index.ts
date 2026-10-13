@@ -20,9 +20,9 @@ const choices = (list: { name: string; value: string }[]) => json({ type: Respon
  * Answers a verified interaction: PING with PONG, autocomplete at once, and a command with a deferred reply while its
  * work runs in `waitUntil`. A command from anywhere but the LinkMarine server is turned away privately.
  */
-export async function handleInteraction(interaction: Interaction, guildId: string, handlers: Handlers, waitUntil: (work: Promise<unknown>) => void): Promise<Response> {
+export async function handleInteraction(interaction: Interaction, guildId: string | undefined, handlers: Handlers, waitUntil: (work: Promise<unknown>) => void): Promise<Response> {
   if (interaction.type === InteractionType.PING) return json({ type: ResponseType.PONG });
-  const here = guildId !== '' && interaction.guild_id === guildId;
+  const here = Boolean(guildId) && interaction.guild_id === guildId;
   if (interaction.type === InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE) {
     if (!here) return choices([]);
     try {
@@ -75,12 +75,52 @@ export function botHandlers(bot: Bot): Handlers {
   };
 }
 
+/** Discord's interactions run to a few KB: a body past this is refused before its signature is checked. */
+export const MAX_BODY_BYTES = 64 * 1024;
+
+/** The body as text, or null past MAX_BODY_BYTES, whether its Content-Length says so or its bytes do. */
+async function cappedBody(request: Request): Promise<string | null> {
+  if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) return null;
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (let read = await reader.read(); !read.done; read = await reader.read()) {
+    size += read.value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(read.value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/** A verified body as an interaction; null when it is not a JSON object. */
+function parseInteraction(body: string): Interaction | null {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Interaction) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method !== 'POST' || new URL(request.url).pathname !== '/interactions') return new Response('Not found', { status: 404 });
-    const body = await request.text();
+    const body = await cappedBody(request);
+    if (body === null) return new Response('Request body too large', { status: 413 });
     const valid = await verifyDiscordRequest(env.DISCORD_PUBLIC_KEY ?? '', request.headers.get('X-Signature-Ed25519'), request.headers.get('X-Signature-Timestamp'), body);
     if (!valid) return new Response('Invalid request signature', { status: 401 });
-    return handleInteraction(JSON.parse(body) as Interaction, env.DISCORD_GUILD_ID, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
+    const interaction = parseInteraction(body);
+    if (!interaction) return new Response('Invalid interaction', { status: 400 });
+    return handleInteraction(interaction, env.DISCORD_GUILD_ID, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
   },
 } satisfies ExportedHandler<Env>;

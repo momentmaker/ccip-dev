@@ -49,15 +49,43 @@ describe('the interactions endpoint', () => {
     expect(answers.map((r) => r.status)).toEqual([404, 404]);
   });
 
-  it('defers a command and runs its work after the reply', async () => {
-    // #given
-    const h = handlers();
+  it('defers a command at once and hands its work to waitUntil, never waiting on it', async () => {
+    // #given a command whose work never ends
     const work: Promise<unknown>[] = [];
+    const endless: Handlers = { commands: { cciptoday: () => new Promise<void>(() => {}) }, autocomplete: async () => [] };
     // #when
-    const res = await handleInteraction(command('cciptoday'), GUILD, h, (p) => void work.push(p));
-    await Promise.all(work);
+    const res = await handleInteraction(command('cciptoday'), GUILD, endless, (p) => void work.push(p));
     // #then
-    expect({ reply: await res.json(), ran: h.ran }).toEqual({ reply: { type: 5 }, ran: ['cciptoday'] });
+    expect({ reply: await res.json(), handedOver: work.length }).toEqual({ reply: { type: 5 }, handedOver: 1 });
+  });
+
+  it('answers 400 to a signed body that is not a JSON object, an empty one included', async () => {
+    // #given
+    const signed = await Promise.all(['{"type":', '', 'null'].map((body) => signedRequest(body)));
+    // #when
+    const answers = await Promise.all(signed.map((r) => handle(r.request, { ...env, DISCORD_PUBLIC_KEY: r.publicKey })));
+    // #then
+    expect(answers.map((r) => r.status)).toEqual([400, 400, 400]);
+  });
+
+  it('refuses a body over 64 KB with 413, however well it is signed, by its length or by what it sends', async () => {
+    // #given a signed PING padded past 64 KB, and a small one that declares a huge length
+    const big = await signedRequest(JSON.stringify({ type: 1, pad: 'x'.repeat(70_000) }));
+    const small = await signedRequest('{"type":1}');
+    const declared = new Request(small.request, { headers: { ...Object.fromEntries(small.request.headers), 'content-length': '999999' } });
+    // #when
+    const answers = await Promise.all([handle(big.request, { ...env, DISCORD_PUBLIC_KEY: big.publicKey }), handle(declared, { ...env, DISCORD_PUBLIC_KEY: small.publicKey })]);
+    // #then
+    expect(answers.map((r) => r.status)).toEqual([413, 413]);
+  });
+
+  it('refuses every request with 401 while DISCORD_PUBLIC_KEY is unset', async () => {
+    // #given
+    const ping = await signedRequest('{"type":1}');
+    // #when
+    const res = await handle(ping.request, { ...env, DISCORD_PUBLIC_KEY: undefined });
+    // #then
+    expect(res.status).toBe(401);
   });
 
   it('turns away a command from another server or a DM privately, and gives their autocomplete nothing', async () => {
@@ -84,6 +112,16 @@ describe('the interactions endpoint', () => {
     const res = await handleInteraction(command('cciptoday', [], { guild_id: '' }), '', handlers(), () => {});
     // #then
     expect(await res.json()).toEqual({ type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } });
+  });
+
+  it('turns a DM away when DISCORD_GUILD_ID is missing altogether', async () => {
+    // #given a DM, which has no guild_id to compare, and no server id configured
+    const h = handlers();
+    const dm = { ...command('cciptoday'), guild_id: undefined };
+    // #when
+    const res = await handleInteraction(dm, undefined, h, () => {});
+    // #then
+    expect({ reply: await res.json(), ran: h.ran }).toEqual({ reply: { type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } }, ran: [] });
   });
 
   it('answers an unknown command privately at once', async () => {
