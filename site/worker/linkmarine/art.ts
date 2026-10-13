@@ -52,6 +52,13 @@ export function hexPoints(cx: number, cy: number, r: number): string {
 /** The same hexagon as a CSS clip-path on a box 0.866·2r wide and 2r tall. */
 export const HEX_CLIP = 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)';
 
+/** That hexagon as a clip-path on a box wider than it, `boxWidth` r wide and 2r tall: its sides sit inside the box's. */
+export function hexClipInside(boxWidth: number): string {
+  const inset = (((boxWidth - Math.sqrt(3)) / (2 * boxWidth)) * 100).toFixed(2);
+  const far = (100 - Number(inset)).toFixed(2);
+  return `polygon(50% 0, ${far}% 25%, ${far}% 75%, 50% 100%, ${inset}% 75%, ${inset}% 25%)`;
+}
+
 export const svgDataUri = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
 
 /**
@@ -150,7 +157,7 @@ export function drawable(text: string): string {
   return [...text].filter((ch) => DRAWABLE.test(ch)).join('').replace(/\s+/g, ' ').trim();
 }
 
-/** The fonts have no ◆ or ◇: three diamonds as an image, the first `filled` solid. */
+/** The fonts have no ◆ or ◇: three diamonds as an image, the first `filled` solid. `size` is their height in card pixels, not mockup units. */
 export function pips(filled: number, size: number, color: string): VNode {
   const shapes = [0, 1, 2]
     .map((i) => {
@@ -168,7 +175,7 @@ export function pips(filled: number, size: number, color: string): VNode {
   });
 }
 
-/** The ⬡ bullet the intel rows start with, which the fonts lack. */
+/** The ⬡ bullet the intel rows start with, which the fonts lack. `size` is its width and height in card pixels, not mockup units. */
 export function hexBullet(size: number, color: string): VNode {
   return h('img', {
     src: svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><polygon points="${hexPoints(12, 12, 10)}" fill="none" stroke="${color}" stroke-width="2.4"/></svg>`),

@@ -89,7 +89,14 @@ describe('the intel cards keep every row inside its box', () => {
     const [src, dst] = laneNames('BINANCE SMART CHAIN', 'ETHEREUM');
     const [a, c] = laneNames('A VERY LONG CHAIN NAME', 'ANOTHER VERY LONG ONE');
     // #then
-    expect({ budget: src.length + dst.length <= LANE_NAME_BUDGET, ends: [src.endsWith('…'), dst], long: [a.length, c.length].every((n) => n >= 6) }).toEqual({ budget: true, ends: [true, 'ETHEREUM'], long: true });
+    expect({ budget: src.length + dst.length <= LANE_NAME_BUDGET, ends: [src.endsWith('…'), dst.endsWith('…')], long: [a.length, c.length].every((n) => n >= 6) }).toEqual({ budget: true, ends: [true, true], long: true });
+  });
+
+  it("gives a lane 22 characters of names, so a long one keeps clear of the next medal's text", () => {
+    // #when
+    const lanes = [laneNames('BINANCE SMART CHAIN', 'ETHEREUM'), laneNames('ARBITRUM ONE', 'ETHEREUM')];
+    // #then
+    expect({ budget: LANE_NAME_BUDGET, lanes }).toEqual({ budget: 22, lanes: [['BINANCE SMART …', 'ETHERE…'], ['ARBITRUM ONE', 'ETHEREUM']] });
   });
 
   it('draws the records lane and totals within their boxes', () => {

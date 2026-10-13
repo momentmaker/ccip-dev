@@ -72,7 +72,7 @@ export function laneLabel(x: number, y: number, text: string): VNode {
 }
 
 function paceRow(card: SitrepCard): VNode {
-  if (!card.pace) return textRow([['early in the day']], { marginTop: px(12), }, TEXT_WIDTH);
+  if (!card.pace) return textRow([['early in the day']], { marginTop: px(12) }, TEXT_WIDTH);
   const rough = `~${formatCount(roughCount(card.pace.projected))}`;
   if (card.pace.yesterday === null || card.pace.yesterday <= 0) return textRow([[`on pace for ${rough}`]], { marginTop: px(12) }, TEXT_WIDTH);
   return textRow([[changePiece((card.pace.projected / card.pace.yesterday - 1) * 100, 0), ` on pace for ${rough}`], [' · yesterday ', bright(formatCount(card.pace.yesterday))]], { marginTop: px(12) }, TEXT_WIDTH);

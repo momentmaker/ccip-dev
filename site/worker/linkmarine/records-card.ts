@@ -52,8 +52,8 @@ function medalsSvg(card: RecordsCard): { body: string; defs: string } {
   return { body: ring.body + medals, defs: ring.defs + MEDAL_DEFS };
 }
 
-/** Characters of chain names a medal's lane line may use: its slot is 142 apart, and the neighbours' lines are about 10 characters wide. */
-export const LANE_NAME_BUDGET = 26;
+/** Characters of chain names a medal's lane line may use: its slot is 142 apart, and a long lane keeps about 40 px from the next medal's text. */
+export const LANE_NAME_BUDGET = 22;
 
 /** The two names ellipsized to share the budget in proportion to their lengths, each keeping at least MIN_CUT characters. */
 export function laneNames(src: string, dst: string, budget = LANE_NAME_BUDGET): [string, string] {

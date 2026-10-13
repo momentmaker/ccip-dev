@@ -2,7 +2,7 @@ import { iconHref, LETTERMARK_BG, lettermarkLetter } from '../../src/lib/chain-i
 import { bytesToBase64, type AssetFetcher } from '../cards/coin-icons';
 import { h, type VNode } from '../h';
 import { chainSlug } from '../../src/lib/chain-slug';
-import { drawable, font, hexImage, hexPoints, INK, px } from './art';
+import { drawable, font, hexClipInside, hexPoints, INK, px } from './art';
 
 /** A chain's icon as the cards draw it: the logo, the hexagon's fill behind it, and the glow and frame around it. */
 export interface ChainArt {
@@ -97,9 +97,21 @@ export function chainHexFrame(cx: number, cy: number, r: number, art: ChainArt, 
   );
 }
 
-/** The icon itself, filling the hexagon: its square fits the hexagon's width, so its corners fall outside and only its colour shows. */
+/** The icon's width, in r: a little past the hexagon's √3·r, so the icon's edges fall outside the clip and draw no seam on its sides. */
+const ICON_WIDTH = 1.76;
+
+/** The icon itself, filling the hexagon: its square is a little wider than the hexagon, so its edges fall outside and only its colour shows. */
 export function chainHexIcon(cx: number, cy: number, r: number, art: ChainArt, name: string): VNode {
-  if (art.src) return hexImage(art.src, cx, cy, r, { objectFit: 'contain' });
+  if (art.src) {
+    const width = px(ICON_WIDTH * r);
+    const height = px(2 * r);
+    return h('img', {
+      src: art.src,
+      width,
+      height,
+      style: { position: 'absolute', left: px(cx - (ICON_WIDTH * r) / 2), top: px(cy - r), width, height, objectFit: 'contain', clipPath: hexClipInside(ICON_WIDTH) },
+    });
+  }
   return h(
     'div',
     { style: { position: 'absolute', left: px(cx - r), top: px(cy - r), width: px(2 * r), height: px(2 * r), display: 'flex', alignItems: 'center', justifyContent: 'center', ...font('Inter', 800, r * 0.9, '#ffffff') } },

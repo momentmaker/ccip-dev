@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LETTERMARK_BG } from '../src/lib/chain-icons';
-import { glowColor, iconBackground } from '../worker/linkmarine/chain-hex';
+import { px } from '../worker/linkmarine/art';
+import { chainHexIcon, glowColor, iconBackground } from '../worker/linkmarine/chain-hex';
 import { dossierTree, highlight, titleFit, TITLE_WIDTH } from '../worker/linkmarine/dossier-card';
 import { textWidthEm } from '../worker/linkmarine/inter-black';
 import { dayFraction, placeLanes, roughCount, sitrepTree } from '../worker/linkmarine/sitrep-card';
@@ -27,6 +28,15 @@ describe('the chain hexagons', () => {
     const svg = '<svg viewBox="0 0 32 32"><defs><linearGradient id="a" x1="0"><stop stop-color="#102d3c"/><stop offset="1" stop-color="#ffcb67"/></linearGradient></defs><rect width="32" height="32" fill="url(#a)"/></svg>';
     // #then
     expect(iconBackground(svg)).toBe('#102d3c');
+  });
+
+  it("draws an icon wider than its hexagon, so the icon's edges fall outside the clip and leave no seam on the sides", () => {
+    // #when
+    const icon = chainHexIcon(100, 100, 30, { src: 'data:image/svg+xml;base64,AA==', bg: '#627eea', glow: '#9caef2' }, 'Base');
+    const style = icon.props.style as { width: number; clipPath: string };
+    const [left, right] = [/, ([\d.]+)%? 25%\)$/, /^polygon\(50% 0, ([\d.]+)% 25%/].map((re) => Number(re.exec(style.clipPath)![1]));
+    // #then the box is at least 1.76r wide, and the clip still cuts the √3·r hexagon the background fills
+    expect({ wide: style.width >= px(1.76 * 30), hexagon: Math.abs((style.width * (right! - left!)) / 100 - px(Math.sqrt(3) * 30)) < 0.2 }).toEqual({ wide: true, hexagon: true });
   });
 
   it('glows in the background\'s hue, lit enough for the night sky, and pale blue for a grey', () => {
