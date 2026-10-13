@@ -272,7 +272,11 @@ export default function ReplayPlayer({ focus: initialFocus, slugs, month = false
   }, [monthView]);
 
   useEffect(() => {
-    if (noSuchMonth) document.documentElement.dataset.month = 'missing';
+    if (!noSuchMonth) return;
+    document.documentElement.dataset.month = 'missing';
+    return () => {
+      delete document.documentElement.dataset.month;
+    };
   }, [noSuchMonth]);
 
   useEffect(() => {

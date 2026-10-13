@@ -76,6 +76,46 @@ describe('the record hook', () => {
   });
 });
 
+describe('the record hook, guarded across calls', () => {
+  it('refuses a second call made in the same tick while the first still checks the browser', async () => {
+    // #given a browser check that stays pending
+    let release: (ok: boolean) => void = () => {};
+    const { d, record } = deps({ canRecord: () => new Promise<boolean>((resolve) => (release = resolve)) });
+    const hook = createRecordHook(d);
+    // #when two calls arrive together
+    const both = Promise.all([hook({ aspect: '1:1', length: 30 }), hook({ aspect: '1:1', length: 30 })].map((p) => p.catch((e: Error) => e.message)));
+    release(true);
+    const [first, second] = await both;
+    // #then
+    expect({ first, second, recorded: record.mock.calls.length }).toEqual({
+      first: { video: VIDEO_FILE, audio: AUDIO_FILE },
+      second: 'ccipRecord: a recording is already running',
+      recorded: 1,
+    });
+  });
+
+  it('refuses through a re-installed hook while a recording runs, and runs again after a failed check', async () => {
+    // #given a recording that has not finished, and a second hook as the player re-creates it
+    let finish: () => void = () => {};
+    const slow = deps({ record: () => new Promise((resolve) => (finish = () => resolve({ video: MP4, audio: { channels: [new Float32Array(1)], sampleRate: 48_000 } }))) });
+    const first = createRecordHook(slow.d)({ aspect: '1:1', length: 30 });
+    await Promise.resolve();
+    await Promise.resolve();
+    // #when
+    const reinstalled = await createRecordHook(deps().d)({ aspect: '1:1', length: 30 }).catch((e: Error) => e.message);
+    finish();
+    await first;
+    const refusedBrowser = await createRecordHook(deps({ canRecord: async () => false }).d)({ aspect: '1:1', length: 30 }).catch((e: Error) => e.message);
+    const after = await createRecordHook(deps().d)({ aspect: '1:1', length: 30 });
+    // #then
+    expect({ reinstalled, after, refusedBrowser: String(refusedBrowser).startsWith('ccipRecord: this browser') }).toEqual({
+      reinstalled: 'ccipRecord: a recording is already running',
+      after: { video: VIDEO_FILE, audio: AUDIO_FILE },
+      refusedBrowser: true,
+    });
+  });
+});
+
 describe('wavBytes', () => {
   it('writes a 16-bit PCM WAV header and the channels interleaved, clipped to ±1', () => {
     // #when

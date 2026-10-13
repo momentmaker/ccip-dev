@@ -31,6 +31,9 @@ declare global {
   }
 }
 
+/** Module-wide, so a hook the player re-installs mid-recording still refuses a second one. */
+let busy = false;
+
 const isAspect = (value: string): value is Aspect => Object.hasOwn(ASPECT_SIZE, value);
 const isLength = (value: number): value is ReplayLength => (REPLAY_LENGTHS as readonly number[]).includes(value);
 
@@ -50,15 +53,14 @@ function progressLog(log: (line: string) => void): (fraction: number) => void {
  * `video.mp4` and `audio.wav`. One recording at a time; a request it cannot serve fails with the reason.
  */
 export function createRecordHook(deps: RecordHookDeps): (request: RecordRequest) => Promise<RecordedFiles> {
-  let busy = false;
   return async ({ aspect, length }) => {
     if (!isAspect(aspect)) throw new Error(`ccipRecord: aspect must be one of ${Object.keys(ASPECT_SIZE).join(', ')}, not ${String(aspect)}`);
     if (!isLength(length)) throw new Error(`ccipRecord: length must be one of ${REPLAY_LENGTHS.join(', ')} seconds, not ${String(length)}`);
     if (busy) throw new Error('ccipRecord: a recording is already running');
-    const { width, height } = ASPECT_SIZE[aspect];
-    if (!(await deps.canRecord(aspect))) throw new Error(`ccipRecord: this browser cannot encode H.264 (${AVC_CODEC}) at ${width}×${height}`);
     busy = true;
     try {
+      const { width, height } = ASPECT_SIZE[aspect];
+      if (!(await deps.canRecord(aspect))) throw new Error(`ccipRecord: this browser cannot encode H.264 (${AVC_CODEC}) at ${width}×${height}`);
       const { video, audio } = await deps.record(aspect, length, progressLog(deps.log));
       deps.download(new Blob([video], { type: 'video/mp4' }), VIDEO_FILE);
       deps.download(new Blob([wavBytes(audio)], { type: 'audio/wav' }), AUDIO_FILE);
