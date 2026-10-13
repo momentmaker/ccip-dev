@@ -13,7 +13,8 @@
     "./broadcasts": "./src/broadcasts.ts",
     "./moments": "./src/moments.ts",
     "./month": "./src/month.ts",
-    "./linkmarine": "./src/linkmarine.ts"
+    "./linkmarine": "./src/linkmarine.ts",
+    "./roster": "./src/roster.ts"
   },
   "scripts": {
     "test": "vitest run",

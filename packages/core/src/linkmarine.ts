@@ -14,6 +14,11 @@ export function tierTopPct(tier: Tier): number | null {
   return TIERS.slice(TIERS.indexOf(tier)).reduce((sum, t) => sum + TIER_SHARE_PCT[t], 0);
 }
 
+/** "rarer than N in 100": the share of simulated draws below this one, floored, and never 100. */
+export function rarerThan(percentile: number): number {
+  return Math.min(99, Math.floor(percentile));
+}
+
 /** Rare and Legendary cards also get the animated glint. */
 export function hasGlint(tier: Tier): boolean {
   return tier === 'rare' || tier === 'legendary';

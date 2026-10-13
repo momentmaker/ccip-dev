@@ -5,6 +5,7 @@ import type { CoingeckoClient, CoingeckoLists } from './coingecko';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
 import type { PriceInfo } from './types';
+import type { RosterFile } from './roster';
 
 export type FakeRoute = (url: string, init?: RequestInit) => Response | undefined | Promise<Response | undefined>;
 export type FakeFetch = typeof fetch & { calls: { url: string; init?: RequestInit }[] };
@@ -218,3 +219,33 @@ export function fakeCoingecko(lists: Partial<CoingeckoLists> = {}, options: { fa
   };
   return fake;
 }
+
+const rosterMeme = (tag: string, count: number) => ({ tag, file: `${tag}.jpeg`, count });
+
+/**
+ * A small roster: eight tags (four of them one-meme, two never drawn) and four Marines, one per tier.
+ * Shared by core and site tests.
+ */
+export const ROSTER_FIXTURE: RosterFile = {
+  version: 1,
+  updatedAt: '2026-10-13T14:00:00.000Z',
+  snapshot: {
+    version: 1,
+    tags: [
+      { tag: 'sergey', count: 400, chance: 0.4, meme: 'sergey.jpeg' },
+      { tag: 'pepe', count: 100, chance: 0.2, meme: 'pepe.jpeg' },
+      { tag: 'comfy', count: 25, chance: 0.1, meme: 'comfy.jpeg' },
+      { tag: 'prophecy', count: 3, chance: 0.1, meme: 'prophecy.jpeg' },
+      { tag: 'painting', count: 1, chance: 0.05, meme: 'painting.jpeg' },
+      { tag: 'space', count: 1, chance: 0.05, meme: 'space.jpeg' },
+      { tag: 'zoomer', count: 1, chance: 0.05, meme: 'zoomer.jpeg' },
+      { tag: 'samurai', count: 1, chance: 0.05, meme: 'samurai.jpeg' },
+    ],
+  },
+  marines: [
+    { serial: 1, callsign: 'sergey-pepe-comfy', tags: ['sergey', 'pepe', 'comfy'], tier: 'common', score: 14.2, percentile: 31.5, memes: [rosterMeme('sergey', 400), rosterMeme('pepe', 100), rosterMeme('comfy', 25)], blood: 'LINK+', faith: '4IR', enlisted: '2026-10-13' },
+    { serial: 2, callsign: 'painting-space-prophecy', tags: ['painting', 'space', 'prophecy'], tier: 'legendary', score: 18.74, percentile: 97.9, memes: [rosterMeme('painting', 1), rosterMeme('space', 1), rosterMeme('prophecy', 3)], blood: 'O-LINK', faith: 'SERGEY', enlisted: '2026-10-13' },
+    { serial: 3, callsign: 'pepe-sergey-prophecy', tags: ['pepe', 'sergey', 'prophecy'], tier: 'uncommon', score: 16.3, percentile: 66.1, memes: [rosterMeme('pepe', 100), rosterMeme('sergey', 400), rosterMeme('prophecy', 3)], blood: 'LINK+', faith: 'STAKING', enlisted: '2026-10-14' },
+    { serial: 4, callsign: 'comfy-painting-sergey', tags: ['comfy', 'painting', 'sergey'], tier: 'rare', score: 17.5, percentile: 88.2, memes: [rosterMeme('comfy', 25), rosterMeme('painting', 1), rosterMeme('sergey', 400)], blood: '7777777', faith: '4IR', enlisted: '2026-10-14' },
+  ],
+};
