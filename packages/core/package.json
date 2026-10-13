@@ -12,7 +12,8 @@
     "./records": "./src/records.ts",
     "./broadcasts": "./src/broadcasts.ts",
     "./moments": "./src/moments.ts",
-    "./month": "./src/month.ts"
+    "./month": "./src/month.ts",
+    "./linkmarine": "./src/linkmarine.ts"
   },
   "scripts": {
     "test": "vitest run",
