@@ -17,6 +17,10 @@ export class LinkMarineCards extends WorkerEntrypoint {
     return card.tier === 'rare' || card.tier === 'legendary' ? new Uint8Array(GIF) : null;
   }
 
+  async renderMarineCards(card) {
+    return { png: new Uint8Array(PNG), gif: await this.renderMarineGlint(card), glintError: null };
+  }
+
   async renderIntelCard() {
     return new Uint8Array(PNG);
   }

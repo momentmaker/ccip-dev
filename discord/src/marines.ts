@@ -101,14 +101,18 @@ async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes:
     enlistedAt: marine.enlistedAt,
     avatar: avatarBytes,
   };
-  const glint = hasGlint(marine.tier)
-    ? bot.renderer.renderMarineGlint(card).catch((err: unknown) => {
-        reports.push({ signature: 'discord-render:marine', text: `glint for Marine #${marine.serial} failed: ${reason(err)}` });
-        return null;
-      })
-    : null;
-  const [png, gif] = await Promise.all([bot.renderer.renderMarineCard(card), glint]);
-  return { png, gif };
+  const glintFailed = (why: string) => reports.push({ signature: 'discord-render:marine', text: `glint for Marine #${marine.serial} failed: ${why}` });
+  try {
+    const images = await bot.renderer.renderMarineCards(card);
+    if (images.glintError !== null) glintFailed(images.glintError);
+    return { png: images.png, gif: images.gif };
+  } catch (err) {
+    if (!hasGlint(marine.tier)) throw err;
+    // The glint can take the whole call down with it (the site isolate's memory, a deploy): the static card alone still stands.
+    const png = await bot.renderer.renderMarineCard(card);
+    glintFailed(reason(err));
+    return { png, gif: null };
+  }
 }
 
 async function keep(bot: Bot, serial: number, rendered: { png: Uint8Array; gif: Uint8Array | null }): Promise<void> {

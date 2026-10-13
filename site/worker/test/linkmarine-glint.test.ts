@@ -82,6 +82,20 @@ describe('the LinkMarineCards entrypoint: the animated glint', () => {
     ).toEqual([0, 1].map(() => ({ header: 'GIF89a', width: 1200, height: 675, loop: 0, delays: 1320, frames: 13, small: true })));
   });
 
+  it('draws both images from one render: the same PNG as renderMarineCard, and the glint for Rare and up', async () => {
+    // #given
+    const cards = new LinkMarineCards(createExecutionContext(), {} as never);
+    const memes = [await solid('#d01818'), await solid('#1f6fb2')];
+    // #when
+    const [rare, common, png] = await Promise.all([cards.renderMarineCards(marine('rare', memes)), cards.renderMarineCards(marine('common', memes)), cards.renderMarineCard(marine('rare', memes))]);
+    // #then
+    expect({
+      samePng: rare.png.length === png.length && rare.png.every((b, i) => b === png[i]),
+      rare: { frames: gifInfo(rare.gif!).delays.length, glintError: rare.glintError },
+      common: { gif: common.gif, glintError: common.glintError, png: [...common.png.slice(0, 4)] },
+    }).toEqual({ samePng: true, rare: { frames: 13, glintError: null }, common: { gif: null, glintError: null, png: [137, 80, 78, 71] } });
+  });
+
   it('has no glint for Common and Uncommon', async () => {
     // #given
     const cards = new LinkMarineCards(createExecutionContext(), {} as never);

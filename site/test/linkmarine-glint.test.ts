@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GLINT, glintAt, glintFrames, glintGif, tagFrame, TRANSPARENT } from '../worker/linkmarine/glint';
+import { GLINT, glintAt, glintFrames, glintGif, marineImages, tagFrame, TRANSPARENT } from '../worker/linkmarine/glint';
 import { FRONT_TAG } from '../worker/linkmarine/marine-card';
 
 const W = 1200;
@@ -99,5 +99,30 @@ describe('the glint palette', () => {
     const frames = glintFrames(rgba, W, H);
     // #then
     expect({ full: frames.colors, sound: indicesAreSound(frames) }).toEqual({ full: 255, sound: true });
+  });
+});
+
+describe('the dog tag images from one render', () => {
+  const rendered = () => ({ png: new Uint8Array([137, 80, 78, 71]), pixels: base(), width: W, height: H });
+
+  it('keeps the PNG and gives the reason when the glint fails', () => {
+    // #given
+    const card = rendered();
+    // #when
+    const images = marineImages(card, 'legendary', () => {
+      throw new Error('Array buffer allocation failed');
+    });
+    // #then
+    expect(images).toEqual({ png: card.png, gif: null, glintError: 'Array buffer allocation failed' });
+  });
+
+  it('glints Rare and up only', () => {
+    // #given
+    const card = rendered();
+    const glint = () => new Uint8Array([71, 73, 70]);
+    // #when
+    const gifs = (['common', 'uncommon', 'rare', 'legendary'] as const).map((tier) => marineImages(card, tier, glint).gif?.length ?? null);
+    // #then
+    expect(gifs).toEqual([null, null, 3, 3]);
   });
 });

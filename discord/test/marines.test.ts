@@ -55,7 +55,7 @@ describe('the reveal', () => {
     });
   });
 
-  it('banners a Legendary draw and posts its glint, keeping the static card beside it', async () => {
+  it('banners a Legendary draw and posts its glint, keeping the static card beside it, both from one render', async () => {
     // #given
     const bot = fakeBot({ snapshot: LEGENDARY });
     // #when
@@ -68,7 +68,7 @@ describe('the reveal', () => {
       gif: gif && [...new Uint8Array(await gif.arrayBuffer())],
       png: (await env.MARINES.head('cards/1.png')) !== null,
       rendered: bot.renderer.calls.filter((c) => c !== 'prepareMeme').sort(),
-    }).toEqual({ banner: true, posted: 'marine-1.gif', gif: [...GIF_BYTES], png: true, rendered: ['renderMarineCard', 'renderMarineGlint'] });
+    }).toEqual({ banner: true, posted: 'marine-1.gif', gif: [...GIF_BYTES], png: true, rendered: ['renderMarineCards'] });
   });
 
   it('keeps the draw when the card fails to render: says the tag is being stamped, and alerts', async () => {
@@ -193,6 +193,14 @@ describe('/dogtag', () => {
   });
 });
 
+/** Makes the bot's renderer take `ms` on its fake clock to draw a card. */
+function slowCards(bot: FakeBot, ms: number): void {
+  bot.renderer.renderMarineCards = async () => {
+    await bot.sleep(ms);
+    return { png: PNG_BYTES, gif: null, glintError: null };
+  };
+}
+
 /** Makes the bot's Discord refuse the edits `refuse` names, and records the longest wait it was allowed for each edit. */
 function refusing(bot: FakeBot, refuse: (content: string, file: string | undefined) => boolean) {
   const inner = bot.discord;
@@ -250,6 +258,21 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     });
   });
 
+  it("falls back to the static card alone when the site drops a Legendary's one render", async () => {
+    // #given
+    const bot = fakeBot({ snapshot: LEGENDARY, renderer: fakeRenderer('renderMarineCards') });
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ last: bot.discord.calls.at(-1)!.file, cardKey: marine.cardKey, rendered: bot.renderer.calls.filter((c) => c !== 'prepareMeme'), alerts: bot.alerts.map((a) => a.text) }).toEqual({
+      last: 'marine-1.png',
+      cardKey: 'cards/1.png',
+      rendered: ['renderMarineCards', 'renderMarineCard'],
+      alerts: ['glint for Marine #1 failed: renderMarineCards failed'],
+    });
+  });
+
   it('says the tag is being stamped when neither card can be uploaded', async () => {
     // #given
     const bot = fakeBot({ snapshot: LEGENDARY });
@@ -298,12 +321,7 @@ describe('a committed Marine always ends with the card or the stamping line', ()
   it('posts a card stamped at 17 s, and the stamping line at 18 s for one that would take until 19 s', async () => {
     // #given two renderers on the fake clock, 17 s and 19 s slow
     const [early, late] = [fakeBot(), fakeBot()];
-    for (const [bot, ms] of [[early, 17_000], [late, 19_000]] as const) {
-      bot.renderer.renderMarineCard = async () => {
-        await bot.sleep(ms);
-        return PNG_BYTES;
-      };
-    }
+    for (const [bot, ms] of [[early, 17_000], [late, 19_000]] as const) slowCards(bot, ms);
     const t0 = early.clock.ms;
     // #when
     await enlistCommand(early, command('enlist'));
@@ -321,10 +339,7 @@ describe('a committed Marine always ends with the card or the stamping line', ()
   it('leaves /dogtag to finish a card that passed the deadline, and still reports it once done', async () => {
     // #given a card that takes 25 s
     const bot = fakeBot();
-    bot.renderer.renderMarineCard = async () => {
-      await bot.sleep(25_000);
-      return PNG_BYTES;
-    };
+    slowCards(bot, 25_000);
     // #when
     await enlistCommand(bot, command('enlist'));
     // #then
@@ -494,10 +509,7 @@ describe('a committed Marine always ends with the card or the stamping line', ()
 async function cardlessMarine(ms: number, overrides: Partial<Bot> = {}): Promise<FakeBot> {
   await enlistCommand(fakeBot({ renderer: fakeRenderer('renderMarineCard') }), command('enlist'));
   const bot = fakeBot(overrides);
-  bot.renderer.renderMarineCard = async () => {
-    await bot.sleep(ms);
-    return PNG_BYTES;
-  };
+  slowCards(bot, ms);
   return bot;
 }
 

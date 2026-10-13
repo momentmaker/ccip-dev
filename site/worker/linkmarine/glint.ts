@@ -1,7 +1,9 @@
 /// <reference path="./gifenc.d.ts" />
+import { hasGlint, type MarineCardImages, type Tier } from '@ccip-dev/core/linkmarine';
 import * as gifencModule from 'gifenc';
 import { px } from './art';
 import { FRONT_TAG, TAG_RADIUS, type TagBox } from './marine-card';
+import type { Rendered } from './render';
 
 // Bundlers hand gifenc over as ES named exports, Node as the CommonJS object behind `default`.
 const gifenc: typeof gifencModule = 'GIFEncoder' in gifencModule ? gifencModule : (gifencModule as unknown as { default: typeof gifencModule }).default;
@@ -168,4 +170,14 @@ export function glintGif(base: Uint8Array, width: number, height: number, tag: T
   }
   gif.finish();
   return gif.bytes();
+}
+
+/** A rendered dog tag card's images: the PNG, and the glint for Rare and up. A glint that fails leaves the PNG, with the reason. */
+export function marineImages(rendered: Rendered, tier: Tier, glint: typeof glintGif = glintGif): MarineCardImages {
+  if (!hasGlint(tier)) return { png: rendered.png, gif: null, glintError: null };
+  try {
+    return { png: rendered.png, gif: glint(rendered.pixels, rendered.width, rendered.height), glintError: null };
+  } catch (err) {
+    return { png: rendered.png, gif: null, glintError: err instanceof Error ? err.message : String(err) };
+  }
 }

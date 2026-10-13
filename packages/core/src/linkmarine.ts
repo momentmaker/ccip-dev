@@ -191,6 +191,15 @@ export interface IntelCards {
 export type IntelKind = keyof IntelCards;
 export const INTEL_KINDS: readonly IntelKind[] = ['sitrep', 'dossier', 'vault', 'records'];
 
+/** A dog tag card's two images from one render. */
+export interface MarineCardImages {
+  png: Uint8Array;
+  /** The glint for Rare and Legendary; null for the others, and when the glint failed. */
+  gif: Uint8Array | null;
+  /** Why the glint failed, when it did: the PNG is still good to post. */
+  glintError: string | null;
+}
+
 /** The site Worker's LinkMarine entrypoint, as the bot sees it over its service binding. */
 export interface LinkMarineRenderer {
   /** A meme as a 240×240 PNG, cover-cropped: the card never draws one larger. */
@@ -198,5 +207,7 @@ export interface LinkMarineRenderer {
   renderMarineCard(card: MarineCard): Promise<Uint8Array>;
   /** The animated GIF for Rare and Legendary cards; null for the others. */
   renderMarineGlint(card: MarineCard): Promise<Uint8Array | null>;
+  /** The card and its glint from one render, so a Rare or Legendary costs one Satori and resvg pass, not two. */
+  renderMarineCards(card: MarineCard): Promise<MarineCardImages>;
   renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array>;
 }

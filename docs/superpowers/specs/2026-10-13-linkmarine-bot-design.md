@@ -275,7 +275,8 @@ Each medal shows its value, its label and its date. The most recently set record
 **Data.** It fetches `https://data.ccip.dev/v1/*.json`: today, history, chains, replay, reserve and top files. A small in-isolate cache plus the Cache API keep them for 60 s. It has no access to the data Worker's D1.
 
 **Rendering.**
-- The site Worker exposes a named entrypoint, a `WorkerEntrypoint` class reached through a service binding: `renderMarineCard(data)`, `renderMarineGlint(data)`, `renderIntelCard(kind, input)`.
+- The site Worker exposes a named entrypoint, a `WorkerEntrypoint` class reached through a service binding: `renderMarineCard(data)`, `renderMarineGlint(data)`, `renderMarineCards(data)`, `renderIntelCard(kind, input)`.
+- The bot stamps with `renderMarineCards`: one render gives the PNG and, for Rare and up, the glint. A glint that fails comes back as its reason beside the PNG; a call that fails whole is followed by `renderMarineCard` alone for Rare and up.
 - It's not routable from the public internet. It returns PNG bytes, or the animated image.
 - The art layers (tags, halo, hex clipping, glows, lanes, charts) are built as SVG and embedded in the Satori tree as image layers. Text uses Satori with the existing fonts.
 - Meme bytes are passed in by the bot, from R2. Chain icons come from the site's bundled icons.

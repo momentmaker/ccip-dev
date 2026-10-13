@@ -1,8 +1,8 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import { hasGlint, type IntelCards, type IntelKind, type LinkMarineRenderer, type MarineCard } from '@ccip-dev/core/linkmarine';
+import { hasGlint, type IntelCards, type IntelKind, type LinkMarineRenderer, type MarineCard, type MarineCardImages } from '@ccip-dev/core/linkmarine';
 import type { AssetFetcher } from '../cards/coin-icons';
 import { chainArts } from './chain-hex';
-import { glintGif } from './glint';
+import { glintGif, marineImages } from './glint';
 import { intelSelectors, intelTree } from './intel';
 import { marineTree } from './marine-card';
 import { MEME_SIZE, memeTree } from './meme';
@@ -29,6 +29,11 @@ export class LinkMarineCards extends WorkerEntrypoint<LinkMarineEnv> implements 
     if (!hasGlint(card.tier)) return null;
     const rendered = await renderKino(marineTree(card));
     return glintGif(rendered.pixels, rendered.width, rendered.height);
+  }
+
+  /** The bot's way in: one render for the PNG and the glint. A failed glint comes back as its reason beside the PNG. */
+  async renderMarineCards(card: MarineCard): Promise<MarineCardImages> {
+    return marineImages(await renderKino(marineTree(card)), card.tier);
   }
 
   async renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array> {

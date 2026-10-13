@@ -49,7 +49,10 @@ export async function resetStorage(): Promise<void> {
 export const PNG_BYTES = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 export const GIF_BYTES = new Uint8Array([71, 73, 70, 56, 57, 97]);
 
-/** The site's renderer as the bot calls it, counting calls; `failing` names a method that throws. */
+/**
+ * The site's renderer as the bot calls it, counting calls; `failing` names a method that throws. renderMarineCards draws
+ * both images as the site does: it fails with renderMarineCard, and gives a failing renderMarineGlint back as the reason.
+ */
 export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): LinkMarineRenderer & { calls: string[] } {
   const calls: string[] = [];
   const call = <T>(name: keyof LinkMarineRenderer, value: T) => {
@@ -57,6 +60,7 @@ export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): L
     if (failing === name) throw new Error(`${name} failed`);
     return value;
   };
+  const glints = (tier: string) => tier === 'rare' || tier === 'legendary';
   return {
     calls,
     async prepareMeme() {
@@ -66,7 +70,13 @@ export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): L
       return call('renderMarineCard', PNG_BYTES);
     },
     async renderMarineGlint(card) {
-      return call('renderMarineGlint', card.tier === 'rare' || card.tier === 'legendary' ? GIF_BYTES : null);
+      return call('renderMarineGlint', glints(card.tier) ? GIF_BYTES : null);
+    },
+    async renderMarineCards(card) {
+      call('renderMarineCards', null);
+      if (failing === 'renderMarineCard') throw new Error('renderMarineCard failed');
+      if (!glints(card.tier)) return { png: PNG_BYTES, gif: null, glintError: null };
+      return failing === 'renderMarineGlint' ? { png: PNG_BYTES, gif: null, glintError: 'renderMarineGlint failed' } : { png: PNG_BYTES, gif: GIF_BYTES, glintError: null };
     },
     async renderIntelCard() {
       return call('renderIntelCard', PNG_BYTES);
