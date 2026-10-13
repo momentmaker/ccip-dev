@@ -108,6 +108,9 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 
 .site-footer { text-align: center; color: var(--muted); font-size: 13px; padding: 32px 20px 48px; border-top: 1px solid var(--border-soft); }
 .footer-links a { color: var(--fg); }
+.socials { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; }
+.soc { width: 40px; height: 44px; display: grid; place-items: center; color: var(--fg); background: var(--card); border: 1px solid var(--border-soft); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); transition: background 0.15s ease; }
+.soc:hover { background: #13244d; text-decoration: none; }
 
 @media (max-width: 640px) {
   .tagline, .status-text { display: none; }

@@ -1,0 +1,242 @@
+---
+import Base from '../layouts/Base.astro';
+import { DISCORD_INSTALL_URL } from '../config';
+import { DISCORD_PATH } from '../lib/socials';
+
+const TIERS = [
+  { name: 'Common', share: '60% · steel', color: '#c9d1dc', swatch: 'linear-gradient(135deg,#4a5260,#c9d1dc 28%,#eef2f7 40%,#8e98a6 62%,#5b6472)' },
+  { name: 'Uncommon', share: '25% · bronze', color: '#5fe0a4', swatch: 'radial-gradient(circle at 75% 30%,#4fae8c99 0 12%,transparent 18%),linear-gradient(135deg,#5a3416,#c98a4b 30%,#f0c08a 42%,#9a5f2c 64%,#4e2c12)' },
+  { name: 'Rare', share: '12% · titanium', color: '#8fb0ff', swatch: 'linear-gradient(120deg,#2b3a8f,#4f7cff 22%,#b07cff 42%,#ffd27a 58%,#4fd1c5 76%,#2b3a8f)' },
+  { name: 'Legendary', share: '3% · gold + glint', color: '#f5c451', swatch: 'linear-gradient(135deg,#6e4a0c,#f5c451 20%,#fff6cf 36%,#c8901e 54%,#f7dc85 72%,#7d570f)' },
+];
+const PIPS = [
+  { pips: '◆◆◆', note: 'a meme that exists once' },
+  { pips: '◆◆◇', note: '2–9' },
+  { pips: '◆◇◇', note: '10–49' },
+  { pips: '◇◇◇', note: '50+' },
+];
+const INTEL = [
+  { image: 'intel-sitrep', command: '/cciptoday', note: 'today so far, the pace and the top lanes', alt: 'The /cciptoday SITREP card: messages, value and fees so far today, the pace and the top lanes' },
+  { image: 'intel-dossier', command: '/ccipchain base', note: "any chain's dossier", alt: "The /ccipchain dossier card for Base: its rank, its partner chains and the last 7 days" },
+  { image: 'intel-vault', command: '/linkreserve', note: 'the Chainlink Reserve', alt: 'The /linkreserve card: the Chainlink Reserve vault and its LINK balance' },
+  { image: 'intel-records', command: '/cciprecords', note: 'the all-time records', alt: 'The /cciprecords card: the hall of all-time CCIP records' },
+];
+const COMMANDS = [
+  { command: '/enlist', note: 'Draw your permanent callsign and get your dog tags.' },
+  { command: '/dogtag [@marine]', note: "Show your card, or another Marine's." },
+  { command: '/cciptoday', note: "Today's SITREP: messages, value, fees, pace." },
+  { command: '/ccipchain <chain>', note: "A chain's dossier: rank, partners, 7 days." },
+  { command: '/linkreserve', note: 'The Chainlink Reserve vault.' },
+  { command: '/cciprecords', note: 'The hall of all-time records.' },
+];
+const SAFE = [
+  {
+    title: 'No permissions',
+    text: "It installs with Discord's command scope only: no roles, no bot user, no message access.",
+    icon: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/>',
+  },
+  {
+    title: 'Stores only your tag',
+    text: 'Your Discord account ID, the display name and avatar stamped on your card, your callsign and draw, and a copy of the card, its memes and the avatar.',
+    icon: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+  },
+  {
+    title: 'Open source',
+    text: 'Every line is on GitHub, including how the draw and the odds work.',
+    icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/>',
+  },
+];
+---
+<Base title="ccip.dev on Discord" description="Enlist for a permanent meme callsign on a pair of dog tags, and pull live CCIP intel as cards. Free, for any server, with no permissions.">
+  <div class="dc">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">ccip.dev on Discord</div>
+        <h1>Your CCIP <span class="gold">dog tags</span>,<br />in your Discord.</h1>
+        <p class="lead">Enlist for a permanent meme callsign stamped on a pair of dog tags, then pull live CCIP intel as cinematic cards. Free, for any server.</p>
+        <div class="ctas">
+          <a class="btn discord" href={DISCORD_INSTALL_URL}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d={DISCORD_PATH} /></svg>
+            Add to Discord
+          </a>
+          <a class="btn ghost" href="#commands">See the commands</a>
+        </div>
+        <p class="fine"><b>No permissions.</b> It reads no messages and changes nothing in your server.</p>
+      </div>
+      <div class="hero-card">
+        <img src="/discord/marine-legendary.gif" width="1200" height="675" fetchpriority="high" alt="A Legendary dog tag card for Link Marine #0007: the memes painting, space and prophecy" />
+        <div class="badge"><span class="live" aria-hidden="true"></span>LINK MARINE #0007 · LEGENDARY</div>
+      </div>
+    </div>
+
+    <section aria-labelledby="enlist-title">
+      <div class="eyebrow">/enlist</div>
+      <h2 id="enlist-title">One draw. Yours forever.</h2>
+      <p class="sub">Three tags from the chainlinkme.me meme archive, drawn by rarity, stamped once and never redrawn. Early serials and rare tiers are bragging rights.</p>
+      <div class="enlist">
+        <div class="chat">
+          <div class="msg">
+            <div class="av" aria-hidden="true">y</div>
+            <div><div class="who">you <small>today at 14:02</small></div><div>used <span class="cmd">/enlist</span></div></div>
+          </div>
+          <div class="msg">
+            <div class="av bot" aria-hidden="true">⬡</div>
+            <div class="msg-body">
+              <div class="who">ccip.dev<span class="app">APP</span></div>
+              <ul class="steps">
+                <li>Drawing your callsign… ▮▮▮</li>
+                <li>PAINTING ▮▮</li>
+                <li>PAINTING · SPACE ▮</li>
+                <li class="now">PAINTING · SPACE · PROPHECY</li>
+              </ul>
+              <div class="banner">⚠ LEGENDARY DRAW</div>
+              <img class="thumb" src="/discord/marine-legendary.webp" width="1200" height="675" loading="lazy" alt="The finished Legendary dog tag card: painting, space, prophecy" />
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="tiers">
+            {TIERS.map((t) => (
+              <div class="tier">
+                <div class="sw" style={`background:${t.swatch}`} aria-hidden="true"></div>
+                <div class="nm" style={`color:${t.color}`}>{t.name.toUpperCase()}</div>
+                <div class="pct">{t.share}</div>
+              </div>
+            ))}
+          </div>
+          <div class="pips">
+            {PIPS.map((p) => <span><b>{p.pips}</b> {p.note}</span>)}
+          </div>
+          <p class="sub tail">Every tag carries its meme. Rare and Legendary tags glint. Run <span class="cmd">/dogtag</span> any time to show yours, or someone else's.</p>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="intel-title">
+      <div class="eyebrow">intel</div>
+      <h2 id="intel-title">CCIP, briefed like a mission.</h2>
+      <p class="sub">Live numbers from ccip.dev's public data, drawn as cards worth posting. Each one shows when its data was taken.</p>
+      <div class="gallery">
+        {INTEL.map((i) => (
+          <figure class="shot">
+            <img src={`/discord/${i.image}.webp`} width="1200" height="675" loading="lazy" alt={i.alt} />
+            <figcaption><code>{i.command}</code><span>{i.note}</span></figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+
+    <section id="commands" aria-labelledby="commands-title">
+      <div class="eyebrow">commands</div>
+      <h2 id="commands-title">Six commands.</h2>
+      <div class="cmds">
+        {COMMANDS.map((c) => <div class="c"><code>{c.command}</code><p>{c.note}</p></div>)}
+      </div>
+    </section>
+
+    <section aria-labelledby="safe-title">
+      <div class="eyebrow">safe to add</div>
+      <h2 id="safe-title">It asks for nothing.</h2>
+      <div class="safe">
+        {SAFE.map((s) => (
+          <div class="s">
+            <div class="ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={s.icon} /></div>
+            <h3>{s.title}</h3>
+            <p>{s.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="cta" aria-labelledby="cta-title">
+      <div class="eyebrow">enlist</div>
+      <h2 id="cta-title">Bring ccip.dev to your server.</h2>
+      <div class="ctas center">
+        <a class="btn discord" href={DISCORD_INSTALL_URL}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d={DISCORD_PATH} /></svg>
+          Add to Discord
+        </a>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .dc { max-width: 1120px; margin: 0 auto; --blurple: #5865f2; --ink: #c3cad5; --soft: #aab3c0; --code: #c9cdfb; }
+  .eyebrow { font: 600 12px var(--font-mono); letter-spacing: 0.16em; color: var(--blue-2); text-transform: uppercase; }
+  .dc h1 { font-size: clamp(34px, 5vw, 52px); line-height: 1.04; margin: 14px 0 16px; }
+  .gold { background: linear-gradient(180deg, #fff6cf, #f5c451 50%, #b07a12); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .dc h2 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 8px 0 10px; }
+  .hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 40px; align-items: center; padding: 56px 0 40px; }
+  .lead { color: var(--ink); font-size: 17px; max-width: 470px; }
+  .ctas { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+  .ctas.center { justify-content: center; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 13px 20px; border-radius: 12px; font: 700 15px var(--font-sans); color: #fff; }
+  .btn:hover { text-decoration: none; filter: brightness(1.08); }
+  .btn.discord { background: linear-gradient(180deg, #5865f2, #4752c4); box-shadow: 0 8px 28px rgba(88, 101, 242, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+  .btn.ghost { background: var(--card); border: 1px solid var(--border); color: var(--fg); }
+  .fine { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .fine b { color: var(--ink); font-weight: 600; }
+  .hero-card { position: relative; }
+  .hero-card img { display: block; width: 100%; height: auto; border-radius: 16px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(245, 196, 81, 0.25), 0 0 60px rgba(245, 196, 81, 0.12); transform: perspective(1400px) rotateY(-8deg) rotateX(3deg); }
+  .badge { position: absolute; left: -14px; bottom: -14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; font: 600 13px var(--font-mono); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+  .live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 10px var(--up); margin-right: 8px; }
+  section { padding: 56px 0; border-top: 1px solid var(--border-soft); }
+  .sub { color: var(--soft); max-width: 640px; }
+  .sub.tail { margin-top: 18px; }
+  .enlist { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; margin-top: 28px; }
+  .chat { background: #1e1f22; border-radius: 14px; padding: 18px; font-size: 15px; min-width: 0; }
+  .msg { display: flex; gap: 12px; margin-bottom: 14px; }
+  .msg:last-child { margin-bottom: 0; }
+  .msg-body { flex: 1; min-width: 0; }
+  .av { width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #2b2d31; font-weight: 700; color: var(--ink); }
+  .av.bot { background: #13244d; color: var(--blue-2); }
+  .who { font-weight: 700; }
+  .who small { font-weight: 500; color: #949ba4; margin-left: 6px; font-size: 12px; }
+  .app { background: var(--blurple); color: #fff; font: 700 10px var(--font-sans); padding: 1px 5px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+  .cmd { color: var(--code); background: rgba(88, 101, 242, 0.18); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  .steps { list-style: none; padding: 0; margin: 8px 0 0; font: 600 13px var(--font-mono); color: var(--ink); }
+  .steps li { padding: 4px 0; margin: 0; opacity: 0.6; }
+  .steps li.now { opacity: 1; color: var(--fg); }
+  .banner { margin-top: 6px; font: 600 13px var(--font-mono); letter-spacing: 0.1em; color: var(--gold); }
+  .thumb { display: block; margin-top: 10px; width: 320px; max-width: 100%; height: auto; border-radius: 8px; }
+  .tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .tier { border-radius: 14px; padding: 14px; border: 1px solid var(--border-soft); background: var(--card); min-width: 0; }
+  .sw { height: 54px; border-radius: 16px; margin-bottom: 10px; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 8px 18px rgba(0, 0, 0, 0.4); }
+  .nm { font: 800 12px var(--font-mono); letter-spacing: 0.14em; overflow-wrap: anywhere; }
+  .pct { color: var(--muted); font: 600 12px var(--font-mono); }
+  .pips { margin-top: 18px; display: flex; gap: 8px 22px; flex-wrap: wrap; font: 600 13px var(--font-mono); color: var(--ink); }
+  .pips b { color: var(--gold); letter-spacing: 2px; }
+  .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 26px; }
+  .shot { margin: 0; background: var(--card); border: 1px solid var(--border-soft); border-radius: 16px; padding: 10px; min-width: 0; }
+  .shot img { display: block; width: 100%; height: auto; border-radius: 10px; }
+  figcaption { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; padding: 10px 6px 4px; }
+  figcaption code { font: 700 14px var(--font-mono); color: var(--fg); }
+  figcaption span { color: var(--muted); font-size: 13px; }
+  .cmds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+  .c { background: var(--card); border: 1px solid var(--border-soft); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .c code { font: 700 14px var(--font-mono); color: var(--code); overflow-wrap: anywhere; }
+  .c p { margin: 6px 0 0; color: var(--soft); font-size: 14px; }
+  .safe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+  .s { background: var(--card); border: 1px solid var(--border-soft); border-radius: 12px; padding: 16px; }
+  .s h3 { margin: 0 0 6px; font: 700 15px var(--font-sans); }
+  .s p { margin: 0; color: var(--soft); font-size: 14px; }
+  .ico { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: #13244d; margin-bottom: 10px; color: var(--blue-2); }
+  .cta { text-align: center; padding: 64px 0 72px; background: radial-gradient(ellipse at 50% 0%, rgba(88, 101, 242, 0.18), transparent 60%); }
+  .cta h2 { font-size: 36px; }
+
+  @media (max-width: 900px) {
+    .hero, .enlist, .gallery { grid-template-columns: 1fr; }
+    .cmds, .safe { grid-template-columns: 1fr 1fr; }
+    .hero { padding-top: 32px; }
+    .hero-card img { transform: none; }
+    .badge { left: 8px; bottom: 8px; }
+  }
+  @media (max-width: 600px) {
+    .cmds, .safe { grid-template-columns: 1fr; }
+    .tiers { grid-template-columns: 1fr 1fr; }
+    .dc h2, .cta h2 { font-size: 26px; }
+    section { padding: 40px 0; }
+    .btn { width: 100%; justify-content: center; }
+  }
+</style>

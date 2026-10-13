@@ -1,13 +1,21 @@
 ---
 import sponsor from '../../sponsor.json';
 import { ATTRIBUTION, DISCLAIMER, REPO_URL } from '../config';
+import { SOCIALS } from '../lib/socials';
 import { sponsorView } from '../lib/sponsor';
 
 const view = sponsorView(sponsor);
 ---
 <footer class="site-footer">
+  <div class="socials">
+    {SOCIALS.map((s) => (
+      <a class="soc" href={s.href} aria-label={s.label} title={s.label}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false"><path d={s.path} /></svg>
+      </a>
+    ))}
+  </div>
   <p class="footer-links">
-    <a href="/methodology/">Methodology</a>{' · '}<a href="/status/">Status</a>{' · '}<a href="/about/">About</a>{' · '}
+    <a href="/methodology/">Methodology</a>{' · '}<a href="/status/">Status</a>{' · '}<a href="/about/">About</a>{' · '}<a href="/discord/">Discord bot</a>{' · '}
     <a href={REPO_URL}>Source on GitHub</a>{' · '}
     <a href={view.footer.href} rel={view.kind === 'sponsor' ? 'sponsored noopener' : undefined}>{view.footer.text}</a>
   </p>

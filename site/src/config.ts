@@ -3,6 +3,7 @@ export const REPO_URL = 'https://github.com/momentmaker/ccip-dev';
 export const X_HANDLE = 'ccipdev';
 export const X_URL = 'https://x.com/ccipdev';
 export const TELEGRAM_URL = 'https://t.me/ccipdev';
+export const DISCORD_INSTALL_URL = 'https://discord.com/oauth2/authorize?client_id=1559612174081724456&scope=applications.commands';
 export const UMAMI_SRC = 'https://analytics.jivx.com/script.js';
 export const UMAMI_WEBSITE_ID = '87df1e36-3c00-4ae2-b70d-4a48bd774c1b';
 export const TAGLINE = 'Live Chainlink CCIP stats · unofficial';
