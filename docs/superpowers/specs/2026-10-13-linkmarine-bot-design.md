@@ -330,13 +330,13 @@ Vitest in workerd, like `worker/`:
    - that resvg renders the etched-meme filter (grayscale and contrast).
 
    If the glint fails, Rare and up stay static. If the filter fails, the etching falls back to a tinted overlay.
-2. **Merge.** The deploy of the bot is gated by the repository variable `DISCORD_BOT`, because the D1 database id must exist and be committed first. Once the owner sets it to `on`, the deploy creates the Worker, with no commands registered yet.
+2. **Merge.** The deploy of the bot is gated by the repository variable `DISCORD_BOT`, because the D1 database id must exist and be committed first. Before setting it to `on`, the owner applies the migrations and deploys the bot once from their own login: that first deploy attaches the `discord.ccip.dev` custom domain, which needs a zone permission the CI deploy token does not have (or the token gains Zone · Workers Routes · Edit on `ccip.dev`). Once it is `on`, CI deploys every merge, with no commands registered yet.
 3. **Owner steps:**
    - create the Discord app;
    - set the interactions URL;
    - set the secrets;
-   - run `pnpm discord:register`;
-   - invite the app with the `applications.commands` link.
+   - invite the app with the `applications.commands` link;
+   - run `pnpm discord:register` (Discord refuses guild commands, 403 Missing Access, for an app not yet in the server: invite first).
 4. **The owner enlists first, as Marine #0001,** in a test channel. Then announce.
 
 ## 12. Risks
