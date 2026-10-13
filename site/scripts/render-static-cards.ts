@@ -1,8 +1,6 @@
-import { writeFile } from 'node:fs/promises';
+import { copyFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { render } from '@cf-wasm/og/node';
-import { defaultCard } from '../worker/cards/content';
-import { cardTree } from '../worker/cards/frame';
 import { INTER_400, INTER_700 } from '../worker/fonts';
 import { h } from '../worker/h';
 
@@ -19,7 +17,8 @@ const publicDir = join(import.meta.dirname, '..', 'public');
 const png = async (tree: unknown, width: number, height: number) =>
   (await render(tree as never, { width, height, fonts: FONTS, loadAdditionalAsset: async () => [] }).asPng()).image;
 
-await writeFile(join(publicDir, 'og-default.png'), await png(cardTree(defaultCard(), { skyDataUri: null, coins: [], sparkDataUri: null, sponsorLine: null }), 1200, 630));
+// The default share image is the brand render (brand/src/og.html), not a Satori card.
+await copyFile(join(import.meta.dirname, '..', '..', 'brand', 'og-1200x630.png'), join(publicDir, 'og-default.png'));
 await writeFile(join(publicDir, 'apple-touch-icon.png'), await png(icon(180), 180, 180));
 await writeFile(join(publicDir, 'favicon-32.png'), await png(icon(32), 32, 32));
-console.log('wrote og-default.png, apple-touch-icon.png and favicon-32.png');
+console.log('copied og-default.png from brand/, wrote apple-touch-icon.png and favicon-32.png');

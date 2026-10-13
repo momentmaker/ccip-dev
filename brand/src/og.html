@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>og</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;800&family=JetBrains+Mono:wght@500;600&display=block" rel="stylesheet">
+<style>
+  :root { --s: 1; }
+  body { margin: 0; background: #000; }
+  #banner { position: relative; width: calc(1200px * var(--s)); height: calc(630px * var(--s)); overflow: hidden; background: #0c0f14; }
+  #banner canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hex {
+    position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'><g fill-rule='evenodd' fill='%234a8eff' fill-opacity='0.12'><path d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/></g></svg>");
+    background-size: calc(56px * var(--s)) calc(98px * var(--s));
+    -webkit-mask-image: linear-gradient(90deg, transparent 40%, #000 80%);
+    mask-image: linear-gradient(90deg, transparent 40%, #000 80%);
+  }
+  .shade { position: absolute; inset: 0; background: radial-gradient(ellipse 44% 70% at 76% 50%, rgba(12, 15, 20, 0.78), transparent 75%); }
+  .vignette { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(8, 10, 14, 0.92) 0%, rgba(8, 10, 14, 0.55) 9%, transparent 24%), linear-gradient(180deg, rgba(8, 10, 14, 0.6) 0%, transparent 16%); }
+  .text { position: absolute; left: 54%; top: 50%; transform: translateY(-50%); color: #e8eaed; font-family: Inter, 'Helvetica Neue', Arial, sans-serif; }
+  .word { display: flex; align-items: center; gap: calc(16px * var(--s)); font-weight: 800; font-size: calc(92px * var(--s)); letter-spacing: -0.035em; line-height: 1; }
+  .word span { background: linear-gradient(180deg, #8fb3ff 0%, #4a7ff0 70%, #3a6ce6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 calc(18px * var(--s)) rgba(74, 127, 240, 0.45)); }
+  .word svg { width: calc(74px * var(--s)); height: calc(74px * var(--s)); flex: none; overflow: visible; filter: drop-shadow(0 0 calc(14px * var(--s)) rgba(74, 127, 240, 0.7)); }
+  .tag { margin-top: calc(20px * var(--s)); font-weight: 600; font-size: calc(30px * var(--s)); letter-spacing: -0.01em; }
+  .meta { display: flex; align-items: center; gap: calc(12px * var(--s)); margin-top: calc(16px * var(--s)); font: 600 calc(15px * var(--s)) 'JetBrains Mono', Menlo, monospace; letter-spacing: 0.14em; color: #8892a0; text-transform: uppercase; }
+  .dot { width: calc(10px * var(--s)); height: calc(10px * var(--s)); border-radius: 50%; background: #3ddc84; box-shadow: 0 0 calc(10px * var(--s)) rgba(61, 220, 132, 0.8); }
+</style>
+<body>
+<div id="banner">
+  <div class="hex"></div>
+  <div class="shade"></div>
+  <div class="vignette"></div>
+  <div class="text">
+    <div class="word">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fb3ff"/><stop offset="1" stop-color="#3a6ce6"/></linearGradient></defs>
+        <polygon points="12,2 20.66,7 20.66,17 12,22 3.34,17 3.34,7" fill="none" stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="4.5" fill="none" stroke="url(#g)" stroke-width="2.2"/>
+      </svg>
+      <span>ccip.dev</span>
+    </div>
+    <div class="tag">Live Chainlink CCIP stats</div>
+    <div class="meta"><i class="dot"></i>Every message · Daily recaps · Replays</div>
+  </div>
+</div>
+<script src="render.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const t = Number(params.get('t') ?? 25);
+  const zoom = Number(params.get('zoom') ?? 1.2);
+  const centerX = Number(params.get('cx') ?? 0.29);
+  const s = Number(getComputedStyle(document.documentElement).getPropertyValue('--s'));
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.round(1200 * s * dpr), H = Math.round(630 * s * dpr);
+  const rw = Math.round(W * zoom), rh = Math.round(H * zoom);
+  const sky = renderSky(t, rw, rh);
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const x0 = Math.round(rw / 2 - centerX * W), y0 = Math.round((rh - H) / 2);
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#0c0f14'; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(sky, x0, y0, W, H, 0, 0, W, H);
+  document.getElementById('banner').prepend(out);
+  document.fonts.ready.then(() => { document.title = 'ready'; });
+</script>
