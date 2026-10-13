@@ -7,3 +7,5 @@ export default {
     return handleOg(request, env, ctx, { fetch: (input, init) => fetch(input, init), renderPng, cache: caches.default });
   },
 } satisfies ExportedHandler<OgEnv & { ASSETS: Fetcher }>;
+
+export { LinkMarineCards } from './linkmarine/entrypoint';
