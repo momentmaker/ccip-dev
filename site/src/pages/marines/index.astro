@@ -1,0 +1,10 @@
+---
+import RosterView from '../../components/marines/RosterView';
+import Base from '../../layouts/Base.astro';
+import '../../styles/marines.css';
+---
+<Base title="LinkMarines" description="Every LinkMarine who has enlisted with the ccip.dev bot, by callsign: the dog tags, the rarest draws and the tags still undrawn.">
+  <div class="mr-page">
+    <RosterView client:load />
+  </div>
+</Base>
