@@ -60,28 +60,21 @@ export function glintAt(f: TagFrame, x: number, y: number, t: number): number {
   return cover * Math.min(0.85, light);
 }
 
-function lit(base: Uint8Array, f: TagFrame, t: number, width: number): Uint8Array {
-  const out = new Uint8Array(base);
-  for (let y = f.y0; y < f.y1; y++) {
-    for (let x = f.x0; x < f.x1; x++) {
-      const k = glintAt(f, x, y, t);
-      if (k === 0) continue;
-      const i = (y * width + x) * 4;
-      out[i] = out[i]! + k * (255 - out[i]!);
-      out[i + 1] = out[i + 1]! + k * (255 - out[i + 1]!);
-      out[i + 2] = out[i + 2]! + k * (255 - out[i + 2]!);
-    }
-  }
-  return out;
-}
+/** Sweep frame k's progress: never 0 or 1, where the light would sit off the tag. */
+const progress = (k: number) => (k + 1) / (GLINT.sweepFrames + 1);
 
-function indexer(palette: gifencModule.Palette): (rgba: Uint8Array, i: number, x: number, y: number) => number {
+/** A channel brightened by `light`, truncated as a byte stores it. */
+const brighten = (v: number, light: number) => (v + light * (255 - v)) | 0;
+
+type Indexer = (r: number, g: number, b: number, x: number, y: number) => number;
+
+function indexer(palette: gifencModule.Palette): Indexer {
   const cache = new Int16Array(1 << 15).fill(-1);
-  return (rgba, i, x, y) => {
+  return (r0, g0, b0, x, y) => {
     const d = BAYER[(y & 3) * 4 + (x & 3)]!;
-    const r = Math.min(255, Math.max(0, rgba[i]! + d));
-    const g = Math.min(255, Math.max(0, rgba[i + 1]! + d));
-    const b = Math.min(255, Math.max(0, rgba[i + 2]! + d));
+    const r = Math.min(255, Math.max(0, r0 + d));
+    const g = Math.min(255, Math.max(0, g0 + d));
+    const b = Math.min(255, Math.max(0, b0 + d));
     const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
     let found = cache[key]!;
     if (found < 0) {
@@ -92,6 +85,23 @@ function indexer(palette: gifencModule.Palette): (rgba: Uint8Array, i: number, x
   };
 }
 
+/** What the palette is drawn from: the card, then the front tag's box as the middle sweep frame lights it. */
+function paletteSample(base: Uint8Array, f: TagFrame, width: number): Uint8Array {
+  const sample = new Uint8Array(base.length + (f.x1 - f.x0) * (f.y1 - f.y0) * 4);
+  sample.set(base);
+  const t = progress(Math.floor(GLINT.sweepFrames / 2));
+  let o = base.length;
+  for (let y = f.y0; y < f.y1; y++) {
+    for (let x = f.x0; x < f.x1; x++, o += 4) {
+      const i = (y * width + x) * 4;
+      const light = glintAt(f, x, y, t);
+      for (let c = 0; c < 3; c++) sample[o + c] = brighten(base[i + c]!, light);
+      sample[o + 3] = base[i + 3]!;
+    }
+  }
+  return sample;
+}
+
 export interface GlintFrames {
   /** Padded to 256 entries for the encoder; only the first `colors` are real. */
   palette: gifencModule.Palette;
@@ -99,43 +109,48 @@ export interface GlintFrames {
   colors: number;
   /** The static card, indexed. */
   first: Uint8Array;
-  /** The sweep: each frame's changed pixels, TRANSPARENT everywhere else. */
-  sweep: Uint8Array[];
+  /** The front tag's box: the only pixels the sweep changes. */
   box: { x0: number; y0: number; x1: number; y1: number };
+  /** The sweep, a frame at a time as it is asked for: each frame is the box's indices, the changed pixels and TRANSPARENT elsewhere. */
+  sweep: () => Generator<Uint8Array>;
 }
 
 /**
  * The glint's frames: the static card, then a light sweeping across the front tag. They share one 255-colour palette,
- * and every frame after the first carries only the pixels that change, so the file stays small.
+ * and every frame after the first carries only the pixels that change, so the file stays small. The sweep is lit only
+ * inside the tag's box and one frame at a time, so encoding never holds more than a box of each frame.
  */
 export function glintFrames(base: Uint8Array, width: number, height: number, tag: TagBox = FRONT_TAG): GlintFrames {
-  const frame = tagFrame(tag, width, height);
-  const sweeps = Array.from({ length: GLINT.sweepFrames }, (_, k) => lit(base, frame, (k + 1) / (GLINT.sweepFrames + 1), width));
-  const sample = new Uint8Array(base.length * 2);
-  sample.set(base);
-  sample.set(sweeps[Math.floor(GLINT.sweepFrames / 2)]!, base.length);
-  const palette = gifenc.quantize(sample, 255);
+  const f = tagFrame(tag, width, height);
+  const palette = gifenc.quantize(paletteSample(base, f, width), 255);
   const colors = palette.length;
   const toIndex = indexer(palette.slice());
   while (palette.length < 256) palette.push([0, 0, 0]);
-  const shown = new Uint8Array(width * height);
-  for (let y = 0, p = 0; y < height; y++) for (let x = 0; x < width; x++, p++) shown[p] = toIndex(base, p * 4, x, y);
-  const first = new Uint8Array(shown);
-  const sweep = sweeps.map((pixels) => {
-    const index = new Uint8Array(width * height).fill(TRANSPARENT);
-    for (let y = frame.y0; y < frame.y1; y++) {
-      for (let x = frame.x0; x < frame.x1; x++) {
-        const p = y * width + x;
-        const want = toIndex(pixels, p * 4, x, y);
-        if (want !== shown[p]) {
-          index[p] = want;
-          shown[p] = want;
+  const first = new Uint8Array(width * height);
+  for (let y = 0, p = 0; y < height; y++) for (let x = 0; x < width; x++, p++) first[p] = toIndex(base[p * 4]!, base[p * 4 + 1]!, base[p * 4 + 2]!, x, y);
+  const box = { x0: f.x0, y0: f.y0, x1: f.x1, y1: f.y1 };
+  function* sweep(): Generator<Uint8Array> {
+    const shown = new Uint8Array((box.x1 - box.x0) * (box.y1 - box.y0));
+    for (let y = box.y0, q = 0; y < box.y1; y++) for (let x = box.x0; x < box.x1; x++, q++) shown[q] = first[y * width + x]!;
+    for (let k = 0; k < GLINT.sweepFrames; k++) {
+      const t = progress(k);
+      const index = new Uint8Array(shown.length).fill(TRANSPARENT);
+      for (let y = box.y0, q = 0; y < box.y1; y++) {
+        for (let x = box.x0; x < box.x1; x++, q++) {
+          const p = y * width + x;
+          const light = glintAt(f, x, y, t);
+          const i = p * 4;
+          const want = light === 0 ? first[p]! : toIndex(brighten(base[i]!, light), brighten(base[i + 1]!, light), brighten(base[i + 2]!, light), x, y);
+          if (want !== shown[q]) {
+            index[q] = want;
+            shown[q] = want;
+          }
         }
       }
+      yield index;
     }
-    return index;
-  });
-  return { palette, colors, first, sweep, box: { x0: frame.x0, y0: frame.y0, x1: frame.x1, y1: frame.y1 } };
+  }
+  return { palette, colors, first, box, sweep };
 }
 
 /** The animated glint as a looping GIF: the card held 600 ms, then twelve 60 ms frames of the sweep, about 1.3 s in all. */
@@ -143,7 +158,14 @@ export function glintGif(base: Uint8Array, width: number, height: number, tag: T
   const frames = glintFrames(base, width, height, tag);
   const gif = gifenc.GIFEncoder();
   gif.writeFrame(frames.first, width, height, { palette: frames.palette, delay: GLINT.holdMs, repeat: 0 });
-  for (const index of frames.sweep) gif.writeFrame(index, width, height, { delay: GLINT.frameMs, transparent: true, transparentIndex: TRANSPARENT, dispose: 1 });
+  // gifenc writes whole frames only: one card-sized frame, transparent outside the box, carries each box in turn.
+  const { x0, y0, x1, y1 } = frames.box;
+  const boxWidth = x1 - x0;
+  const whole = new Uint8Array(width * height).fill(TRANSPARENT);
+  for (const index of frames.sweep()) {
+    for (let y = y0; y < y1; y++) whole.set(index.subarray((y - y0) * boxWidth, (y - y0 + 1) * boxWidth), y * width + x0);
+    gif.writeFrame(whole, width, height, { delay: GLINT.frameMs, transparent: true, transparentIndex: TRANSPARENT, dispose: 1 });
+  }
   gif.finish();
   return gif.bytes();
 }
