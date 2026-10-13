@@ -7,7 +7,7 @@ const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const LABEL = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'long', year: 'numeric' });
 
 /** The monthly video: 30 s, square, under 50 MB (Telegram's limit for a bot's upload), at this key in the archive bucket. */
-export const MONTHLY_VIDEO = { width: 1080, height: 1080, durationS: 30, maxBytes: 50_000_000 } as const;
+export const MONTHLY_VIDEO = { width: 1024, height: 1024, durationS: 30, maxBytes: 50_000_000 } as const;
 /** The monthly video posts on the 1st to the 3rd of the next month (UTC). */
 export const MONTHLY_POST_DAYS = 3;
 

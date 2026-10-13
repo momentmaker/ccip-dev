@@ -17,8 +17,8 @@ export interface Probe {
 }
 
 export const DURATION_S = { min: 29.5, max: 30.5 } as const;
-/** X takes only 4:2:0 video; Chrome writes yuv420p on Linux and yuvj420p (full range) on a Mac. */
-const PIXEL_FORMATS = ['yuv420p', 'yuvj420p'];
+/** X requires 4:2:0 and advises yuv420p; the mux re-encodes away the full-range yuvj420p Chrome writes on a Mac. */
+const PIXEL_FORMAT = 'yuv420p';
 
 /** Why the muxed video must not be uploaded; empty when it may. */
 export function videoProblems(probe: Probe): string[] {
@@ -32,7 +32,7 @@ export function videoProblems(probe: Probe): string[] {
   else {
     if (video.width !== MONTHLY_VIDEO.width || video.height !== MONTHLY_VIDEO.height) problems.push(`its video is ${video.width}×${video.height}, not ${MONTHLY_VIDEO.width}×${MONTHLY_VIDEO.height}`);
     if (video.codec_name !== 'h264') problems.push(`its video is ${video.codec_name ?? 'of no codec'}, not H.264`);
-    if (!PIXEL_FORMATS.includes(video.pix_fmt ?? '')) problems.push(`its pixels are ${video.pix_fmt ?? 'of no format'}, not 4:2:0`);
+    if (video.pix_fmt !== PIXEL_FORMAT) problems.push(`its pixels are ${video.pix_fmt ?? 'of no format'}, not 4:2:0`);
   }
   if (audio?.codec_name !== 'aac') problems.push(audio ? `its audio is ${audio.codec_name ?? 'of no codec'}, not AAC` : 'it has no audio');
   if (!(size > 0 && size < MONTHLY_VIDEO.maxBytes)) problems.push(`it is ${probe.format?.size ?? 'of no'} bytes, not under ${MONTHLY_VIDEO.maxBytes / 1_000_000} MB`);

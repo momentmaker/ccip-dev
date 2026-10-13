@@ -21,14 +21,14 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
 
 **Owner decisions (2026-10-12):**
 - **Cut:** that month only, a new "CCIP in October" cut. It is not the all-time replay re-recorded.
-- **Format:** 30 s, square 1:1 (1080×1080), with sound.
+- **Format:** 30 s, square 1:1, with sound. The page records 1080×1080; the posted file is 1024×1024 yuv420p, because X documents a 1280×1024 maximum for video and requires 4:2:0.
 - **Approach (A):** a GitHub Actions workflow records the video with headless Chrome and uploads the MP4 to R2. The data Worker posts it through the existing pipeline. The X and Telegram secrets stay in Cloudflare; GitHub only gets R2 write access.
 - **Token:** the owner added Workers R2 Storage: Edit to the Cloudflare token GitHub already uses.
 
 ## 2. Success criteria
 
 - **On time:** on the 1st, last month's video is posted once to the Telegram channel and to X. Its caption matches its end card.
-- **Valid:** the video is about 30 s, 1080×1080, H.264 with AAC audio, under 50 MB, and plays inline on both.
+- **Valid:** the video is about 30 s, 1024×1024 yuv420p, H.264 with AAC audio, under 50 MB, and plays inline on both.
 - **Nothing bad goes out:** a failed or invalid recording uploads nothing and posts nothing. A missing video by 06:00 UTC on the 1st alerts once.
 - **Unchanged:** the all-time replay page and its in-browser record button work exactly as before.
 - **Cost:** one X post a month ($0.015).
@@ -101,10 +101,10 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
      - opens `https://ccip.dev/replay/month/?m=YYYY-MM`;
      - waits for the page to be ready and calls the hook;
      - saves both downloads.
-  3. Mux them with ffmpeg: `-c:v copy -c:a aac -b:a 128k -shortest -movflags +faststart`.
+  3. Re-encode and mux them with ffmpeg (`pnpm video:mux`): `-vf scale=1024:1024:flags=lanczos,format=yuv420p -c:v libx264 -profile:v high -preset medium -crf 18 -r 30 -c:a aac -b:a 128k -shortest -movflags +faststart`. Reason: X's documented 1280×1024 limit and its 4:2:0 requirement; the in-page recording stays 1080².
   4. Validate with ffprobe. The job fails, uploading nothing, unless the file has:
      - a duration of 29.5–30.5 s;
-     - 1080×1080;
+     - 1024×1024 and `yuv420p`;
      - H.264 video;
      - AAC audio;
      - a size under 50 MB.

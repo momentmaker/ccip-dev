@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { probeProblems } from '../video/browser';
 import { videoProblems, type Probe } from '../video/check';
+import { muxArgs } from '../video/mux';
 import { monthPageUrl, pickMonth } from '../video/monthly';
 
 describe('probeProblems', () => {
@@ -24,14 +25,14 @@ describe('probeProblems', () => {
 
 const GOOD: Probe = {
   streams: [
-    { codec_type: 'video', codec_name: 'h264', width: 1080, height: 1080, pix_fmt: 'yuv420p' },
+    { codec_type: 'video', codec_name: 'h264', width: 1024, height: 1024, pix_fmt: 'yuv420p' },
     { codec_type: 'audio', codec_name: 'aac' },
   ],
   format: { duration: '30.000000', size: '30123456' },
 };
 
 describe('videoProblems', () => {
-  it('passes a 30 s 1080×1080 H.264 video with AAC sound under 50 MB', () => {
+  it('passes a 30 s 1024×1024 H.264 video with AAC sound under 50 MB', () => {
     expect(videoProblems(GOOD)).toEqual([]);
   });
 
@@ -41,7 +42,7 @@ describe('videoProblems', () => {
     // #then
     expect(videoProblems(bad)).toEqual([
       'it lasts 31.2 s, not 29.5–30.5 s',
-      'its video is 720×720, not 1080×1080',
+      'its video is 720×720, not 1024×1024',
       'its video is vp9, not H.264',
       'its pixels are yuv444p, not 4:2:0',
       'it has no audio',
@@ -53,9 +54,9 @@ describe('videoProblems', () => {
     expect(videoProblems({})).toEqual(['it lasts no s, not 29.5–30.5 s', 'it has no video', 'it has no audio', 'it is of no bytes, not under 50 MB']);
   });
 
-  it('accepts 29.5 and 30.5 s, and a full-range 4:2:0 video', () => {
-    const at = (duration: string, pix_fmt = 'yuv420p'): Probe => ({ ...GOOD, streams: [{ ...GOOD.streams![0]!, pix_fmt }, GOOD.streams![1]!], format: { ...GOOD.format, duration } });
-    expect([at('29.5'), at('30.5'), at('30', 'yuvj420p')].map(videoProblems)).toEqual([[], [], []]);
+  it('accepts 29.5 and 30.5 s', () => {
+    const at = (duration: string): Probe => ({ ...GOOD, format: { ...GOOD.format, duration } });
+    expect([at('29.5'), at('30.5')].map(videoProblems)).toEqual([[], []]);
   });
 });
 
@@ -76,5 +77,65 @@ describe('monthPageUrl', () => {
     expect([monthPageUrl('https://ccip.dev', '2026-09'), monthPageUrl('http://localhost:4321/', '2026-09')]).toEqual([
       'https://ccip.dev/replay/month/?m=2026-09', 'http://localhost:4321/replay/month/?m=2026-09',
     ]);
+  });
+});
+
+describe('videoProblems, one limit at a time', () => {
+  const withVideo = (video: object): Probe => ({ ...GOOD, streams: [{ ...GOOD.streams![0]!, ...video }, GOOD.streams![1]!] });
+
+  it('rejects the 1080×1080 the page records, which is too tall for X', () => {
+    // #given
+    const probe = withVideo({ width: 1080, height: 1080 });
+    // #when
+    const problems = videoProblems(probe);
+    // #then
+    expect(problems).toEqual(['its video is 1080×1080, not 1024×1024']);
+  });
+
+  it('rejects the full-range yuvj420p Chrome writes on a Mac', () => {
+    // #given
+    const probe = withVideo({ pix_fmt: 'yuvj420p' });
+    // #when
+    const problems = videoProblems(probe);
+    // #then
+    expect(problems).toEqual(['its pixels are yuvj420p, not 4:2:0']);
+  });
+
+  it('rejects exactly 50,000,000 bytes and accepts 49,999,999', () => {
+    // #given
+    const at = (size: string): Probe => ({ ...GOOD, format: { ...GOOD.format, size } });
+    // #when
+    const results = [at('50000000'), at('49999999')].map(videoProblems);
+    // #then
+    expect(results).toEqual([['it is 50000000 bytes, not under 50 MB'], []]);
+  });
+
+  it('rejects audio that is not AAC', () => {
+    // #given
+    const probe: Probe = { ...GOOD, streams: [GOOD.streams![0]!, { codec_type: 'audio', codec_name: 'opus' }] };
+    // #when
+    const problems = videoProblems(probe);
+    // #then
+    expect(problems).toEqual(['its audio is opus, not AAC']);
+  });
+
+  it('rejects 29.4 s', () => {
+    // #given
+    const probe: Probe = { ...GOOD, format: { ...GOOD.format, duration: '29.4' } };
+    // #when
+    const problems = videoProblems(probe);
+    // #then
+    expect(problems).toEqual(['it lasts 29.4 s, not 29.5–30.5 s']);
+  });
+});
+
+describe('muxArgs', () => {
+  it('re-encodes to 1024×1024 yuv420p H.264 High with AAC sound', () => {
+    // #given
+    const args = muxArgs('video.mp4', 'audio.wav', 'out.mp4');
+    // #then
+    expect(args.join(' ')).toBe(
+      '-y -v error -i video.mp4 -i audio.wav -vf scale=1024:1024:flags=lanczos:out_range=tv,format=yuv420p -c:v libx264 -profile:v high -preset medium -crf 18 -r 30 -c:a aac -b:a 128k -shortest -movflags +faststart out.mp4',
+    );
   });
 });

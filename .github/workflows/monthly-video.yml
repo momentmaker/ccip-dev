@@ -52,10 +52,10 @@ jobs:
         env:
           MONTH: ${{ steps.month.outputs.month }}
         run: pnpm video:monthly --month "${MONTH}" --out out/video
-      - name: Mux the soundtrack
+      - name: Re-encode to 1024² and add the soundtrack
         env:
           MONTH: ${{ steps.month.outputs.month }}
-        run: ffmpeg -y -v error -i out/video/video.mp4 -i out/video/audio.wav -c:v copy -c:a aac -b:a 128k -shortest -movflags +faststart "out/video/${MONTH}.mp4"
+        run: pnpm video:mux out/video/video.mp4 out/video/audio.wav "out/video/${MONTH}.mp4"
       - name: Check the video
         env:
           MONTH: ${{ steps.month.outputs.month }}
