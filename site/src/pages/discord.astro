@@ -167,7 +167,7 @@ const SAFE = [
 
   // "N Marines enlisted · " from the live roster; on any failure only the link shows.
   const count = document.getElementById('roster-count');
-  fetch(ROSTER_URL)
+  fetch(ROSTER_URL, { cache: 'no-store' })
     .then((res) => (res.ok ? res.json() : null))
     .then((roster: { marines?: unknown } | null) => {
       const marines = roster?.marines;
@@ -177,7 +177,7 @@ const SAFE = [
         count.hidden = false;
       }
     })
-    .catch(() => {});
+    .catch((err) => console.warn(`roster count: ${err instanceof Error ? err.message : String(err)}`));
 </script>
 
 <style>

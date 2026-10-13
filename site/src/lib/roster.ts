@@ -5,7 +5,7 @@ import { ROSTER_URL } from '../config';
 export const ROSTER_POLL_MS = 60_000;
 
 export async function fetchRoster(url: string = ROSTER_URL, fetchFn: typeof fetch = fetch): Promise<RosterFile> {
-  const res = await fetchFn(url);
+  const res = await fetchFn(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`roster.json: HTTP ${res.status}`);
   const parsed = ROSTER_SCHEMA.safeParse(await res.json());
   if (!parsed.success) throw new Error(`roster.json: unexpected shape at ${parsed.error.issues[0]?.path.join('.') || '(root)'}`);

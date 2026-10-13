@@ -24,6 +24,21 @@ describe('fetchRoster', () => {
   });
 });
 
+describe('fetchRoster request', () => {
+  it('always reaches the edge, never the browser cache', async () => {
+    // #given a fetch that records its init
+    const inits: (RequestInit | undefined)[] = [];
+    const recording = (async (_url: unknown, init?: RequestInit) => {
+      inits.push(init);
+      return new Response(JSON.stringify(ROSTER_FIXTURE));
+    }) as unknown as typeof fetch;
+    // #when
+    await fetchRoster(ROSTER_URL, recording);
+    // #then
+    expect(inits).toEqual([{ cache: 'no-store' }]);
+  });
+});
+
 describe('rosterSource', () => {
   it('honours ?roster= on localhost only, for a visual check', () => {
     // #then

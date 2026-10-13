@@ -60,7 +60,7 @@ describe('the /discord/ page source', () => {
   });
 
   it('links the roster and counts its Marines from ROSTER_URL', () => {
-    expect([page.includes('href="/marines/"'), page.includes('ROSTER_URL'), page.includes('enlisted · ')]).toEqual([true, true, true]);
+    expect([page.includes('href="/marines/"'), page.includes('ROSTER_URL'), page.includes('enlisted · '), page.includes("cache: 'no-store'")]).toEqual([true, true, true, true]);
   });
 });
 
