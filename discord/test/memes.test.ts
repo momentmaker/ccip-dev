@@ -44,6 +44,27 @@ describe('the meme copy', () => {
     expect(await loadMemes(env.MARINES, memes)).toBeNull();
   });
 
+  it('gives up on a fetch that outlasts the timeout, naming the file', async () => {
+    // #given a fetch that only ends when its signal aborts
+    const hanging = ((_url: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)))) as typeof fetch;
+    const started = Date.now();
+    // #when
+    const copying = stockMemes(env.MARINES, fakeRenderer(), hanging, ARCHIVE, memes, 50);
+    // #then
+    await expect(copying).rejects.toThrow(/^meme (a\.jpeg|b c\.gif): /);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it('names the file when the site cannot make a PNG of it', async () => {
+    // #given
+    const fetch = fakeFetch({ [RAW]: () => new Response(new Uint8Array([1])) });
+    // #when
+    const copying = stockMemes(env.MARINES, fakeRenderer('prepareMeme'), fetch, ARCHIVE, memes);
+    // #then
+    await expect(copying).rejects.toThrow(/^meme (a\.jpeg|b c\.gif): prepareMeme failed$/);
+  });
+
   it('pins the raw URL to the commit and escapes the file name', () => {
     // #then
     expect(rawMemeUrl('momentmaker/chainlinkmeme', 'c0ffee', 'a b#.jpeg')).toBe(`${RAW}a%20b%23.jpeg`);

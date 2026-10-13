@@ -86,6 +86,27 @@ describe('enlistment', () => {
     expect(telegram.kind === 'enlisted' && telegram.marine.serial).toBe(2);
   });
 
+  it('redraws the loser of a race on the same three tags: both pass the pre-check, one insert fails on tag_key', async () => {
+    // #given both enlistments are held until each has passed its pre-check
+    let arrived = 0;
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    const hold = async () => {
+      if (++arrived === 2) open();
+      if (arrived <= 2) await gate;
+    };
+    // #when
+    const [x, y] = await Promise.all([
+      enlist(env.DB, recruit('a'), drafts('a-b-c', 'p-q-r'), hold),
+      enlist(env.DB, recruit('b'), drafts('c-b-a', 'x-y-z'), hold),
+    ]);
+    const next = await enlist(env.DB, recruit('c'), drafts('m-n-o'));
+    // #then one kept their tags, the other drew again, and serials stay dense
+    const marines = [x, y].map((r) => (r.kind === 'enlisted' ? [r.marine.serial, r.marine.tags.join('-')] : r.kind));
+    expect({ serials: marines.map((m) => m[0]).sort(), distinct: new Set(marines.map((m) => m[1])).size, next: next.kind === 'enlisted' && next.marine.serial }).toEqual({ serials: [1, 2], distinct: 2, next: 3 });
+    expect(marines.some((m) => m[1] === 'p-q-r' || m[1] === 'x-y-z')).toBe(true);
+  });
+
   it('records the stamped card', async () => {
     // #given
     await enlist(env.DB, recruit('a'), drafts('sergey-pepe-comfy'));

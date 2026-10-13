@@ -17,14 +17,19 @@ export async function stockMemes(
   fetchFn: typeof fetch,
   archive: { repo: string; sha: string },
   memes: readonly MarineMeme[],
+  timeoutMs = MEME_TIMEOUT_MS,
 ): Promise<void> {
   await Promise.all(
     memes.map(async (meme) => {
-      if (await bucket.head(meme.key)) return;
-      const res = await fetchFn(rawMemeUrl(archive.repo, archive.sha, meme.file), { signal: AbortSignal.timeout(MEME_TIMEOUT_MS) });
-      if (!res.ok) throw new Error(`meme ${meme.file}: HTTP ${res.status}`);
-      const png = await renderer.prepareMeme(new Uint8Array(await res.arrayBuffer()));
-      await bucket.put(meme.key, png, { httpMetadata: { contentType: 'image/png' } });
+      try {
+        if (await bucket.head(meme.key)) return;
+        const res = await fetchFn(rawMemeUrl(archive.repo, archive.sha, meme.file), { signal: AbortSignal.timeout(timeoutMs) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const png = await renderer.prepareMeme(new Uint8Array(await res.arrayBuffer()));
+        await bucket.put(meme.key, png, { httpMetadata: { contentType: 'image/png' } });
+      } catch (err) {
+        throw new Error(`meme ${meme.file}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+      }
     }),
   );
 }

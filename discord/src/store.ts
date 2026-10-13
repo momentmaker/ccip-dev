@@ -85,11 +85,12 @@ export type EnlistResult = { kind: 'enlisted'; marine: Marine } | { kind: 'alrea
 
 /**
  * Enlists once: a Marine already on record is returned as is. A callsign whose tags another Marine holds, in any order,
- * is drawn again, up to MAX_CLASHES times. A clash is looked up before inserting, because an insert that fails late
- * would still use up an AUTOINCREMENT serial and leave a gap. Two enlistments at once meet at UNIQUE (platform,
+ * is drawn again, up to MAX_CLASHES times. A clash is looked up before inserting to skip a failed round trip; serials
+ * stay dense because AUTOINCREMENT advances sqlite_sequence only on a successful insert, so a true race that fails on
+ * tag_key is redrawn without a gap. beforeInsert lets a test interleave two enlistments. Two enlistments at once meet at UNIQUE (platform,
  * user_id): the second finds the first's record.
  */
-export async function enlist(db: D1Database, recruit: Recruit, draft: () => Drafted): Promise<EnlistResult> {
+export async function enlist(db: D1Database, recruit: Recruit, draft: () => Drafted, beforeInsert: () => Promise<void> = async () => {}): Promise<EnlistResult> {
   const existing = await findMarine(db, recruit.platform, recruit.userId);
   if (existing) return { kind: 'already', marine: existing };
   const taken = db.prepare('SELECT 1 FROM marines WHERE tag_key = ?');
@@ -100,6 +101,7 @@ export async function enlist(db: D1Database, recruit: Recruit, draft: () => Draf
   for (let attempt = 0; attempt < MAX_CLASHES; attempt++) {
     const d = draft();
     if (await taken.bind(d.draw.tagKey).first()) continue;
+    await beforeInsert();
     try {
       const row = await insert
         .bind(recruit.platform, recruit.userId, d.draw.callsign, d.draw.tagKey, JSON.stringify(d.draw.tags), d.draw.tier, d.draw.score, d.draw.percentile, JSON.stringify(d.memes), d.blood, d.faith, recruit.displayName, recruit.snapshotVersion, recruit.enlistedAt)
