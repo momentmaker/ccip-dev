@@ -9,3 +9,7 @@ export const UMAMI_WEBSITE_ID = '87df1e36-3c00-4ae2-b70d-4a48bd774c1b';
 export const TAGLINE = 'Live Chainlink CCIP stats · unofficial';
 export const DISCLAIMER = 'Unofficial — not affiliated with Chainlink Labs';
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
+
+/** The LinkMarine bot, which serves the public roster, its memes and its web cards. */
+export const BOT_ORIGIN = 'https://discord.ccip.dev';
+export const ROSTER_URL = `${BOT_ORIGIN}/roster.json`;
