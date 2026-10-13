@@ -129,6 +129,52 @@ describe('/roster.json', () => {
     expect(again.marines.length).toBe(1);
   });
 
+  it('gives a cache hit its route\'s own Cache-Control back, not the zone\'s Browser Cache TTL', async () => {
+    // #given an edge that rewrites a hit's Cache-Control to 4 hours
+    const cache = fakeCache({ browserTtl: 14_400 });
+    const deps = publicDeps({ cache });
+    await seedMarine('a', 'momentmaker', 'painting-space-prophecy');
+    await publicRoute(get('/roster.json'), deps);
+    await publicRoute(get('/web/9.png'), deps);
+    await publicRoute(get('/memes/s1.jpeg.png'), deps);
+    await Promise.all(deps.work);
+    // #when
+    const hits = await Promise.all(['/roster.json', '/web/9.png', '/memes/s1.jpeg.png'].map(async (p) => (await publicRoute(get(p), deps))!));
+    // #then
+    expect(hits.map((r) => [r.status, r.headers.get('cache-control'), r.headers.get('x-ccip-cache-control')])).toEqual([
+      [200, 'public, max-age=60', null],
+      [404, 'public, max-age=60', null],
+      [200, 'public, max-age=31536000, immutable', null],
+    ]);
+  });
+
+  it('stores the copy with the route\'s own Cache-Control for the edge to follow', async () => {
+    // #given
+    const cache = fakeCache();
+    const deps = publicDeps({ cache });
+    // #when
+    await publicRoute(get('/roster.json'), deps);
+    await Promise.all(deps.work);
+    // #then
+    const stored = [...cache.store.values()][0]!;
+    expect([stored.headers.get('cache-control'), stored.headers.get('x-ccip-cache-control')]).toEqual(['public, max-age=60', 'public, max-age=60']);
+  });
+
+  it('answers 503, never cached, when a route throws unexpectedly', async () => {
+    // #given an R2 whose get fails
+    const cache = fakeCache();
+    const bucket = { get: async () => { throw new Error('R2 down'); } } as unknown as R2Bucket;
+    const deps = publicDeps({ bucket, cache });
+    // #when
+    const answers = await Promise.all(['/memes/s1.jpeg.png', '/web/1.png'].map(async (p) => (await publicRoute(get(p), deps))!));
+    await Promise.all(deps.work);
+    // #then
+    expect([answers.map((r) => [r.status, r.headers.get('cache-control'), r.headers.get('access-control-allow-origin')]), cache.store.size]).toEqual([
+      [[503, 'no-store', '*'], [503, 'no-store', '*']],
+      0,
+    ]);
+  });
+
   it('is not a public path for anything else', async () => {
     // #then
     expect(await publicRoute(get('/rosters.json'), publicDeps())).toBeNull();

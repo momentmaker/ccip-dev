@@ -233,12 +233,19 @@ export function publicDeps(overrides: Partial<PublicDeps> = {}): PublicDeps & { 
   } as PublicDeps & { renderer: ReturnType<typeof fakeRenderer>; fetch: ReturnType<typeof fakeFetch>; work: Promise<unknown>[] };
 }
 
-/** An edge cache in a Map, keyed by URL. */
-export function fakeCache(): Pick<Cache, 'match' | 'put'> & { store: Map<string, Response> } {
+/** An edge cache in a Map, keyed by URL. With browserTtl it imitates Cloudflare rewriting a hit's Cache-Control to the zone's Browser Cache TTL. */
+export function fakeCache(options: { browserTtl?: number } = {}): Pick<Cache, 'match' | 'put'> & { store: Map<string, Response> } {
   const store = new Map<string, Response>();
+  const keyOf = (request: RequestInfo | URL) => String(request instanceof Request ? request.url : request);
   return {
     store,
-    match: async (request: RequestInfo | URL) => store.get(String(request instanceof Request ? request.url : request))?.clone(),
-    put: async (request: RequestInfo | URL, response: Response) => void store.set(String(request instanceof Request ? request.url : request), response),
+    match: async (request: RequestInfo | URL) => {
+      const hit = store.get(keyOf(request))?.clone();
+      if (!hit || options.browserTtl === undefined) return hit;
+      const headers = new Headers(hit.headers);
+      headers.set('Cache-Control', `public, max-age=${options.browserTtl}`);
+      return new Response(hit.body, { status: hit.status, headers });
+    },
+    put: async (request: RequestInfo | URL, response: Response) => void store.set(keyOf(request), response),
   } as Pick<Cache, 'match' | 'put'> & { store: Map<string, Response> };
 }

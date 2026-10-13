@@ -167,14 +167,30 @@ export const ROUTES: [RegExp, Route][] = [
   [WEB_PATH, webCardResponse],
 ];
 
-/** A GET answer from the edge cache, else built; only a 200 or a 404 is kept, for as long as its Cache-Control says. */
+const POLICY_HEADER = 'x-ccip-cache-control';
+
+/**
+ * A GET answer from the edge cache, else built; only a 200 or a 404 is kept, for as long as its Cache-Control says.
+ * Cloudflare rewrites a cached response's Cache-Control to the zone's Browser Cache TTL (4 h), so the stored copy
+ * carries the route's own policy in a private header and a hit gets it back.
+ */
 async function cached(request: Request, deps: PublicDeps, build: () => Promise<Response>): Promise<Response> {
   const url = new URL(request.url);
   const key = new Request(`${url.origin}${url.pathname}`);
   const hit = await deps.cache?.match(key);
-  if (hit) return hit;
+  if (hit) {
+    const headers = new Headers(hit.headers);
+    const policy = headers.get(POLICY_HEADER);
+    headers.delete(POLICY_HEADER);
+    if (policy) headers.set('Cache-Control', policy);
+    return new Response(hit.body, { status: hit.status, headers });
+  }
   const res = await build();
-  if (deps.cache && (res.status === 200 || res.status === 404)) deps.waitUntil(deps.cache.put(key, res.clone()));
+  if (deps.cache && (res.status === 200 || res.status === 404)) {
+    const stored = new Response(res.clone().body, { status: res.status, headers: res.headers });
+    stored.headers.set(POLICY_HEADER, res.headers.get('Cache-Control') ?? NO_STORE);
+    deps.waitUntil(deps.cache.put(key, stored));
+  }
   return res;
 }
 
@@ -184,6 +200,13 @@ export async function publicRoute(request: Request, deps: PublicDeps): Promise<R
   const route = ROUTES.find(([pattern]) => pattern.test(path));
   if (!route) return null;
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405, headers: { ...CORS, Allow: 'GET, HEAD' } });
-  const res = await cached(request, deps, () => route[1](path, deps));
+  const res = await cached(request, deps, async () => {
+    try {
+      return await route[1](path, deps);
+    } catch (err) {
+      console.error(`${path}: ${reason(err)}`);
+      return unavailable('route');
+    }
+  });
   return request.method === 'HEAD' ? new Response(null, { status: res.status, headers: res.headers }) : res;
 }
