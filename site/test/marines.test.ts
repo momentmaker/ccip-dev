@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
-import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, rarestBarPct, serialFromPath, shareLine, tierName, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
+import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, PLANET_LABEL_W, rarestBarPct, serialFromPath, shareLine, tierName, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
 
 describe('Marine URLs', () => {
   it('pads the page path, and keeps the web card on the bare serial', () => {
@@ -45,8 +45,8 @@ describe('wording', () => {
 });
 
 describe('the constellation layout', () => {
-  /** A planet's box: its hexagon (size × 1.12) and its label below. */
-  const box = (p: { x: number; y: number; size: number }) => ({ left: p.x - p.size / 2, right: p.x + p.size / 2, top: p.y - p.size * 0.56, bottom: p.y + p.size * 0.56 + PLANET_LABEL_H });
+  /** A planet's box: its hexagon (size × 1.12) and its label below, as wide as the widest label if that is wider. */
+  const box = (p: { x: number; y: number; size: number }) => ({ left: p.x - Math.max(p.size, PLANET_LABEL_W) / 2, right: p.x + Math.max(p.size, PLANET_LABEL_W) / 2, top: p.y - p.size * 0.56, bottom: p.y + p.size * 0.56 + PLANET_LABEL_H });
   const overlaps = (ps: { x: number; y: number; size: number }[]) =>
     ps.flatMap((p, i) => ps.slice(i + 1).map((q) => [box(p), box(q)])).filter(([a, b]) => a!.left < b!.right && b!.left < a!.right && a!.top < b!.bottom && b!.top < a!.bottom).length;
   const outside = (ps: { x: number; y: number; size: number }[], f: PlanetFrame) => ps.map(box).filter((b) => b.left < 0 || b.top < 0 || b.right > f.width || b.bottom > f.height).length;

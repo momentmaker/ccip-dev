@@ -54,12 +54,15 @@ export const WIDE_FRAME: PlanetFrame = { cols: 8, rows: 3, width: 1120, height: 
 export const NARROW_FRAME: PlanetFrame = { cols: 3, rows: 4, width: 360, height: 440, min: 26, max: 52 };
 /** The room under a planet for its "tag ×N" label. */
 export const PLANET_LABEL_H = 18;
+/** The widest "tag ×N" label: a 13-character tag and " ×NNNN", 19 characters at 6 px (10 px JetBrains Mono), plus room. */
+export const PLANET_LABEL_W = 116;
 const PLANET_SEED = 0x5eed;
 
 /**
  * The constellation: each planet in a cell of its own, busiest nearest the middle, nudged off-centre by a fixed seed.
  * Since a planet and its label stay inside their cell, no two overlap and none leaves the frame. Returns each hexagon's
- * centre in the frame's pixels and its size.
+ * centre in the frame's pixels and its size. Expects `carriers` busiest first (as `constellation()` returns it); any past the
+ * frame's cell count are dropped.
  */
 export function planetLayout(carriers: readonly number[], frame: PlanetFrame): { x: number; y: number; size: number }[] {
   const cellW = frame.width / frame.cols;
@@ -72,7 +75,7 @@ export function planetLayout(carriers: readonly number[], frame: PlanetFrame): {
   return carriers.slice(0, cells.length).map((n, i) => {
     const size = frame.min + (n / top) * (frame.max - frame.min);
     const cell = cells[i]!;
-    const slackX = (cellW - size) / 2;
+    const slackX = (cellW - Math.max(size, PLANET_LABEL_W)) / 2;
     const slackY = (cellH - size * 1.12 - PLANET_LABEL_H) / 2;
     return { x: cell.cx + slackX * 0.9 * (random() * 2 - 1), y: cell.cy - PLANET_LABEL_H / 2 + slackY * 0.9 * (random() * 2 - 1), size };
   });
