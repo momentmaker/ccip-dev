@@ -367,4 +367,31 @@ describe('uploadVideo', () => {
     // #then nothing after the failed segment is sent
     expect({ result, calls: fetch.calls.length }).toEqual({ result: { problem: 'append 0: X returned HTTP 503: Service Unavailable', outage: true }, calls: 2 });
   });
+
+  it('signs the STATUS poll as a GET over its own URL', async () => {
+    // #given
+    const fetch = xVideo();
+    // #when
+    await uploadVideo(deps(fetch), CREDS, MP4);
+    // #then
+    const poll = fetch.calls.find((c) => c.url.includes('STATUS'));
+    const header = authOf(poll?.init);
+    const expected = await oauth1Header('GET', `${UPLOAD}?command=STATUS&media_id=77`, CREDS, { nonce: param(header, 'oauth_nonce') ?? '', timestamp: param(header, 'oauth_timestamp') ?? '' });
+    expect(header).toBe(expected);
+  });
+
+  it('stops at a timeout during an append, as an outage naming the segment', async () => {
+    // #given
+    let appends = 0;
+    const fetch = fakeFetch((url) => {
+      if (url === `${UPLOAD}/initialize`) return jsonResponse({ data: { id: '77' } });
+      if (url === `${UPLOAD}/77/append` && ++appends === 2) throw new DOMException('timed out', 'TimeoutError');
+      if (url === `${UPLOAD}/77/append`) return jsonResponse({ data: {} });
+      return undefined;
+    });
+    // #when
+    const result = await uploadVideo(deps(fetch), CREDS, MP4);
+    // #then
+    expect({ result, calls: fetch.calls.length }).toEqual({ result: { problem: 'append 1: X request failed (TimeoutError)', outage: true }, calls: 3 });
+  });
 });

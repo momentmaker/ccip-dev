@@ -81,16 +81,41 @@ export async function sendTelegramVideo(
   timeoutMs = TELEGRAM_VIDEO_TIMEOUT_MS,
 ): Promise<string | null> {
   const post = () => {
-    const form = new FormData();
-    form.append('chat_id', chatId);
-    form.append('caption', msg.caption);
-    if (msg.parseMode) form.append('parse_mode', msg.parseMode);
-    form.append('width', String(msg.width));
-    form.append('height', String(msg.height));
-    form.append('duration', String(msg.durationS));
-    form.append('supports_streaming', 'true');
-    form.append('video', msg.video, msg.filename);
-    return deps.fetch(`https://api.telegram.org/bot${token}/sendVideo`, { method: 'POST', body: form, signal: AbortSignal.timeout(timeoutMs) });
+    const boundary = `ccip-${crypto.randomUUID()}`;
+    const encoder = new TextEncoder();
+    const field = (name: string, value: string) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+    const filename = msg.filename.replace(/["\r\n]/g, '_');
+    const head = encoder.encode(
+      field('chat_id', chatId) +
+        field('caption', msg.caption) +
+        (msg.parseMode ? field('parse_mode', msg.parseMode) : '') +
+        field('width', String(msg.width)) +
+        field('height', String(msg.height)) +
+        field('duration', String(msg.durationS)) +
+        field('supports_streaming', 'true') +
+        `--${boundary}\r\nContent-Disposition: form-data; name="video"; filename="${filename}"\r\nContent-Type: video/mp4\r\n\r\n`,
+    );
+    const tail = encoder.encode(`\r\n--${boundary}--\r\n`);
+    const { readable, writable } = new FixedLengthStream(head.byteLength + msg.video.size + tail.byteLength);
+    // workerd's FormData would copy the whole video into a growing buffer; streaming keeps one copy in flight.
+    void (async () => {
+      const out = writable.getWriter();
+      try {
+        await out.write(head);
+        const video = msg.video.stream().getReader();
+        for (let chunk = await video.read(); !chunk.done; chunk = await video.read()) await out.write(chunk.value);
+        await out.write(tail);
+        await out.close();
+      } catch (error) {
+        await out.abort(error).catch(() => {});
+      }
+    })();
+    return deps.fetch(`https://api.telegram.org/bot${token}/sendVideo`, {
+      method: 'POST',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      body: readable,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
   };
   try {
     const res = await withRetryAfter(deps, post);

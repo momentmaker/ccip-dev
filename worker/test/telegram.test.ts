@@ -200,11 +200,11 @@ describe('sendTelegramVideo', () => {
   const MP4 = new Blob([new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])], { type: 'video/mp4' });
   const VIDEO = { video: MP4, filename: 'ccip-2026-09.mp4', caption: '<b>CCIP in September 2026</b>', parseMode: 'HTML' as const, width: 1080, height: 1080, durationS: 30 };
   const fields = async (init?: RequestInit) => {
-    const form = init?.body as FormData;
+    const form = await new Response(init?.body, { headers: init?.headers }).formData();
     const video = form.get('video') as File;
     return {
       chat_id: form.get('chat_id'), caption: form.get('caption'), parse_mode: form.get('parse_mode'), width: form.get('width'), height: form.get('height'),
-      duration: form.get('duration'), supports_streaming: form.get('supports_streaming'), filename: video.name, bytes: video.size,
+      duration: form.get('duration'), supports_streaming: form.get('supports_streaming'), filename: video.name, type: video.type, bytes: video.size,
     };
   };
 
@@ -219,7 +219,7 @@ describe('sendTelegramVideo', () => {
       url: 'https://api.telegram.org/botsecret-token/sendVideo',
       body: {
         chat_id: '@ccipdev', caption: '<b>CCIP in September 2026</b>', parse_mode: 'HTML', width: '1080', height: '1080', duration: '30', supports_streaming: 'true',
-        filename: 'ccip-2026-09.mp4', bytes: 8,
+        filename: 'ccip-2026-09.mp4', type: 'video/mp4', bytes: 8,
       },
     });
   });
@@ -236,7 +236,7 @@ describe('sendTelegramVideo', () => {
     expect({ results, waits: sleep.mock.calls, second: await fields(retried.calls[1]?.init) }).toEqual({
       results: [null, 'Telegram returned HTTP 413: Request Entity Too Large'],
       waits: [[2000]],
-      second: expect.objectContaining({ filename: 'ccip-2026-09.mp4', bytes: 8 }),
+      second: expect.objectContaining({ chat_id: '@ccipdev', caption: '<b>CCIP in September 2026</b>', filename: 'ccip-2026-09.mp4', type: 'video/mp4', bytes: 8 }),
     });
   });
 });
