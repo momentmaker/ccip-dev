@@ -1,4 +1,5 @@
-import { formatCount, formatFee, formatFeeTotal, formatShare, formatUsd, formatUsdDown, linkShareText } from '@ccip-dev/core/format';
+import { recordValueText } from '@ccip-dev/core/broadcasts';
+import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUsdDown } from '@ccip-dev/core/format';
 import { isPlayableMonth, monthBounds, monthSummary, type MonthSummary } from '@ccip-dev/core/month';
 import type { DayTotals, LargestFee, ReplayFile } from '@ccip-dev/core/public';
 import type { RecordKind } from '@ccip-dev/core/records';
@@ -43,10 +44,15 @@ export interface MonthData {
   largest: readonly LargestFee[];
 }
 
-/** The month's replay and its show input, or null when the month is not one the page can play (see isPlayableMonth). */
+/**
+ * The month's replay and its show input, or null when the month is not one the page can play (see isPlayableMonth). Its
+ * last day must be in both files: the edge cache can serve a fresh replay.json beside a history.json a day behind.
+ */
 export function monthCut(data: MonthData, month: string): { replay: ReplayFile; month: MonthInput } | null {
   const first = data.replay.since ?? data.replay.days[0]?.day ?? null;
-  const lastDay = data.replay.days.at(-1)?.day ?? null;
+  const replayLast = data.replay.days.at(-1)?.day ?? null;
+  const historyLast = data.history.at(-1)?.day ?? null;
+  const lastDay = replayLast === null || historyLast === null ? null : replayLast < historyLast ? replayLast : historyLast;
   if (!isPlayableMonth(month, { first, lastDay })) return null;
   return {
     replay: monthReplay(data.replay, month),
@@ -54,20 +60,21 @@ export function monthCut(data: MonthData, month: string): { replay: ReplayFile; 
   };
 }
 
-/** A record's value, short: the end card's "Records:" row says what kind of high each one is. */
-const RECORD_TEXT: Record<RecordKind, (value: number) => string> = {
-  messages: (v) => `${formatCount(v)} messages`,
-  value: (v) => `${formatUsd(v)} moved`,
-  fees: (v) => `${formatFeeTotal(v)} in fees`,
-  largest_fee: (v) => `${formatFee(v)} single fee`,
-  link_share: (v) => `${formatShare(v)} paid in LINK`,
+/** What kind of high each record is, after its number as the caption writes it (recordValueText). */
+const RECORD_SUFFIX: Record<RecordKind, string> = {
+  messages: 'messages',
+  value: 'moved',
+  fees: 'in fees',
+  largest_fee: 'single fee',
+  link_share: 'paid in LINK',
 };
 
-const JOINED_SHOWN = 3;
+/** How many records or new chains a row names before "+N more": a longer row would be cut mid-word at the size floor. */
+const ROW_ITEMS_SHOWN = 3;
 
-function joinedNames(names: string[]): string {
-  const shown = names.slice(0, JOINED_SHOWN).join(' · ');
-  return names.length > JOINED_SHOWN ? `${shown} · +${names.length - JOINED_SHOWN} more` : shown;
+function cappedList(items: readonly string[]): string {
+  const shown = items.slice(0, ROW_ITEMS_SHOWN).join(' · ');
+  return items.length > ROW_ITEMS_SHOWN ? `${shown} · +${items.length - ROW_ITEMS_SHOWN} more` : shown;
 }
 
 /**
@@ -76,9 +83,9 @@ function joinedNames(names: string[]): string {
  */
 export function monthCardRows(s: MonthSummary): string[] {
   const rows = [`${formatCount(s.messages)} messages · ${formatUsdDown(s.usd)} moved`];
-  if (s.fees !== null) rows.push(`${formatFeeTotal(s.fees)} in fees${s.linkSharePct === null ? '' : ` · ${linkShareText(s.linkSharePct)}`}`);
-  if (s.records.length > 0) rows.push(`Records: ${s.records.map((r) => RECORD_TEXT[r.kind](r.value)).join(' · ')}`);
-  if (s.joined.length > 0) rows.push(`New on CCIP: ${joinedNames(s.joined.map((c) => c.name))}`);
+  if (s.fees !== null) rows.push(`${formatFeeTotal(s.fees)} in fees${s.linkSharePct === null ? '' : ` · ${formatShare(s.linkSharePct)} paid in LINK`}`);
+  if (s.records.length > 0) rows.push(`Records: ${cappedList(s.records.map((r) => `${recordValueText(r.kind, r.value)} ${RECORD_SUFFIX[r.kind]}`))}`);
+  if (s.joined.length > 0) rows.push(`New on CCIP: ${cappedList(s.joined.map((c) => c.name))}`);
   if (s.busiestLane) rows.push(`Busiest lane: ${s.busiestLane.src.name} → ${s.busiestLane.dst.name} · ${formatUsd(s.busiestLane.usd)}`);
   return rows;
 }

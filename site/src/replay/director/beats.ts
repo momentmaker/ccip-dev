@@ -108,10 +108,15 @@ export function recordEvents(history: readonly { day: string; messages: number }
   return recordDayEvents(recordJumps(history).slice(0, MAX_RECORDS), indexOf(days));
 }
 
-/** The 3 biggest record jumps among `days` (a month), measured against all of `history` before them. */
+/**
+ * The 3 biggest record jumps among `days` (a month), measured against all of `history` before them, as of the window's
+ * last day: a bigger record the day after it would otherwise hide the record on its last day.
+ */
 export function windowRecordEvents(history: readonly { day: string; messages: number }[], days: readonly string[]): DayEvent[] {
   const at = indexOf(days);
-  return recordDayEvents(recordJumps(history).filter((j) => at.has(j.day)).slice(0, MAX_RECORDS), at);
+  const last = days.at(-1);
+  const asOf = last === undefined ? [] : history.filter((d) => d.day <= last);
+  return recordDayEvents(recordJumps(asOf).filter((j) => at.has(j.day)).slice(0, MAX_RECORDS), at);
 }
 
 export function laneOpenEvents(replay: Pick<ReplayFile, 'chains' | 'lanes' | 'days'>, focus: string, days: readonly string[]): DayEvent[] {

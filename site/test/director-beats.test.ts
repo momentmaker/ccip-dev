@@ -13,6 +13,7 @@ import {
   scheduleCards,
   scheduleSlams,
   SLAM_MAX_LAG_S,
+  windowRecordEvents,
   type DayEvent,
 } from '../src/replay/director/beats';
 import { durationWarp, linearWarp } from '../src/replay/director/warp';
@@ -109,6 +110,36 @@ describe('day events', () => {
       { join: false, milestone: true, record: false },
       { join: false, milestone: false, record: true },
     ]);
+  });
+});
+
+describe('windowRecordEvents', () => {
+  /** 120 days from 2024-01-01 at 10 messages, with a jump to `messages` on each day index in `jumps`. */
+  const series = (jumps: Record<number, number>) =>
+    Array.from({ length: 120 }, (_, i) => ({ day: new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10), messages: jumps[i] ?? 10 }));
+  const window = (history: { day: string }[], from: number, to: number) => history.slice(from, to + 1).map((d) => d.day);
+
+  it("beats the window's own 3 biggest record jumps, though bigger ones came before it", () => {
+    // #given 3 huge jumps before the window, days 60 to 89, and 4 in it, the smallest on day 64
+    const history = series({ 31: 1_000, 35: 5_000, 40: 25_000, 62: 30_000, 64: 31_000, 70: 40_000, 80: 60_000 });
+    const days = window(history, 60, 89);
+    // #when
+    const events = windowRecordEvents(history, days);
+    // #then all-time, the window's jumps rank below the first three
+    expect({ window: events.map((e) => e.dayIndex), allTime: recordEvents(history, days) }).toEqual({ window: [2, 10, 20], allTime: [] });
+  });
+
+  it("counts records as of the window's last day, so a bigger one the day after it does not hide the window's last", () => {
+    // #given the window's last day, day 89, sets a record, and day 90 a bigger one
+    const history = series({ 89: 100, 90: 1_000 });
+    const days = window(history, 60, 89);
+    // #when
+    const events = windowRecordEvents(history, days);
+    // #then
+    expect({ window: events.map((e) => [e.dayIndex, e.label]), allTime: recordEvents(history, days) }).toEqual({
+      window: [[29, 'Record day · 100 messages']],
+      allTime: [],
+    });
   });
 });
 

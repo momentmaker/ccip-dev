@@ -1,5 +1,7 @@
+import { recordValueText } from '@ccip-dev/core/broadcasts';
 import { formatUsdDown } from '@ccip-dev/core/format';
 import { monthDays, monthSummary, type MonthSummary } from '@ccip-dev/core/month';
+import { RECORD_KINDS, type RecordKind } from '@ccip-dev/core/records';
 import { describe, expect, it } from 'vitest';
 import { monthCardRows, monthCut, monthReplay } from '../src/replay/director/month';
 import { Show } from '../src/replay/director/show';
@@ -50,8 +52,20 @@ describe('monthReplay', () => {
 describe('monthCut', () => {
   it('plays a month that is over and in the data, and no other', () => {
     // #given data from 2026-07-25 to 2026-10-05
+    // #when
+    const playable = ['2026-07', '2026-08', '2026-09', '2026-10', '2026-06', '2026-13', ''].map((m) => monthCut(data, m) !== null);
     // #then July counts from its first message on; October is not over, and June came before the data
-    expect(['2026-07', '2026-08', '2026-09', '2026-10', '2026-06', '2026-13', ''].map((m) => monthCut(data, m) !== null)).toEqual([true, true, true, false, false, false, false]);
+    expect(playable).toEqual([true, true, true, false, false, false, false]);
+  });
+
+  it("plays no month whose last day replay.json has but a stale history.json does not, so its counters and card can't come up a day short", () => {
+    // #given replay.json through Sep 30, and history.json through Sep 29 or Sep 30
+    const throughSeptember = { ...replay, days: replay.days.filter((d) => d.day <= '2026-09-30') };
+    const historyThrough = (last: string) => ({ replay: throughSeptember, history: history.filter((d) => d.day <= last), largest: LARGEST_FEES });
+    // #when
+    const playable = [historyThrough('2026-09-29'), historyThrough('2026-09-30')].map((d) => monthCut(d, '2026-09') !== null);
+    // #then
+    expect(playable).toEqual([false, true]);
   });
 });
 
@@ -150,7 +164,7 @@ describe('monthCardRows', () => {
     expect(rows).toEqual([
       '7,725 messages · $940.1M moved',
       '$3.9K in fees · 40% paid in LINK',
-      'Records: 952 messages · $115.6M moved · $476 in fees · $900.00 single fee',
+      'Records: 952 messages · $115.6M moved · $476 in fees · +1 more',
       'New on CCIP: BNB Chain · Mode',
       'Busiest lane: Arbitrum One → Base · $195.0M',
     ]);
@@ -166,10 +180,47 @@ describe('monthCardRows', () => {
     expect(row).toBe('New on CCIP: A · B · C · +3 more');
   });
 
-  const empty = { month: '2026-06', label: 'June 2026', messages: 0, usd: 0, fees: null, linkSharePct: null, records: [], joined: [], busiestLane: null };
+  const empty: MonthSummary = { month: '2026-06', label: 'June 2026', messages: 0, usd: 0, fees: null, linkSharePct: null, records: [], joined: [], busiestLane: null };
+  const record = (kind: RecordKind, value: number) => ({ kind, day: '2026-06-10', value, previous: { day: '2026-05-01', value: 1 }, stoodDays: 40 });
 
   it('leaves out every row with nothing to show', () => {
-    expect(monthCardRows(empty)).toEqual(['0 messages · $0 moved']);
+    // #when
+    const rows = monthCardRows(empty);
+    // #then
+    expect(rows).toEqual(['0 messages · $0 moved']);
+  });
+
+  it('names three records and counts the rest, so a month that sets all five never cuts a number in half', () => {
+    // #given
+    const all = { ...empty, records: [record('messages', 1_800), record('value', 90_100_000), record('fees', 6_400), record('largest_fee', 1_250), record('link_share', 61.4)] };
+    // #when
+    const row = monthCardRows(all).find((r) => r.startsWith('Records'));
+    // #then
+    expect(row).toBe('Records: 1,800 messages · $90.1M moved · $6.4K in fees · +2 more');
+  });
+
+  it("writes each record's number as the caption does, with the card's short suffix", () => {
+    // #given one record of each kind
+    const values: Record<RecordKind, number> = { messages: 1_800, value: 90_100_000, fees: 0.42, largest_fee: 1_250, link_share: 9.96 };
+    // #when
+    const rows = RECORD_KINDS.map((kind) => monthCardRows({ ...empty, records: [record(kind, values[kind])] })[1]);
+    // #then
+    expect(rows).toEqual([
+      `Records: ${recordValueText('messages', 1_800)} messages`,
+      `Records: ${recordValueText('value', 90_100_000)} moved`,
+      `Records: ${recordValueText('fees', 0.42)} in fees`,
+      `Records: ${recordValueText('largest_fee', 1_250)} single fee`,
+      `Records: ${recordValueText('link_share', 9.96)} paid in LINK`,
+    ]);
+  });
+
+  it('writes the LINK share as the caption does, "10%" for 9.96%', () => {
+    // #given
+    const summary = { ...empty, fees: 100, linkSharePct: 9.96 };
+    // #when
+    const row = monthCardRows(summary)[1];
+    // #then
+    expect(row).toBe('$100 in fees · 10% paid in LINK');
   });
 
   it('writes the value moved as the counter stops on it, rounded down', () => {
@@ -180,6 +231,9 @@ describe('monthCardRows', () => {
   });
 
   it.each([0, 0.4, 999.99, 1_000, 1_049_999, 940_120_000, 25_349_999_999, 999_999_999_999.9, 1.2e13])('rounds %s down exactly as the counter does', (usd) => {
-    expect(formatUsdDown(usd)).toBe(odometer(usd).text);
+    // #when
+    const text = formatUsdDown(usd);
+    // #then
+    expect(text).toBe(odometer(usd).text);
   });
 });
