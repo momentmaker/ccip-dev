@@ -277,6 +277,11 @@ function planetLabel(p: Planet, tag: string, count: number, look: TierLook): VNo
   );
 }
 
+/** The roster's card from any card: only the fields it draws, so a stamped Discord name or avatar can never reach it. */
+export function webCardOf(card: MarineWebCard): MarineWebCard {
+  return { serial: card.serial, callsign: card.callsign, tier: card.tier, percentile: card.percentile, memes: card.memes, blood: card.blood, faith: card.faith, enlistedAt: card.enlistedAt };
+}
+
 /** The dog tag card: two tags on a ball chain over the tier's halo, and the panel with the meme planets. */
 export function marineTree(card: MarineCard | MarineWebCard): VNode {
   const look = TIER_LOOKS[card.tier];

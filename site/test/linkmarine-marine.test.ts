@@ -1,6 +1,6 @@
 import { RIM_PHRASES, TIERS } from '@ccip-dev/core/linkmarine';
 import { describe, expect, it } from 'vitest';
-import { cardName, BACK_TAG, FRONT_TAG, loreRows, loreSize, marineTree, onTag, RIM_BUDGET, skyChoices } from '../worker/linkmarine/marine-card';
+import { cardName, BACK_TAG, FRONT_TAG, loreRows, loreSize, marineTree, onTag, webCardOf, RIM_BUDGET, skyChoices } from '../worker/linkmarine/marine-card';
 import { DRAWABLE_TEXT, MARINES, marine, webMarine } from './fixtures/linkmarine';
 import { texts } from './fixtures/broadcast';
 
@@ -83,5 +83,12 @@ describe('the web card', () => {
     const words = texts(marineTree(webMarine('legendary', [PNG])));
     // #then
     expect({ name: words.includes('momentmaker'), kept: ['LEGENDARY', 'top 3% · rarer than 97 in 100 Marines', 'LINK MARINE #0007', 'ccip.dev'].every((w) => words.includes(w)) }).toEqual({ name: false, kept: true });
+  });
+
+  it('drops the name and avatar from a full card handed to it, drawing no name', () => {
+    // #given a full card with its stamped name
+    const web = webCardOf(marine('legendary', [PNG]));
+    // #then
+    expect({ keys: Object.keys(web).filter((k) => k === 'name' || k === 'avatar'), name: texts(marineTree(web)).includes('momentmaker') }).toEqual({ keys: [], name: false });
   });
 });

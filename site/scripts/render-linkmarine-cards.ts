@@ -3,14 +3,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { render } from '@cf-wasm/og/node';
-import { hasGlint, INTEL_KINDS, TIERS, type IntelCards, type IntelKind, type MarineWebCard } from '@ccip-dev/core/linkmarine';
+import { hasGlint, INTEL_KINDS, TIERS, type IntelCards, type IntelKind } from '@ccip-dev/core/linkmarine';
 import { DOSSIER, marine, RECORDS, SITREP, VAULT } from '../test/fixtures/linkmarine';
 import type { VNode } from '../worker/h';
 import { chainArts } from '../worker/linkmarine/chain-hex';
 import { KINO_FONTS } from '../worker/linkmarine/fonts';
 import { glintGif } from '../worker/linkmarine/glint';
 import { intelSelectors, intelTree } from '../worker/linkmarine/intel';
-import { marineTree } from '../worker/linkmarine/marine-card';
+import { marineTree, webCardOf } from '../worker/linkmarine/marine-card';
 import { MEME_SIZE, memeTree } from '../worker/linkmarine/meme';
 
 /**
@@ -48,7 +48,7 @@ for (const tier of TIERS) {
   const card = marine(tier, pngs);
   const rendered = await draw(marineTree(card));
   await writeFile(join(out, `marine-${tier}.png`), rendered.image);
-  const web: MarineWebCard = { serial: card.serial, callsign: card.callsign, tier: card.tier, percentile: card.percentile, memes: card.memes, blood: card.blood, faith: card.faith, enlistedAt: card.enlistedAt };
+  const web = webCardOf(card);
   await writeFile(join(out, `marine-${tier}-web.png`), (await draw(marineTree(web))).image);
   if (hasGlint(tier)) await writeFile(join(out, `marine-${tier}.gif`), glintGif(new Uint8Array(rendered.pixels), rendered.width, rendered.height));
 }
