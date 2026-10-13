@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CallsignSnapshot } from '../../discord/src/draw';
 import { buildSnapshot, checkSnapshot } from '../../discord/src/snapshot';
-import { readAllowedTags, readArchive, readLore } from '../discord/archive';
+import { pinnedCommit, readAllowedTags, readArchive, readLore, type Git } from '../discord/archive';
 
 const ARCHIVE = join(import.meta.dirname, 'fixtures', 'meme-archive');
 const ALLOWED = 'tags = ["ignored"]\n[allowed]\ntags = ["sergey", "pepe", "comfy", "painting", "space", "weareallinthistogether"]\n[excluded]\n#  "notallowed",\n';
@@ -67,6 +67,13 @@ describe('the callsign snapshot', () => {
     expect(() => buildSnapshot({ ...input, allowed: ['sergey', 'pepe'], memes, lore: readLore(LORE) })).toThrow('only 2 allowed tags have an SFW meme; a callsign needs 3');
   });
 
+  it('refuses a tag that is not plain a–z and 0–9: callsigns join tags with hyphens', () => {
+    // #given a hyphenated tag, so link-marine + pepe and link + marine-pepe would share a callsign
+    const memes = [...readArchive(ARCHIVE), { file: 'h.png', tags: ['link-marine'], nsfw: false }];
+    // #then
+    expect(() => buildSnapshot({ ...input, allowed: [...readAllowedTags(ALLOWED), 'link-marine'], memes, lore: readLore(LORE) })).toThrow('tag "link-marine" must be only a–z and 0–9');
+  });
+
   it("reads the repository's own tags.toml and lore.toml", () => {
     // #when
     const docs = join(import.meta.dirname, '..', '..', 'docs', 'callsigns');
@@ -122,5 +129,38 @@ describe('checkSnapshot, the generator guard', () => {
     const empty = { ...good, tags: [...good.tags.slice(0, 2), { tag: 'c', count: 0, memes: [] }] };
     // #then
     expect(() => checkSnapshot(empty)).toThrow('tag "c" has no SFW meme');
+  });
+});
+
+describe('the archive commit the snapshot pins', () => {
+  /** git as the checkout would answer it: `memes` is `git status --porcelain -- memes`, `remotes` is `git branch -r --contains HEAD`. */
+  function git(memes: string, remotes: string): Git & { asked: string[] } {
+    const asked: string[] = [];
+    const answer = (args: readonly string[]) => {
+      asked.push(args.join(' '));
+      if (args[0] === 'status') return memes;
+      if (args[0] === 'branch') return remotes;
+      return 'ec873ea0c0ffee\n';
+    };
+    return Object.assign(answer, { asked });
+  }
+
+  it('pins HEAD when memes/ is clean and HEAD is on a remote branch', () => {
+    // #given
+    const clean = git('', '  origin/main\n');
+    // #when
+    const sha = pinnedCommit(clean);
+    // #then
+    expect({ sha, asked: clean.asked }).toEqual({ sha: 'ec873ea0c0ffee', asked: ['status --porcelain -- memes', 'branch -r --contains HEAD', 'rev-parse HEAD'] });
+  });
+
+  it('refuses while memes/ has changes HEAD lacks, which GitHub would never serve at that commit', () => {
+    // #then
+    expect(() => pinnedCommit(git(' M memes/a.toml\n?? memes/new.png\n', '  origin/main\n'))).toThrow('uncommitted changes under memes/');
+  });
+
+  it('refuses a HEAD no remote branch has: every meme copy would 404 until it is pushed', () => {
+    // #then
+    expect(() => pinnedCommit(git('', ''))).toThrow('on no remote branch');
   });
 });

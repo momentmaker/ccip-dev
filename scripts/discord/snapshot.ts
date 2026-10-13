@@ -1,17 +1,16 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { CallsignSnapshot } from '../../discord/src/draw';
 import { buildSnapshot, checkSnapshot } from '../../discord/src/snapshot';
-import { readAllowedTags, readArchive, readLore } from './archive';
+import { gitIn, pinnedCommit, readAllowedTags, readArchive, readLore } from './archive';
 
 /** `pnpm discord:snapshot [--archive ../chainlinkmeme]`: writes discord/src/data/callsigns.json from the archive at its checked-out commit. */
 const root = join(import.meta.dirname, '..', '..');
 const { values } = parseArgs({ options: { archive: { type: 'string', default: join(root, '..', 'chainlinkmeme') } } });
 const archive = resolve(values.archive);
 if (!existsSync(join(archive, 'memes'))) throw new Error(`no chainlinkmeme checkout at ${archive}: pass --archive <path to it>`);
-const sha = execFileSync('git', ['-C', archive, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const sha = pinnedCommit(gitIn(archive));
 const out = join(root, 'discord', 'src', 'data', 'callsigns.json');
 const previous = existsSync(out) ? (JSON.parse(readFileSync(out, 'utf8')) as CallsignSnapshot) : null;
 const build = (version: number) =>

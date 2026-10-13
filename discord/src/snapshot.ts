@@ -7,6 +7,8 @@ export const MAX_TAG_LENGTH = 13;
 /** The longest lore line that still fits the front tag's lore row beside the date. */
 export const MAX_LORE_LENGTH = 12;
 const LORE_TEXT = /^[A-Z0-9+\-]+$/;
+/** A callsign and its unique key join tags with "-", so a tag holding one would let a-b + c and a + b-c collide. */
+const TAG_TEXT = /^[a-z0-9]+$/;
 
 export interface ArchiveMeme {
   file: string;
@@ -51,6 +53,7 @@ export function buildSnapshot(input: SnapshotInput): CallsignSnapshot {
     .map(([tag, memes]) => ({ tag, count: memes.length, memes: [...memes].sort() }))
     .sort((a, b) => b.count - a.count || (a.tag < b.tag ? -1 : 1));
   if (tags.length < 3) throw new Error(`only ${tags.length} allowed tags have an SFW meme; a callsign needs 3`);
+  for (const t of tags) if (!TAG_TEXT.test(t.tag)) throw new Error(`tags.toml: tag "${t.tag}" must be only a–z and 0–9, since callsigns join tags with "-"`);
   return {
     version: input.version,
     archive: { repo: input.repo, sha: input.sha },
