@@ -1,4 +1,4 @@
-import type { DossierCard, MarineCard, SitrepCard, Tier } from '@ccip-dev/core/linkmarine';
+import type { DossierCard, MarineCard, RecordsCard, SitrepCard, Tier, VaultCard } from '@ccip-dev/core/linkmarine';
 
 /** Text the card fonts can draw: their Latin subset. */
 export const DRAWABLE_TEXT = /^[\u0020-\u007e\u00a0-\u00ff\u2000-\u206f\u20ac\u2122]*$/;
@@ -67,4 +67,35 @@ export const DOSSIER: DossierCard = {
   days: [{ day: '2026-10-06', messages: 684 }, { day: '2026-10-07', messages: 639 }, { day: '2026-10-08', messages: 756 }, { day: '2026-10-09', messages: 391 }, { day: '2026-10-10', messages: 352 }, { day: '2026-10-11', messages: 442 }, { day: '2026-10-12', messages: 617 }],
   partners: [{ chain: MONAD, usd: 5788934 }, { chain: ETHEREUM, usd: 5290358 }, { chain: AVALANCHE, usd: 2114221 }, { chain: ROBINHOOD, usd: 1454504 }],
   since: '2023-09-16',
+};
+
+export const VAULT: VaultCard = {
+  asOf: '2026-10-13T11:00:55.843Z',
+  link: 6204681.79,
+  valueUsd: 79818684,
+  priceUsd: 12.8643,
+  changePct: 15.66,
+  costUsd: 69008608.43,
+  streak: 62,
+  avgWeeklyLink: 85687.03,
+  lastDeposit: { link: 82480.36, day: '2026-10-08' },
+  nextDue: '2026-10-15',
+  overdue: false,
+  weekly: [121949.84, 123521.9, 125525.28, 119241.2, 100908.77, 123777.33, 132002.93, 148258.62, 147197.58, 143676.39, 153956.18, 151674.71, 146110.67, 138306.29, 135168.33, 135549.02, 139956.08, 127744.15, 103041.41, 91988.7, 97110.77, 91115.63, 97459.26, 88105.46, 74703.04, 82480.36],
+  milestone: { link: 7000000, eta: '2026-12-17' },
+};
+
+export const RECORDS: RecordsCard = {
+  asOf: '2026-10-13T06:01:00.177Z',
+  medals: [
+    { kind: 'messages', value: 47414, day: '2026-02-22', lane: null },
+    { kind: 'value', value: 330226186.84, day: '2026-04-20', lane: null },
+    { kind: 'fees', value: 57347.81, day: '2026-07-09', lane: null },
+    { kind: 'largest_fee', value: 9002.29, day: '2025-08-19', lane: { src: 'WEMIX', dst: 'Ethereum' } },
+    { kind: 'link_share', value: 100, day: '2023-07-08', lane: null },
+  ],
+  newest: 'fees',
+  messages: 1578970,
+  usd: 24320486693.239994,
+  since: '2023-07-06',
 };
