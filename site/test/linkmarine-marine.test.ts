@@ -26,6 +26,15 @@ describe('the dog tag card', () => {
     expect(odds).toEqual(['rarer than 17 in 100 Marines', 'top 40% · rarer than 76 in 100 Marines', 'top 15% · rarer than 95 in 100 Marines', 'top 3% · rarer than 97 in 100 Marines']);
   });
 
+  it('says "rarer than N" only for N from 1 to 99: never 0, never 100', () => {
+    // #given the lowest scores, and one past the simulation's highest
+    const odds = (tier: 'common' | 'uncommon' | 'legendary', percentile: number) => texts(marineTree({ ...marine(tier, [PNG]), percentile })).filter((w) => w.includes('rarer than') || w.startsWith('top '));
+    // #when
+    const lines = [odds('common', 0.4), odds('uncommon', 0.9), odds('common', 1), odds('legendary', 100)];
+    // #then
+    expect(lines).toEqual([[], ['top 40%'], ['rarer than 1 in 100 Marines'], ['top 3% · rarer than 99 in 100 Marines']]);
+  });
+
   it('writes no character the card fonts lack, and a name of emoji alone as "Marine"', () => {
     // #given a stamped name the fonts cannot draw
     const card = { ...marine('rare', [PNG]), name: '🚀🚀 日本' };

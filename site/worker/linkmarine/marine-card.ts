@@ -239,15 +239,18 @@ function avatarNode(card: MarineCard): VNode {
     : h('div', { style: { ...disc, backgroundImage: 'linear-gradient(135deg, #2f62df, #a27bf0)' } });
 }
 
-function oddsText(card: MarineCard): string {
+/** "top 15% · rarer than 95 in 100 Marines": N runs 1–99, and the phrase is left out where N would be 0; null when nothing is left. */
+function oddsText(card: MarineCard): string | null {
   const top = tierTopPct(card.tier);
-  const rarer = `rarer than ${Math.floor(card.percentile)} in 100 Marines`;
-  return top === null ? rarer : `top ${top}% · ${rarer}`;
+  const n = Math.min(99, Math.floor(card.percentile));
+  const parts = [top === null ? null : `top ${top}%`, n > 0 ? `rarer than ${n} in 100 Marines` : null].filter((p) => p !== null);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 const TIER_WORD: Readonly<Record<Tier, string>> = { common: 'COMMON', uncommon: 'UNCOMMON', rare: 'RARE', legendary: 'LEGENDARY' };
 
 function panel(card: MarineCard, look: TierLook): VNode {
+  const odds = oddsText(card);
   return at(
     430,
     30,
@@ -258,7 +261,7 @@ function panel(card: MarineCard, look: TierLook): VNode {
       { style: { ...font('Inter', 900, 46, 'transparent', 0.02), lineHeight: 1, marginTop: px(16), backgroundImage: look.word, backgroundClip: 'text', filter: `drop-shadow(0 ${px(2)}px ${px(10)}px ${look.color}55)` } },
       TIER_WORD[card.tier],
     ),
-    h('div', { style: { ...font(MONO, 700, 13, look.accent), marginTop: px(10) } }, oddsText(card)),
+    ...(odds === null ? [] : [h('div', { style: { ...font(MONO, 700, 13, look.accent), marginTop: px(10) } }, odds)]),
   );
 }
 
