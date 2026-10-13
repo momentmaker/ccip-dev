@@ -1,7 +1,7 @@
 import { RIM_PHRASES, TIERS } from '@ccip-dev/core/linkmarine';
 import { describe, expect, it } from 'vitest';
 import { cardName, BACK_TAG, FRONT_TAG, loreRows, loreSize, marineTree, onTag, RIM_BUDGET, skyChoices } from '../worker/linkmarine/marine-card';
-import { DRAWABLE_TEXT, MARINES, marine } from './fixtures/linkmarine';
+import { DRAWABLE_TEXT, MARINES, marine, webMarine } from './fixtures/linkmarine';
 import { texts } from './fixtures/broadcast';
 
 const PNG = new Uint8Array([137, 80, 78, 71]);
@@ -74,5 +74,14 @@ describe('the dog tag card', () => {
     const rims = TIERS.map((tier) => texts(marineTree(marine(tier, [PNG]))).find((w) => w.includes(' · ') && w.split(' · ').every((p) => (RIM_PHRASES as readonly string[]).includes(p))));
     // #then 300 px tag less two 40 px corners and a 6 px inset a side is 208 px, at 6.5 × 0.82 = 5.33 px a character
     expect({ budget: RIM_BUDGET, fits: rims.every((r) => r !== undefined && r.length <= RIM_BUDGET), shown: rims[0] !== undefined && rims[0].length > 20 }).toEqual({ budget: 39, fits: true, shown: true });
+  });
+});
+
+describe('the web card', () => {
+  it('draws the same card without the stamped name, keeping the tier word and the odds', () => {
+    // #when
+    const words = texts(marineTree(webMarine('legendary', [PNG])));
+    // #then
+    expect({ name: words.includes('momentmaker'), kept: ['LEGENDARY', 'top 3% · rarer than 97 in 100 Marines', 'LINK MARINE #0007', 'ccip.dev'].every((w) => words.includes(w)) }).toEqual({ name: false, kept: true });
   });
 });

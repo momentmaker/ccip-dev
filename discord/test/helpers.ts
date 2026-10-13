@@ -1,4 +1,4 @@
-import { seededRandom, type LinkMarineRenderer } from '@ccip-dev/core/linkmarine';
+import { seededRandom, type LinkMarineRenderer, type MarineWebCard } from '@ccip-dev/core/linkmarine';
 import { env } from 'cloudflare:workers';
 import type { Bot } from '../src/bot';
 import type { Attachment, DiscordApi } from '../src/discord-api';
@@ -55,8 +55,9 @@ export const GIF_BYTES = new Uint8Array([71, 73, 70, 56, 57, 97]);
  * The site's renderer as the bot calls it, counting calls; `failing` names a method that throws. renderMarineCards draws
  * both images as the site does: it fails with renderMarineCard, and gives a failing renderMarineGlint back as the reason.
  */
-export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): LinkMarineRenderer & { calls: string[] } {
+export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): LinkMarineRenderer & { calls: string[]; webCards: MarineWebCard[] } {
   const calls: string[] = [];
+  const webCards: MarineWebCard[] = [];
   const call = <T>(name: keyof LinkMarineRenderer, value: T) => {
     calls.push(name);
     if (failing === name) throw new Error(`${name} failed`);
@@ -65,6 +66,7 @@ export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): L
   const glints = (tier: string) => tier === 'rare' || tier === 'legendary';
   return {
     calls,
+    webCards,
     async prepareMeme() {
       return call('prepareMeme', PNG_BYTES);
     },
@@ -79,6 +81,10 @@ export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): L
       if (failing === 'renderMarineCard') throw new Error('renderMarineCard failed');
       if (!glints(card.tier)) return { png: PNG_BYTES, gif: null, glintError: null };
       return failing === 'renderMarineGlint' ? { png: PNG_BYTES, gif: null, glintError: 'renderMarineGlint failed' } : { png: PNG_BYTES, gif: GIF_BYTES, glintError: null };
+    },
+    async renderMarineWebCard(card) {
+      webCards.push(card);
+      return call('renderMarineWebCard', PNG_BYTES);
     },
     async renderIntelCard() {
       return call('renderIntelCard', PNG_BYTES);

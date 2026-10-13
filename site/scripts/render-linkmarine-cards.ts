@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { render } from '@cf-wasm/og/node';
-import { hasGlint, INTEL_KINDS, TIERS, type IntelCards, type IntelKind } from '@ccip-dev/core/linkmarine';
+import { hasGlint, INTEL_KINDS, TIERS, type IntelCards, type IntelKind, type MarineWebCard } from '@ccip-dev/core/linkmarine';
 import { DOSSIER, marine, RECORDS, SITREP, VAULT } from '../test/fixtures/linkmarine';
 import type { VNode } from '../worker/h';
 import { chainArts } from '../worker/linkmarine/chain-hex';
@@ -48,6 +48,8 @@ for (const tier of TIERS) {
   const card = marine(tier, pngs);
   const rendered = await draw(marineTree(card));
   await writeFile(join(out, `marine-${tier}.png`), rendered.image);
+  const web: MarineWebCard = { serial: card.serial, callsign: card.callsign, tier: card.tier, percentile: card.percentile, memes: card.memes, blood: card.blood, faith: card.faith, enlistedAt: card.enlistedAt };
+  await writeFile(join(out, `marine-${tier}-web.png`), (await draw(marineTree(web))).image);
   if (hasGlint(tier)) await writeFile(join(out, `marine-${tier}.gif`), glintGif(new Uint8Array(rendered.pixels), rendered.width, rendered.height));
 }
 const intel: IntelCards = { sitrep: SITREP, dossier: DOSSIER, vault: VAULT, records: RECORDS };
@@ -56,4 +58,4 @@ for (const kind of INTEL_KINDS) {
   const arts = await chainArts(assets, intelSelectors(kind, card as never));
   await writeFile(join(out, `intel-${kind}.png`), (await draw(intelTree(kind, card as never, arts))).image);
 }
-console.log(`wrote ${TIERS.length} dog tag cards, their glints and ${INTEL_KINDS.length} intel cards to ${out}`);
+console.log(`wrote ${TIERS.length} dog tag cards, their web cards, their glints and ${INTEL_KINDS.length} intel cards to ${out}`);

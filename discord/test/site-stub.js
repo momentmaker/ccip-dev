@@ -21,6 +21,10 @@ export class LinkMarineCards extends WorkerEntrypoint {
     return { png: new Uint8Array(PNG), gif: await this.renderMarineGlint(card), glintError: null };
   }
 
+  async renderMarineWebCard() {
+    return new Uint8Array(PNG);
+  }
+
   async renderIntelCard() {
     return new Uint8Array(PNG);
   }

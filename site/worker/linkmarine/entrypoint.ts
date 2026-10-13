@@ -1,5 +1,5 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import { hasGlint, type IntelCards, type IntelKind, type LinkMarineRenderer, type MarineCard, type MarineCardImages } from '@ccip-dev/core/linkmarine';
+import { hasGlint, type IntelCards, type IntelKind, type LinkMarineRenderer, type MarineCard, type MarineCardImages, type MarineWebCard } from '@ccip-dev/core/linkmarine';
 import type { AssetFetcher } from '../cards/coin-icons';
 import { chainArts } from './chain-hex';
 import { glintGif, marineImages } from './glint';
@@ -34,6 +34,10 @@ export class LinkMarineCards extends WorkerEntrypoint<LinkMarineEnv> implements 
   /** The bot's way in: one render for the PNG and the glint. A failed glint comes back as its reason beside the PNG. */
   async renderMarineCards(card: MarineCard): Promise<MarineCardImages> {
     return marineImages(await renderKino(marineTree(card)), card.tier);
+  }
+
+  async renderMarineWebCard(card: MarineWebCard): Promise<Uint8Array> {
+    return (await renderKino(marineTree(card))).png;
   }
 
   async renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array> {

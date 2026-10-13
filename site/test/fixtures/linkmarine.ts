@@ -1,4 +1,4 @@
-import type { DossierCard, MarineCard, RecordsCard, SitrepCard, Tier, VaultCard } from '@ccip-dev/core/linkmarine';
+import type { DossierCard, MarineCard, MarineWebCard, RecordsCard, SitrepCard, Tier, VaultCard } from '@ccip-dev/core/linkmarine';
 
 /** Text the card fonts can draw: their Latin subset. */
 export const DRAWABLE_TEXT = /^[\u0020-\u007e\u00a0-\u00ff\u2000-\u206f\u20ac\u2122]*$/;
@@ -99,3 +99,9 @@ export const RECORDS: RecordsCard = {
   usd: 24320486693.239994,
   since: '2023-07-06',
 };
+
+/** A tier's sample Marine as the roster's web card draws it: no name, no avatar. */
+export function webMarine(tier: Tier, pngs: readonly Uint8Array[]): MarineWebCard {
+  const m = marine(tier, pngs);
+  return { serial: m.serial, callsign: m.callsign, tier: m.tier, percentile: m.percentile, memes: m.memes, blood: m.blood, faith: m.faith, enlistedAt: m.enlistedAt };
+}

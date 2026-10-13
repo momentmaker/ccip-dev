@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { callsignSeed, filledPips, hasGlint, rimText, RIM_PHRASES, seededRandom, serialText, TIER_SHARE_PCT, TIERS, tierTopPct } from '../src/linkmarine';
+import { callsignSeed, filledPips, hasGlint, rimText, RIM_PHRASES, seededRandom, serialText, TIER_SHARE_PCT, TIERS, marineOdds, tierTopPct } from '../src/linkmarine';
 
 describe('LinkMarine tiers', () => {
   it('shares the draws 60/25/12/3 and prints the share at the tier or rarer', () => {
@@ -86,5 +86,18 @@ describe('LinkMarine seeds', () => {
   it('pads a serial to four digits', () => {
     // #then
     expect([serialText(7), serialText(1234), serialText(12345)]).toEqual(['0007', '1234', '12345']);
+  });
+});
+
+describe('the odds line', () => {
+  it('prints the tier’s share from Uncommon up and "rarer than N" for N from 1 to 99', () => {
+    // #then
+    expect([marineOdds('legendary', 97.9), marineOdds('common', 17.3), marineOdds('uncommon', 0.9), marineOdds('common', 0.4), marineOdds('legendary', 100)]).toEqual([
+      'top 3% · rarer than 97 in 100 Marines',
+      'rarer than 17 in 100 Marines',
+      'top 40%',
+      null,
+      'top 3% · rarer than 99 in 100 Marines',
+    ]);
   });
 });

@@ -1,7 +1,7 @@
 import { TIERS } from '@ccip-dev/core/linkmarine';
 import { createExecutionContext } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { marine } from '../../test/fixtures/linkmarine';
+import { marine, webMarine } from '../../test/fixtures/linkmarine';
 import { h } from '../h';
 import { LinkMarineCards } from '../linkmarine/entrypoint';
 import { px } from '../linkmarine/art';
@@ -61,5 +61,16 @@ describe('the LinkMarineCards entrypoint: the dog tag card', () => {
     const [etchedRed, etchedWhite, planet] = await Promise.all([pngPixel(onRed, ex, ey), pngPixel(onWhite, ex, ey), pngPixel(onRed, Math.round(px(580)), Math.round(px(214)))]);
     // #then the etching follows the meme but loses its red; the planet keeps it
     expect({ etched: etchedWhite[0]! - etchedRed[0]! > 100, etchedRed: etchedRed[0]! - etchedRed[1]! > 60, planetRed: planet[0]! - planet[1]! > 120 }).toEqual({ etched: true, etchedRed: false, planetRed: true });
+  });
+});
+
+describe('the LinkMarineCards entrypoint: the web card', () => {
+  it('renders the roster’s card at 1200×675', async () => {
+    // #given a red meme
+    const red = await solid('#d01818');
+    // #when
+    const png = await cards().renderMarineWebCard(webMarine('legendary', [red]));
+    // #then
+    expect(size(png)).toEqual([1200, 675]);
   });
 });

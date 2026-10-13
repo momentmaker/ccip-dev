@@ -1,4 +1,4 @@
-import { callsignSeed, filledPips, rimText, seededRandom, serialText, tierTopPct, type MarineCard, type Tier } from '@ccip-dev/core/linkmarine';
+import { callsignSeed, filledPips, rimText, seededRandom, serialText, marineOdds, type MarineCard, type MarineWebCard, type Tier } from '@ccip-dev/core/linkmarine';
 import { bytesToBase64 } from '../cards/coin-icons';
 import { h, type VNode } from '../h';
 import { artLayer, at, capDay, DOT_FILTER, drawable, font, halo, type HaloRing, HEX_CLIP, hexImage, hexPoints, INK, KINO_SIZE, MONO, onCurve, pips, pulse, px, r1, skyLayer } from './art';
@@ -175,9 +175,9 @@ export function loreSize(rows: readonly string[]): number {
   return Math.min(11, Math.floor((LORE_WIDTH / (longest * 0.7)) * 10) / 10);
 }
 
-export const loreRows = (card: MarineCard) => [`LM ${serialText(card.serial)} · BLOOD ${card.blood}`, `FAITH ${card.faith} · ${capDay(card.enlistedAt)}`];
+export const loreRows = (card: MarineCard | MarineWebCard) => [`LM ${serialText(card.serial)} · BLOOD ${card.blood}`, `FAITH ${card.faith} · ${capDay(card.enlistedAt)}`];
 
-function frontText(card: MarineCard, look: TierLook): VNode {
+function frontText(card: MarineCard | MarineWebCard, look: TierLook): VNode {
   const lines = card.callsign.toUpperCase().split('-');
   const rows = loreRows(card);
   const size = loreSize(rows);
@@ -203,7 +203,7 @@ function frontText(card: MarineCard, look: TierLook): VNode {
   );
 }
 
-function backEtch(card: MarineCard, look: TierLook): VNode {
+function backEtch(card: MarineCard | MarineWebCard, look: TierLook): VNode {
   return tagFace(
     BACK_TAG,
     h(
@@ -239,23 +239,20 @@ function avatarNode(card: MarineCard): VNode {
     : h('div', { style: { ...disc, backgroundImage: 'linear-gradient(135deg, #2f62df, #a27bf0)' } });
 }
 
-/** "top 15% · rarer than 95 in 100 Marines": N runs 1–99, and the phrase is left out where N would be 0; null when nothing is left. */
-function oddsText(card: MarineCard): string | null {
-  const top = tierTopPct(card.tier);
-  const n = Math.min(99, Math.floor(card.percentile));
-  const parts = [top === null ? null : `top ${top}%`, n > 0 ? `rarer than ${n} in 100 Marines` : null].filter((p) => p !== null);
-  return parts.length > 0 ? parts.join(' · ') : null;
-}
-
 const TIER_WORD: Readonly<Record<Tier, string>> = { common: 'COMMON', uncommon: 'UNCOMMON', rare: 'RARE', legendary: 'LEGENDARY' };
 
-function panel(card: MarineCard, look: TierLook): VNode {
-  const odds = oddsText(card);
+function panel(card: MarineCard | MarineWebCard, look: TierLook): VNode {
+  const odds = marineOdds(card.tier, card.percentile);
+  // The web card keeps the row's height, so the tier word and the odds stay where the posted card has them.
+  const stamp =
+    'name' in card
+      ? h('div', { style: { display: 'flex', alignItems: 'center' } }, avatarNode(card), h('div', { style: { ...font('Inter', 700, 14, INK.text), marginLeft: px(8), maxWidth: px(260), overflow: 'hidden', textOverflow: 'ellipsis' } }, cardName(card.name)))
+      : h('div', { style: { display: 'flex', height: px(26) } });
   return at(
     430,
     30,
     { width: px(300), flexDirection: 'column' },
-    h('div', { style: { display: 'flex', alignItems: 'center' } }, avatarNode(card), h('div', { style: { ...font('Inter', 700, 14, INK.text), marginLeft: px(8), maxWidth: px(260), overflow: 'hidden', textOverflow: 'ellipsis' } }, cardName(card.name))),
+    stamp,
     h(
       'div',
       { style: { ...font('Inter', 900, 46, 'transparent', 0.02), lineHeight: 1, marginTop: px(16), backgroundImage: look.word, backgroundClip: 'text', filter: `drop-shadow(0 ${px(2)}px ${px(10)}px ${look.color}55)` } },
@@ -281,7 +278,7 @@ function planetLabel(p: Planet, tag: string, count: number, look: TierLook): VNo
 }
 
 /** The dog tag card: two tags on a ball chain over the tier's halo, and the panel with the meme planets. */
-export function marineTree(card: MarineCard): VNode {
+export function marineTree(card: MarineCard | MarineWebCard): VNode {
   const look = TIER_LOOKS[card.tier];
   const { seed, layout, haloTurn } = skyChoices(card.callsign);
   const strength = look.halo.strength;

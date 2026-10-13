@@ -19,6 +19,17 @@ export function rarerThan(percentile: number): number {
   return Math.min(99, Math.floor(percentile));
 }
 
+/**
+ * The card's odds line: "top 15% · rarer than 95 in 100 Marines". The share is left out for Common (it would say
+ * "top 100%") and "rarer than" where N would be 0. Null when both are left out.
+ */
+export function marineOdds(tier: Tier, percentile: number): string | null {
+  const top = tierTopPct(tier);
+  const n = rarerThan(percentile);
+  const parts = [top === null ? null : `top ${top}%`, n > 0 ? `rarer than ${n} in 100 Marines` : null].filter((p) => p !== null);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 /** Rare and Legendary cards also get the animated glint. */
 export function hasGlint(tier: Tier): boolean {
   return tier === 'rare' || tier === 'legendary';
@@ -106,6 +117,9 @@ export interface MarineCard {
   /** The Discord avatar as PNG bytes, or null for the gradient disc. */
   avatar: Uint8Array | null;
 }
+
+/** The card as the public roster draws it: everything but the stamped Discord name and avatar. */
+export type MarineWebCard = Omit<MarineCard, 'name' | 'avatar'>;
 
 export interface IntelChain {
   selector: string;
@@ -214,5 +228,7 @@ export interface LinkMarineRenderer {
   renderMarineGlint(card: MarineCard): Promise<Uint8Array | null>;
   /** The card and its glint from one render, so a Rare or Legendary costs one Satori and resvg pass, not two. */
   renderMarineCards(card: MarineCard): Promise<MarineCardImages>;
+  /** The roster's card for the web: the dog tag card without the name and avatar row. */
+  renderMarineWebCard(card: MarineWebCard): Promise<Uint8Array>;
   renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array>;
 }
