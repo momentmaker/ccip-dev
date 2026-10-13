@@ -1,0 +1,20 @@
+# Lore stamped on each Marine's front tag: one BLOOD line and one FAITH line, each drawn by weight.
+#
+# A line's chance is its weight over the sum of its section's weights, so a low weight makes a rare line.
+# Lines are 1–12 characters of A–Z, 0–9, + and -. Edit freely, then run pnpm discord:snapshot and commit
+# discord/src/data/callsigns.json. A Marine's lore never changes; an edit changes only future draws.
+
+[blood]
+lines = [
+  { text = "LINK+", weight = 60 },
+  { text = "O-LINK", weight = 30 },
+  { text = "7777777", weight = 10 },
+]
+
+[faith]
+lines = [
+  { text = "4IR", weight = 40 },
+  { text = "SERGEY", weight = 30 },
+  { text = "STAKING", weight = 20 },
+  { text = "FUNDAMENTALS", weight = 10 },
+]
