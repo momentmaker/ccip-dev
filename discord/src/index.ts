@@ -6,7 +6,7 @@ import { deferred, InteractionType, json, privateReply, ResponseType, type Inter
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { verifyDiscordRequest } from './verify';
 
-export const NOT_HERE = 'ccip.dev works in servers that have added it.';
+export const NOT_HERE = 'ccip.dev isn’t available here.';
 
 const GUILD_CONTEXT = 0;
 

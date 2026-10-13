@@ -88,7 +88,7 @@ describe('the interactions endpoint', () => {
     expect(res.status).toBe(401);
   });
 
-  const TURNED_AWAY = { type: 4, data: { content: 'ccip.dev works in servers that have added it.', flags: 64, allowed_mentions: { parse: [] } } };
+  const TURNED_AWAY = { type: 4, data: { content: 'ccip.dev isn’t available here.', flags: 64, allowed_mentions: { parse: [] } } };
   const OTHER_SERVER = '1100000000000000002';
 
   it('lets any server through when the setting is "all"', async () => {
