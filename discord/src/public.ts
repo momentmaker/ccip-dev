@@ -1,7 +1,8 @@
 import { ROSTER_VERSION, type RosterFile, type RosterMarine } from '@ccip-dev/core/roster';
-import type { Tier } from '@ccip-dev/core/linkmarine';
+import type { MarineWebCard, Tier } from '@ccip-dev/core/linkmarine';
 import type { Bot } from './bot';
 import { tagChances, type CallsignSnapshot } from './draw';
+import { loadMemes, memeKey, stockMemes } from './memes';
 import type { MarineMeme } from './store';
 
 /**
@@ -76,10 +77,95 @@ async function rosterResponse(_path: string, deps: PublicDeps): Promise<Response
   }
 }
 
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const WEB_MAX_AGE = 86_400;
+const MEME_PATH = /^\/memes\/([^/]+)\.png$/;
+const WEB_PATH = /^\/web\/([^/]+)\.png$/;
+const SERIAL = /^[1-9][0-9]{0,8}$/;
+
+export const webCardKey = (serial: number) => `web/${serial}.png`;
+
+const png = (body: ReadableStream | Uint8Array, cacheControl: string) => new Response(body, { headers: { ...CORS, 'Content-Type': 'image/png', 'Cache-Control': cacheControl } });
+const missing = () => new Response('Not found', { status: 404, headers: { ...CORS, 'Cache-Control': `public, max-age=${MISSING_MAX_AGE}` } });
+const unavailable = (what: string) => new Response(`${what} unavailable`, { status: 503, headers: { ...CORS, 'Cache-Control': NO_STORE } });
+
+/** Each snapshot meme file and the tag it came from, built once per snapshot. */
+const snapshotFiles = new WeakMap<CallsignSnapshot, Map<string, string>>();
+
+function snapshotMeme(snapshot: CallsignSnapshot, file: string): MarineMeme | null {
+  let files = snapshotFiles.get(snapshot);
+  if (!files) {
+    files = new Map(snapshot.tags.flatMap((t) => t.memes.map((f) => [f, t.tag] as const)));
+    snapshotFiles.set(snapshot, files);
+  }
+  const tag = files.get(file);
+  return tag === undefined ? null : { tag, file, key: memeKey(file) };
+}
+
+/** A meme's 240 px PNG: from R2, else copied once from the pinned archive when the snapshot has it, else 404. */
+async function memeResponse(path: string, deps: PublicDeps): Promise<Response> {
+  let file: string;
+  try {
+    file = decodeURIComponent(MEME_PATH.exec(path)![1]!);
+  } catch {
+    return missing();
+  }
+  const kept = await deps.bucket.get(memeKey(file));
+  if (kept) return png(kept.body, IMMUTABLE);
+  const meme = snapshotMeme(deps.snapshot, file);
+  if (!meme) return missing();
+  try {
+    await stockMemes(deps.bucket, deps.renderer, deps.fetch, deps.snapshot.archive, [meme]);
+  } catch (err) {
+    console.error(`meme ${file}: ${reason(err)}`);
+    return unavailable('meme');
+  }
+  const stocked = await deps.bucket.get(meme.key);
+  return stocked ? png(stocked.body, IMMUTABLE) : unavailable('meme');
+}
+
+/** A Marine's web card: from R2, else rendered once through the site (never with a name or avatar) and kept. */
+async function webCardResponse(path: string, deps: PublicDeps): Promise<Response> {
+  const digits = WEB_PATH.exec(path)![1]!;
+  if (!SERIAL.test(digits)) return missing();
+  const serial = Number(digits);
+  const kept = await deps.bucket.get(webCardKey(serial));
+  if (kept) return png(kept.body, `public, max-age=${WEB_MAX_AGE}`);
+  const row = await deps.db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM marines WHERE serial = ?`).bind(serial).first<PublicRow>();
+  if (!row) return missing();
+  try {
+    const stored = JSON.parse(row.memes) as MarineMeme[];
+    await stockMemes(deps.bucket, deps.renderer, deps.fetch, deps.snapshot.archive, stored);
+    const pngs = await loadMemes(deps.bucket, stored);
+    if (!pngs) throw new Error('memes missing from storage right after copying');
+    const marine = rosterMarine(row, deps.snapshot);
+    const card: MarineWebCard = {
+      serial,
+      callsign: marine.callsign,
+      tier: marine.tier,
+      percentile: marine.percentile,
+      memes: marine.memes.map((m, i) => ({ tag: m.tag, count: m.count, png: pngs[i]! })),
+      blood: marine.blood,
+      faith: marine.faith,
+      enlistedAt: row.enlisted_at,
+    };
+    const bytes = await deps.renderer.renderMarineWebCard(card);
+    await deps.bucket.put(webCardKey(serial), bytes, { httpMetadata: { contentType: 'image/png' } });
+    return png(bytes, `public, max-age=${WEB_MAX_AGE}`);
+  } catch (err) {
+    console.error(`web card #${serial}: ${reason(err)}`);
+    return unavailable('card');
+  }
+}
+
 export type Route = (path: string, deps: PublicDeps) => Promise<Response>;
 
 /** Each public path and its answer. */
-export const ROUTES: [RegExp, Route][] = [[/^\/roster\.json$/, rosterResponse]];
+export const ROUTES: [RegExp, Route][] = [
+  [/^\/roster\.json$/, rosterResponse],
+  [MEME_PATH, memeResponse],
+  [WEB_PATH, webCardResponse],
+];
 
 /** A GET answer from the edge cache, else built; only a 200 or a 404 is kept, for as long as its Cache-Control says. */
 async function cached(request: Request, deps: PublicDeps, build: () => Promise<Response>): Promise<Response> {

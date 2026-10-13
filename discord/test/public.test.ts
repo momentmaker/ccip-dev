@@ -1,7 +1,8 @@
 import { ROSTER_SCHEMA } from '@ccip-dev/core/roster';
+import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { publicRoute } from '../src/public';
-import { fakeCache, publicDeps, resetStorage, seedMarine, SNAPSHOT } from './helpers';
+import { publicRoute, webCardKey } from '../src/public';
+import { fakeCache, fakeFetch, fakeRenderer, PNG_BYTES, publicDeps, resetStorage, seedMarine, SNAPSHOT } from './helpers';
 
 const PRIVATE_NAME = 'Zed PRIVATE-NAME 991';
 const PRIVATE_ID = '999888777666555444';
@@ -131,5 +132,104 @@ describe('/roster.json', () => {
   it('is not a public path for anything else', async () => {
     // #then
     expect(await publicRoute(get('/rosters.json'), publicDeps())).toBeNull();
+  });
+});
+
+describe('/memes/<file>.png', () => {
+  it('serves a kept meme from R2, immutable, without touching the archive', async () => {
+    // #given
+    await env.MARINES.put('memes/sp1.jpeg.png', PNG_BYTES);
+    const deps = publicDeps();
+    // #when
+    const res = (await publicRoute(get('/memes/sp1.jpeg.png'), deps))!;
+    // #then
+    expect([res.status, res.headers.get('content-type'), res.headers.get('cache-control'), deps.fetch.urls.length]).toEqual([200, 'image/png', 'public, max-age=31536000, immutable', 0]);
+  });
+
+  it('copies a snapshot meme nobody holds yet once, then serves it from R2', async () => {
+    // #given
+    const deps = publicDeps();
+    // #when
+    await publicRoute(get('/memes/sp1.jpeg.png'), deps);
+    const again = (await publicRoute(get('/memes/sp1.jpeg.png'), deps))!;
+    // #then
+    expect([again.status, deps.fetch.urls.length, deps.renderer.calls]).toEqual([200, 1, ['prepareMeme']]);
+  });
+
+  it('decodes an escaped file name to the same R2 key', async () => {
+    // #given a snapshot meme whose name has a space
+    const snapshot = { ...SNAPSHOT, tags: [...SNAPSHOT.tags, { tag: 'odd', count: 1, memes: ['b c.gif'] }] };
+    await env.MARINES.put('memes/b c.gif.png', PNG_BYTES);
+    // #when
+    const res = (await publicRoute(get('/memes/b%20c.gif.png'), publicDeps({ snapshot })))!;
+    // #then
+    expect(res.status).toBe(200);
+  });
+
+  it('answers 404 for a file outside the snapshot, or a broken escape, without fetching', async () => {
+    // #given
+    const deps = publicDeps();
+    // #when
+    const answers = [(await publicRoute(get('/memes/elsewhere.jpeg.png'), deps))!, (await publicRoute(get('/memes/%E0%A4%A.png'), deps))!];
+    // #then
+    expect([answers.map((r) => r.status), deps.fetch.urls.length]).toEqual([[404, 404], 0]);
+  });
+
+  it('answers 503, never cached, when the archive fails', async () => {
+    // #given an archive that answers nothing
+    const cache = fakeCache();
+    const deps = publicDeps({ fetch: fakeFetch({}), cache });
+    // #when
+    const res = (await publicRoute(get('/memes/sp1.jpeg.png'), deps))!;
+    await Promise.all(deps.work);
+    // #then
+    expect([res.status, res.headers.get('cache-control'), cache.store.size]).toEqual([503, 'no-store', 0]);
+  });
+});
+
+describe('/web/<serial>.png', () => {
+  it('renders a Marine’s web card once, keeps it in R2, and serves the copy after', async () => {
+    // #given
+    await seedMarine('a', 'momentmaker', 'painting-space-prophecy', { tier: 'legendary' });
+    const deps = publicDeps();
+    // #when
+    const first = (await publicRoute(get('/web/1.png'), deps))!;
+    const second = (await publicRoute(get('/web/1.png'), deps))!;
+    // #then
+    expect([first.status, second.status, first.headers.get('cache-control'), deps.renderer.calls.filter((c) => c === 'renderMarineWebCard').length, (await env.MARINES.head(webCardKey(1)))?.httpMetadata?.contentType]).toEqual([
+      200, 200, 'public, max-age=86400', 1, 'image/png',
+    ]);
+  });
+
+  it('hands the renderer no Discord name or avatar', async () => {
+    // #given
+    await seedMarine(PRIVATE_ID, PRIVATE_NAME, 'painting-space-prophecy');
+    const deps = publicDeps();
+    // #when
+    await publicRoute(get('/web/1.png'), deps);
+    // #then
+    expect([Object.keys(deps.renderer.webCards[0]!).sort(), JSON.stringify(deps.renderer.webCards[0]).includes(PRIVATE_NAME)]).toEqual([
+      ['blood', 'callsign', 'enlistedAt', 'faith', 'memes', 'percentile', 'serial', 'tier'],
+      false,
+    ]);
+  });
+
+  it('answers 404, briefly cached, for an unknown, zero or padded serial', async () => {
+    // #when
+    const answers = await Promise.all(['/web/9.png', '/web/0.png', '/web/007.png', '/web/x.png'].map(async (p) => (await publicRoute(get(p), publicDeps()))!));
+    // #then
+    expect(answers.map((r) => [r.status, r.headers.get('cache-control')])).toEqual(Array(4).fill([404, 'public, max-age=60']));
+  });
+
+  it('answers 503, never cached, when the card fails to render', async () => {
+    // #given
+    await seedMarine('a', 'momentmaker', 'painting-space-prophecy');
+    const cache = fakeCache();
+    const deps = publicDeps({ renderer: fakeRenderer('renderMarineWebCard'), cache });
+    // #when
+    const res = (await publicRoute(get('/web/1.png'), deps))!;
+    await Promise.all(deps.work);
+    // #then
+    expect([res.status, res.headers.get('cache-control'), cache.store.size, await env.MARINES.head(webCardKey(1))]).toEqual([503, 'no-store', 0, null]);
   });
 });
