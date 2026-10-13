@@ -1,0 +1,26 @@
+name = "ccip-dev-discord"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [{ pattern = "discord.ccip.dev", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ccip-dev-marines"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MARINES"
+bucket_name = "ccip-dev-marines"
+
+[[services]]
+binding = "SITE"
+service = "ccip-dev-site"
+entrypoint = "LinkMarineCards"
+
+[vars]
+DISCORD_GUILD_ID = ""
+
+[observability]
+enabled = true
