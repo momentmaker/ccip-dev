@@ -1,3 +1,5 @@
+import type { LinkMarineRenderer } from '@ccip-dev/core/linkmarine';
+import { env } from 'cloudflare:workers';
 import { simulate, type CallsignSnapshot } from '../src/draw';
 import type { CommandOption, Interaction } from '../src/interactions';
 
@@ -35,3 +37,49 @@ export const SNAPSHOT: CallsignSnapshot = {
   lore: { blood: [{ text: 'LINK+', weight: 3 }, { text: 'O-LINK', weight: 1 }], faith: [{ text: '4IR', weight: 1 }] },
   ...simulate(TAGS, 20_000, 1),
 };
+
+export async function resetStorage(): Promise<void> {
+  await env.DB.batch([env.DB.prepare('DELETE FROM marines'), env.DB.prepare('DELETE FROM meta'), env.DB.prepare("DELETE FROM sqlite_sequence WHERE name = 'marines'")]);
+  const listed = await env.MARINES.list();
+  await Promise.all(listed.objects.map((o) => env.MARINES.delete(o.key)));
+}
+
+export const PNG_BYTES = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+export const GIF_BYTES = new Uint8Array([71, 73, 70, 56, 57, 97]);
+
+/** The site's renderer as the bot calls it, counting calls; `failing` names a method that throws. */
+export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): LinkMarineRenderer & { calls: string[] } {
+  const calls: string[] = [];
+  const call = <T>(name: keyof LinkMarineRenderer, value: T) => {
+    calls.push(name);
+    if (failing === name) throw new Error(`${name} failed`);
+    return value;
+  };
+  return {
+    calls,
+    async prepareMeme() {
+      return call('prepareMeme', PNG_BYTES);
+    },
+    async renderMarineCard() {
+      return call('renderMarineCard', PNG_BYTES);
+    },
+    async renderMarineGlint(card) {
+      return call('renderMarineGlint', card.tier === 'rare' || card.tier === 'legendary' ? GIF_BYTES : null);
+    },
+    async renderIntelCard() {
+      return call('renderIntelCard', PNG_BYTES);
+    },
+  };
+}
+
+/** A fetch that answers from a table of URL prefixes, recording each URL; anything else is a 404. */
+export function fakeFetch(routes: Record<string, () => Response> = {}): typeof fetch & { urls: string[] } {
+  const urls: string[] = [];
+  const f = async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    urls.push(url);
+    const route = Object.keys(routes).find((prefix) => url.startsWith(prefix));
+    return route ? routes[route]!() : new Response('not found', { status: 404 });
+  };
+  return Object.assign(f as typeof fetch, { urls });
+}
