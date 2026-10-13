@@ -34,7 +34,39 @@ function gifInfo(gif: Uint8Array): { header: string; width: number; height: numb
   return { header: String.fromCharCode(...gif.subarray(0, 6)), width: u16(6), height: u16(8), loop, delays };
 }
 
+/** Each frame's Graphic Control Extension: its transparent flag, disposal method and transparent index. */
+function frameControls(gif: Uint8Array): { transparent: boolean; disposal: number; index: number }[] {
+  const skipSubBlocks = (at: number) => {
+    while (gif[at] !== 0) at += gif[at]! + 1;
+    return at + 1;
+  };
+  let at = 13 + (gif[10]! & 0x80 ? 3 * (1 << ((gif[10]! & 7) + 1)) : 0);
+  const controls: { transparent: boolean; disposal: number; index: number }[] = [];
+  while (at < gif.length && gif[at] !== 0x3b) {
+    if (gif[at] === 0x21 && gif[at + 1] === 0xf9) {
+      controls.push({ transparent: (gif[at + 3]! & 1) === 1, disposal: (gif[at + 3]! >> 2) & 7, index: gif[at + 6]! });
+      at = skipSubBlocks(at + 2);
+    } else if (gif[at] === 0x21) {
+      at = skipSubBlocks(at + 2);
+    } else {
+      const local = gif[at + 9]! & 0x80 ? 3 * (1 << ((gif[at + 9]! & 7) + 1)) : 0;
+      at = skipSubBlocks(at + 10 + local + 1);
+    }
+  }
+  return controls;
+}
+
 describe('the LinkMarineCards entrypoint: the animated glint', () => {
+  it('marks every sweep frame transparent at index 255 with disposal 1, and the first frame opaque', async () => {
+    // #given
+    const cards = new LinkMarineCards(createExecutionContext(), {} as never);
+    const memes = [await solid('#d01818'), await solid('#1f6fb2')];
+    // #when
+    const controls = frameControls((await cards.renderMarineGlint(marine('rare', memes)))!);
+    // #then
+    expect({ first: controls[0]!.transparent, sweep: controls.slice(1).every((c) => c.transparent && c.index === 255 && c.disposal === 1), count: controls.length }).toEqual({ first: false, sweep: true, count: 13 });
+  });
+
   it('animates Rare and Legendary as a looping 1200×675 GIF of about 1.3 s, under 2 MB', async () => {
     // #given
     const cards = new LinkMarineCards(createExecutionContext(), {} as never);

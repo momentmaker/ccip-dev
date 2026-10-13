@@ -39,3 +39,45 @@ describe('the glint', () => {
     }).toEqual({ sweep: 12, palette: 256, outside: true, lit: true, timing: 1320 });
   });
 });
+
+/** Every index of every frame is a real colour, or the transparent 255 exactly where the pixel is unchanged. */
+function indicesAreSound(frames: ReturnType<typeof glintFrames>): boolean {
+  const real = frames.colors;
+  const shown = new Uint8Array(frames.first);
+  if (!frames.first.every((v) => v < real)) return false;
+  for (const index of frames.sweep) {
+    for (let p = 0; p < index.length; p++) {
+      const v = index[p]!;
+      if (v === TRANSPARENT) continue;
+      if (v >= real) return false;
+      shown[p] = v;
+    }
+  }
+  return true;
+}
+
+describe('the glint palette', () => {
+  it('never gives a real pixel the transparent index when the palette is short', () => {
+    // #given a card with few colours, near-black among them
+    const rgba = new Uint8Array(W * H * 4);
+    for (let p = 0; p < W * H; p++) rgba.set(p % W < 300 ? [1, 2, 3, 255] : p % W < 800 ? [12, 14, 40, 255] : [90, 60, 20, 255], p * 4);
+    // #when
+    const frames = glintFrames(rgba, W, H);
+    // #then
+    expect({ short: frames.colors < 255, sound: indicesAreSound(frames) }).toEqual({ short: true, sound: true });
+  });
+
+  it('never gives a real pixel the transparent index when the palette is full', () => {
+    // #given a card of many colours, dark ones among them
+    const rgba = new Uint8Array(W * H * 4);
+    for (let p = 0; p < W * H; p++) {
+      const x = p % W;
+      const y = Math.floor(p / W);
+      rgba.set([(x * 7 + y) % 256, (x * 3 + y * 5) % 200, (x + y * 11) % 90, 255], p * 4);
+    }
+    // #when
+    const frames = glintFrames(rgba, W, H);
+    // #then
+    expect({ full: frames.colors, sound: indicesAreSound(frames) }).toEqual({ full: 255, sound: true });
+  }, 30_000);
+});

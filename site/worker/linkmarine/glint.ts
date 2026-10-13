@@ -93,7 +93,10 @@ function indexer(palette: gifencModule.Palette): (rgba: Uint8Array, i: number, x
 }
 
 export interface GlintFrames {
+  /** Padded to 256 entries for the encoder; only the first `colors` are real. */
   palette: gifencModule.Palette;
+  /** How many palette entries are real colours: pixels only ever use these, so index 255 stays free for TRANSPARENT. */
+  colors: number;
   /** The static card, indexed. */
   first: Uint8Array;
   /** The sweep: each frame's changed pixels, TRANSPARENT everywhere else. */
@@ -112,8 +115,9 @@ export function glintFrames(base: Uint8Array, width: number, height: number, tag
   sample.set(base);
   sample.set(sweeps[Math.floor(GLINT.sweepFrames / 2)]!, base.length);
   const palette = gifenc.quantize(sample, 255);
+  const colors = palette.length;
+  const toIndex = indexer(palette.slice());
   while (palette.length < 256) palette.push([0, 0, 0]);
-  const toIndex = indexer(palette);
   const shown = new Uint8Array(width * height);
   for (let y = 0, p = 0; y < height; y++) for (let x = 0; x < width; x++, p++) shown[p] = toIndex(base, p * 4, x, y);
   const first = new Uint8Array(shown);
@@ -131,7 +135,7 @@ export function glintFrames(base: Uint8Array, width: number, height: number, tag
     }
     return index;
   });
-  return { palette, first, sweep, box: { x0: frame.x0, y0: frame.y0, x1: frame.x1, y1: frame.y1 } };
+  return { palette, colors, first, sweep, box: { x0: frame.x0, y0: frame.y0, x1: frame.x1, y1: frame.y1 } };
 }
 
 /** The animated glint as a looping GIF: the card held 600 ms, then twelve 60 ms frames of the sweep, about 1.3 s in all. */
