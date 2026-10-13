@@ -220,9 +220,9 @@ LinkMarine is a Discord app for the LinkMarine server: `/enlist` draws a permane
   2. Create the database and the bucket:
      `pnpm --filter @ccip-dev/discord exec wrangler d1 create ccip-dev-marines`
      `pnpm --filter @ccip-dev/discord exec wrangler r2 bucket create ccip-dev-marines`
-     Copy the printed `database_id` into `discord/wrangler.toml`, replacing the zeros.
+     Copy the printed `database_id` into `discord/wrangler.toml`, replacing the zeros. If wrangler offers to write the binding into the config itself, answer no.
   3. Put the LinkMarine server's id (Discord: Developer Mode on, right-click the server, Copy Server ID) in `discord/wrangler.toml` as `DISCORD_GUILD_ID`. Commit both edits (`git add discord/wrangler.toml && git commit`) and push. Until `DISCORD_GUILD_ID` is set the Worker turns every command away.
-  4. Switch the deploy on: `gh variable set DISCORD_BOT --body on`, then `gh workflow run deploy`. It applies `discord/migrations/` and deploys the Worker at `discord.ccip.dev`.
+  4. First make sure the site Worker carries the card renderer: the bot's `SITE` binding needs `ccip-dev-site` deployed with its `LinkMarineCards` entrypoint, which the `site` workflow deploys (check `gh run list --workflow site --limit 1` shows a success after the bot's merge, or run `gh workflow run site` and wait for it). Then switch the deploy on: `gh variable set DISCORD_BOT --body on`, then `gh workflow run deploy`. It applies `discord/migrations/` and deploys the Worker at `discord.ccip.dev`.
   5. Secrets (each command prompts for its value):
      `pnpm --filter @ccip-dev/discord exec wrangler secret put DISCORD_PUBLIC_KEY` (the app's Public Key)
      `pnpm --filter @ccip-dev/discord exec wrangler secret put DISCORD_APPLICATION_ID`
