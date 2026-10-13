@@ -1,0 +1,10 @@
+---
+import MarineView from '../../components/marines/MarineView';
+import Base from '../../layouts/Base.astro';
+import '../../styles/marines.css';
+---
+<Base title="LinkMarine" description="A LinkMarine's dog tags on ccip.dev: the callsign, its tier and the memes behind it." noindex>
+  <div class="mr-page">
+    <MarineView client:load />
+  </div>
+</Base>

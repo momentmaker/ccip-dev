@@ -119,6 +119,27 @@ a.mr-seat { color: #0c0f14; }
 .mr-cta h2 { font-size: 30px; font-weight: 800; margin: 6px 0 0; }
 .mr-add { display: inline-flex; gap: 10px; align-items: center; margin-top: 16px; padding: 13px 20px; border-radius: 12px; background: #5865f2; color: #fff; font: 700 15px var(--font-sans); text-decoration: none; }
 
+.mr-profile { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px; align-items: center; padding: 32px 0; }
+.mr-card { width: 100%; height: auto; border-radius: 16px; box-shadow: 0 20px 50px #000b; }
+.mr-big .mr-tag { height: 220px; } .mr-big .mr-face { border-radius: 44px; padding: 30px 26px 0 70px; } .mr-big .mr-hole { left: 26px; width: 22px; height: 22px; margin-top: -11px; } .mr-big .mr-emb { font-size: 26px; } .mr-big .mr-ser { font-size: 13px; }
+.mr-profile-callsign { font: 800 30px/1.1 var(--font-mono); margin: 10px 0 0; overflow-wrap: anywhere; }
+.mr-profile-tier { font-size: 40px; font-weight: 800; line-height: 1; margin: 10px 0 0; }
+.mr-metal-text-common, .mr-metal-text-uncommon, .mr-metal-text-rare, .mr-metal-text-legendary { -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mr-metal-text-common { background-image: linear-gradient(180deg, #f4f7fb, #8e98a6); } .mr-metal-text-uncommon { background-image: linear-gradient(180deg, #f0c08a, #9a5f2c); } .mr-metal-text-rare { background-image: linear-gradient(90deg, #8fb0ff, #b07cff, #ffd27a, #4fd1c5); } .mr-metal-text-legendary { background-image: linear-gradient(180deg, #fff6cf, #f5c451 45%, #b07a12); }
+.mr-profile-odds { font: 700 13px var(--font-mono); color: #f5d77a; margin: 8px 0 14px; }
+.mr-profile-tags { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mr-profile-tags li { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font: 600 13px var(--font-mono); color: #c3cad5; }
+.mr-profile-meme { width: 42px; height: 48px; flex: none; clip-path: var(--hex); background-size: cover; background-position: center; }
+.mr-profile-tag { min-width: 110px; color: var(--fg); font-weight: 700; }
+.mr-profile-pips { color: var(--gold); letter-spacing: 2px; }
+.mr-profile-note { color: var(--muted); }
+.mr-hot { color: #ff8a5c; }
+.mr-profile-lore { font: 700 12px var(--font-mono); letter-spacing: 0.12em; color: var(--muted); margin: 16px 0 0; }
+.mr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.mr-btn { padding: 10px 14px; border-radius: 10px; font: 700 13px var(--font-sans); background: var(--card); border: 1px solid var(--border); color: var(--fg); text-decoration: none; cursor: pointer; }
+.mr-btn-x { background: #000; } .mr-btn-discord { background: #5865f2; border-color: #5865f2; color: #fff; }
+.mr-missing { padding: 60px 0; text-align: center; } .mr-missing h1 { font-size: 32px; margin: 0 0 8px; }
+
 @media (max-width: 760px) {
   .mr-hero { grid-template-columns: 1fr; }
   .mr-hero h1 { font-size: 40px; }
@@ -132,6 +153,7 @@ a.mr-seat { color: #0c0f14; }
   .mr-rarest-row .mr-score, .mr-rarest-row .mr-odds { display: none; }
   .mr-seats { grid-template-columns: repeat(10, 1fr); }
   .mr-wall { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; }
+  .mr-profile { grid-template-columns: 1fr; } .mr-profile-tier { font-size: 32px; }
   .mr-face { padding: 12px 10px 0 30px; } .mr-emb { font-size: 12px; } .mr-hole { left: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
