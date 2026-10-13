@@ -1,6 +1,6 @@
 import { createBot, type Bot } from './bot';
 import type { Env } from './env';
-import { chainChoices } from './intel';
+import { chainActivity, chainChoices } from './intel';
 import { COMMAND_KINDS, intelCommand } from './intel-commands';
 import { deferred, InteractionType, json, privateReply, ResponseType, type Interaction } from './interactions';
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
@@ -85,8 +85,11 @@ export function botHandlers(bot: Bot): Handlers {
       const typed = String(interaction.data?.options?.find((o) => o.focused)?.value ?? '');
       const done = new AbortController();
       try {
-        const chains = await Promise.race([bot.data.load('chains.json'), bot.deadline(AUTOCOMPLETE_BUDGET_MS, done.signal)]);
-        return chains ? chainChoices(chains, typed) : [];
+        const timeout = bot.deadline(AUTOCOMPLETE_BUDGET_MS, done.signal);
+        const top = bot.data.load('top/src_chain.json').catch(() => null);
+        const [chains, sources] = await Promise.all([Promise.race([bot.data.load('chains.json'), timeout]), Promise.race([top, timeout])]);
+        if (!chains) return [];
+        return chainChoices(chains, typed, sources ? chainActivity(sources) : undefined);
       } finally {
         done.abort();
       }

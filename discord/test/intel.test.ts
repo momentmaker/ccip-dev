@@ -1,5 +1,6 @@
+import type { TopFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { chainChoices, chainTotals, dossierCard, findChain, MAX_CHOICES, recordsCard, sitrepCard, vaultCard, weeklyDeposits } from '../src/intel';
+import { chainActivity, chainChoices, chainTotals, dossierCard, findChain, MAX_CHOICES, recordsCard, sitrepCard, vaultCard, weeklyDeposits } from '../src/intel';
 import { ARB, AVAX, BASE, CHAINS, ETH, HISTORY, MONAD, PLASMA, REPLAY, RESERVE, SOURCES, TODAY, WEMIX } from './fixtures/intel';
 
 describe('/cciptoday', () => {
@@ -120,6 +121,50 @@ describe('/ccipchain', () => {
       registry: [{ name: 'Monad', value: MONAD }],
       all: MAX_CHOICES,
     });
+  });
+});
+
+describe('/ccipchain autocomplete by activity', () => {
+  const chainsOf = (names: string[]) => ({ ...CHAINS, chains: names.map((n) => ({ ...CHAINS.chains[0]!, selector: n.toLowerCase(), name: `${n.toLowerCase()}-mainnet`, display_name: `${n} Mainnet` })) });
+
+  it('with nothing typed, offers the 25 busiest chains, busiest first, the ties and the unseen alphabetical', () => {
+    // #given 30 chains: Chain29 busiest down to Chain10, a tie of Chain05 and Chain04 below them, the rest unseen
+    const names = Array.from({ length: 30 }, (_, i) => `Chain${String(i).padStart(2, '0')}`);
+    const activity = new Map<string, number>(names.slice(10).map((n, i) => [n.toLowerCase(), 100 + i]));
+    activity.set('chain05', 50);
+    activity.set('chain04', 50);
+    // #when
+    const shown = chainChoices(chainsOf(names), '', activity).map((c) => c.name);
+    // #then
+    expect(shown).toEqual([...names.slice(10).reverse(), 'Chain04', 'Chain05', 'Chain00', 'Chain01', 'Chain02']);
+  });
+
+  it('with text typed, puts names starting with it before names holding it, each group by activity then name', () => {
+    // #given Baxa and Bay are quiet and busy prefixes; Cuba and Abax contain "ba"
+    const chains = chainsOf(['Baxa', 'Bay', 'Cuba', 'Abax', 'Bazz']);
+    const activity = new Map([['bay', 90], ['cuba', 10], ['abax', 50], ['baxa', 5]]);
+    // #when
+    const shown = chainChoices(chains, 'ba', activity).map((c) => c.name);
+    // #then
+    expect(shown).toEqual(['Bay', 'Baxa', 'Bazz', 'Abax', 'Cuba']);
+  });
+
+  it('without an activity map, keeps the alphabetical order', () => {
+    // #given
+    const chains = chainsOf(['Zed', 'Alpha', 'Mid']);
+    // #when
+    const shown = chainChoices(chains, '').map((c) => c.name);
+    // #then
+    expect(shown).toEqual(['Alpha', 'Mid', 'Zed']);
+  });
+
+  it("maps each chain's selector to its 7-day value, and a missing value to zero and an absent window to nothing", () => {
+    // #given
+    const top = (key: string, usd: number | null) => ({ key, messages: 1, usd });
+    const sources: TopFile = { ...SOURCES, windows: { '7d': [top(BASE, 5), top(ETH, 9), top(ARB, null)], '30d': [top(BASE, 99)], all: [] } };
+    const missing = { ...SOURCES, windows: { '30d': [], all: [] } } as unknown as TopFile;
+    // #then
+    expect([chainActivity(sources), chainActivity(missing)]).toEqual([new Map([[BASE, 5], [ETH, 9], [ARB, 0]]), new Map()]);
   });
 });
 

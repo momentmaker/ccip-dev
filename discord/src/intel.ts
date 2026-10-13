@@ -72,16 +72,26 @@ export function findChain(chains: ChainsFile, query: string): ChainsFile['chains
 
 export const MAX_CHOICES = 25;
 
-/** /ccipchain's autocomplete: chains whose name or registry name contains the typed text, at most 25; the value is the selector. */
-export function chainChoices(chains: ChainsFile, typed: string): { name: string; value: string }[] {
+/** Each source chain's value over the last 7 days, by selector, from top/src_chain.json; empty when the window is absent. */
+export function chainActivity(top: TopFile): Map<string, number> {
+  const week = top.windows?.['7d'] ?? [];
+  return new Map(week.map((e) => [e.key, e.usd ?? 0]));
+}
+
+/**
+ * /ccipchain's autocomplete: chains whose name or registry name contains the typed text, at most 25; the value is the
+ * selector. With `activity` the busiest come first (names starting with the text ahead of the rest); without it, alphabetical.
+ */
+export function chainChoices(chains: ChainsFile, typed: string, activity?: ReadonlyMap<string, number>): { name: string; value: string }[] {
   const q = typed.trim().toLowerCase();
+  const busy = (selector: string) => activity?.get(selector) ?? 0;
   return chains.chains
     .filter((c) => !q || shortChainName(c).toLowerCase().includes(q) || c.name.toLowerCase().includes(q))
     .map((c) => ({ name: shortChainName(c), value: c.selector }))
     .sort((a, b) => {
       const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
       const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
-      return aStarts - bStarts || a.name.localeCompare(b.name);
+      return aStarts - bStarts || busy(b.value) - busy(a.value) || a.name.localeCompare(b.name);
     })
     .slice(0, MAX_CHOICES);
 }

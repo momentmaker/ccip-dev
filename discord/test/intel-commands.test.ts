@@ -6,7 +6,7 @@ import { botHandlers } from '../src/index';
 import { INTEL_TEXT, INTEL_TTL_MS, intelCommand, intelKey } from '../src/intel-commands';
 import { TEXT } from '../src/marines';
 import { command, fakeBot, fakeRenderer, resetStorage } from './helpers';
-import { BASE, CHAINS, HISTORY, REPLAY, RESERVE, SOURCES, TODAY } from './fixtures/intel';
+import { BASE, CHAINS, PLASMA, HISTORY, REPLAY, RESERVE, SOURCES, TODAY } from './fixtures/intel';
 
 const FILES: Partial<Record<PublicFileName, unknown>> = {
   'today.json': TODAY, 'history.json': HISTORY, 'chains.json': CHAINS, 'replay.json': REPLAY, 'top/src_chain.json': SOURCES, 'reserve.json': RESERVE,
@@ -163,6 +163,39 @@ describe('the intel commands', () => {
     const choices = await handlers.autocomplete({ ...command('ccipchain', [{ name: 'chain', type: 3, value: 'ba', focused: true }]), type: 4 });
     // #then
     expect(choices).toEqual([]);
+  });
+
+  describe('autocomplete ranking', () => {
+    const typed = (value: string) => ({ ...command('ccipchain', [{ name: 'chain', type: 3, value, focused: true }]), type: 4 });
+    const withTop = (top: () => Promise<unknown>): PublicData => ({ load: async (name) => (name === 'top/src_chain.json' ? top() : FILES[name]) as never });
+    const busy = { ...SOURCES, windows: { ...SOURCES.windows, '7d': [{ key: PLASMA, messages: 1, usd: 9 }] } };
+
+    it('lists the busiest chain first when top/src_chain.json arrives', async () => {
+      // #given
+      const handlers = botHandlers(intelBot({ data: withTop(async () => busy) }));
+      // #when
+      const choices = await handlers.autocomplete(typed(''));
+      // #then
+      expect(choices[0]?.value).toBe(PLASMA);
+    });
+
+    it('falls back to alphabetical when top/src_chain.json fails', async () => {
+      // #given
+      const handlers = botHandlers(intelBot({ data: withTop(() => Promise.reject(new DataError('top/src_chain.json', 'HTTP 503'))) }));
+      // #when
+      const choices = await handlers.autocomplete(typed(''));
+      // #then
+      expect(choices[0]?.name).toBe('Arbitrum');
+    });
+
+    it('falls back to alphabetical, still within the budget, when top/src_chain.json is slow', async () => {
+      // #given a top file that never arrives, and a timer that fires after chains.json is in
+      const handlers = botHandlers(intelBot({ data: withTop(() => new Promise(() => {})), deadline: () => new Promise<null>((r) => setTimeout(() => r(null), 5)) }));
+      // #when
+      const choices = await handlers.autocomplete(typed(''));
+      // #then
+      expect(choices[0]?.name).toBe('Arbitrum');
+    });
   });
 
   it('sends the alert after the private reply, and still sends it when the reply fails', async () => {
