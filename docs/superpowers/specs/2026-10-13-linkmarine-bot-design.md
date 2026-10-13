@@ -2,7 +2,7 @@
 
 **Status:** Approved for planning · **Date:** 2026-10-13
 
-An interactive Discord app for the unofficial LinkMarine server. Marines enlist for a permanent callsign and get a collectible dog tag card. They pull CCIP intel as cinematic briefing cards. Everything is a slash command, and every reply is a striking image.
+An interactive Discord app for the unofficial LinkMarine community, installable by any server. Marines enlist for a permanent callsign and get a collectible dog tag card. They pull CCIP intel as cinematic briefing cards. Everything is a slash command, and every reply is a striking image.
 
 The design was approved in conversation on 2026-10-13, section by section. The visual targets are the approved mockups in `2026-10-13-linkmarine-bot-mockups/`. Open `dog-tag-card.html` and `intel-cards.html` in a browser.
 
@@ -22,7 +22,7 @@ Give LinkMarines two things they will love and share:
 - **Commands:** `/enlist`, `/dogtag [@marine]`, `/cciptoday`, `/ccipchain <chain>`, `/linkreserve`, `/cciprecords`.
 - **Not in v1:** the Oracle game, ranks, watches, the mess hall (memes), and Telegram enlistment.
 - **Replies are public** in the channel where the command ran. Errors are private (ephemeral).
-- **Install with no permissions.** The app is installed with the `applications.commands` scope only. It gives no roles, changes no nicknames and reads no messages.
+- **A public app, installed with no permissions.** Any server may install it, with the `applications.commands` scope only. There are no user installs. It gives no roles, changes no nicknames and reads no messages. This replaces the earlier lock to the LinkMarine server.
 - **Separate per platform.** A Discord account and, later, a Telegram account each get their own card. The two are never linked. Callsigns and serials are shared across platforms, so a callsign is unique everywhere.
 - **The dog tag card:** a pair of tags on a ball chain, each tier its own metal, lore fields drawn per Marine, rim microtext, hex meme planets on CCIP lanes, a sky seeded by the callsign, the Chainlink hex halo, "LINK MARINE #0007" bottom left and "ccip.dev" bottom right.
   - Dropped during design: ribbons, the serial watermark, the light rays and circle memes.
@@ -64,7 +64,7 @@ Give LinkMarines two things they will love and share:
 - the mess hall;
 - roles and nicknames;
 - Telegram enlistment (a later, separate front door);
-- global installation outside the LinkMarine server.
+- user installs and DMs.
 
 ## 4. Commands
 
@@ -282,13 +282,13 @@ Each medal shows its value, its label and its date. The most recently set record
 - The art layers (tags, halo, hex clipping, glows, lanes, charts) are built as SVG and embedded in the Satori tree as image layers. Text uses Satori with the existing fonts.
 - Meme bytes are passed in by the bot, from R2. Chain icons come from the site's bundled icons.
 
-**Registration.** `pnpm discord:register` uses `DISCORD_APPLICATION_ID` and `DISCORD_BOT_TOKEN` from the owner's shell to PUT the six commands to the LinkMarine guild. These are guild commands only.
+**Registration.** `pnpm discord:register` uses `DISCORD_APPLICATION_ID` and `DISCORD_BOT_TOKEN` from the owner's shell to PUT the six commands globally. Each carries `integration_types: [0]` (server install) and `contexts: [0]` (server channels), so there are no user installs and no DMs. `--guild <id>` registers them in one server for instant testing, and `--clear-guild <id>` removes a server's own copies so they are not shown twice.
 
 **Secrets:**
 - the bot Worker: `DISCORD_PUBLIC_KEY`, `DISCORD_APPLICATION_ID`, and the existing alert secrets;
 - `DISCORD_BOT_TOKEN` is used only by the registration script, on the owner's machine.
 
-**Vars:** `DISCORD_GUILD_ID`.
+**Vars:** `DISCORD_SERVERS`: `all` for any server, a comma-separated list of server ids for only those, empty to refuse every command. A DM or any interaction outside a server is always refused.
 
 **Deploy.** The existing deploy workflow deploys the new Worker. The D1 migrations live in `discord/migrations/`.
 
@@ -337,7 +337,7 @@ Vitest in workerd, like `worker/`:
    - set the interactions URL;
    - set the secrets;
    - invite the app with the `applications.commands` link;
-   - run `pnpm discord:register` (Discord refuses guild commands, 403 Missing Access, for an app not yet in the server: invite first).
+   - run `pnpm discord:register` (global; for a `--guild` test, Discord answers 403 Missing Access for an app not yet in the server: install first).
 4. **The owner enlists first, as Marine #0001,** in a test channel. Then announce.
 
 ## 12. Risks
