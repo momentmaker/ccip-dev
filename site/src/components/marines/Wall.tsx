@@ -1,6 +1,6 @@
 import { serialText, type Tier } from '@ccip-dev/core/linkmarine';
 import { wallMarines, type RosterFile, type WallQuery } from '@ccip-dev/core/roster';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { marinePath, tierName } from '../../lib/marines';
 import DogTag from './DogTag';
 
@@ -18,10 +18,7 @@ const PILLS: { label: string; tier: Tier | null; order: WallQuery['order'] }[] =
 export default function Wall({ roster, query, onQuery }: { roster: RosterFile; query: WallQuery; onQuery: (q: WallQuery) => void }) {
   const [shown, setShown] = useState(WALL_PAGE);
   const marines = wallMarines(roster.marines, query);
-  const set = (q: WallQuery) => {
-    onQuery(q);
-    setShown(WALL_PAGE);
-  };
+  useEffect(() => setShown(WALL_PAGE), [query.text, query.tier, query.tag, query.order]);
   return (
     <section id="wall" className="mr-section" aria-labelledby="wall-title">
       <p className="mr-eyebrow">the wall</p>
@@ -29,11 +26,11 @@ export default function Wall({ roster, query, onQuery }: { roster: RosterFile; q
       <div className="mr-toolbar">
         <label className="mr-search">
           <span className="visually-hidden">Search the roster</span>
-          <input type="search" value={query.text} placeholder="Search a callsign, a tag or a serial: sergey, comfy, #7…" onChange={(e) => set({ ...query, text: e.target.value })} />
+          <input type="search" value={query.text} placeholder="Search a callsign, a tag or a serial: sergey, comfy, #7…" onChange={(e) => onQuery({ ...query, text: e.target.value })} />
         </label>
         <div className="mr-pills" role="group" aria-label="Filter the wall">
           {PILLS.map((p) => (
-            <button key={p.label} type="button" className="mr-pill" aria-pressed={p.tier === query.tier && p.order === query.order} onClick={() => set({ ...query, tier: p.tier, order: p.order })}>
+            <button key={p.label} type="button" className="mr-pill" aria-pressed={p.tier === query.tier && p.order === query.order} onClick={() => onQuery({ ...query, tier: p.tier, order: p.order })}>
               {p.label}
             </button>
           ))}
@@ -42,7 +39,7 @@ export default function Wall({ roster, query, onQuery }: { roster: RosterFile; q
       {query.tag !== null && (
         <p className="mr-filter" role="status">
           {marines.length} {marines.length === 1 ? 'Marine carries' : 'Marines carry'} “{query.tag}” ·{' '}
-          <button type="button" onClick={() => set({ ...query, tag: null })}>
+          <button type="button" onClick={() => onQuery({ ...query, tag: null })}>
             clear
           </button>
         </p>

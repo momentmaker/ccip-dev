@@ -16,7 +16,9 @@ function Sky({ planets, frame, className, onPickTag }: { planets: Planet[]; fram
             onClick={() => onPickTag(p.tag)}
             aria-label={`${p.tag}, carried by ${p.carriers}: show them on the wall`}
           >
-            <span className={`mr-planet-hex${p.oneMeme ? ' mr-glow-gold' : ''}`} style={{ width: s.size, height: s.size * 1.12, backgroundImage: `url(${memeUrl(p.meme)})` }} />
+            <span className={`mr-planet-glow${p.oneMeme ? ' mr-glow-gold' : ''}`}>
+              <span className="mr-planet-hex" style={{ width: s.size, height: s.size * 1.12, backgroundImage: `url(${memeUrl(p.meme)})` }} />
+            </span>
             <span className="mr-planet-label" aria-hidden="true">
               {p.tag} <small>×{p.carriers}</small>
             </span>

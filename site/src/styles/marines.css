@@ -76,7 +76,7 @@
 
 .mr-seats { display: grid; grid-template-columns: repeat(25, 1fr); gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }
 .mr-seat { aspect-ratio: 1 / 1.15; clip-path: var(--hex); display: grid; place-items: center; font: 700 9px var(--font-mono); color: #4a5468; text-decoration: none; }
-span.mr-seat { background: #141925; }
+span.mr-seat { background: #141925; color: var(--muted); }
 a.mr-seat { color: #0c0f14; }
 
 .mr-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 6px; align-items: center; }
@@ -110,8 +110,9 @@ a.mr-seat { color: #0c0f14; }
 .mr-stars { position: relative; margin-top: 20px; border-radius: 18px; overflow: hidden; background: radial-gradient(ellipse at 50% 50%, #1b2f66 0%, transparent 60%), #0a0f1e; border: 1px solid var(--border-soft); }
 .mr-stars-narrow { display: none; }
 .mr-planet { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; color: var(--fg); }
-.mr-planet-hex { clip-path: var(--hex); background-size: cover; background-position: center; box-shadow: 0 0 18px var(--blue-2); }
-.mr-glow-gold { filter: drop-shadow(0 0 8px var(--gold)); }
+.mr-planet-glow { display: flex; filter: drop-shadow(0 0 10px var(--blue-2)); }
+.mr-planet-glow.mr-glow-gold { filter: drop-shadow(0 0 10px var(--gold)); }
+.mr-planet-hex { clip-path: var(--hex); background-size: cover; background-position: center; }
 .mr-planet-label { font: 700 10px var(--font-mono); text-shadow: 0 1px 4px #000; margin-top: 4px; white-space: nowrap; } .mr-planet-label small { color: var(--gold); }
 
 .mr-cta { text-align: center; padding: 50px 0 70px; border-top: 1px solid var(--border-soft); background: radial-gradient(ellipse at 50% 0%, rgba(88, 101, 242, 0.18), transparent 60%); }
