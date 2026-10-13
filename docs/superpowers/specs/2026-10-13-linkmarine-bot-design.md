@@ -78,7 +78,8 @@ Give LinkMarines two things they will love and share:
 | `/cciprecords` | The hall of records card (§7.4). |
 
 **Private errors:**
-- an unknown chain: "No chain called '<x>' on CCIP.";
+- an unknown chain: "No chain called '<x>' on CCIP." (`<x>` is shown as plain text, cut to 64 characters);
+- a chain CCIP lists that no message has crossed yet: "<name> has no CCIP traffic yet.";
 - unreadable data: "Intel is unavailable right now, try again in a minute.";
 - an internal failure: "Something went wrong. It's been reported."
 

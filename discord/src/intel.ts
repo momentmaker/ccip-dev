@@ -9,17 +9,18 @@ const DAY_MS = 86_400_000;
 
 const named = (names: ChainNames, selector: string): IntelChain => ({ selector, name: chainName(names, selector) });
 
-/** /cciptoday from today.json, with yesterday's total from history.json when its last day is yesterday. */
+/** /cciptoday from today.json, with yesterday's total from history.json when its last day is yesterday and had messages. */
 export function sitrepCard(today: TodayFile, history: HistoryFile, chains: ChainsFile): SitrepCard {
   const names = chainNameMap(chains.chains);
   const elapsed = Date.parse(today.updated_at) - Date.parse(`${today.day}T00:00:00.000Z`);
   const last = history.days.at(-1);
-  const yesterday = last && last.day === addDays(today.day, -1) ? last.messages : null;
+  const yesterday = last && last.day === addDays(today.day, -1) && last.messages > 0 ? last.messages : null;
   const t = today.totals;
   return {
     updatedAt: today.updated_at,
     messages: t.messages,
-    pace: elapsed < HOUR_MS ? null : { projected: t.messages / (elapsed / DAY_MS), yesterday },
+    // An update just past midnight can still carry the day before: the whole of that day has gone, never more.
+    pace: elapsed < HOUR_MS ? null : { projected: t.messages / Math.min(1, elapsed / DAY_MS), yesterday },
     usd: t.usd_value,
     feesUsd: t.fee_usd,
     linkSharePct: t.fee_link_share_pct,
@@ -85,7 +86,10 @@ export function chainChoices(chains: ChainsFile, typed: string): { name: string;
     .slice(0, MAX_CHOICES);
 }
 
-/** /ccipchain from replay.json (all time and the last 7 finalized days) and top/src_chain.json (fees); null for a chain CCIP never saw. */
+/**
+ * /ccipchain from replay.json (all time and the last 7 finalized days), top/src_chain.json (fees) and chains.json (the
+ * first message); null for a chain with no traffic in replay.json.
+ */
 export function dossierCard(selector: string, replay: ReplayFile, sources: TopFile, chains: ChainsFile): DossierCard | null {
   const names = chainNameMap([...replay.chains, ...chains.chains]);
   const allTime = chainTotals(replay, null, null);
@@ -119,7 +123,8 @@ export function dossierCard(selector: string, replay: ReplayFile, sources: TopFi
     return { day, messages };
   });
   const week = chainTotals(replay, weekFrom, lastDay).get(selector) ?? { messages: 0, usd: 0 };
-  const since = replay.chains.find((c) => c.selector === selector)?.first_day ?? null;
+  const firstSeen = chains.chains.find((c) => c.selector === selector)?.first_seen;
+  const since = firstSeen ? dayOf(firstSeen) : (replay.chains.find((c) => c.selector === selector)?.first_day ?? null);
   return {
     asOf: replay.updated_at,
     chain: named(names, selector),

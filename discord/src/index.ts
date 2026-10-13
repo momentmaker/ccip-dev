@@ -69,8 +69,13 @@ export function botHandlers(bot: Bot): Handlers {
     commands: { enlist: guarded(bot, enlistCommand), dogtag: guarded(bot, dogtagCommand), ...intel },
     autocomplete: async (interaction) => {
       const typed = String(interaction.data?.options?.find((o) => o.focused)?.value ?? '');
-      const chains = await Promise.race([bot.data.load('chains.json'), bot.deadline(AUTOCOMPLETE_BUDGET_MS)]);
-      return chains ? chainChoices(chains, typed) : [];
+      const done = new AbortController();
+      try {
+        const chains = await Promise.race([bot.data.load('chains.json'), bot.deadline(AUTOCOMPLETE_BUDGET_MS, done.signal)]);
+        return chains ? chainChoices(chains, typed) : [];
+      } finally {
+        done.abort();
+      }
     },
   };
 }

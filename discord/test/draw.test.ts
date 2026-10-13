@@ -99,4 +99,24 @@ describe('the draw', () => {
       percentile: draw.percentile === percentileOf(draw.score, SNAPSHOT.quantiles),
     }).toEqual({ callsign: true, key: true, tier: true, percentile: true });
   });
+
+  it('reads a score exactly at the lowest step as 0, and exactly at the highest as the share below it', () => {
+    // #given a table of 1,001 distinct steps, 0 to 1000
+    const quantiles = Array.from({ length: 1001 }, (_, i) => i);
+    // #when
+    const percentiles = [percentileOf(quantiles[0]!, quantiles), percentileOf(quantiles[1000]!, quantiles)];
+    // #then
+    expect(percentiles).toEqual([0, 99.9]);
+  });
+
+  it('refuses, by name, what it cannot draw from: fewer than 3 tags, lore with no weight, a tag with no meme', () => {
+    // #given
+    const random = seededRandom(6);
+    // #then
+    expect(() => drawTags(TAGS.slice(0, 2), random)).toThrow('a callsign needs 3 tags; the snapshot has 2');
+    expect(() => drawLore([], random)).toThrow('no lore lines to draw from');
+    expect(() => drawLore([{ text: 'LINK+', weight: 0 }], random)).toThrow('no lore lines to draw from');
+    expect(() => pickMemes(SNAPSHOT, ['sergey', 'nosuchtag', 'pepe'], 'sergey-nosuchtag-pepe')).toThrow('tag "nosuchtag" has no meme in the snapshot');
+    expect(() => pickMemes({ ...SNAPSHOT, tags: [...SNAPSHOT.tags, { tag: 'bare', count: 0, memes: [] }] }, ['sergey', 'bare', 'pepe'], 'sergey-bare-pepe')).toThrow('tag "bare" has no meme in the snapshot');
+  });
 });

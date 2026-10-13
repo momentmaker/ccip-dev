@@ -88,6 +88,15 @@ describe('the intel commands', () => {
     expect({ calls: bot.discord.calls.map((c) => [c.kind, c.content]), rendered: bot.renderer.calls, alerts: bot.alerts }).toEqual({ calls: [['private', INTEL_TEXT.unknownChain('Solana')]], rendered: [], alerts: [] });
   });
 
+  it('says privately that a chain on CCIP has no traffic yet, rather than that there is no such chain', async () => {
+    // #given Plasma, in chains.json but in no lane of replay.json
+    const bot = intelBot();
+    // #when
+    await intelCommand(bot, command('ccipchain', [{ name: 'chain', type: 3, value: 'plasma' }]), 'dossier');
+    // #then
+    expect({ calls: bot.discord.calls.map((c) => [c.kind, c.content]), rendered: bot.renderer.calls, alerts: bot.alerts }).toEqual({ calls: [['private', 'Plasma has no CCIP traffic yet.']], rendered: [], alerts: [] });
+  });
+
   it('echoes an unknown chain as plain text, cut to 64 characters', async () => {
     // #given
     const bot = intelBot();
@@ -130,6 +139,20 @@ describe('the intel commands', () => {
     const choices = await handlers.autocomplete({ ...command('ccipchain', [{ name: 'chain', type: 3, value: 'ba', focused: true }]), type: 4 });
     // #then
     expect(choices).toEqual([{ name: 'Base', value: BASE }]);
+  });
+
+  it("calls off the autocomplete's 2 s timer once chains.json is back", async () => {
+    // #given
+    const signals: (AbortSignal | undefined)[] = [];
+    const deadline = (_ms: number, signal?: AbortSignal) => {
+      signals.push(signal);
+      return new Promise<null>(() => {});
+    };
+    const handlers = botHandlers(intelBot({ deadline }));
+    // #when
+    const choices = await handlers.autocomplete({ ...command('ccipchain', [{ name: 'chain', type: 3, value: 'ba', focused: true }]), type: 4 });
+    // #then
+    expect({ choices: choices.length, calledOff: signals.map((s) => s?.aborted) }).toEqual({ choices: 1, calledOff: [true] });
   });
 
   it('answers /ccipchain autocomplete with no choices when chains.json is not back in time', async () => {

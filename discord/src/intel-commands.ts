@@ -1,4 +1,5 @@
 import type { IntelCards, IntelKind } from '@ccip-dev/core/linkmarine';
+import { shortChainName } from '@ccip-dev/core/names';
 import type { Bot } from './bot';
 import { DataError } from './data';
 import { dossierCard, findChain, recordsCard, sitrepCard, vaultCard } from './intel';
@@ -14,6 +15,7 @@ const MAX_ECHO = 64;
 export const INTEL_TEXT = {
   noData: 'Intel is unavailable right now, try again in a minute.',
   unknownChain: (query: string) => `No chain called '${escapeMarkdown(clip(query, MAX_ECHO))}' on CCIP.`,
+  noTraffic: (name: string) => `${escapeMarkdown(name)} has no CCIP traffic yet.`,
 } as const;
 
 export const COMMAND_KINDS: Readonly<Record<string, IntelKind>> = { cciptoday: 'sitrep', ccipchain: 'dossier', linkreserve: 'vault', cciprecords: 'records' };
@@ -21,6 +23,8 @@ export const COMMAND_KINDS: Readonly<Record<string, IntelKind>> = { cciptoday: '
 type Built = { [K in IntelKind]: { kind: K; card: IntelCards[K] } }[IntelKind];
 
 class UnknownChain extends Error {}
+/** A chain CCIP lists that no message has crossed yet; its message is the chain's name. */
+class NoTraffic extends Error {}
 
 async function build(bot: Bot, kind: IntelKind, query: string | null): Promise<Built> {
   switch (kind) {
@@ -34,7 +38,7 @@ async function build(bot: Bot, kind: IntelKind, query: string | null): Promise<B
       if (!chain) throw new UnknownChain(query ?? '');
       const [replay, sources] = await Promise.all([bot.data.load('replay.json'), bot.data.load('top/src_chain.json')]);
       const card = dossierCard(chain.selector, replay, sources, chains);
-      if (!card) throw new UnknownChain(query ?? '');
+      if (!card) throw new NoTraffic(shortChainName(chain));
       return { kind, card };
     }
     case 'vault': {
@@ -93,6 +97,7 @@ export async function intelCommand(bot: Bot, interaction: Interaction, kind: Int
     }
   } catch (err) {
     if (err instanceof UnknownChain) failure = { reply: INTEL_TEXT.unknownChain(err.message) };
+    else if (err instanceof NoTraffic) failure = { reply: INTEL_TEXT.noTraffic(err.message) };
     else if (err instanceof DataError) failure = { reply: INTEL_TEXT.noData, signature: `discord-data:${err.file}`, text: `${err.message} (for /${interaction.data?.name})` };
     else throw err;
   }

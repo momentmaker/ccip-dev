@@ -31,4 +31,15 @@ describe('the composition root', () => {
       common: null,
     });
   });
+
+  it('settles a deadline at once when it is called off, not when its time is up', async () => {
+    // #given a minute-long deadline
+    const bot = createBot(env);
+    const off = new AbortController();
+    const waiting = bot.deadline(60_000, off.signal);
+    // #when
+    off.abort();
+    // #then
+    await expect(waiting).resolves.toBeNull();
+  });
 });

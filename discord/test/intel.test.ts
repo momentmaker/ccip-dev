@@ -26,6 +26,25 @@ describe('/cciptoday', () => {
     });
   });
 
+  it('has no yesterday when history.json says it had no messages, rather than a pace against zero', () => {
+    // #given history.json ending on a yesterday of 0 messages
+    const last = HISTORY.days.at(-1)!;
+    const empty = { ...HISTORY, days: [...HISTORY.days.slice(0, -1), { ...last, messages: 0 }] };
+    // #when
+    const card = sitrepCard(TODAY, empty, CHAINS);
+    // #then
+    expect(card.pace?.yesterday).toBeNull();
+  });
+
+  it('projects no less than the messages so far when today.json is updated past midnight under its day', () => {
+    // #given 685 messages for 13 Oct, updated at 00:30 on the 14th
+    const stale = { ...TODAY, updated_at: '2026-10-14T00:30:00.000Z' };
+    // #when
+    const card = sitrepCard(stale, HISTORY, CHAINS);
+    // #then the whole day has gone, not 102% of it
+    expect(card.pace?.projected).toBe(685);
+  });
+
   it('has no pace before 01:00 UTC, and no yesterday when history.json does not end on it', () => {
     // #when
     const early = sitrepCard({ ...TODAY, updated_at: '2026-10-13T00:59:59.000Z' }, HISTORY, CHAINS);
@@ -64,6 +83,15 @@ describe('/ccipchain', () => {
       partners: [{ chain: { selector: ETH, name: 'Ethereum' }, usd: 9_000_000 }, { chain: { selector: MONAD, name: 'Monad' }, usd: 1_500_000 }, { chain: { selector: AVAX, name: 'Avalanche' }, usd: 400_000 }],
       since: '2023-09-16',
     });
+  });
+
+  it("dates the chain's first CCIP message from chains.json's first_seen, and from replay.json only when that is missing", () => {
+    // #given first_seen a day before replay.json's first_day for Base, and none for Arbitrum
+    const chains = { ...CHAINS, chains: CHAINS.chains.map((c) => (c.selector === BASE ? { ...c, first_seen: '2023-09-15T23:37:29.000Z' } : c.selector === ARB ? { ...c, first_seen: null } : c)) };
+    // #when
+    const since = [dossierCard(BASE, REPLAY, SOURCES, chains)?.since, dossierCard(ARB, REPLAY, SOURCES, chains)?.since];
+    // #then
+    expect(since).toEqual(['2023-09-15', '2023-09-17']);
   });
 
   it('leaves out the fee rank outside the top 3, the fees of a chain without them, and has no card for a chain CCIP never saw', () => {

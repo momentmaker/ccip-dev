@@ -40,6 +40,7 @@ export function tagChances(tags: readonly { tag: string; count: number }[]): Map
 
 /** Three different tags, each drawn with weight √count from those left, in draw order. */
 export function drawTags(tags: readonly { tag: string; count: number }[], random: () => number): [string, string, string] {
+  if (tags.length < 3) throw new Error(`a callsign needs 3 tags; the snapshot has ${tags.length}`);
   const pool = tags.map((t) => ({ tag: t.tag, weight: Math.sqrt(t.count) }));
   const picked: string[] = [];
   while (picked.length < 3) {
@@ -89,6 +90,7 @@ export function drawCallsign(snapshot: CallsignSnapshot, random: () => number): 
 /** A lore line by weight. */
 export function drawLore(lines: readonly LoreLine[], random: () => number): string {
   const total = lines.reduce((s, l) => s + l.weight, 0);
+  if (!(total > 0)) throw new Error('no lore lines to draw from: the snapshot needs at least one with a weight');
   let roll = random() * total;
   for (const line of lines) {
     if (roll < line.weight) return line.text;
@@ -103,6 +105,7 @@ export function pickMemes(snapshot: CallsignSnapshot, tags: readonly string[], c
   const taken = new Set<string>();
   return tags.map((tag) => {
     const files = snapshot.tags.find((t) => t.tag === tag)?.memes ?? [];
+    if (files.length === 0) throw new Error(`tag "${tag}" has no meme in the snapshot`);
     const fresh = files.filter((f) => !taken.has(f));
     const pool = fresh.length > 0 ? fresh : files;
     const file = pool[Math.floor(random() * pool.length)]!;

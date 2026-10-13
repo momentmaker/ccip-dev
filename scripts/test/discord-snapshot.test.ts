@@ -105,6 +105,13 @@ describe('checkSnapshot, the generator guard', () => {
     draws: 10,
   };
 
+  it('passes the committed discord/src/data/callsigns.json, which the bot draws from', () => {
+    // #given
+    const committed = JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'discord', 'src', 'data', 'callsigns.json'), 'utf8')) as CallsignSnapshot;
+    // #then
+    expect(() => checkSnapshot(committed)).not.toThrow();
+  });
+
   it('passes a snapshot with strictly rising cut-offs, three tags and a meme for every tag', () => {
     // #then
     expect(() => checkSnapshot(good)).not.toThrow();

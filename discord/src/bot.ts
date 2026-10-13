@@ -16,8 +16,8 @@ export interface Bot {
   alert: Alert;
   fetch: typeof fetch;
   sleep: (ms: number) => Promise<void>;
-  /** Resolves with null after ms: a timer to race work against, which tests drive by their fake clock. */
-  deadline: (ms: number) => Promise<null>;
+  /** Resolves with null after ms, or at once when `signal` aborts: a timer to race work against, which tests drive by their fake clock. */
+  deadline: (ms: number, signal?: AbortSignal) => Promise<null>;
   now: () => Date;
   random: () => number;
   snapshot: CallsignSnapshot;
@@ -40,7 +40,14 @@ export function createBot(env: Env): Bot {
     alert: createAlerter(env.DB, { token: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_ALERT_CHAT_ID }, { fetch: fetchFn, now }),
     fetch: fetchFn,
     sleep,
-    deadline: (ms) => sleep(ms).then(() => null),
+    deadline: (ms, signal) =>
+      new Promise<null>((resolve) => {
+        const timer = setTimeout(() => resolve(null), ms);
+        signal?.addEventListener('abort', () => {
+          clearTimeout(timer);
+          resolve(null);
+        });
+      }),
     now,
     random: cryptoRandom,
     snapshot: SNAPSHOT,
