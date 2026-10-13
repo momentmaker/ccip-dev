@@ -1,0 +1,21 @@
+name: monthly-video
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chrome stable
+        run: pnpm exec playwright install --with-deps chrome
+      - name: Check Chrome can record
+        run: pnpm video:smoke

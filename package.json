@@ -22,12 +22,14 @@
     "labels:refresh-chains": "tsx scripts/refresh-chains.ts",
     "labels:candidates": "tsx scripts/label-candidates.ts",
     "report:day": "tsx scripts/day-report.ts",
-    "report:top-senders": "tsx scripts/top-senders.ts"
+    "report:top-senders": "tsx scripts/top-senders.ts",
+    "video:smoke": "tsx scripts/video/smoke.ts"
   },
   "devDependencies": {
     "@ccip-dev/core": "workspace:*",
     "@types/node": "^26.6.4",
     "aws4fetch": "^1.0.20",
+    "playwright": "1.64.0",
     "smol-toml": "^1.9.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
