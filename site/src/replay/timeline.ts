@@ -123,6 +123,7 @@ export class ReplayModel {
     length: number,
     coinOptions: CoinOptions = { count: REPLAY_COINS, eligible: () => true },
     warp?: Warp,
+    litBeforeStart = false,
   ) {
     const first = replay.since ?? replay.days[0]?.day;
     const last = replay.days.at(-1)?.day;
@@ -146,7 +147,12 @@ export class ReplayModel {
     const starBySelector = new Map(stars.map((s, i) => [s.selector, i]));
     const firstDayBySelector = new Map(replay.chains.map((c) => [c.selector, c.first_day]));
     this.starOfChain = replay.chains.map((c) => starBySelector.get(c.selector) ?? -1);
-    this.firstDayIndex = stars.map((s) => dayIndex.get(firstDayBySelector.get(s.selector) ?? '') ?? 0);
+    const startDay = this.days[0] ?? '';
+    this.firstDayIndex = stars.map((s) => {
+      const firstDay = firstDayBySelector.get(s.selector) ?? '';
+      if (litBeforeStart && firstDay !== '' && firstDay < startDay) return -1;
+      return dayIndex.get(firstDay) ?? 0;
+    });
     this.coinSets = this.dailyCoinSets(coinOptions);
   }
 
@@ -235,7 +241,7 @@ export class ReplayModel {
     const stars = this.stars.map((s, i) => {
       const first = this.firstDayIndex[i]!;
       if (first > dayIndex) return { x: s.x, y: s.y, radius: 0, brightness: 0, flash: 0 };
-      const since = time - this.dayStart(first);
+      const since = first < 0 ? Infinity : time - this.dayStart(first);
       extent = Math.max(extent, Math.hypot(s.x, s.y) * easeOutCubic(since / IGNITE_S));
       if (since < IGNITE_S) rings.push({ star: i, progress: since / IGNITE_S });
       return { x: s.x, y: s.y, radius: starRadius(values.get(i) ?? 0, maxValue), brightness: 0.6, flash: since < IGNITE_S ? 1 - since / IGNITE_S : 0 };

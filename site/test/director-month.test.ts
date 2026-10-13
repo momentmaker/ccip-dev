@@ -77,6 +77,19 @@ describe('the month show', () => {
     });
   });
 
+  it('lights a chain from before the month at once, and ignites one that joins in it exactly once', () => {
+    // #given Ethereum and Base predate September; BNB Chain joins on 2026-09-03
+    const s = monthShow('2026-09');
+    const cut = monthCut(data, '2026-09')!.replay;
+    const star = (sel: string) => cut.chains.findIndex((c) => c.selector === sel);
+    const ringsFor = (sel: string) => Array.from({ length: 241 }, (_, i) => s.frameAt(i / 8).base.sky.rings.filter((r) => r.star === star(sel)).length);
+    // #when
+    const [ethereum, base, bnb] = [name(0), name(1), name(3)].map((sel) => ringsFor(sel));
+    const flashAtStart = s.frameAt(2.01).base.sky.stars[star(name(0))]!.flash;
+    // #then
+    expect({ ethereum: Math.max(...ethereum!), base: Math.max(...base!), flash: flashAtStart, bnbRingFrames: bnb!.some((n) => n > 0) }).toEqual({ ethereum: 0, base: 0, flash: 0, bnbRingFrames: true });
+  });
+
   it('beats only the joins, records and all-time milestones that fall in the month', () => {
     // #when
     const s = monthShow('2026-09');
