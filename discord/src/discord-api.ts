@@ -29,17 +29,28 @@ export class DiscordError extends Error {
 
 const NO_MENTIONS = { parse: [] as string[] };
 
-export function discordApi(applicationId: string, deps: { fetch: typeof fetch; sleep: (ms: number) => Promise<void> }): DiscordApi {
-  const webhook = (token: string) => `${DISCORD_API}/webhooks/${applicationId}/${token}`;
+/** What a 429's retry leaves of the budget unspent, for the answer to come back. */
+const RETRY_MARGIN_MS = 500;
 
+export function discordApi(applicationId: string, deps: { fetch: typeof fetch; sleep: (ms: number) => Promise<void>; now?: () => number }): DiscordApi {
+  const webhook = (token: string) => `${DISCORD_API}/webhooks/${applicationId}/${token}`;
+  const now = deps.now ?? Date.now;
+
+  /**
+   * timeoutMs is one budget for the whole call: both requests share one abort signal, and a 429 is retried only when
+   * its wait fits in what the budget has left. maxWaitMs additionally caps that wait.
+   */
   async function send(url: string, build: () => RequestInit, maxWaitMs = RETRY_CAP_MS, timeoutMs?: number): Promise<void> {
-    const init = () => (timeoutMs === undefined ? build() : { signal: AbortSignal.timeout(timeoutMs), ...build() });
+    const startedAt = now();
+    const signal = timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs);
+    const init = () => (signal ? { signal, ...build() } : build());
     let res = await deps.fetch(url, init());
     if (res.status === 429) {
       const body = (await res.json().catch(() => ({}))) as { retry_after?: unknown };
       const seconds = typeof body.retry_after === 'number' && body.retry_after > 0 ? body.retry_after : 1;
+      const room = timeoutMs === undefined ? Infinity : timeoutMs - (now() - startedAt) - RETRY_MARGIN_MS;
       const wait = Math.min(seconds * 1000, RETRY_CAP_MS, maxWaitMs);
-      if (wait <= 0) throw new DiscordError(429, '');
+      if (wait <= 0 || wait > room) throw new DiscordError(429, '');
       await deps.sleep(wait);
       res = await deps.fetch(url, init());
     }

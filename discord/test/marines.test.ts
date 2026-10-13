@@ -276,7 +276,7 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     // #then
     const marine = (await findMarine(env.DB, 'discord', ME))!;
     expect({ early: early.discord.calls.at(-1), late: late.discord.calls.at(-1), lateAlerts: late.alerts.map((a) => a.signature) }).toEqual({
-      early: expect.objectContaining({ file: expect.stringMatching(/^marine-1\./), at: t0 + 17_000 }),
+      early: expect.objectContaining({ content: marine.callsign, file: expect.stringMatching(/^marine-1\./), at: t0 + 17_000 }),
       late: { kind: 'edit', content: TEXT.stamping(marine), at: t0 + 18_000 },
       lateAlerts: ['discord-render:marine'],
     });
@@ -296,8 +296,8 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     expect({ cardKey: marine.cardKey, alerts: bot.alerts.map((a) => a.text) }).toEqual({ cardKey: 'cards/1.png', alerts: ["stamping Marine #1's card passed the deadline"] });
   });
 
-  it('waits out a final 429 only for the time left before 28 s, and posts the stamping line', async () => {
-    // #given a command received 26 s ago, and Discord asking for 10 s on the final edit
+  it('does not wait out a final 429 that asks for more than the time left, and posts the stamping line anyway', async () => {
+    // #given a command received 26 s ago, and Discord asking for 10 s on the first final edit
     const bot = fakeBot();
     const sent: string[] = [];
     let limited = true;
@@ -309,13 +309,37 @@ describe('a committed Marine always ends with the card or the stamping line', ()
       }
       return new Response(null, { status: 200 });
     }) as unknown as typeof fetch;
-    bot.discord = discordApi('app', { fetch: fetchFn, sleep: bot.sleep }) as FakeBot['discord'];
+    bot.discord = discordApi('app', { fetch: fetchFn, sleep: bot.sleep, now: () => bot.clock.ms }) as FakeBot['discord'];
     const startedAt = bot.clock.ms - 26_000;
     // #when
     await enlistCommand(bot, command('enlist'), startedAt);
+    // #then the 429 was not waited out, and nothing was retried
+    expect({ waited: bot.clock.ms - startedAt, requests: sent.length }).toEqual({ waited: 26_000, requests: 1 });
+  });
+
+  it('lands the final edit by 28 s when the card upload is slow and then rate limited', async () => {
+    // #given the first upload takes 15 s before Discord says 429 with a 10 s ask
+    const bot = fakeBot();
+    const sent: { at: number; content: string; multipart: boolean }[] = [];
+    let slow = true;
+    const fetchFn = (async (_url: string, init?: RequestInit) => {
+      const multipart = init?.body instanceof FormData;
+      if (multipart && slow) {
+        slow = false;
+        await bot.sleep(15_000);
+        return new Response(JSON.stringify({ retry_after: 10 }), { status: 429 });
+      }
+      const content = multipart ? (JSON.parse((init!.body as FormData).get('payload_json') as string) as { content: string }).content : (JSON.parse(String(init?.body)) as { content: string }).content;
+      sent.push({ at: bot.clock.ms, content, multipart });
+      return new Response(null, { status: 200 });
+    }) as unknown as typeof fetch;
+    bot.discord = discordApi('app', { fetch: fetchFn, sleep: bot.sleep, now: () => bot.clock.ms }) as FakeBot['discord'];
+    const t0 = bot.clock.ms;
+    // #when
+    await enlistCommand(bot, command('enlist'));
     // #then
     const marine = (await findMarine(env.DB, 'discord', ME))!;
-    expect({ waited: bot.clock.ms - startedAt, last: JSON.parse(sent.at(-1)!).content }).toEqual({ waited: 28_000, last: TEXT.stamping(marine) });
+    expect({ last: [sent.at(-1)!.content === marine.callsign || sent.at(-1)!.content === TEXT.stamping(marine)], landedBy28: sent.at(-1)!.at - t0 <= 28_000, settledBy30: bot.clock.ms - t0 <= 30_000 }).toEqual({ last: [true], landedBy28: true, settledBy30: true });
   });
 
   it('keeps every step edit to 3 s without waiting on a 429, so a slow Discord still gets the card in by 17 s', async () => {
@@ -382,6 +406,22 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     await dogtagCommand(bot, other());
     // #then
     expect(bot.discord.calls.map((c) => c.content)).toEqual([TEXT.tagStamping('Rory')]);
+  });
+
+  it('gives /dogtag the same deadline when it has to stamp a card: the callsign line for the asker', async () => {
+    // #given a Marine with no card, and a renderer that would take 25 s
+    await enlistCommand(fakeBot({ renderer: fakeRenderer('renderMarineCard') }), command('enlist'));
+    const bot = fakeBot();
+    bot.renderer.renderMarineCard = async () => {
+      await bot.sleep(25_000);
+      return PNG_BYTES;
+    };
+    const t0 = bot.clock.ms;
+    // #when
+    await dogtagCommand(bot, command('dogtag'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect(bot.discord.calls.at(-1)).toEqual({ kind: 'edit', content: TEXT.stamping(marine), at: t0 + 18_000 });
   });
 
   it('alerts when the memes are missing from R2 right after the copy', async () => {

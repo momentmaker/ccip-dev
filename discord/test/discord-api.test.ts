@@ -122,4 +122,52 @@ describe('the Discord webhook client', () => {
     // #then
     expect(cancelled).toBe(true);
   });
+
+  it('hands every request of one call the same abort signal, the retry included', async () => {
+    // #given
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const answers = [new Response(JSON.stringify({ retry_after: 0.1 }), { status: 429 }), new Response(null, { status: 200 })];
+    const fetchFn = (async (_url: string, init?: RequestInit) => {
+      signals.push(init?.signal);
+      return answers.shift()!;
+    }) as unknown as typeof fetch;
+    const api = discordApi(APP, { fetch: fetchFn, sleep: async () => {} });
+    // #when
+    await api.editOriginal('tok', 'x', null, undefined, 5_000);
+    // #then
+    expect({ count: signals.length, shared: signals[0] === signals[1], isSignal: signals[0] instanceof AbortSignal }).toEqual({ count: 2, shared: true, isSignal: true });
+  });
+
+  it('does not retry a 429 that asks for longer than the budget has left', async () => {
+    // #given a 2 s budget and a 10 s ask, on a clock that sleeping moves
+    const clock = { ms: 0 };
+    const sent: number[] = [];
+    const fetchFn = (async () => {
+      sent.push(clock.ms);
+      return new Response(JSON.stringify({ retry_after: 10 }), { status: 429 });
+    }) as unknown as typeof fetch;
+    const api = discordApi(APP, { fetch: fetchFn, sleep: async (ms) => void (clock.ms += ms), now: () => clock.ms });
+    // #when
+    const result = api.editOriginal('tok', 'x', null, undefined, 2_000);
+    // #then
+    await expect(result).rejects.toThrow('Discord returned HTTP 429');
+    expect({ sent, ended: clock.ms }).toEqual({ sent: [0], ended: 0 });
+  });
+
+  it('retries within the budget when the first attempt was slow but the wait still fits', async () => {
+    // #given a 10 s budget, a first attempt taking 4 s, and a 3 s ask
+    const clock = { ms: 0 };
+    const sent: number[] = [];
+    const answers = [new Response(JSON.stringify({ retry_after: 3 }), { status: 429 }), new Response(null, { status: 200 })];
+    const fetchFn = (async () => {
+      sent.push(clock.ms);
+      if (sent.length === 1) clock.ms += 4_000;
+      return answers.shift()!;
+    }) as unknown as typeof fetch;
+    const api = discordApi(APP, { fetch: fetchFn, sleep: async (ms) => void (clock.ms += ms), now: () => clock.ms });
+    // #when
+    await api.editOriginal('tok', 'x', null, undefined, 10_000);
+    // #then
+    expect({ sent, ended: clock.ms }).toEqual({ sent: [0, 7_000], ended: 7_000 });
+  });
 });

@@ -228,13 +228,18 @@ export async function reveal(bot: Bot, token: string, marine: Marine, avatarSour
   if (outcome === 'late') await Promise.race([stamping, bot.deadline(startedAt + FINAL_EDIT_BY_MS - bot.now().getTime())]);
 }
 
-/** The Marine's stored card, or null: a failed read is reported, never thrown, and a slow one gives up at the deadline. */
-async function storedCard(bot: Bot, marine: Marine, source: string, startedAt: number, reports: Report[]): Promise<Cards | null> {
+/**
+ * The Marine's stored card, stamped now when missing. A failed read is reported and gives null; one still running at the
+ * deadline gives 'late', which the caller answers with the stamping line.
+ */
+async function storedCard(bot: Bot, marine: Marine, source: string, startedAt: number, reports: Report[]): Promise<Cards | null | 'late'> {
   const read = marineCard(bot, marine, source, reports).catch((err: unknown) => {
     reports.push({ signature: 'discord-render:marine', text: `Marine #${marine.serial}'s card could not be read: ${reason(err)}` });
     return null;
   });
-  return Promise.race([bot.deadline(startedAt + STAMP_DEADLINE_MS - bot.now().getTime()).then(() => null), read]);
+  const outcome = await Promise.race([bot.deadline(startedAt + STAMP_DEADLINE_MS - bot.now().getTime()).then(() => 'late' as const), read]);
+  if (outcome === 'late') reports.push({ signature: 'discord-render:marine', text: `stamping Marine #${marine.serial}'s card passed the deadline` });
+  return outcome;
 }
 
 export async function enlistCommand(bot: Bot, interaction: Interaction, startedAt = bot.now().getTime()): Promise<void> {
@@ -252,8 +257,8 @@ export async function enlistCommand(bot: Bot, interaction: Interaction, startedA
       reports.push({ signature: 'discord-draw', text: `every one of 20 draws for ${who.user.id} clashed with a callsign already taken` });
       await bot.discord.privateFollowup(interaction.token, TEXT.internal);
     } else if (result.kind === 'already') {
-      const cards = await storedCard(bot, result.marine, source, startedAt, reports);
-      await postCard(bot, interaction.token, TEXT.already, cards, TEXT.stamping(result.marine), result.marine, startedAt, reports);
+      const stored = await storedCard(bot, result.marine, source, startedAt, reports);
+      await postCard(bot, interaction.token, TEXT.already, stored === 'late' ? null : stored, TEXT.stamping(result.marine), result.marine, startedAt, reports);
     } else {
       await reveal(bot, interaction.token, result.marine, source, startedAt, reports);
     }
@@ -282,9 +287,9 @@ export async function dogtagCommand(bot: Bot, interaction: Interaction, startedA
   }
   const reports: Report[] = [];
   try {
-    const cards = await marineCard(bot, marine, avatarUrl(whose.user, whose.member, interaction.guild_id), reports);
+    const cards = await storedCard(bot, marine, avatarUrl(whose.user, whose.member, interaction.guild_id), startedAt, reports);
     const fallback = whose.self ? TEXT.stamping(marine) : TEXT.tagStamping(displayName(whose.user, whose.member));
-    if (cards) await postCard(bot, interaction.token, marine.callsign, cards, fallback, marine, startedAt, reports);
+    if (cards) await postCard(bot, interaction.token, marine.callsign, cards === 'late' ? null : cards, fallback, marine, startedAt, reports);
     else await bot.discord.privateFollowup(interaction.token, TEXT.internal);
   } finally {
     await flush(bot, reports);
