@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TIER_SHARE_PCT, TIERS, type Tier } from './linkmarine';
+import { callsignSeed, rarerThan, TIER_SHARE_PCT, TIERS, type Tier } from './linkmarine';
 
 /**
  * The public LinkMarines roster the bot serves at discord.ccip.dev/roster.json, and every rule the site derives from it.
@@ -104,4 +104,135 @@ export function tagBoard(roster: RosterFile): BoardTag[] {
   return [...roster.snapshot.tags]
     .sort((a, b) => b.chance - a.chance || byName(a.tag, b.tag))
     .map((t) => ({ ...t, carriers: facts.get(t.tag)?.carriers ?? 0, discoverer: facts.get(t.tag)?.discoverer ?? null }));
+}
+
+export const MOST_WANTED = 5;
+
+/** "2026-10-13": the UTC day, which the most-wanted posters turn over on. */
+export const utcDay = (now: Date) => now.toISOString().slice(0, 10);
+
+/**
+ * Today's most wanted: the rarest tags nobody carries yet, ties broken by FNV-1a of "<UTC day>:<tag>" (callsignSeed),
+ * so every visitor sees the same five all day and a new five at 00:00 UTC.
+ */
+export function mostWanted(roster: RosterFile, now: Date): RosterTag[] {
+  const drawn = tagFacts(roster.marines);
+  const today = utcDay(now);
+  return roster.snapshot.tags
+    .filter((t) => !drawn.has(t.tag))
+    .map((t) => ({ t, key: callsignSeed(`${today}:${t.tag}`) }))
+    .sort((a, b) => a.t.chance - b.t.chance || a.key - b.key || byName(a.t.tag, b.t.tag))
+    .slice(0, MOST_WANTED)
+    .map(({ t }) => t);
+}
+
+export const TICKER_MARINES = 20;
+
+export type TickerItem =
+  | { kind: 'legendary'; serial: number; callsign: string; rarerThan: number }
+  | { kind: 'recruit'; serial: number; callsign: string; tier: Tier }
+  | { kind: 'sighting'; serial: number; tag: string; oneIn: number }
+  | { kind: 'stat'; label: string; value: string };
+
+const stat = (label: string, value: string): TickerItem => ({ kind: 'stat', label, value });
+
+function tickerStats(roster: RosterFile): TickerItem[] {
+  const seatsLeft = PLANK_SEATS - roster.marines.filter((m) => m.serial <= PLANK_SEATS).length;
+  const stats = [
+    stat('MARINES', String(roster.marines.length)),
+    stat('TAGS DRAWN', `${tagFacts(roster.marines).size}/${roster.snapshot.tags.length}`),
+    stat('LEGENDARIES', String(roster.marines.filter((m) => m.tier === 'legendary').length)),
+  ];
+  return seatsLeft > 0 ? [...stats, stat('PLANK-OWNER SEATS LEFT', String(seatsLeft))] : stats;
+}
+
+/**
+ * The ticker's crawl, from the 20 newest Marines: each one's enlistment (a Legendary gets its own line), the rarest
+ * tag it discovered if any, and a stat in rotation after every third Marine. With no stat placed, the stats alone.
+ */
+export function tickerItems(roster: RosterFile): TickerItem[] {
+  const facts = tagFacts(roster.marines);
+  const chance = new Map(roster.snapshot.tags.map((t) => [t.tag, t.chance]));
+  const stats = tickerStats(roster);
+  const items: TickerItem[] = [];
+  let placed = 0;
+  [...roster.marines]
+    .sort((a, b) => b.serial - a.serial)
+    .slice(0, TICKER_MARINES)
+    .forEach((m, i) => {
+      items.push(m.tier === 'legendary' ? { kind: 'legendary', serial: m.serial, callsign: m.callsign, rarerThan: rarerThan(m.percentile) } : { kind: 'recruit', serial: m.serial, callsign: m.callsign, tier: m.tier });
+      const found = m.tags
+        .filter((t) => chance.has(t) && facts.get(t)?.discoverer.serial === m.serial)
+        .sort((a, b) => chance.get(a)! - chance.get(b)! || byName(a, b))[0];
+      if (found !== undefined) items.push({ kind: 'sighting', serial: m.serial, tag: found, oneIn: callsignsPerTag(chance.get(found)!) });
+      if (i % 3 === 2) items.push(stats[placed++ % stats.length]!);
+    });
+  return placed === 0 ? [...items, ...stats] : items;
+}
+
+export type WallOrder = 'rarity' | 'newest';
+
+export interface WallQuery {
+  /** A callsign fragment, or a serial as "#7", "7" or "0007". */
+  text: string;
+  tier: Tier | null;
+  /** An exact tag, set by clicking the board or a planet. */
+  tag: string | null;
+  order: WallOrder;
+}
+
+export const ALL_MARINES: WallQuery = { text: '', tier: null, tag: null, order: 'rarity' };
+
+const RARITY: Readonly<Record<Tier, number>> = { legendary: 0, rare: 1, uncommon: 2, common: 3 };
+
+/** The wall's Marines for a query: every filter applies, then rarity (Legendary first) and serial, or newest first. */
+export function wallMarines(marines: readonly RosterMarine[], query: WallQuery): RosterMarine[] {
+  const text = query.text.trim().toLowerCase();
+  const serial = /^#?\d+$/.test(text) ? Number(text.replace('#', '')) : null;
+  return marines
+    .filter((m) => (query.tier === null || m.tier === query.tier) && (query.tag === null || m.tags.includes(query.tag)) && (text === '' || m.callsign.includes(text) || m.serial === serial))
+    .sort(query.order === 'newest' ? (a, b) => b.serial - a.serial : (a, b) => RARITY[a.tier] - RARITY[b.tier] || a.serial - b.serial);
+}
+
+export const CONSTELLATION_SIZE = 24;
+
+export interface Planet {
+  tag: string;
+  carriers: number;
+  /** The meme file its discoverer drew for this tag. */
+  meme: string;
+  /** The tag exists in a single meme: it glows gold. */
+  oneMeme: boolean;
+}
+
+/** The most-carried tags (ties by name), up to CONSTELLATION_SIZE. */
+export function constellation(roster: RosterFile): Planet[] {
+  return [...tagFacts(roster.marines)]
+    .sort(([a, fa], [b, fb]) => fb.carriers - fa.carriers || byName(a, b))
+    .slice(0, CONSTELLATION_SIZE)
+    .map(([tag, f]) => {
+      const meme = f.discoverer.memes[f.discoverer.tags.indexOf(tag)]!;
+      return { tag, carriers: f.carriers, meme: meme.file, oneMeme: meme.count === 1 };
+    });
+}
+
+export interface MarineTag {
+  tag: string;
+  file: string;
+  count: number;
+  carriers: number;
+  /** This Marine drew the tag first. */
+  discoverer: boolean;
+}
+
+/** A Marine's three tags, in draw order, with who else carries each. */
+export function marineTags(roster: RosterFile, marine: RosterMarine): MarineTag[] {
+  const facts = tagFacts(roster.marines);
+  return marine.memes.map((m) => ({ tag: m.tag, file: m.file, count: m.count, carriers: facts.get(m.tag)?.carriers ?? 1, discoverer: facts.get(m.tag)?.discoverer.serial === marine.serial }));
+}
+
+/** The hundred plank-owner seats: seat n holds serial n, or null while open. */
+export function plankSeats(marines: readonly RosterMarine[]): (RosterMarine | null)[] {
+  const bySerial = new Map(marines.map((m) => [m.serial, m]));
+  return Array.from({ length: PLANK_SEATS }, (_, i) => bySerial.get(i + 1) ?? null);
 }
