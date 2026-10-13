@@ -1,0 +1,140 @@
+<!doctype html><meta charset="utf-8"><title>Dog tag card (Legendary)</title><body style="background:#18191c;padding:24px;margin:0"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+
+<style>
+  .v2 * { box-sizing: border-box; }
+  .v2 { --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace; --sans: Inter, system-ui, sans-serif; font-family: var(--sans); color: #e8eaed; }
+
+  .m-steel { background: repeating-linear-gradient(92deg, #ffffff10 0 1px, transparent 1px 3px), linear-gradient(135deg, #4a5260 0%, #c9d1dc 28%, #f4f7fb 40%, #8e98a6 62%, #5b6472 100%); }
+  .m-bronze { background: radial-gradient(circle at 78% 30%, #4fae8c99 0 9%, transparent 16%), radial-gradient(circle at 22% 78%, #3f9c7b88 0 7%, transparent 13%), radial-gradient(circle at 60% 85%, #5fbf9a66 0 5%, transparent 10%), linear-gradient(135deg, #5a3416 0%, #c98a4b 30%, #f0c08a 42%, #9a5f2c 64%, #4e2c12 100%); }
+  .m-titan { background: linear-gradient(120deg, #2b3a8f 0%, #4f7cff 22%, #b07cff 42%, #ffd27a 58%, #4fd1c5 76%, #2b3a8f 100%); }
+  .m-gold { background: linear-gradient(135deg, #6e4a0c 0%, #f5c451 20%, #fff6cf 36%, #c8901e 54%, #f7dc85 72%, #7d570f 100%); }
+  .holo::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(115deg, transparent 20%, #ff7ad955 32%, #7af0ff55 40%, #fff7a855 48%, transparent 60%); mix-blend-mode: overlay; }
+
+  .hero { width: 760px; height: 428px; border-radius: 16px; position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 28% 45%, #f5c45133 0%, transparent 42%), radial-gradient(ellipse at 80% 10%, #1d3a7a 0%, transparent 55%), #0a0f1e; }
+  .hero .rays { position: absolute; left: -120px; top: -140px; width: 640px; height: 640px; background: repeating-conic-gradient(from 0deg, #f5c4511c 0 6deg, transparent 6deg 18deg); -webkit-mask: radial-gradient(circle, #000 0 30%, transparent 62%); mask: radial-gradient(circle, #000 0 30%, transparent 62%); }
+  .hero .stars { position: absolute; inset: 0; background-image: radial-gradient(1px 1px at 12% 22%, #fff9, transparent), radial-gradient(1px 1px at 48% 80%, #fff7, transparent), radial-gradient(1.5px 1.5px at 64% 14%, #fffa, transparent), radial-gradient(1px 1px at 92% 58%, #fff8, transparent), radial-gradient(1px 1px at 72% 70%, #fff6, transparent), radial-gradient(1px 1px at 96% 90%, #fff7, transparent), radial-gradient(1px 1px at 4% 92%, #fff5, transparent); }
+  .hero svg.lines { position: absolute; inset: 0; opacity: .35; }
+
+  .tag { position: absolute; width: 300px; height: 176px; border-radius: 40px; box-shadow: 0 18px 40px #000b, inset 0 2px 0 #fff9, inset 0 -3px 0 #0005; }
+  .tag::before { content: ''; position: absolute; inset: 9px; border-radius: 32px; box-shadow: inset 0 0 0 2px #0002, inset 1px 1px 0 2px #fff4; pointer-events: none; }
+  .tag .hole { position: absolute; left: 22px; top: 78px; width: 20px; height: 20px; border-radius: 50%; background: #0a0f1e; box-shadow: inset 0 2px 3px #000d, 0 1px 0 #fff6; }
+  .tag.back { left: 58px; top: 92px; transform: rotate(-11deg); }
+  .tag.front { left: 96px; top: 150px; transform: rotate(5deg); padding: 22px 20px 0 58px; }
+  .emb { font: 800 21px/1.18 var(--mono); color: #3a2706; letter-spacing: .03em; text-shadow: -1px -1px 0 #fff9, 1px 1px 0 #0006; }
+  .emb.sm { font-size: 11px; line-height: 1.5; letter-spacing: .1em; margin-top: 6px; color: #3a2706cc; }
+  .etch { position: absolute; top: 34px; display: flex; gap: 12px; left: 64px; }
+  .etch img { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; filter: grayscale(1) contrast(1.7) brightness(.95); mix-blend-mode: multiply; opacity: .9; box-shadow: inset 0 0 0 2px #0003; }
+  .etch-cap { position: absolute; left: 64px; top: 108px; font: 800 10px var(--mono); letter-spacing: .14em; color: #3a2706aa; text-shadow: -1px -1px 0 #fff8; }
+
+  .spark { position: absolute; width: 14px; height: 14px; background: radial-gradient(circle, #fff 0 18%, transparent 20%), linear-gradient(0deg, transparent 45%, #fff 45% 55%, transparent 55%), linear-gradient(90deg, transparent 45%, #fff 45% 55%, transparent 55%); filter: drop-shadow(0 0 4px #ffe9a8); }
+
+  .panel { position: absolute; right: 30px; top: 30px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
+  .who { display: flex; gap: 8px; align-items: center; font: 600 14px var(--sans); }
+  .who i { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #2f62df, #a27bf0); }
+  .tierword { font: 900 46px/1 var(--sans); letter-spacing: .02em; background: linear-gradient(180deg, #fff6cf, #f5c451 45%, #b07a12); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 10px #f5c45155); margin-top: 6px; }
+  .odds { font: 600 13px var(--mono); color: #f5d77a; }
+  .tr { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 12px; font: 500 12px var(--mono); color: #c3cad5; margin-top: 4px; }
+  .tr b { color: #f5c451; letter-spacing: 2px; font-weight: 800; }
+  .foot { position: absolute; right: 30px; bottom: 22px; font: 700 12px var(--mono); color: #6c9bff; }
+  .ser { position: absolute; left: 30px; bottom: 22px; font: 600 12px var(--mono); color: #8892a0; }
+
+  .tiers2 { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 10px; }
+  .mini { width: 170px; text-align: center; }
+  .mini .t { position: relative; width: 170px; height: 100px; border-radius: 24px; box-shadow: 0 10px 24px #000a, inset 0 2px 0 #fff8; padding: 16px 10px 0 38px; text-align: left; }
+  .mini .t .hole { left: 12px; top: 42px; width: 14px; height: 14px; }
+  .mini .t .emb { font-size: 12px; }
+  .mini .lbl { font: 800 11px var(--mono); letter-spacing: .14em; margin-top: 10px; }
+  .mini .d { font: 500 11px var(--sans); color: #8892a0; margin-top: 2px; }
+
+  .wm { position: absolute; right: -10px; top: 70px; font: 900 190px/1 var(--sans); color: transparent; -webkit-text-stroke: 1.5px #f5c45122; letter-spacing: -.02em; z-index: 0; }
+  .ribbons { display: flex; gap: 4px; margin-top: 2px; }
+  .rb { width: 40px; height: 13px; border-radius: 2px; box-shadow: inset 0 1px 0 #fff5, inset 0 -1px 0 #0006, 0 1px 3px #0008; position: relative; }
+  .rb.plank { background: linear-gradient(90deg, #1b2a6b 0 30%, #f5c451 30% 40%, #b3262e 40% 60%, #f5c451 60% 70%, #1b2a6b 70%); }
+  .rb.leg { background: linear-gradient(90deg, #8a6214 0 20%, #f5c451 20% 45%, #fff 45% 55%, #f5c451 55% 80%, #8a6214 80%); }
+  .rb.one { background: linear-gradient(90deg, #4b1f7a 0 25%, #fff 25% 33%, #a27bf0 33% 67%, #fff 67% 75%, #4b1f7a 75%); }
+  .rb.star::after { content: '\2605'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -52%); font-size: 9px; color: #fff6cf; text-shadow: 0 0 2px #000; }
+  .rblbl { font: 600 10px var(--mono); color: #8892a0; letter-spacing: .06em; }
+  .planet { position: absolute; border-radius: 50%; z-index: 2; }
+  .planet img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+  .planet::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #ffffff40 0 10%, transparent 34%), radial-gradient(circle at 70% 75%, #000a 0 20%, transparent 62%); }
+  .planet.glow { box-shadow: 0 0 0 2px #f5c45199, 0 0 24px #f5c45188, 0 0 60px #f5c45133; }
+  .planet.glow2 { box-shadow: 0 0 0 2px #cfe0ff88, 0 0 18px #6c9bff88; }
+  .ring { position: absolute; border-radius: 50%; border: 3px solid #f5d77acc; border-top-color: #f5d77a44; transform: rotate(-18deg); z-index: 3; box-shadow: 0 0 10px #f5c45166; }
+  .plbl { position: absolute; z-index: 3; text-align: center; font: 700 11px var(--mono); color: #e8eaed; text-shadow: 0 1px 4px #000; transform: translateX(-50%); white-space: nowrap; }
+  .plbl small { display: block; font: 600 10px var(--mono); color: #f5c451; }
+  .micro { position: absolute; left: 22px; right: 22px; bottom: 13px; font: 700 6.5px var(--mono); letter-spacing: .22em; color: #3a2706aa; white-space: nowrap; overflow: hidden; text-shadow: -0.5px -0.5px 0 #fff8; }
+</style>
+<style>
+  .hero6 .wm, .hero6 .rays { display: none; }
+  
+  .hex { clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .etch6 { position: absolute; top: 30px; left: 62px; display: flex; gap: 10px; }
+  .etch6 div { width: 64px; height: 72px; }
+  .etch6 img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.7) brightness(.95); mix-blend-mode: multiply; opacity: .9; }
+  .lm { position: absolute; left: 30px; bottom: 20px; font: 800 15px var(--mono); letter-spacing: .12em; color: #f5d77a; text-shadow: 0 0 12px #f5c45155; }
+  .cd { position: absolute; right: 30px; bottom: 20px; font: 700 13px var(--mono); color: #6c9bff; }
+  .plbl6 { position: absolute; z-index: 3; text-align: center; font: 700 11px var(--mono); color: #e8eaed; text-shadow: 0 1px 4px #000; transform: translateX(-50%); white-space: nowrap; }
+  .plbl6 small { display: block; font: 600 10px var(--mono); color: #f5c451; }
+</style>
+<div class="v2"><div class="hero hero6">
+    <div class="rays"></div>
+    <div class="stars"></div>
+    <svg viewBox="0 0 760 428" style="position:absolute;inset:0;pointer-events:none"><defs><radialGradient id="hg-halo"><stop offset="0" stop-color="#f5c451" stop-opacity=".30"/><stop offset="1" stop-color="#f5c451" stop-opacity="0"/></radialGradient><filter id="hb-halo"><feGaussianBlur stdDeviation="3"/></filter></defs><circle cx="225" cy="230" r="230" fill="url(#hg-halo)"/><g filter="url(#hb-halo)"><polygon points="225.0,80.0 354.9,155.0 354.9,305.0 225.0,380.0 95.1,305.0 95.1,155.0" fill="none" stroke="#f5c451" stroke-width="3" opacity="0.55"/><polygon points="225.0,30.0 398.2,130.0 398.2,330.0 225.0,430.0 51.8,330.0 51.8,130.0" fill="none" stroke="#f5c451" stroke-width="2" opacity="0.35"/><polygon points="225.0,-25.0 445.8,102.5 445.8,357.5 225.0,485.0 4.2,357.5 4.2,102.5" fill="none" stroke="#f5c451" stroke-width="1.5" opacity="0.22"/><polygon points="225.0,-85.0 497.8,72.5 497.8,387.5 225.0,545.0 -47.8,387.5 -47.8,72.5" fill="none" stroke="#f5c451" stroke-width="1" opacity="0.12"/></g><polygon points="225.0,80.0 354.9,155.0 354.9,305.0 225.0,380.0 95.1,305.0 95.1,155.0" fill="none" stroke="#f5c451" stroke-width="3" opacity="0.55"/><polygon points="225.0,30.0 398.2,130.0 398.2,330.0 225.0,430.0 51.8,330.0 51.8,130.0" fill="none" stroke="#f5c451" stroke-width="2" opacity="0.35"/><polygon points="225.0,-25.0 445.8,102.5 445.8,357.5 225.0,485.0 4.2,357.5 4.2,102.5" fill="none" stroke="#f5c451" stroke-width="1.5" opacity="0.22"/><polygon points="225.0,-85.0 497.8,72.5 497.8,387.5 225.0,545.0 -47.8,387.5 -47.8,72.5" fill="none" stroke="#f5c451" stroke-width="1" opacity="0.12"/></svg>
+
+    <svg viewBox="0 0 760 428" style="position:absolute;inset:0;z-index:3;pointer-events:none">
+      <path d="M260 -10 C 200 40, 110 120, 92 196" stroke="#d9dee6" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 10" fill="none"/>
+      <path d="M260 -10 C 250 80, 135 150, 128 220" stroke="#d9dee6" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 10" fill="none"/>
+    </svg>
+
+    <div class="tag back m-gold holo">
+      <div class="hole"></div>
+      <div class="etch6"><div class="hex"><img src="./tag-painting.jpeg"></div><div class="hex"><img src="./tag-space.jpeg"></div><div class="hex"><img src="./tag-prophecy.jpg"></div></div>
+      <div class="etch-cap">LINK MARINES · ccip.dev</div>
+    </div>
+    <div class="tag front m-gold holo" style="z-index:2">
+      <div class="hole"></div>
+      <div class="emb">PAINTING</div><div class="emb">SPACE</div><div class="emb">PROPHECY</div>
+      <div class="micro">LINK MARINES · STAY POOR · 4IR · FUNDAMENTALLY · WAGMI · LINK MARINES · STAY POOR · 4IR</div><div class="emb sm">LM 0007 &nbsp;·&nbsp; BLOOD LINK+<br>FAITH 4IR &nbsp;·&nbsp; 13 OCT 2026</div>
+    </div>
+
+    <div class="spark" style="left:74px;top:140px;z-index:4"></div>
+    <div class="spark" style="left:372px;top:196px;z-index:4;transform:scale(.7)"></div>
+    <div class="spark" style="left:330px;top:338px;z-index:4;transform:scale(1.2)"></div>
+
+    <div class="panel" style="z-index:2">
+      <div class="who"><i></i>momentmaker</div>
+      <div class="tierword">LEGENDARY</div>
+      <div class="odds">top 3% · rarer than 97 in 100 Marines</div>
+      
+    </div>
+
+    <svg viewBox="0 0 760 428" style="position:absolute;inset:0;z-index:2;pointer-events:none">
+<defs><filter id="pg-halo" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter><filter id="dot-halo"><feGaussianBlur stdDeviation="2.5"/></filter>
+<clipPath id="c-painting-halo"><polygon points="478.0,216.0 517.8,239.0 517.8,285.0 478.0,308.0 438.2,285.0 438.2,239.0"/></clipPath>
+<clipPath id="c-space-halo"><polygon points="668.0,172.0 702.6,192.0 702.6,232.0 668.0,252.0 633.4,232.0 633.4,192.0"/></clipPath>
+<clipPath id="c-prophecy-halo"><polygon points="600.0,310.0 626.0,325.0 626.0,355.0 600.0,370.0 574.0,355.0 574.0,325.0"/></clipPath>
+</defs>
+<g fill="none" stroke-width="1.6"><path d="M478 262 Q 570 170 668 212" stroke="#f5c45188"/><path d="M668 212 Q 600 260 600 340" stroke="#cfe0ff77"/><path d="M478 262 Q 510 360 600 340" stroke="#cfe0ff77"/></g>
+<g fill="#fff6cf"><circle cx="566" cy="208" r="5" filter="url(#dot-halo)"/><circle cx="566" cy="208" r="2.2"/><circle cx="617" cy="268" r="4" filter="url(#dot-halo)"/><circle cx="617" cy="268" r="1.8"/><circle cx="530" cy="335" r="4" filter="url(#dot-halo)"/><circle cx="530" cy="335" r="1.8"/></g>
+<polygon points="478.0,210.0 523.0,236.0 523.0,288.0 478.0,314.0 433.0,288.0 433.0,236.0" fill="#f5c451" opacity=".55" filter="url(#pg-halo)"/>
+<image href="./tag-painting.jpeg" x="432" y="216" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#c-painting-halo)"/>
+<polygon points="478.0,216.0 517.8,239.0 517.8,285.0 478.0,308.0 438.2,285.0 438.2,239.0" fill="none" stroke="#f5c451" stroke-width="2.5"/>
+<polygon points="478.0,207.0 525.6,234.5 525.6,289.5 478.0,317.0 430.4,289.5 430.4,234.5" fill="none" stroke="#f5d77a" stroke-width="1.6" opacity=".9"/>
+<polygon points="478.0,201.0 530.8,231.5 530.8,292.5 478.0,323.0 425.2,292.5 425.2,231.5" fill="none" stroke="#f5d77a" stroke-width="1" opacity=".45"/>
+<polygon points="668.0,166.0 707.8,189.0 707.8,235.0 668.0,258.0 628.2,235.0 628.2,189.0" fill="#f5c451" opacity=".55" filter="url(#pg-halo)"/>
+<image href="./tag-space.jpeg" x="628" y="172" width="80" height="80" preserveAspectRatio="xMidYMid slice" clip-path="url(#c-space-halo)"/>
+<polygon points="668.0,172.0 702.6,192.0 702.6,232.0 668.0,252.0 633.4,232.0 633.4,192.0" fill="none" stroke="#f5c451" stroke-width="2.5"/>
+<polygon points="668.0,163.0 710.4,187.5 710.4,236.5 668.0,261.0 625.6,236.5 625.6,187.5" fill="none" stroke="#f5d77a" stroke-width="1.6" opacity=".9"/>
+<polygon points="668.0,157.0 715.6,184.5 715.6,239.5 668.0,267.0 620.4,239.5 620.4,184.5" fill="none" stroke="#f5d77a" stroke-width="1" opacity=".45"/>
+<polygon points="600.0,304.0 631.2,322.0 631.2,358.0 600.0,376.0 568.8,358.0 568.8,322.0" fill="#6c9bff" opacity=".55" filter="url(#pg-halo)"/>
+<image href="./tag-prophecy.jpg" x="570" y="310" width="60" height="60" preserveAspectRatio="xMidYMid slice" clip-path="url(#c-prophecy-halo)"/>
+<polygon points="600.0,310.0 626.0,325.0 626.0,355.0 600.0,370.0 574.0,355.0 574.0,325.0" fill="none" stroke="#6c9bff" stroke-width="2.5"/>
+</svg>
+<div class="plbl6" style="left:478px;top:326px">painting<small>◆◆◆ 1 meme</small></div>
+<div class="plbl6" style="left:668px;top:268px">space<small>◆◆◆ 1 meme</small></div>
+<div class="plbl6" style="left:600px;top:378px">prophecy<small>◆◆◇ 3 memes</small></div>
+    <div class="lm">LINK MARINE #0007</div>
+    <div class="cd">ccip.dev</div>
+  </div></div></div></div>
+</div>
