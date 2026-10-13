@@ -13,8 +13,11 @@ export interface Attachment {
 export interface DiscordApi {
   /** Edits the deferred reply: text, and an image to replace any before it. A 429 is waited out for at most maxWaitMs, and each request is abandoned after timeoutMs. */
   editOriginal(token: string, content: string, file?: Attachment | null, maxWaitMs?: number, timeoutMs?: number): Promise<void>;
-  /** A reply only the invoker sees. After a public defer, the loading message is deleted first, or Discord would edit it instead. */
-  privateFollowup(token: string, content: string): Promise<void>;
+  /**
+   * A reply only the invoker sees. After a public defer, the loading message is deleted first, or Discord would edit it
+   * instead. timeoutMs bounds the whole call: the delete gets at most half of it, the reply what is left.
+   */
+  privateFollowup(token: string, content: string, timeoutMs?: number): Promise<void>;
 }
 
 export class DiscordError extends Error {
@@ -68,13 +71,15 @@ export function discordApi(applicationId: string, deps: { fetch: typeof fetch; s
         return { method: 'PATCH', body: form };
       }, maxWaitMs, timeoutMs);
     },
-    async privateFollowup(token, content) {
+    async privateFollowup(token, content, timeoutMs) {
+      const startedAt = now();
       try {
-        await send(`${webhook(token)}/messages/@original`, () => ({ method: 'DELETE' }));
+        await send(`${webhook(token)}/messages/@original`, () => ({ method: 'DELETE' }), RETRY_CAP_MS, timeoutMs === undefined ? undefined : timeoutMs / 2);
       } catch (err) {
         console.warn(`the loading message was not deleted: ${err instanceof Error ? err.message : String(err)}`);
       }
-      await send(webhook(token), () => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content, flags: EPHEMERAL, allowed_mentions: NO_MENTIONS }) }));
+      const left = timeoutMs === undefined ? undefined : Math.max(0, timeoutMs - (now() - startedAt));
+      await send(webhook(token), () => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ content, flags: EPHEMERAL, allowed_mentions: NO_MENTIONS }) }), RETRY_CAP_MS, left);
     },
   };
 }

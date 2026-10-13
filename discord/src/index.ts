@@ -3,7 +3,7 @@ import type { Env } from './env';
 import { chainChoices } from './intel';
 import { COMMAND_KINDS, intelCommand } from './intel-commands';
 import { deferred, InteractionType, json, privateReply, ResponseType, type Interaction } from './interactions';
-import { dogtagCommand, enlistCommand, TEXT } from './marines';
+import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { verifyDiscordRequest } from './verify';
 
 export const ONLY_HERE = 'LinkMarine only serves the LinkMarine server.';
@@ -51,7 +51,7 @@ function guarded(bot: Bot, command: (bot: Bot, interaction: Interaction, started
       const name = interaction.data?.name ?? 'unknown';
       console.error(`/${name} failed: ${err instanceof Error ? err.stack : String(err)}`);
       try {
-        await bot.discord.privateFollowup(interaction.token, TEXT.internal);
+        await bot.discord.privateFollowup(interaction.token, TEXT.internal, replyBudget(bot, startedAt));
       } catch (replyErr) {
         console.error(`/${name}: the private reply failed: ${replyErr instanceof Error ? replyErr.message : String(replyErr)}`);
       }

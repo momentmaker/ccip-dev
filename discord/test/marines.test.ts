@@ -120,6 +120,57 @@ describe('the reveal', () => {
   });
 });
 
+describe("a Marine's memes as drawn", () => {
+  /** The snapshot moved on: another commit, and every tag carried by 999 memes. */
+  const MOVED_ON: CallsignSnapshot = { ...SNAPSHOT, archive: { ...SNAPSHOT.archive, sha: 'deadbeef' }, tags: SNAPSHOT.tags.map((t) => ({ ...t, count: 999 })) };
+  const countOf = (tag: string) => SNAPSHOT.tags.find((t) => t.tag === tag)!.count;
+
+  /** A bot that records the meme counts each card is drawn with. */
+  function counting(overrides: Partial<Bot> = {}): FakeBot & { counts: number[][] } {
+    const bot = Object.assign(fakeBot(overrides), { counts: [] as number[][] });
+    bot.renderer.renderMarineCards = async (card) => {
+      bot.counts.push(card.memes.map((m) => m.count));
+      return { png: PNG_BYTES, gif: null, glintError: null };
+    };
+    return bot;
+  }
+
+  it("keeps each meme's count and the archive commit with the Marine at enlistment", async () => {
+    // #when
+    await enlistCommand(fakeBot(), command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect(marine.memes.map((m) => [m.count, m.sha])).toEqual(marine.tags.map((tag) => [countOf(tag), 'c0ffee']));
+  });
+
+  it('stamps later with the counts and the commit kept at enlistment, whatever the snapshot says now', async () => {
+    // #given an enlistment whose memes could not be copied
+    await enlistCommand(fakeBot({ fetch: fakeFetch({ 'https://cdn.discordapp.com/': ARCHIVE_ROUTES['https://cdn.discordapp.com/'] }) }), command('enlist'));
+    const bot = counting({ snapshot: MOVED_ON });
+    // #when
+    await dogtagCommand(bot, command('dogtag'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({
+      counts: bot.counts,
+      commits: bot.fetch.urls.filter((u) => u.includes('/memes/')).map((u) => u.split('/')[5]),
+      posted: bot.discord.calls.map((c) => c.file),
+    }).toEqual({ counts: [marine.tags.map(countOf)], commits: ['c0ffee', 'c0ffee', 'c0ffee'], posted: ['marine-1.png'] });
+  });
+
+  it('stamps a Marine kept before counts were stored with the counts of the snapshot', async () => {
+    // #given an enlistment whose card failed, its memes stripped back to tag, file and key
+    await enlistCommand(fakeBot({ renderer: fakeRenderer('renderMarineCard') }), command('enlist'));
+    const kept = (await findMarine(env.DB, 'discord', ME))!;
+    await env.DB.prepare('UPDATE marines SET memes = ? WHERE serial = ?').bind(JSON.stringify(kept.memes.map(({ tag, file, key }) => ({ tag, file, key }))), kept.serial).run();
+    const bot = counting({ snapshot: MOVED_ON });
+    // #when
+    await dogtagCommand(bot, command('dogtag'));
+    // #then
+    expect(bot.counts).toEqual([[999, 999, 999]]);
+  });
+});
+
 describe('/dogtag', () => {
   it("shows another member's card from R2, the glint for a Legendary", async () => {
     // #given
@@ -143,6 +194,26 @@ describe('/dogtag', () => {
       [['edit', TEXT.notEnlisted('Rory')]],
       [['private', TEXT.notEnlisted('moment maker')]],
     ]);
+  });
+
+  it("shows another member's name as plain text, never as markdown, in a public reply", async () => {
+    // #given a nick that would post as a masked link
+    const id = OTHER;
+    const asked = command('dogtag', [{ name: 'marine', type: 6, value: id }], {
+      data: { name: 'dogtag', options: [{ name: 'marine', type: 6, value: id }], resolved: { users: { [id]: { id, username: 'rory', avatar: null } }, members: { [id]: { nick: '[ccip.dev](https://evil.example)' } } } },
+    });
+    const bot = fakeBot();
+    // #when
+    await dogtagCommand(bot, asked);
+    // #then
+    expect(bot.discord.calls.map((c) => c.content)).toEqual(["\\[ccip.dev\\]\\(https://evil.example\\) hasn't enlisted yet. `/enlist`"]);
+  });
+
+  it('escapes every markdown character Discord reads in a name, backticks included', () => {
+    // #when
+    const line = TEXT.tagStamping('a`b*c_d~e|f>g#h-i\\j');
+    // #then
+    expect(line).toBe("a\\`b\\*c\\_d\\~e\\|f\\>g\\#h\\-i\\\\j's tag is being stamped; try `/dogtag` again in a minute.");
   });
 
   it('stamps on demand a card that failed at enlistment, with the avatar kept then', async () => {
@@ -180,6 +251,20 @@ describe('/dogtag', () => {
       cardKey: 'cards/1.png',
       alerts: [['discord-render:marine', 'glint for Marine #1 failed: renderMarineGlint failed']],
     });
+  });
+
+  it('draws the gradient disc, and keeps nothing, when the avatar is not a PNG', async () => {
+    // #given a CDN answering 200 with a page
+    const avatars: (Uint8Array | null)[] = [];
+    const bot = fakeBot({ fetch: fakeFetch({ ...ARCHIVE_ROUTES, 'https://cdn.discordapp.com/': () => new Response('<html>busy</html>') }) });
+    bot.renderer.renderMarineCards = async (card) => {
+      avatars.push(card.avatar);
+      return { png: PNG_BYTES, gif: null, glintError: null };
+    };
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    expect({ avatars, kept: await env.MARINES.head('avatars/1.png'), posted: bot.discord.calls.at(-1)!.file }).toEqual({ avatars: [null], kept: null, posted: 'marine-1.png' });
   });
 
   it('answers privately when the card still cannot be drawn', async () => {
@@ -580,6 +665,23 @@ describe('a card stamped on demand that passes the 18 s deadline', () => {
 });
 
 describe('a failing command', () => {
+  it('gives the late private reply only the time left before 28 s, and an early one the rest of it', async () => {
+    // #given a D1 that fails after 27.5 s, and a command that fails at once
+    const budgets: (number | undefined)[] = [];
+    const record = (bot: FakeBot) => {
+      bot.discord.privateFollowup = async (_token, _content, timeoutMs) => void budgets.push(timeoutMs);
+      return bot;
+    };
+    const slow = record(fakeBot());
+    slow.db = { prepare: () => ({ bind: () => ({ first: async () => { await slow.sleep(27_500); throw new Error('D1 timed out'); } }) }) } as unknown as D1Database;
+    const early = record(fakeBot());
+    // #when
+    await botHandlers(slow).commands.enlist!(command('enlist'));
+    await botHandlers(early).commands.enlist!(command('enlist', [], { member: undefined }));
+    // #then at least a second, so the reply can still land before waitUntil ends
+    expect(budgets).toEqual([1_000, 28_000]);
+  });
+
   it('answers the Marine before it alerts', async () => {
     // #given
     const events: string[] = [];

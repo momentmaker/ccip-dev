@@ -2,15 +2,18 @@ import type { IntelCards, IntelKind } from '@ccip-dev/core/linkmarine';
 import type { Bot } from './bot';
 import { DataError } from './data';
 import { dossierCard, findChain, recordsCard, sitrepCard, vaultCard } from './intel';
-import { optionValue, type Interaction } from './interactions';
-import { FINAL_EDIT_BY_MS, TEXT } from './marines';
+import { clip, escapeMarkdown, optionValue, type Interaction } from './interactions';
+import { FINAL_EDIT_BY_MS, replyBudget, TEXT } from './marines';
 
 /** An intel card is drawn at most once in this long per command and argument; within it, R2's copy is posted. */
 export const INTEL_TTL_MS = 5 * 60_000;
 
+/** The most of a typed chain an error echoes back. */
+const MAX_ECHO = 64;
+
 export const INTEL_TEXT = {
   noData: 'Intel is unavailable right now, try again in a minute.',
-  unknownChain: (query: string) => `No chain called '${query}' on CCIP.`,
+  unknownChain: (query: string) => `No chain called '${escapeMarkdown(clip(query, MAX_ECHO))}' on CCIP.`,
 } as const;
 
 export const COMMAND_KINDS: Readonly<Record<string, IntelKind>> = { cciptoday: 'sitrep', ccipchain: 'dossier', linkreserve: 'vault', cciprecords: 'records' };
@@ -100,7 +103,7 @@ export async function intelCommand(bot: Bot, interaction: Interaction, kind: Int
   }
   if (!failure) return;
   try {
-    await bot.discord.privateFollowup(interaction.token, failure.reply);
+    await bot.discord.privateFollowup(interaction.token, failure.reply, replyBudget(bot, startedAt));
   } finally {
     if ('signature' in failure) await bot.alert(failure.signature, failure.text);
   }

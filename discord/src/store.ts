@@ -5,6 +5,10 @@ export interface MarineMeme {
   tag: string;
   file: string;
   key: string;
+  /** The tag's SFW memes when the Marine was drawn: the card's pips and "N memes" never change. Absent on the first Marines' rows. */
+  count?: number;
+  /** The archive commit the Marine was drawn under, which the meme is copied from. Absent on the first Marines' rows. */
+  sha?: string;
 }
 
 export interface Marine {

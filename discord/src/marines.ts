@@ -2,7 +2,7 @@ import { hasGlint, serialText, type MarineCard, type Tier } from '@ccip-dev/core
 import type { Bot } from './bot';
 import type { Attachment } from './discord-api';
 import { drawCallsign, drawLore, pickMemes } from './draw';
-import { avatarUrl, displayName, invoker, optionValue, type DiscordMember, type DiscordUser, type Interaction } from './interactions';
+import { avatarUrl, displayName, escapeMarkdown, invoker, optionValue, type DiscordMember, type DiscordUser, type Interaction } from './interactions';
 import { loadMemes, memeKey, stockMemes } from './memes';
 import { enlist, findMarine, setCardKey, type Drafted, type Marine } from './store';
 
@@ -14,8 +14,8 @@ export const TEXT = {
   drawing: 'Drawing your callsign… ▮▮▮',
   already: "You're already enlisted, Marine.",
   stamping: (m: Marine) => `You're \`${m.callsign}\`, Marine #${serialText(m.serial)}. Your tag is being stamped; run \`/dogtag\` in a minute.`,
-  notEnlisted: (name: string) => `${name} hasn't enlisted yet. \`/enlist\``,
-  tagStamping: (name: string) => `${name}'s tag is being stamped; try \`/dogtag\` again in a minute.`,
+  notEnlisted: (name: string) => `${escapeMarkdown(name)} hasn't enlisted yet. \`/enlist\``,
+  tagStamping: (name: string) => `${escapeMarkdown(name)}'s tag is being stamped; try \`/dogtag\` again in a minute.`,
   internal: "Something went wrong. It's been reported.",
 } as const;
 
@@ -31,12 +31,15 @@ export const cardKey = (serial: number, ext: 'png' | 'gif') => `cards/${serial}.
 const AVATAR_TIMEOUT_MS = 5_000;
 const avatarKey = (serial: number) => `avatars/${serial}.png`;
 
+/** A tag's SFW meme count in the bot's snapshot. */
+const snapshotCount = (bot: Bot, tag: string) => bot.snapshot.tags.find((t) => t.tag === tag)?.count ?? 1;
+
 function draft(bot: Bot): Drafted {
   const draw = drawCallsign(bot.snapshot, bot.random);
   const files = pickMemes(bot.snapshot, draw.tags, draw.callsign);
   return {
     draw,
-    memes: draw.tags.map((tag, i) => ({ tag, file: files[i]!, key: memeKey(files[i]!) })),
+    memes: draw.tags.map((tag, i) => ({ tag, file: files[i]!, key: memeKey(files[i]!), count: snapshotCount(bot, tag), sha: bot.snapshot.archive.sha })),
     blood: drawLore(bot.snapshot.lore.blood, bot.random),
     faith: drawLore(bot.snapshot.lore.faith, bot.random),
   };
@@ -65,13 +68,23 @@ async function flush(bot: Bot, reports: Report[]): Promise<void> {
   await Promise.allSettled(first.map((r) => bot.alert(r.signature, r.text)));
 }
 
-/** The avatar kept at enlistment; a fresh one is fetched and kept when its URL is known, and a failed fetch leaves the gradient disc. */
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const isPng = (bytes: Uint8Array) => PNG_SIGNATURE.every((b, i) => bytes[i] === b);
+
+/**
+ * The avatar kept at enlistment; a fresh one is fetched and kept when its URL is known, and a failed fetch leaves the
+ * gradient disc. Bytes that are not a PNG are neither kept nor drawn (they would fail the whole card): the disc again.
+ */
 async function avatar(bot: Bot, serial: number, url: string | null): Promise<Uint8Array | null> {
   try {
     if (url) {
       const res = await bot.fetch(url, { signal: AbortSignal.timeout(AVATAR_TIMEOUT_MS) });
       if (res.ok) {
         const bytes = new Uint8Array(await res.arrayBuffer());
+        if (!isPng(bytes)) {
+          console.warn(`avatar for Marine ${serial}: not a PNG`);
+          return null;
+        }
         await bot.bucket.put(avatarKey(serial), bytes, { httpMetadata: { contentType: 'image/png' } });
         return bytes;
       }
@@ -88,13 +101,12 @@ type Cards = Attachment[];
 
 /** The card, and the glint for Rare and up; a failed glint is reported and leaves the static card to post. */
 async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes: Uint8Array | null, reports: Report[]): Promise<{ png: Uint8Array; gif: Uint8Array | null }> {
-  const count = (tag: string) => bot.snapshot.tags.find((t) => t.tag === tag)?.count ?? 1;
   const card: MarineCard = {
     serial: marine.serial,
     callsign: marine.callsign,
     tier: marine.tier,
     percentile: marine.percentile,
-    memes: marine.memes.map((m, i) => ({ tag: m.tag, count: count(m.tag), png: pngs[i]! })),
+    memes: marine.memes.map((m, i) => ({ tag: m.tag, count: m.count ?? snapshotCount(bot, m.tag), png: pngs[i]! })),
     blood: marine.blood,
     faith: marine.faith,
     name: marine.displayName,
@@ -197,6 +209,8 @@ const STEP_TIMEOUT_MS = 3_000;
 /** A card upload leaves at least this long for the next fallback. */
 const FALLBACK_ROOM_MS = 3_000;
 const MIN_ATTEMPT_MS = 1_000;
+/** A private reply's budget: what is left before 28 s, and never under a second, so even a late one can still land. */
+export const replyBudget = (bot: Bot, startedAt: number) => Math.max(MIN_ATTEMPT_MS, timeLeft(bot, startedAt));
 
 /**
  * The last edit: the card with `text`, else the static card, else `fallback` alone. A refused upload is reported as
@@ -274,7 +288,7 @@ export async function enlistCommand(bot: Bot, interaction: Interaction, startedA
   try {
     if (result.kind === 'clashed') {
       reports.push({ signature: 'discord-draw', text: `every one of 20 draws for ${who.user.id} clashed with a callsign already taken` });
-      await bot.discord.privateFollowup(interaction.token, TEXT.internal);
+      await bot.discord.privateFollowup(interaction.token, TEXT.internal, replyBudget(bot, startedAt));
     } else if (result.kind === 'already') {
       const stamping = storedCard(bot, result.marine, source, reports);
       const stored = await byDeadline(bot, stamping, result.marine, startedAt, reports);
@@ -303,7 +317,7 @@ export async function dogtagCommand(bot: Bot, interaction: Interaction, startedA
   const marine = await findMarine(bot.db, PLATFORM, whose.user.id);
   if (!marine) {
     const text = TEXT.notEnlisted(displayName(whose.user, whose.member));
-    await (whose.self ? bot.discord.privateFollowup(interaction.token, text) : bot.discord.editOriginal(interaction.token, text));
+    await (whose.self ? bot.discord.privateFollowup(interaction.token, text, replyBudget(bot, startedAt)) : bot.discord.editOriginal(interaction.token, text));
     return;
   }
   const reports: Report[] = [];
@@ -312,7 +326,7 @@ export async function dogtagCommand(bot: Bot, interaction: Interaction, startedA
     const cards = await byDeadline(bot, stamping, marine, startedAt, reports);
     const fallback = whose.self ? TEXT.stamping(marine) : TEXT.tagStamping(displayName(whose.user, whose.member));
     if (cards) await postCard(bot, interaction.token, marine.callsign, cards === 'late' ? null : cards, fallback, marine, startedAt, reports);
-    else await bot.discord.privateFollowup(interaction.token, TEXT.internal);
+    else await bot.discord.privateFollowup(interaction.token, TEXT.internal, replyBudget(bot, startedAt));
     if (cards === 'late') await finishLate(bot, stamping, startedAt);
   } finally {
     await flush(bot, reports);

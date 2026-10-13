@@ -88,6 +88,19 @@ describe('the intel commands', () => {
     expect({ calls: bot.discord.calls.map((c) => [c.kind, c.content]), rendered: bot.renderer.calls, alerts: bot.alerts }).toEqual({ calls: [['private', INTEL_TEXT.unknownChain('Solana')]], rendered: [], alerts: [] });
   });
 
+  it('echoes an unknown chain as plain text, cut to 64 characters', async () => {
+    // #given
+    const bot = intelBot();
+    const long = 'x'.repeat(70);
+    // #when
+    await intelCommand(bot, command('ccipchain', [{ name: 'chain', type: 3, value: '[Solana](https://evil.example)' }]), 'dossier');
+    // #then
+    expect({ echoed: bot.discord.calls.map((c) => c.content), long: INTEL_TEXT.unknownChain(long) }).toEqual({
+      echoed: ["No chain called '\\[Solana\\]\\(https://evil.example\\)' on CCIP."],
+      long: `No chain called '${'x'.repeat(63)}…' on CCIP.`,
+    });
+  });
+
   it('answers privately that intel is unavailable when a file fails, and alerts discord-data:<file>', async () => {
     // #given
     const bot = intelBot({ data: data('history.json') });

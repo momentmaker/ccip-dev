@@ -170,4 +170,34 @@ describe('the Discord webhook client', () => {
     // #then
     expect({ sent, ended: clock.ms }).toEqual({ sent: [0, 7_000], ended: 7_000 });
   });
+
+  it('keeps a private reply inside its budget: the delete gets at most half, the reply what is left', async () => {
+    // #given a 4 s budget, and Discord asking for 2 s on the delete and 3 s on the reply
+    const clock = { ms: 0 };
+    const sent: string[] = [];
+    const slept: number[] = [];
+    const answers = [429, 429, 200].map((status, i) => (status === 429 ? new Response(JSON.stringify({ retry_after: i === 0 ? 2 : 3 }), { status }) : new Response(null, { status })));
+    const fetchFn = (async (_url: string, init?: RequestInit) => {
+      sent.push(String(init?.method));
+      return answers.shift()!;
+    }) as unknown as typeof fetch;
+    const api = discordApi(APP, { fetch: fetchFn, sleep: async (ms) => void (slept.push(ms), (clock.ms += ms)), now: () => clock.ms });
+    // #when
+    await api.privateFollowup('tok', 'x', 4_000);
+    // #then the delete's 2 s did not fit its 2 s half; the reply's 3 s fit the 4 s left
+    expect({ sent, slept }).toEqual({ sent: ['DELETE', 'POST', 'POST'], slept: [3_000] });
+  });
+
+  it('abandons a hung private reply when its budget runs out', async () => {
+    // #given a Discord that answers nothing until the request is aborted
+    const hanging = ((_url: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)))) as typeof fetch;
+    const api = discordApi(APP, { fetch: hanging, sleep: async () => {} });
+    const started = Date.now();
+    // #when
+    const replying = api.privateFollowup('tok', 'x', 100);
+    // #then
+    await expect(replying).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
 });

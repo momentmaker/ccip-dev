@@ -10,7 +10,10 @@ export const memeKey = (file: string) => `memes/${file}.png`;
 /** The reveal runs in waitUntil, which ends 30 s after the deferred reply: three copies at once, each given 8 s. */
 export const MEME_TIMEOUT_MS = 8_000;
 
-/** Copies the memes missing from R2 from the pinned archive URL, at once, through the site's prepareMeme. Throws when any fails. */
+/**
+ * Copies the memes missing from R2 from the pinned archive URL (the commit each meme was drawn under, else the archive's),
+ * at once, through the site's prepareMeme. Throws when any fails.
+ */
 export async function stockMemes(
   bucket: R2Bucket,
   renderer: Pick<LinkMarineRenderer, 'prepareMeme'>,
@@ -23,7 +26,7 @@ export async function stockMemes(
     memes.map(async (meme) => {
       try {
         if (await bucket.head(meme.key)) return;
-        const res = await fetchFn(rawMemeUrl(archive.repo, archive.sha, meme.file), { signal: AbortSignal.timeout(timeoutMs) });
+        const res = await fetchFn(rawMemeUrl(archive.repo, meme.sha ?? archive.sha, meme.file), { signal: AbortSignal.timeout(timeoutMs) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const png = await renderer.prepareMeme(new Uint8Array(await res.arrayBuffer()));
         await bucket.put(meme.key, png, { httpMetadata: { contentType: 'image/png' } });

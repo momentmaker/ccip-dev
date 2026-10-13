@@ -39,6 +39,15 @@ export interface Interaction {
   };
 }
 
+/** Text a member typed or chose, shown as itself: every character Discord's markdown reads is escaped, so nothing becomes a link or breaks a code span. */
+export const escapeMarkdown = (text: string) => text.replace(/[\\*_~|>#\-[\]()`]/g, '\\$&');
+
+/** Text cut to `max` characters, the last an ellipsis when it was longer. */
+export function clip(text: string, max: number): string {
+  const chars = [...text];
+  return chars.length <= max ? text : `${chars.slice(0, max - 1).join('')}…`;
+}
+
 export const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 /** An immediate private reply, for what is known inside the 3-second window. */

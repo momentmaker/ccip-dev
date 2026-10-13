@@ -65,6 +65,16 @@ describe('the meme copy', () => {
     await expect(copying).rejects.toThrow(/^meme (a\.jpeg|b c\.gif): prepareMeme failed$/);
   });
 
+  it("copies each meme at the commit its Marine was drawn under, the archive's own only for a meme stored without one", async () => {
+    // #given a snapshot that has moved on to another commit
+    const fetch = fakeFetch({ 'https://raw.githubusercontent.com/': () => new Response(new Uint8Array([0xff, 0xd8, 0xff])) });
+    const drawn = [{ tag: 't', file: 'a.jpeg', key: memeKey('a.jpeg'), sha: 'c0ffee' }, { tag: 't', file: 'b.png', key: memeKey('b.png') }];
+    // #when
+    await stockMemes(env.MARINES, fakeRenderer(), fetch, { repo: 'momentmaker/chainlinkmeme', sha: 'deadbeef' }, drawn);
+    // #then
+    expect(fetch.urls.sort()).toEqual([`${RAW}a.jpeg`, 'https://raw.githubusercontent.com/momentmaker/chainlinkmeme/deadbeef/memes/b.png']);
+  });
+
   it('pins the raw URL to the commit and escapes the file name', () => {
     // #then
     expect(rawMemeUrl('momentmaker/chainlinkmeme', 'c0ffee', 'a b#.jpeg')).toBe(`${RAW}a%20b%23.jpeg`);
