@@ -20,7 +20,7 @@ service = "ccip-dev-site"
 entrypoint = "LinkMarineCards"
 
 [vars]
-DISCORD_GUILD_ID = ""
+DISCORD_GUILD_ID = "1559614257283465256"
 
 [observability]
 enabled = true
