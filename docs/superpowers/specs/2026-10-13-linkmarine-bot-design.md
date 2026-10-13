@@ -299,7 +299,7 @@ Each medal shows its value, its label and its date. The most recently set record
 - **A render failure:** an intel command gets the private internal-failure reply. Enlistment keeps the saved draw (§5.4). Both alert `discord-render:<kind>`, once an hour.
 - **Meme copy failure** (GitHub unreachable): the enlistment is still saved, and the card is stamped later by `/dogtag`, which retries the copy. It alerts `discord-memes`.
 - **Other alerts, each once an hour:**
-  - `discord-render:marine` also covers memes missing from storage right after copying, a card that could not be read back, and stamping that passed its deadline;
+  - `discord-render:marine` also covers memes missing from storage right after copying, a card that could not be read back, stamping that passed its deadline, and a glint that failed while the static card was posted and kept;
   - `discord-upload`: Discord refused a card upload (the post falls back from the GIF to the PNG to text);
   - `discord-store:marine`: the card rendered but R2 or `card_key` would not keep it;
   - `discord-draw`: all 20 draws clashed;
