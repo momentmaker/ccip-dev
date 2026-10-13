@@ -3,7 +3,7 @@ import type { DossierCard } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
 import { artLayer, at, capDay, DOT_FILTER, font, halo, INK, onCurve, pulse, px, r1 } from './art';
 import { chainHexFrame, chainHexIcon, chainHexUnder, chainLabel, NO_ART, type ChainArt } from './chain-hex';
-import { asOf, b, bend, BLUE_TEXT, bulletRow, caption, daySeed, eyebrow, intelFrame, textRow } from './intel-frame';
+import { asOf, bend, BLUE_TEXT, bright, bulletRow, caption, daySeed, eyebrow, intelFrame, textRow } from './intel-frame';
 import { textWidthEm } from './inter-black';
 import { laneLabel } from './sitrep-card';
 
@@ -63,6 +63,11 @@ export function highlight(card: DossierCard): string {
   return `#${card.rank} of ${card.ranked} all time${card.feeRank === null ? '' : ` · #${card.feeRank} in fees this week`}`;
 }
 
+/** The fee rank is the part to drop first. */
+export function highlightSegments(card: DossierCard): string[][] {
+  return [[`#${card.rank} of ${card.ranked} all time`], ...(card.feeRank === null ? [] : [[` · #${card.feeRank} in fees this week`]])];
+}
+
 /** /ccipchain: one chain as the hero, its partners of the last 7 days in orbit, its all-time numbers and its week. */
 export function dossierTree(card: DossierCard, arts: ReadonlyMap<string, ChainArt>): VNode {
   const orbit = orbitSvg(card, arts);
@@ -81,13 +86,13 @@ export function dossierTree(card: DossierCard, arts: ReadonlyMap<string, ChainAr
       50,
       { flexDirection: 'column', width: px(TITLE_WIDTH) },
       h('div', { style: { display: 'flex', flexDirection: 'column', ...font('Inter', 900, title.size, INK.text, TITLE_TRACKING), lineHeight: 0.95, ...BLUE_TEXT } }, ...title.lines.map((line) => h('div', { style: { display: 'flex' } }, line))),
-      textRow([highlight(card)], { color: INK.paleGold, marginTop: px(8) }),
-      bulletRow([b(formatCount(card.messages)), ' messages · ', b(formatUsd(card.usd)), ' moved'], { marginTop: px(14) }),
-      bulletRow([b(formatUsd(card.feesUsd)), ' in fees, all time']),
-      bulletRow(['7 days: ', b(formatCount(card.week.messages)), ' messages · ', b(formatUsd(card.week.usd))]),
+      textRow(highlightSegments(card), { color: INK.paleGold, marginTop: px(8) }),
+      bulletRow([[bright(formatCount(card.messages)), ' messages'], [' · ', bright(formatUsd(card.usd)), ' moved']], { marginTop: px(14) }),
+      bulletRow([[bright(formatUsd(card.feesUsd)), ' in fees, all time']]),
+      bulletRow([['7 days: ', bright(formatCount(card.week.messages)), ' messages'], [' · ', bright(formatUsd(card.week.usd))]]),
     ),
     caption(470, 364, 'LAST 7 DAYS · MESSAGES A DAY'),
-    card.since ? caption(30, 396, `ON CCIP SINCE ${capDay(card.since)}`) : null,
+    card.since ? caption(30, 396, `ON CCIP SINCE ${capDay(card.since)}`, INK.muted, {}, 390) : null,
     asOf(card.asOf),
   );
 }

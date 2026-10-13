@@ -2,7 +2,7 @@ import { formatCompactCount, formatCount, formatPrice, formatUsd } from '@ccip-d
 import type { VaultCard } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
 import { at, capDay, font, halo, hexPoints, INK, px, r1 } from './art';
-import { asOf, b, bulletRow, caption, change, daySeed, eyebrow, GOLD_TEXT, intelFrame, shortWeekday, textRow } from './intel-frame';
+import { asOf, b, bright, bulletRow, caption, changePiece, daySeed, eyebrow, GOLD_TEXT, intelFrame, shortWeekday, textRow } from './intel-frame';
 import { textWidthEm } from './inter-black';
 
 const VAULT_AT = { x: 190, y: 214 };
@@ -35,7 +35,7 @@ function vaultSvg(card: VaultCard): { body: string; defs: string } {
     `<polygon points="${hexPoints(VAULT_AT.x, VAULT_AT.y, 50)}" fill="none" stroke="#375bd2" stroke-width="15" stroke-linejoin="round"/>`,
     `<polygon points="${hexPoints(VAULT_AT.x, VAULT_AT.y, 50)}" fill="none" stroke="#6c8cff" stroke-width="3" opacity=".6"/>`,
   ].join('');
-  const weeks = card.weekly.slice(-26);
+  const weeks = (card.weekly ?? []).slice(-26);
   const max = Math.max(1, ...weeks);
   const bars = weeks
     .map((link, i) => {
@@ -71,15 +71,18 @@ export function vaultTree(card: VaultCard): VNode {
         'div',
         { style: { display: 'flex', ...font('Inter', 700, 14, INK.sub), marginTop: px(6), whiteSpace: 'pre' } },
         'LINK held',
-        ...(card.valueUsd === null ? [] : [' · ', b(formatUsd(card.valueUsd)), ...(card.priceUsd === null ? [] : [` at ${formatPrice(card.priceUsd)}`])]),
+        ...(card.valueUsd == null ? [] : [' · ', b(formatUsd(card.valueUsd)), ...(card.priceUsd == null ? [] : [` at ${formatPrice(card.priceUsd)}`])]),
       ),
-      card.changePct === null || card.costUsd === null ? null : textRow([change(card.changePct, 1), ` on its ${formatUsd(card.costUsd)} cost`], { marginTop: px(10) }),
-      bulletRow([b(formatCount(card.streak)), `-week deposit streak${card.avgWeeklyLink === null ? '' : ' · ~'}`, card.avgWeeklyLink === null ? null : b(formatCompactCount(card.avgWeeklyLink)), card.avgWeeklyLink === null ? null : ' a week']),
-      card.lastDeposit ? bulletRow(['last ', b(`${formatCount(card.lastDeposit.link)} LINK`), ` on ${shortWeekday(card.lastDeposit.day)}`]) : null,
-      due ? bulletRow([due], card.overdue ? { color: INK.down } : {}) : null,
+      card.changePct === null || card.costUsd === null ? null : textRow([[changePiece(card.changePct, 1), ` on its ${formatUsd(card.costUsd)} cost`]], { marginTop: px(10) }),
+      bulletRow([
+        [bright(formatCount(card.streak)), '-week deposit streak'],
+        ...(card.avgWeeklyLink === null ? [] : [[' · ~', bright(formatCompactCount(card.avgWeeklyLink)), ' a week']]),
+      ]),
+      card.lastDeposit ? bulletRow([['last ', bright(`${formatCount(card.lastDeposit.link)} LINK`), ` on ${shortWeekday(card.lastDeposit.day)}`]]) : null,
+      due ? bulletRow([[due]], card.overdue ? { color: INK.down } : {}) : null,
     ),
     caption(440, 366, 'LINK DEPOSITED A WEEK · LAST 6 MONTHS'),
-    card.milestone ? caption(30, 396, `${formatCount(card.milestone.link)} LINK ETA ${capDay(card.milestone.eta)}`, INK.paleGold) : null,
+    card.milestone ? caption(30, 396, `${formatCount(card.milestone.link)} LINK ETA ${capDay(card.milestone.eta)}`, INK.paleGold, {}, 390) : null,
     asOf(card.asOf),
   );
 }

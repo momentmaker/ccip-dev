@@ -3,7 +3,7 @@ import type { IntelLane, SitrepCard } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
 import { artLayer, at, DOT_FILTER, font, INK, MONO, onCurve, pulse, px, r1 } from './art';
 import { chainHexFrame, chainHexIcon, chainHexUnder, chainLabel, NO_ART, type ChainArt } from './chain-hex';
-import { b, bend, BLUE_TEXT, bulletRow, caption, capWeekday, change, clock, daySeed, eyebrow, intelFrame, textRow } from './intel-frame';
+import { bend, BLUE_TEXT, bright, bulletRow, caption, capWeekday, changePiece, clock, daySeed, eyebrow, intelFrame, textRow } from './intel-frame';
 
 const RADAR = { x: 590, y: 215 };
 /** Where the lanes' chains sit, busiest first, around the radar. */
@@ -11,6 +11,8 @@ export const LANE_SLOTS: readonly { x: number; y: number }[] = [
   { x: 585, y: 120 }, { x: 690, y: 215 }, { x: 520, y: 300 }, { x: 665, y: 330 }, { x: 478, y: 172 }, { x: 722, y: 110 }, { x: 600, y: 232 }, { x: 728, y: 300 },
 ];
 const CHAIN_R = 26;
+/** The left column's width: from its margin to the radar's nearest chain. */
+export const TEXT_WIDTH = 400;
 const DAY_MS = 86_400_000;
 
 /** A projection rounded to three figures, as "~1,430" reads. */
@@ -70,10 +72,10 @@ export function laneLabel(x: number, y: number, text: string): VNode {
 }
 
 function paceRow(card: SitrepCard): VNode {
-  if (!card.pace) return textRow(['early in the day'], { marginTop: px(12) });
+  if (!card.pace) return textRow([['early in the day']], { marginTop: px(12), }, TEXT_WIDTH);
   const rough = `~${formatCount(roughCount(card.pace.projected))}`;
-  if (card.pace.yesterday === null || card.pace.yesterday <= 0) return textRow([`on pace for ${rough}`], { marginTop: px(12) });
-  return textRow([change((card.pace.projected / card.pace.yesterday - 1) * 100, 0), ` on pace for ${rough} · yesterday `, b(formatCount(card.pace.yesterday))], { marginTop: px(12) });
+  if (card.pace.yesterday === null || card.pace.yesterday <= 0) return textRow([[`on pace for ${rough}`]], { marginTop: px(12) }, TEXT_WIDTH);
+  return textRow([[changePiece((card.pace.projected / card.pace.yesterday - 1) * 100, 0), ` on pace for ${rough}`], [' · yesterday ', bright(formatCount(card.pace.yesterday))]], { marginTop: px(12) }, TEXT_WIDTH);
 }
 
 /** /cciptoday: today so far, its pace against yesterday, and a radar over today's top lanes. */
@@ -93,7 +95,7 @@ export function sitrepTree(card: SitrepCard, arts: ReadonlyMap<string, ChainArt>
     { body: radar.under, defs: radar.defs },
     ...[...chains].map(([s, c]) => chainHexIcon(c.x, c.y, CHAIN_R, arts.get(s) ?? NO_ART, c.name)),
     artLayer(radar.over),
-    eyebrow(30, 24, `SITREP · ${capWeekday(card.updatedAt)} · ${clock(card.updatedAt)}`, live),
+    eyebrow(30, 24, `SITREP · ${capWeekday(card.updatedAt)} · ${clock(card.updatedAt)}`, live, 40),
     at(
       30,
       70,
@@ -104,9 +106,9 @@ export function sitrepTree(card: SitrepCard, arts: ReadonlyMap<string, ChainArt>
       h(
         'div',
         { style: { display: 'flex', flexDirection: 'column', marginTop: px(11) } },
-        bulletRow([b(formatUsd(card.usd)), ' moved']),
-        bulletRow([b(formatFeeTotal(card.feesUsd)), ' in fees · ', b(formatShare(card.linkSharePct)), ' in LINK']),
-        bulletRow([b(formatCount(card.senders)), ' senders · median delivery ', b(formatDuration(card.medianDeliveryS))]),
+        bulletRow([[bright(formatUsd(card.usd)), ' moved']], {}, TEXT_WIDTH),
+        bulletRow([[bright(formatFeeTotal(card.feesUsd)), ' in fees'], [' · ', bright(formatShare(card.linkSharePct)), ' in LINK']], {}, TEXT_WIDTH),
+        bulletRow([[bright(formatCount(card.senders)), ' senders'], [' · median delivery ', bright(formatDuration(card.medianDeliveryS))]], {}, TEXT_WIDTH),
       ),
     ),
     caption(470, 58, 'TOP LANES TODAY'),
