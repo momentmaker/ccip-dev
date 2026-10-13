@@ -102,7 +102,7 @@ A month-in-review video is the most shareable thing @ccipdev posts. It goes out 
      - opens `https://ccip.dev/replay/month/?m=YYYY-MM`;
      - waits for the page to be ready and calls the hook;
      - saves the three downloads.
-  3. Re-encode and mux them with ffmpeg (`pnpm video:mux`): `-vf scale=1024:1024:flags=lanczos:out_range=tv,format=yuv420p -c:v libx264 -profile:v high -preset medium -crf 18 -r 30 -c:a aac -b:a 128k -shortest -movflags +faststart`. Reason: X's documented 1280×1024 limit and its 4:2:0 requirement; the in-page recording stays 1080².
+  3. Re-encode and mux them with ffmpeg (`pnpm video:mux`): `-vf scale=1024:1024:flags=lanczos:out_range=tv,format=yuv420p -c:v libx264 -profile:v high -preset medium -crf 18 -maxrate 8M -bufsize 16M -r 30 -c:a aac -b:a 128k -shortest -movflags +faststart`. Reason: X's documented 1280×1024 limit and its 4:2:0 requirement; the in-page recording stays 1080². The 8 Mbps cap keeps a busy month near 30 MB, under the 50 MB limit.
   4. Validate with ffprobe. The job fails, uploading nothing, unless the file has:
      - a duration of 29.5–30.5 s;
      - 1024×1024 and `yuv420p`;
