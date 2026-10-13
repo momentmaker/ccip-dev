@@ -1,9 +1,12 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CallsignSnapshot } from '../src/draw';
+import { createAlerter } from '../src/alerts';
+import { discordApi } from '../src/discord-api';
+import { botHandlers } from '../src/index';
 import { dogtagCommand, enlistCommand, revealSteps, STEP_MS, TEXT } from '../src/marines';
 import { findMarine } from '../src/store';
-import { ARCHIVE_ROUTES, command, fakeBot, fakeFetch, fakeRenderer, GIF_BYTES, PNG_BYTES, resetStorage, SNAPSHOT } from './helpers';
+import { ARCHIVE_ROUTES, command, fakeBot, type FakeBot, fakeFetch, fakeRenderer, GIF_BYTES, PNG_BYTES, resetStorage, SNAPSHOT } from './helpers';
 
 const ME = '1400000000000000004';
 const OTHER = '1500000000000000005';
@@ -171,5 +174,139 @@ describe('/dogtag', () => {
     await dogtagCommand(bot, command('dogtag'));
     // #then
     expect(bot.discord.calls.map((c) => [c.kind, c.content])).toEqual([['private', TEXT.internal]]);
+  });
+});
+
+/** Makes the bot's Discord refuse the edits `refuse` names, and records the longest wait it was allowed for each edit. */
+function refusing(bot: FakeBot, refuse: (content: string, file: string | undefined) => boolean) {
+  const inner = bot.discord;
+  const waits: (number | undefined)[] = [];
+  bot.discord = {
+    ...inner,
+    async editOriginal(token, content, file, maxWaitMs) {
+      waits.push(maxWaitMs);
+      if (refuse(content, file?.name)) throw new Error('Discord returned HTTP 413');
+      return inner.editOriginal(token, content, file, maxWaitMs);
+    },
+  };
+  return waits;
+}
+
+describe('a committed Marine always ends with the card or the stamping line', () => {
+  it('goes on when a step edit fails', async () => {
+    // #given
+    const bot = fakeBot();
+    refusing(bot, (content) => content.startsWith('PAINTING') || content.includes(' · '));
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ last: bot.discord.calls.at(-1)!.content, file: bot.discord.calls.at(-1)!.file, alerts: bot.alerts.length }).toEqual({ last: marine.callsign, file: expect.stringMatching(/^marine-1\./), alerts: 0 });
+  });
+
+  it('posts the static card when the glint is refused, and says so to the alert chat', async () => {
+    // #given
+    const bot = fakeBot({ snapshot: LEGENDARY });
+    refusing(bot, (_content, file) => file === 'marine-1.gif');
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    expect({ last: bot.discord.calls.at(-1)!.file, alerts: bot.alerts.map((a) => a.signature) }).toEqual({ last: 'marine-1.png', alerts: ['discord-upload'] });
+  });
+
+  it('says the tag is being stamped when neither card can be uploaded', async () => {
+    // #given
+    const bot = fakeBot({ snapshot: LEGENDARY });
+    refusing(bot, (_content, file) => file !== undefined);
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ last: bot.discord.calls.at(-1), alerts: bot.alerts.map((a) => a.signature) }).toEqual({ last: { kind: 'edit', content: TEXT.stamping(marine), at: bot.clock.ms }, alerts: ['discord-upload'] });
+  });
+
+  it('says the tag is being stamped when the memes cannot be read back from R2', async () => {
+    // #given
+    const bucket = new Proxy(env.MARINES, {
+      get(target, prop) {
+        if (prop === 'get') return async (key: string) => (key.startsWith('memes/') ? Promise.reject(new Error('R2 is down')) : target.get(key));
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bot = fakeBot({ bucket });
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ last: bot.discord.calls.at(-1)!.content, alerts: bot.alerts.map((a) => a.signature) }).toEqual({ last: TEXT.stamping(marine), alerts: ['discord-render:marine'] });
+  });
+
+  it('still posts the card when R2 refuses to keep it, alerting a storage failure', async () => {
+    // #given
+    const bucket = new Proxy(env.MARINES, {
+      get(target, prop) {
+        if (prop === 'put') return async (key: string, ...rest: [never]) => (key.startsWith('cards/') ? Promise.reject(new Error('R2 is full')) : target.put(key, ...rest));
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bot = fakeBot({ bucket });
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ last: bot.discord.calls.at(-1)!.content, cardKey: marine.cardKey, alerts: bot.alerts.map((a) => a.signature) }).toEqual({ last: marine.callsign, cardKey: null, alerts: ['discord-store:marine'] });
+  });
+
+  it('gives up on a card still stamping 18 s after the command arrived, leaving /dogtag to finish it', async () => {
+    // #given a renderer that takes 25 s
+    const bot = fakeBot();
+    bot.renderer.renderMarineCard = async () => {
+      await bot.sleep(25_000);
+      return PNG_BYTES;
+    };
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect(bot.discord.calls.at(-1)).toEqual({ kind: 'edit', content: TEXT.stamping(marine), at: bot.clock.ms });
+  });
+
+  it('offers the final edit only the time left before 28 s for a 429', async () => {
+    // #given a command received 22 s ago, so the stamping deadline has passed
+    const bot = fakeBot();
+    const waits = refusing(bot, () => false);
+    // #when
+    await enlistCommand(bot, command('enlist'), bot.clock.ms - 22_000);
+    // #then
+    expect(waits.at(-1)).toBe(2_000);
+  });
+
+  it('starts the avatar fetch with the meme copies, not after them', async () => {
+    // #given
+    const bot = fakeBot();
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    expect(bot.fetch.urls[0]).toContain('cdn.discordapp.com');
+  });
+
+  it('answers privately even when the alert chat cannot be reached', async () => {
+    // #given an interaction that fails before any draw, and an alerter whose database is down
+    const sent: string[] = [];
+    const fetchFn = (async (url: string, init?: RequestInit) => {
+      sent.push(`${init?.method} ${url.split('/').slice(-1)[0]} ${typeof init?.body === 'string' ? init.body : ''}`);
+      return new Response(null, { status: 204 });
+    }) as unknown as typeof fetch;
+    const brokenDb = { prepare: () => { throw new Error('D1 is down'); } } as unknown as D1Database;
+    const bot = fakeBot({
+      discord: discordApi('app', { fetch: fetchFn, sleep: async () => {} }),
+      alert: createAlerter(brokenDb, { token: 't', chatId: 'c' }, { fetch: fetchFn, now: () => new Date() }),
+    });
+    // #when
+    await botHandlers(bot).commands.enlist!(command('enlist', [], { member: undefined }));
+    // #then
+    expect(sent).toEqual(['DELETE @original ', `POST tok ${JSON.stringify({ content: TEXT.internal, flags: 64, allowed_mentions: { parse: [] } })}`]);
   });
 });

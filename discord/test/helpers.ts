@@ -125,6 +125,7 @@ export interface FakeBot extends Bot {
 export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
   const clock = { ms: Date.parse('2026-10-13T10:40:00.000Z') };
   const alerts: { signature: string; text: string }[] = [];
+  const timers: { at: number; resolve: (value: null) => void }[] = [];
   return {
     db: env.DB,
     bucket: env.MARINES,
@@ -136,7 +137,13 @@ export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
     },
     sleep: async (ms) => {
       clock.ms += ms;
+      for (const timer of timers.filter((t) => t.at <= clock.ms)) timer.resolve(null);
     },
+    deadline: (ms) =>
+      new Promise<null>((resolve) => {
+        if (ms <= 0) resolve(null);
+        else timers.push({ at: clock.ms + ms, resolve });
+      }),
     now: () => new Date(clock.ms),
     random: seededRandom(42),
     snapshot: SNAPSHOT,

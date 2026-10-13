@@ -46,4 +46,18 @@ describe('alerts', () => {
     // #then
     expect([down.sent.length, up.sent.length]).toEqual([1, 1]);
   });
+
+  it('never throws, even when the database or Telegram is down', async () => {
+    // #given
+    const brokenDb = { prepare: () => { throw new Error('D1 is down'); } } as unknown as D1Database;
+    const refusing = (async () => { throw new Error('offline'); }) as unknown as typeof globalThis.fetch;
+    const now = () => new Date('2026-10-13T10:00:00.000Z');
+    // #when
+    const results = await Promise.allSettled([
+      createAlerter(brokenDb, { token: 'bot', chatId: '-100' }, { fetch: refusing, now })('discord-draw', 'x'),
+      createAlerter(env.DB, { token: 'bot', chatId: '-100' }, { fetch: refusing, now })('discord-memes', 'y'),
+    ]);
+    // #then
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+  });
 });

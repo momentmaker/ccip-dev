@@ -40,19 +40,20 @@ export async function handleInteraction(interaction: Interaction, guildId: strin
 }
 
 /** A command that fails unexpectedly is reported to the alert chat and answered privately. */
-function guarded(bot: Bot, command: (bot: Bot, interaction: Interaction) => Promise<void>): (interaction: Interaction) => Promise<void> {
+function guarded(bot: Bot, command: (bot: Bot, interaction: Interaction, startedAt: number) => Promise<void>): (interaction: Interaction) => Promise<void> {
   return async (interaction) => {
+    const startedAt = bot.now().getTime();
     try {
-      await command(bot, interaction);
+      await command(bot, interaction, startedAt);
     } catch (err) {
       const name = interaction.data?.name ?? 'unknown';
       console.error(`/${name} failed: ${err instanceof Error ? err.stack : String(err)}`);
       try {
-        await bot.alert(`discord-command:${name}`, `/${name} failed: ${err instanceof Error ? err.message : String(err)}`);
         await bot.discord.privateFollowup(interaction.token, TEXT.internal);
-      } catch (reportErr) {
-        console.error(`/${name}: the failure could not be reported: ${reportErr instanceof Error ? reportErr.message : String(reportErr)}`);
+      } catch (replyErr) {
+        console.error(`/${name}: the private reply failed: ${replyErr instanceof Error ? replyErr.message : String(replyErr)}`);
       }
+      await bot.alert(`discord-command:${name}`, `/${name} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 }

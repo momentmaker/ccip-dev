@@ -89,4 +89,37 @@ describe('the Discord webhook client', () => {
     // #then
     await expect(d.api.editOriginal('tok', 'x')).rejects.toThrow('Discord returned HTTP 404: {"message": "Unknown Webhook", "code": 10015}');
   });
+
+  it('still sends the private message when the loading message is already gone', async () => {
+    // #given
+    const d = discord(new Response('{"message": "Unknown Message"}', { status: 404 }));
+    // #when
+    await d.api.privateFollowup('tok', 'Something went wrong.');
+    // #then
+    expect(d.sent.map((s) => s.method)).toEqual(['DELETE', 'POST']);
+  });
+
+  it('waits no longer than the time left for a 429, and not at all when none is left', async () => {
+    // #given
+    const limited = () => new Response(JSON.stringify({ retry_after: 10 }), { status: 429 });
+    const some = discord(limited(), new Response(null, { status: 200 }));
+    const none = discord(limited());
+    // #when
+    await some.api.editOriginal('tok', 'x', null, 2000);
+    const refused = none.api.editOriginal('tok', 'x', null, 0);
+    // #then
+    await expect(refused).rejects.toThrow('Discord returned HTTP 429');
+    expect({ slept: [some.slept, none.slept], requests: none.sent.length }).toEqual({ slept: [[2000], []], requests: 1 });
+  });
+
+  it('releases the body of a successful answer', async () => {
+    // #given
+    let cancelled = false;
+    const body = new ReadableStream({ cancel: () => void (cancelled = true) });
+    const d = discord(new Response(body, { status: 200 }));
+    // #when
+    await d.api.editOriginal('tok', 'x');
+    // #then
+    expect(cancelled).toBe(true);
+  });
 });
