@@ -7,7 +7,7 @@ routes = [{ pattern = "discord.ccip.dev", custom_domain = true }]
 [[d1_databases]]
 binding = "DB"
 database_name = "ccip-dev-marines"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "bf4e122f-08a5-4357-828a-1186fb22a444"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
