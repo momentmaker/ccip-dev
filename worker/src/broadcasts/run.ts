@@ -131,13 +131,16 @@ async function seedMoments(c: RunContext, due: readonly DueMoment[]): Promise<bo
   return true;
 }
 
-/** Broadcasts never fail the job that runs them: a failure alerts, and the hourly run retries what was not sent. */
+/**
+ * Broadcasts never fail the job that runs them: a failure alerts, and the hourly run retries what was not sent. The monthly
+ * request alerts under its own signature, so its failure, repeated hourly for 3 days, never holds back another's alert.
+ */
 export async function broadcastSafely(c: RunContext, request: BroadcastRequest, due: () => Promise<boolean> = async () => true): Promise<void> {
   try {
     if (await due()) await runBroadcasts(c, request);
   } catch (err) {
     try {
-      await c.alert('broadcast-run', `Broadcasts failed: ${err instanceof Error ? err.message : String(err)}`);
+      await c.alert(request.kind === 'monthly' ? 'broadcast-run:monthly' : 'broadcast-run', `Broadcasts failed: ${err instanceof Error ? err.message : String(err)}`);
     } catch (alertErr) {
       console.error('[broadcast] the broadcast-run alert failed', alertErr instanceof Error ? alertErr.name : 'error');
     }

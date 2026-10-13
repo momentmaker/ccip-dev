@@ -33,7 +33,7 @@ export function videoProblems(probe: Probe): string[] {
   else {
     if (video.width !== MONTHLY_VIDEO.width || video.height !== MONTHLY_VIDEO.height) problems.push(`its video is ${video.width}×${video.height}, not ${MONTHLY_VIDEO.width}×${MONTHLY_VIDEO.height}`);
     if (video.codec_name !== 'h264') problems.push(`its video is ${video.codec_name ?? 'of no codec'}, not H.264`);
-    if (video.pix_fmt !== PIXEL_FORMAT) problems.push(`its pixels are ${video.pix_fmt ?? 'of no format'}, not 4:2:0`);
+    if (video.pix_fmt !== PIXEL_FORMAT) problems.push(`its pixels are ${video.pix_fmt ?? 'of no format'}, not ${PIXEL_FORMAT}`);
   }
   if (audio?.codec_name !== 'aac') problems.push(audio ? `its audio is ${audio.codec_name ?? 'of no codec'}, not AAC` : 'it has no audio');
   if (!(size > 0 && size < MONTHLY_VIDEO.maxBytes)) problems.push(`it is ${probe.format?.size ?? 'of no'} bytes, not under ${MONTHLY_VIDEO.maxBytes / 1_000_000} MB`);

@@ -296,6 +296,17 @@ describe('the monthly video through the real outputs', () => {
     });
   });
 
+  it("alerts a monthly run that throws under broadcast-run:monthly, and another request's under broadcast-run", async () => {
+    // #given the archive bucket is down, and the Reserve body is broken
+    const down = { head: async () => { throw new Error('R2 is down'); } } as unknown as R2Bucket;
+    const broken = { transfers: null, weekly: [], cost_basis: {} } as unknown as ReserveBody;
+    const h = harness({ now: '2026-10-01T02:00:00.000Z', env: { ...ENV, ARCHIVE: down } });
+    // #when
+    await broadcastHourly(h.c, broken);
+    // #then
+    expect(h.alerts.map((a) => a.signature)).toEqual(['broadcast-run', 'broadcast-run:monthly']);
+  });
+
   it('stops calling X for the run once the upload hits an outage, and the next run retries X alone', async () => {
     // #given X answers 503 to the upload
     await seedSeptember();

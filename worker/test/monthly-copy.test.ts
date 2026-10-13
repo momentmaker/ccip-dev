@@ -24,11 +24,17 @@ const facts = (summary: Partial<MonthSummary> = {}): MonthlyFacts => ({ kind: 'm
 
 describe('composeMonthlyCopy', () => {
   it('writes the X post as the spec shows it, with the value rounded down as the video counts it', () => {
-    expect(composeMonthlyCopy(facts()).xText).toBe(['🎬 CCIP in October 2026', '47,210 messages · $1.2B moved · $64.3K in fees', 'New on CCIP: Gravity, Tempo', '#CCIP #Chainlink $LINK'].join('\n'));
+    // #when
+    const { xText } = composeMonthlyCopy(facts());
+    // #then
+    expect(xText).toBe(['🎬 CCIP in October 2026', '47,210 messages · $1.2B moved · $64.3K in fees', 'New on CCIP: Gravity, Tempo', '#CCIP #Chainlink $LINK'].join('\n'));
   });
 
   it('writes the Telegram caption in sentences with bold numbers, the records set that month and the busiest lane', () => {
-    expect(composeMonthlyCopy(facts()).telegramHtml).toBe(
+    // #when
+    const { telegramHtml } = composeMonthlyCopy(facts());
+    // #then
+    expect(telegramHtml).toBe(
       [
         '<b>🎬 CCIP in October 2026</b>',
         'In October, <b>47,210</b> CCIP messages moved <b>$1.2B</b>.',
