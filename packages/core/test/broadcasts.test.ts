@@ -40,6 +40,10 @@ describe('broadcast keys and card paths', () => {
   ])('rejects %s', (path) => {
     expect(parseBroadcastPath(path.split('/'))).toBeNull();
   });
+
+  it('keys the monthly video, which has no card path', () => {
+    expect(broadcastKey({ kind: 'monthly', month: '2026-09' })).toBe('broadcast:monthly:2026-09');
+  });
 });
 
 describe('dayTotalsFacts', () => {

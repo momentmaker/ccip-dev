@@ -48,6 +48,18 @@ export function formatFeeTotal(value: number | null | undefined): string {
   return usable(value) && value > 0 && value < 1 ? formatFee(value) : formatUsd(value);
 }
 
+/**
+ * A compact dollar amount rounded down to its last digit, as the replay's value counter shows it: "$1.3B" for $1.37B,
+ * where formatUsd says "$1.4B". The month video's end card and caption use it, so they read as its counter stops.
+ */
+export function formatUsdDown(value: number): string {
+  const v = Math.max(0, value);
+  const [size, suffix] = SCALES.find(([s]) => v >= s) ?? [1, ''];
+  const step = suffix === '' ? 1 : 0.1;
+  const shown = Math.floor(v / size / step + 1e-9) * step;
+  return `$${suffix === '' ? String(shown) : shown.toFixed(1)}${suffix}`;
+}
+
 export function formatUsdFull(value: number | null | undefined): string {
   if (!usable(value)) return DASH;
   return `${value < 0 ? MINUS : ''}$${Math.round(Math.abs(value)).toLocaleString('en-US')}`;

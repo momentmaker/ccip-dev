@@ -22,8 +22,19 @@ export const BUDGETED_MOMENTS = ['welcome', 'countdown', 'movers', 'spotlight', 
 export type BudgetedMoment = (typeof BUDGETED_MOMENTS)[number];
 export type MomentTarget = Extract<BroadcastTarget, { kind: BudgetedMoment | 'poll' }>;
 
-export function broadcastKey(t: BroadcastTarget): string {
+/** The month in review, posted as a video: it has no card, so it is not a BroadcastTarget and has no card path. */
+export interface MonthlyTarget {
+  kind: 'monthly';
+  month: string;
+}
+
+/** Everything the Worker posts: a broadcast with a card, or the monthly video. */
+export type PostTarget = BroadcastTarget | MonthlyTarget;
+
+export function broadcastKey(t: PostTarget): string {
   switch (t.kind) {
+    case 'monthly':
+      return `broadcast:monthly:${t.month}`;
     case 'daily':
       return `broadcast:daily:${t.day}`;
     case 'weekly':

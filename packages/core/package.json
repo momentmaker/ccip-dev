@@ -11,7 +11,8 @@
     "./names": "./src/names.ts",
     "./records": "./src/records.ts",
     "./broadcasts": "./src/broadcasts.ts",
-    "./moments": "./src/moments.ts"
+    "./moments": "./src/moments.ts",
+    "./month": "./src/month.ts"
   },
   "scripts": {
     "test": "vitest run",
