@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import type { MarineCard } from '@ccip-dev/core/linkmarine';
+import { hasGlint, type MarineCard } from '@ccip-dev/core/linkmarine';
+import { glintGif } from './glint';
 import { marineTree } from './marine-card';
 import { MEME_SIZE, memeTree } from './meme';
 import { renderKino } from './render';
@@ -15,5 +16,11 @@ export class LinkMarineCards extends WorkerEntrypoint {
 
   async renderMarineCard(card: MarineCard): Promise<Uint8Array> {
     return (await renderKino(marineTree(card))).png;
+  }
+
+  async renderMarineGlint(card: MarineCard): Promise<Uint8Array | null> {
+    if (!hasGlint(card.tier)) return null;
+    const rendered = await renderKino(marineTree(card));
+    return glintGif(rendered.pixels, rendered.width, rendered.height);
   }
 }
