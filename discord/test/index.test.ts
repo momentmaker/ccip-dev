@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
-import worker, { handleInteraction, ONLY_HERE, type Handlers } from '../src/index';
+import worker, { handleInteraction, type Handlers } from '../src/index';
 import { command, GUILD } from './helpers';
 
 const toHex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -88,7 +88,7 @@ describe('the interactions endpoint', () => {
     expect(res.status).toBe(401);
   });
 
-  const TURNED_AWAY = { type: 4, data: { content: ONLY_HERE, flags: 64, allowed_mentions: { parse: [] } } };
+  const TURNED_AWAY = { type: 4, data: { content: 'ccip.dev works in servers that have added it.', flags: 64, allowed_mentions: { parse: [] } } };
   const OTHER_SERVER = '1100000000000000002';
 
   it('lets any server through when the setting is "all"', async () => {

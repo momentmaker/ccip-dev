@@ -6,7 +6,7 @@ import { deferred, InteractionType, json, privateReply, ResponseType, type Inter
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { verifyDiscordRequest } from './verify';
 
-export const ONLY_HERE = 'LinkMarine only serves the LinkMarine server.';
+export const NOT_HERE = 'ccip.dev works in servers that have added it.';
 
 const GUILD_CONTEXT = 0;
 
@@ -47,7 +47,7 @@ export async function handleInteraction(interaction: Interaction, servers: strin
     }
   }
   if (interaction.type !== InteractionType.APPLICATION_COMMAND) return new Response('Unsupported interaction', { status: 400 });
-  if (!here) return privateReply(ONLY_HERE);
+  if (!here) return privateReply(NOT_HERE);
   const name = interaction.data?.name ?? '';
   const command = handlers.commands[name];
   if (!command) return privateReply(`Unknown command /${name}.`);
