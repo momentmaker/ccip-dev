@@ -15,9 +15,11 @@ import { windowWeights, lastReplayDay } from '../sky/weights';
 interface Props {
   focus: string | null;
   slugs: Record<string, string>;
+  /** The unlisted month page: the player plays the month in `?m=YYYY-MM`. */
+  month?: boolean;
 }
 
-const { focus, slugs } = Astro.props;
+const { focus, slugs, month = false } = Astro.props;
 const [replay, history] = await Promise.all([buildData('replay.json'), buildData('history.json')]);
 const last = lastReplayDay(replay) ?? '';
 const focusChain = focus ? replay.chains.find((c) => c.selector === focus) ?? null : null;
@@ -37,21 +39,24 @@ if (focusChain) {
   chains = counter.at(Infinity, linearWarp(days.length, 0, 1)).chains;
 }
 const head = replayHead({ focusName: name, firstDay: focusChain?.first_day ?? null, messages, chains });
-const description = name
-  ? `Watch ${name} on Chainlink CCIP: every lane and message since ${formatUtcDay(focusChain!.first_day)}, as a 30-second video.`
-  : 'Watch CCIP grow: every chain and lane from 2023-07-06 to today in 30 seconds, recordable as a video.';
+const description = month
+  ? 'One month of Chainlink CCIP, every chain and lane that moved, in 30 seconds.'
+  : name
+    ? `Watch ${name} on Chainlink CCIP: every lane and message since ${formatUtcDay(focusChain!.first_day)}, as a 30-second video.`
+    : 'Watch CCIP grow: every chain and lane from 2023-07-06 to today in 30 seconds, recordable as a video.';
+const pageTitle = month ? 'Month in review · Replay' : name ? `${name} on Chainlink CCIP · Replay` : 'Replay';
 ---
-<Base title={name ? `${name} on Chainlink CCIP · Replay` : 'Replay'} description={description} cardPath={focusChain ? `replay/${slugs[focusChain.selector]}` : 'replay'}>
+<Base title={pageTitle} description={description} cardPath={focusChain ? `replay/${slugs[focusChain.selector]}` : 'replay'} noindex={month}>
   <div class="page-head">
     <div>
-      <p class="label">{replay.since} → {last}</p>
-      <h1 id="replay-title">{head.title}</h1>
-      <p id="replay-lead" class="muted">{head.lead}</p>
+      <p class="label">{month ? 'Month in review' : `${replay.since} → ${last}`}</p>
+      <h1 id="replay-title">{month ? 'CCIP month in review' : head.title}</h1>
+      <p id="replay-lead" class="muted">{month ? 'Every chain and lane that moved in one month, in 30 seconds.' : head.lead}</p>
     </div>
   </div>
   <div class="replay-shell">
-    <figure class="card poster" set:html={poster} />
-    <ReplayPlayer client:only="react" focus={focus} slugs={slugs} />
+    {!month && <figure class="card poster" set:html={poster} />}
+    <ReplayPlayer client:only="react" focus={focus} slugs={slugs} month={month} />
   </div>
 </Base>
 

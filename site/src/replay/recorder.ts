@@ -17,6 +17,10 @@ export function recordingFilename(lastDay: string, aspect: Aspect, slug: string 
   return `ccip-replay-${slug ? `${slug}-` : ''}${lastDay}-${aspect.replace(':', 'x')}.mp4`;
 }
 
+export function monthRecordingFilename(month: string, aspect: Aspect): string {
+  return `ccip-month-${month}-${aspect.replace(':', 'x')}.mp4`;
+}
+
 export async function canRecord(aspect: Aspect): Promise<boolean> {
   if (typeof VideoEncoder === 'undefined' || typeof OffscreenCanvas === 'undefined') return false;
   try {

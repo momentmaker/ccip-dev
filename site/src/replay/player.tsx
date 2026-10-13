@@ -1,4 +1,4 @@
-import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
+import type { DayTotals, LargestFee, ReplayFile } from '@ccip-dev/core/public';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { track, trackDataError } from '../lib/analytics';
 import { DataError, fetchPublic, pollDelay } from '../lib/data';
@@ -35,7 +35,10 @@ import {
   type Compositor,
   type CompositorKind,
 } from './compositors';
-import { audioCodecAvailable, canRecord, raceAbort, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
+import { monthCut } from './director/month';
+import { downloadBlob, recordCut } from './record-cut';
+import { createRecordHook } from './record-hook';
+import { audioCodecAvailable, canRecord, monthRecordingFilename, raceAbort, recordingFilename, recordReplay, recordWithAudioFallback } from './recorder';
 import { scoreFor } from './score/schedule';
 import { renderScore } from './score/synth';
 import { audioStartOffset, fade, idlePrefetchAllowed, resyncAfter, ScoreCache, scoreKey, scrubRestartDelay, soundPending, suspendWhenIdle, syncAction } from './score/sync';
@@ -87,9 +90,11 @@ function paint(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, composi
 interface Loaded {
   replay: ReplayFile;
   history: DayTotals[];
+  largest: LargestFee[];
 }
 
-export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: string | null; slugs: Record<string, string> }) {
+/** `month` makes this the unlisted month page: it plays the month cut of `?m=YYYY-MM` and installs the record hook. */
+export default function ReplayPlayer({ focus: initialFocus, slugs, month = false }: { focus: string | null; slugs: Record<string, string>; month?: boolean }) {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -149,7 +154,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
         if (cancelled) return;
         loadFailuresRef.current = 0;
         setLoadFailed(false);
-        setData({ replay, history: history.days });
+        setData({ replay, history: history.days, largest: history.largest_fees ?? [] });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -168,13 +173,17 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     };
   }, [attempt]);
 
-  const stars = useMemo(() => (data ? buildLayout(data.replay.chains) : []), [data]);
+  const monthParam = useMemo(() => (month ? new URLSearchParams(window.location.search).get('m') ?? '' : null), [month]);
+  const monthView = useMemo(() => (data && monthParam !== null ? monthCut(data, monthParam) : null), [data, monthParam]);
+  const noSuchMonth = monthParam !== null && data !== null && monthView === null;
+  const played = monthView?.replay ?? data?.replay ?? null;
+  const stars = useMemo(() => (played ? buildLayout(played.chains) : []), [played]);
 
   useEffect(() => {
-    if (!data) return;
+    if (!played) return;
     let alive = true;
     const hrefs = new Map(
-      data.replay.chains.flatMap((c) => {
+      played.chains.flatMap((c) => {
         const href = iconHref(c.selector);
         return href ? [[c.selector, href] as const] : [];
       }),
@@ -187,13 +196,14 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     return () => {
       alive = false;
     };
-  }, [data]);
+  }, [played]);
 
   const names = useMemo(() => (data ? chainNameMap(data.replay.chains) : new Map<string, string>()), [data]);
-  const showInput = useMemo<ShowInput | null>(
-    () => (data ? { replay: data.replay, history: data.history, stars, length, focus, eligible: hasIcon, reducedMotion } : null),
-    [data, stars, length, focus, reducedMotion],
-  );
+  const showInput = useMemo<ShowInput | null>(() => {
+    if (!data || noSuchMonth) return null;
+    if (monthView) return { replay: monthView.replay, history: data.history, stars, length, focus: null, eligible: hasIcon, reducedMotion, month: monthView.month };
+    return { replay: data.replay, history: data.history, stars, length, focus, eligible: hasIcon, reducedMotion };
+  }, [data, monthView, noSuchMonth, stars, length, focus, reducedMotion]);
   const show = useMemo(() => (showInput ? new Show(showInput) : null), [showInput]);
   const assets = useMemo(
     () => (show ? { names, ticks: show.yearTicks().map((y) => ({ at: (y.time - show.warp.start) / (show.warp.end - show.warp.start), label: y.label })) } : null),
@@ -235,7 +245,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
 
   const headSkippedRef = useRef(true);
   useEffect(() => {
-    if (!data || !show) return;
+    if (!data || !show || month) return;
     if (headSkippedRef.current) {
       headSkippedRef.current = false;
       return;
@@ -253,6 +263,34 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
     if (title) title.textContent = head.title;
     if (lead) lead.textContent = head.lead;
   }, [data, show]);
+
+  useEffect(() => {
+    if (!monthView) return;
+    const title = document.getElementById('replay-title');
+    if (title) title.textContent = `CCIP in ${monthView.month.summary.label}`;
+    document.title = `CCIP in ${monthView.month.summary.label} · Replay · ccip.dev`;
+  }, [monthView]);
+
+  useEffect(() => {
+    if (noSuchMonth) document.documentElement.dataset.month = 'missing';
+  }, [noSuchMonth]);
+
+  useEffect(() => {
+    if (!monthView || !showInput || !assets) return;
+    const noCoins: ReadonlyMap<string, CanvasImageSource> = new Map();
+    window.ccipRecord = createRecordHook({
+      canRecord,
+      record: (aspect, lengthS, onProgress) =>
+        recordCut({ showInput, stars, assets, coins: () => settleWithin(coinLoadRef.current ?? Promise.resolve(noCoins), COIN_WAIT_MS, noCoins) }, aspect, lengthS, onProgress),
+      download: downloadBlob,
+      log: (line) => console.log(line),
+    });
+    document.documentElement.dataset.month = 'ready';
+    return () => {
+      delete window.ccipRecord;
+      delete document.documentElement.dataset.month;
+    };
+  }, [monthView, showInput, assets, stars]);
 
   const since = data?.replay.since ?? '';
   const lastDay = data?.replay.days.at(-1)?.day ?? '';
@@ -600,7 +638,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
       const href = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = href;
-      link.download = recordingFilename(lastDay, aspect, slug);
+      link.download = monthView ? monthRecordingFilename(monthView.month.month, aspect) : recordingFilename(lastDay, aspect, slug);
       link.click();
       setTimeout(() => URL.revokeObjectURL(href), 5_000);
       track('replay_record', { length, aspect });
@@ -623,6 +661,13 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
   const soundBusy = soundPending({ soundOn, playing, ready: show !== null && readyKey === scoreKey(show, lastDay), live: sourceLive });
 
   if (error) return <p className="card">{error}</p>;
+  if (noSuchMonth) {
+    return (
+      <p className="card" role="status">
+        No such month. Pick one that is over, as <code>?m=2026-09</code>.
+      </p>
+    );
+  }
   if (!data || !show) {
     if (!loadFailed) return null;
     return (
@@ -694,7 +739,7 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
         </div>
       </div>
       <div className="studio">
-        <ChainPicker chains={pickerChains} value={focus} onChange={chooseChain} disabled={recording !== null} />
+        {!month && <ChainPicker chains={pickerChains} value={focus} onChange={chooseChain} disabled={recording !== null} />}
         <Segmented
           label="Length"
           value={length}
@@ -704,13 +749,15 @@ export default function ReplayPlayer({ focus: initialFocus, slugs }: { focus: st
         />
         <ShapePicker value={aspect} onChange={setAspect} disabled={recording !== null} />
         <span className="spacer" />
-        <ShareButton
-          view={slug ? `replay/${slug}` : 'replay'}
-          headline={focusName ? `Watch ${focusName} on Chainlink CCIP` : 'Watch CCIP grow from the first message to today'}
-          url={pageUrl}
-          cardUrl={`/og/replay${slug ? `/${slug}` : ''}.png`}
-          disabled={recording !== null}
-        />
+        {!month && (
+          <ShareButton
+            view={slug ? `replay/${slug}` : 'replay'}
+            headline={focusName ? `Watch ${focusName} on Chainlink CCIP` : 'Watch CCIP grow from the first message to today'}
+            url={pageUrl}
+            cardUrl={`/og/replay${slug ? `/${slug}` : ''}.png`}
+            disabled={recording !== null}
+          />
+        )}
         {recordable && !recording && (
           <button type="button" className="btn btn-primary" onClick={() => void record()}>
             <span className="rec-dot" aria-hidden="true" />

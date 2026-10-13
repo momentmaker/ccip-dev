@@ -17,9 +17,11 @@ interface Props {
   title: string;
   description: string;
   cardPath?: string | null;
+  /** Keeps an unlisted page out of search results. */
+  noindex?: boolean;
 }
 
-const { title, description, cardPath = null } = Astro.props;
+const { title, description, cardPath = null, noindex = false } = Astro.props;
 const fullTitle = title === 'ccip.dev' ? title : `${title} · ccip.dev`;
 const canonical = new URL(Astro.url.pathname, SITE_URL).href;
 const ogImage = ogImageUrl(cardPath, BUILD_DATE);
@@ -32,6 +34,7 @@ const ogImage = ogImageUrl(cardPath, BUILD_DATE);
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#2f62df" />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
