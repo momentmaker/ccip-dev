@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
-import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, PLANET_LABEL_W, rarestBarPct, serialFromPath, shareLine, tierName, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
+import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, PLANET_LABEL_W, rarestBarPct, serialFromPath, shareLine, tierName, tipPosition, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
 
 describe('Marine URLs', () => {
   it('pads the page path, and keeps the web card on the bare serial', () => {
@@ -66,5 +66,29 @@ describe('the constellation layout', () => {
     const [a, b] = [planetLayout([9, 3, 1], WIDE_FRAME), planetLayout([9, 3, 1], WIDE_FRAME)];
     // #then
     expect({ same: a, biggest: a[0]!.size, central: Math.abs(a[0]!.x - WIDE_FRAME.width / 2) < WIDE_FRAME.width / WIDE_FRAME.cols }).toEqual({ same: b, biggest: WIDE_FRAME.max, central: true });
+  });
+});
+
+describe('tipPosition', () => {
+  const viewport = { width: 1280, height: 800 };
+
+  it('sits beside the pointer', () => {
+    // #then
+    expect(tipPosition(100, 200, viewport)).toEqual({ left: 114, top: 214 });
+  });
+
+  it('flips to the left of the pointer at the right edge', () => {
+    // #then
+    expect(tipPosition(1000, 200, viewport)).toEqual({ left: 686, top: 214 });
+  });
+
+  it('flips above the pointer at the bottom edge', () => {
+    // #then
+    expect(tipPosition(100, 750, viewport)).toEqual({ left: 114, top: 636 });
+  });
+
+  it('never leaves the left or top of the viewport', () => {
+    // #then
+    expect(tipPosition(100, 50, { width: 200, height: 100 })).toEqual({ left: 8, top: 8 });
   });
 });

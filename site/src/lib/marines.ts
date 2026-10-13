@@ -39,6 +39,14 @@ export const shareLine = (m: Pick<RosterMarine, 'serial' | 'callsign' | 'tier'>)
 
 /** The ticker crawls about 60 px a second; an item runs about 300 px. */
 export const TICKER_SECONDS_PER_ITEM = 5;
+/** Fewer items than this are narrower than the lane, so the crawl would show a blank gap: they sit still instead. */
+export const TICKER_MIN_ITEMS = 5;
+
+/** Where the board's tooltip goes: beside the pointer, flipped to the other side when it would leave the viewport. */
+export function tipPosition(x: number, y: number, viewport: { width: number; height: number }, size = { width: 300, height: 100 }): { left: number; top: number } {
+  const place = (at: number, extent: number, room: number) => Math.max(8, at + 14 + extent > room ? at - 14 - extent : at + 14);
+  return { left: place(x, size.width, viewport.width), top: place(y, size.height, viewport.height) };
+}
 
 export interface PlanetFrame {
   cols: number;

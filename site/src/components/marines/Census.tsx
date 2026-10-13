@@ -1,6 +1,7 @@
 import { serialText } from '@ccip-dev/core/linkmarine';
 import { callsignsPerTag, census, tagBoard, type BoardTag, type RosterFile, type TierCount } from '@ccip-dev/core/roster';
 import { useState } from 'react';
+import { tipPosition } from '../../lib/marines';
 
 function TierBar({ tier, count, sharePct, expectedPct }: TierCount) {
   return (
@@ -17,9 +18,9 @@ function TierBar({ tier, count, sharePct, expectedPct }: TierCount) {
   );
 }
 
-function BoardTip({ tag: t, x, y }: { tag: BoardTag; x: number; y: number }) {
+function BoardTip({ tag: t, left, top }: { tag: BoardTag; left: number; top: number }) {
   return (
-    <div className="mr-tip" style={{ left: x + 14, top: y + 14 }} aria-hidden="true">
+    <div className="mr-tip" style={{ left, top }} aria-hidden="true">
       <b>{t.tag}</b>
       <br />
       {t.count} {t.count === 1 ? 'meme' : 'memes'} · about 1 in {callsignsPerTag(t.chance).toLocaleString('en-US')} callsigns
@@ -39,8 +40,9 @@ function BoardTip({ tag: t, x, y }: { tag: BoardTag; x: number; y: number }) {
 
 /** The tier bars against the odds, and the board of every tag: a mouse enhancement, its facts also reachable by the wall's search. */
 export default function Census({ roster, onPickTag }: { roster: RosterFile; onPickTag: (tag: string) => void }) {
-  const [tip, setTip] = useState<{ tag: BoardTag; x: number; y: number } | null>(null);
+  const [tip, setTip] = useState<{ tag: string; left: number; top: number } | null>(null);
   const board = tagBoard(roster);
+  const tipTag = tip && board.find((t) => t.tag === tip.tag);
   const drawn = board.filter((t) => t.discoverer !== null).length;
   return (
     <section className="mr-section" aria-labelledby="census-title">
@@ -62,12 +64,12 @@ export default function Census({ roster, onPickTag }: { roster: RosterFile; onPi
               <i
                 key={t.tag}
                 className={`mr-hex${t.discoverer ? ' mr-on' : ''}${t.count === 1 ? ' mr-one' : ''}`}
-                onMouseMove={(e) => setTip({ tag: t, x: e.clientX, y: e.clientY })}
+                onMouseMove={(e) => setTip({ tag: t.tag, ...tipPosition(e.clientX, e.clientY, { width: window.innerWidth, height: window.innerHeight }) })}
                 onClick={t.discoverer ? () => onPickTag(t.tag) : undefined}
               />
             ))}
           </div>
-          {tip && <BoardTip {...tip} />}
+          {tip && tipTag && <BoardTip tag={tipTag} left={tip.left} top={tip.top} />}
           <p className="mr-note">Every hexagon is one of the {board.length} tags, commonest first. Lit ones have been drawn; gold ones exist in only one meme. Hover one to see who drew it first.</p>
         </div>
       </div>
