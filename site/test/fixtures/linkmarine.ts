@@ -1,4 +1,4 @@
-import type { MarineCard, Tier } from '@ccip-dev/core/linkmarine';
+import type { DossierCard, MarineCard, SitrepCard, Tier } from '@ccip-dev/core/linkmarine';
 
 /** Text the card fonts can draw: their Latin subset. */
 export const DRAWABLE_TEXT = /^[\u0020-\u007e\u00a0-\u00ff\u2000-\u206f\u20ac\u2122]*$/;
@@ -27,3 +27,44 @@ export function marine(tier: Tier, pngs: readonly Uint8Array[], avatar: Uint8Arr
     avatar,
   };
 }
+
+// Real intel from data.ccip.dev on Tue 13 Oct 2026, as the bot computes it: the cards' fixtures and the visual check's input.
+export const AVALANCHE = { selector: '6433500567565415381', name: 'Avalanche' };
+export const BASE = { selector: '15971525489660198786', name: 'Base' };
+export const ETHEREUM = { selector: '5009297550715157269', name: 'Ethereum' };
+export const MONAD = { selector: '8481857512324358265', name: 'Monad' };
+export const PLASMA = { selector: '9335212494177455608', name: 'Plasma' };
+export const ROBINHOOD = { selector: '6180753054346818345', name: 'Robinhood' };
+
+export const SITREP: SitrepCard = {
+  updatedAt: '2026-10-13T11:28:01.860Z',
+  messages: 685,
+  pace: { projected: 1433.6563323454902, yesterday: 1625 },
+  usd: 44064348.04,
+  feesUsd: 419.36,
+  linkSharePct: 0.25,
+  senders: 211,
+  medianDeliveryS: 820,
+  lanes: [
+    { src: MONAD, dst: ETHEREUM, usd: 16298903.16 },
+    { src: ETHEREUM, dst: MONAD, usd: 10704140.65 },
+    { src: ETHEREUM, dst: PLASMA, usd: 6754321.91 },
+    { src: MONAD, dst: AVALANCHE, usd: 1999585.26 },
+    { src: MONAD, dst: PLASMA, usd: 1468701.01 },
+  ],
+};
+
+export const DOSSIER: DossierCard = {
+  asOf: '2026-10-13T06:01:00.177Z',
+  chain: BASE,
+  rank: 3,
+  ranked: 92,
+  feeRank: 1,
+  messages: 552062,
+  usd: 3792810516,
+  feesUsd: 356718.47,
+  week: { messages: 3881, usd: 16181949 },
+  days: [{ day: '2026-10-06', messages: 684 }, { day: '2026-10-07', messages: 639 }, { day: '2026-10-08', messages: 756 }, { day: '2026-10-09', messages: 391 }, { day: '2026-10-10', messages: 352 }, { day: '2026-10-11', messages: 442 }, { day: '2026-10-12', messages: 617 }],
+  partners: [{ chain: MONAD, usd: 5788934 }, { chain: ETHEREUM, usd: 5290358 }, { chain: AVALANCHE, usd: 2114221 }, { chain: ROBINHOOD, usd: 1454504 }],
+  since: '2023-09-16',
+};
