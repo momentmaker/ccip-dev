@@ -162,6 +162,11 @@ export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
     now: () => new Date(clock.ms),
     random: seededRandom(42),
     snapshot: SNAPSHOT,
+    data: {
+      load: async (name) => {
+        throw new Error(`no ${name} in this test`);
+      },
+    },
     alerts,
     clock,
     ...overrides,

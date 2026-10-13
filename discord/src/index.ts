@@ -1,5 +1,7 @@
 import { createBot, type Bot } from './bot';
 import type { Env } from './env';
+import { chainChoices } from './intel';
+import { COMMAND_KINDS, intelCommand } from './intel-commands';
 import { deferred, InteractionType, json, privateReply, ResponseType, type Interaction } from './interactions';
 import { dogtagCommand, enlistCommand, TEXT } from './marines';
 import { verifyDiscordRequest } from './verify';
@@ -58,10 +60,18 @@ function guarded(bot: Bot, command: (bot: Bot, interaction: Interaction, started
   };
 }
 
+/** Discord drops an autocomplete not answered in 3 s; chains.json gets this long on a cold cache. */
+const AUTOCOMPLETE_BUDGET_MS = 2_000;
+
 export function botHandlers(bot: Bot): Handlers {
+  const intel = Object.fromEntries(Object.entries(COMMAND_KINDS).map(([name, kind]) => [name, guarded(bot, (b, i, startedAt) => intelCommand(b, i, kind, startedAt))]));
   return {
-    commands: { enlist: guarded(bot, enlistCommand), dogtag: guarded(bot, dogtagCommand) },
-    autocomplete: async () => [],
+    commands: { enlist: guarded(bot, enlistCommand), dogtag: guarded(bot, dogtagCommand), ...intel },
+    autocomplete: async (interaction) => {
+      const typed = String(interaction.data?.options?.find((o) => o.focused)?.value ?? '');
+      const chains = await Promise.race([bot.data.load('chains.json'), bot.deadline(AUTOCOMPLETE_BUDGET_MS)]);
+      return chains ? chainChoices(chains, typed) : [];
+    },
   };
 }
 

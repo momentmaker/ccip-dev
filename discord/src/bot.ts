@@ -1,5 +1,6 @@
 import type { LinkMarineRenderer } from '@ccip-dev/core/linkmarine';
 import { createAlerter, type Alert } from './alerts';
+import { publicData, type PublicData } from './data';
 import { discordApi, type DiscordApi } from './discord-api';
 import { cryptoRandom, type CallsignSnapshot } from './draw';
 import type { Env } from './env';
@@ -11,6 +12,7 @@ export interface Bot {
   bucket: R2Bucket;
   renderer: LinkMarineRenderer;
   discord: DiscordApi;
+  data: PublicData;
   alert: Alert;
   fetch: typeof fetch;
   sleep: (ms: number) => Promise<void>;
@@ -34,6 +36,7 @@ export function createBot(env: Env): Bot {
     bucket: env.MARINES,
     renderer: env.SITE,
     discord: discordApi(env.DISCORD_APPLICATION_ID ?? '', { fetch: fetchFn, sleep }),
+    data: publicData({ fetch: fetchFn, now: () => Date.now(), cache: caches.default }),
     alert: createAlerter(env.DB, { token: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_ALERT_CHAT_ID }, { fetch: fetchFn, now }),
     fetch: fetchFn,
     sleep,
