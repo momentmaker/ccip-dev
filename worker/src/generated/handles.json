@@ -34,6 +34,12 @@
       "x": "humafinance"
     },
     {
+      "chain": "hyperliquid-mainnet",
+      "address": "0xfd739d4e423301ce9385c1fb8850539d657c296d",
+      "project": "Kinetiq",
+      "x": "kinetiq_xyz"
+    },
+    {
       "chain": "ethereum-mainnet",
       "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
       "project": "Lido",
@@ -60,6 +66,12 @@
     {
       "chain": "robinhood-mainnet",
       "address": "0x40858070814a57fdf33a613ae84fe0a8b4a874f7",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
       "project": "Maple Finance",
       "x": "maplefinance"
     },

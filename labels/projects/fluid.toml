@@ -1,0 +1,12 @@
+name = "Fluid"
+x = "0xfluid"
+url = "https://fluid.io"
+kind = "protocol"
+# Unverified: Fluid does not publish this address. The proxy and its BridgeAggregator implementation are verified on Blockscout,
+# and its owner() is FluidTimelockController 0x4d6ce4f4498d59eed397bcbc687805a07f9b2346 (Instadapp/fluid-contracts-public deployments).
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x5126a82e52f78b73fde29b0d9800170e77abfdca"
+note = "FluidBridgeAggregatorProxy (Fluid Lite USD vault bridging)"

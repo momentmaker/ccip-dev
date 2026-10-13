@@ -23,3 +23,8 @@ source = "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integratio
 chain = "robinhood-mainnet"
 address = "0x40858070814a57FdF33a613ae84fE0a8b4a874f7"
 source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "solana-mainnet"
+address = "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"

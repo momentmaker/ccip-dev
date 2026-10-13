@@ -1,0 +1,11 @@
+name = "Arbitrum Foundation"
+x = "arbitrum"
+url = "https://arbitrum.foundation"
+kind = "institution"
+verified = true
+
+# Source: https://forum.arbitrum.foundation/t/29619/33 and https://forum.arbitrum.foundation/t/30691/20 (the Foundation's own forum account).
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xac20cd734c65baf48a1476447af7d3e3165dc739"
+note = "Foundation Safe for DAO treasury stablecoin strategies"
