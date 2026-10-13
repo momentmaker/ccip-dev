@@ -1,9 +1,10 @@
-import { createBot, type Bot } from './bot';
+import { createBot, SNAPSHOT, type Bot } from './bot';
 import type { Env } from './env';
 import { chainActivity, chainChoices } from './intel';
 import { COMMAND_KINDS, intelCommand } from './intel-commands';
 import { deferred, InteractionType, json, privateReply, ResponseType, type Interaction } from './interactions';
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
+import { publicRoute, type PublicDeps } from './public';
 import { verifyDiscordRequest } from './verify';
 
 export const NOT_HERE = 'ccip.dev isn’t available here.';
@@ -134,9 +135,23 @@ function parseInteraction(body: string): Interaction | null {
   }
 }
 
+function publicDeps(env: Env, ctx: ExecutionContext): PublicDeps {
+  return {
+    db: env.DB,
+    bucket: env.MARINES,
+    renderer: env.SITE,
+    fetch: (input, init) => fetch(input, init),
+    snapshot: SNAPSHOT,
+    now: () => new Date(),
+    cache: caches.default,
+    waitUntil: (work) => ctx.waitUntil(work),
+  };
+}
+
 export default {
   async fetch(request, env, ctx) {
-    if (request.method !== 'POST' || new URL(request.url).pathname !== '/interactions') return new Response('Not found', { status: 404 });
+    if (new URL(request.url).pathname !== '/interactions') return (await publicRoute(request, publicDeps(env, ctx))) ?? new Response('Not found', { status: 404 });
+    if (request.method !== 'POST') return new Response('Not found', { status: 404 });
     const body = await cappedBody(request);
     if (body === null) return new Response('Request body too large', { status: 413 });
     const valid = await verifyDiscordRequest(env.DISCORD_PUBLIC_KEY ?? '', request.headers.get('X-Signature-Ed25519'), request.headers.get('X-Signature-Timestamp'), body);

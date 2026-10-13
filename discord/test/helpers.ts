@@ -4,6 +4,8 @@ import type { Bot } from '../src/bot';
 import type { Attachment, DiscordApi } from '../src/discord-api';
 import { simulate, type CallsignSnapshot } from '../src/draw';
 import type { CommandOption, Interaction } from '../src/interactions';
+import type { PublicDeps } from '../src/public';
+import { enlist, type MarineMeme } from '../src/store';
 
 export const GUILD = '1100000000000000001';
 export const APP = '1200000000000000002';
@@ -181,4 +183,56 @@ export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
     clock,
     ...overrides,
   } as FakeBot;
+}
+
+/**
+ * Enlists a Marine straight into the test D1 with the given callsign. Each meme is the tag's first snapshot file,
+ * keyed as the bot keys memes. `extra` overrides the draw's tier, score or percentile, or the memes (to leave out counts).
+ */
+export async function seedMarine(
+  userId: string,
+  displayName: string,
+  callsign: string,
+  extra: { tier?: 'common' | 'uncommon' | 'rare' | 'legendary'; score?: number; percentile?: number; memes?: MarineMeme[] } = {},
+): Promise<void> {
+  const tags = callsign.split('-') as [string, string, string];
+  const files = tags.map((tag) => SNAPSHOT.tags.find((t) => t.tag === tag)!.memes[0]!);
+  const result = await enlist(
+    env.DB,
+    { platform: 'discord', userId, displayName, enlistedAt: '2026-10-13T10:40:00.000Z', snapshotVersion: SNAPSHOT.version },
+    () => ({
+      draw: { tags, callsign, tagKey: [...tags].sort().join('-'), score: extra.score ?? 15, tier: extra.tier ?? 'common', percentile: extra.percentile ?? 40 },
+      memes: extra.memes ?? tags.map((tag, i) => ({ tag, file: files[i]!, key: `memes/${files[i]}.png`, count: SNAPSHOT.tags.find((t) => t.tag === tag)!.count, sha: SNAPSHOT.archive.sha })),
+      blood: 'LINK+',
+      faith: '4IR',
+    }),
+  );
+  if (result.kind !== 'enlisted') throw new Error(`seedMarine ${callsign}: ${result.kind}`);
+}
+
+/** The public routes' dependencies on the test D1 and R2, with the fake renderer and archive, and no edge cache. */
+export function publicDeps(overrides: Partial<PublicDeps> = {}): PublicDeps & { renderer: ReturnType<typeof fakeRenderer>; fetch: ReturnType<typeof fakeFetch>; work: Promise<unknown>[] } {
+  const work: Promise<unknown>[] = [];
+  return {
+    db: env.DB,
+    bucket: env.MARINES,
+    renderer: fakeRenderer(),
+    fetch: fakeFetch(ARCHIVE_ROUTES),
+    snapshot: SNAPSHOT,
+    now: () => new Date('2026-10-13T14:00:00.000Z'),
+    cache: null,
+    waitUntil: (p) => void work.push(p),
+    work,
+    ...overrides,
+  } as PublicDeps & { renderer: ReturnType<typeof fakeRenderer>; fetch: ReturnType<typeof fakeFetch>; work: Promise<unknown>[] };
+}
+
+/** An edge cache in a Map, keyed by URL. */
+export function fakeCache(): Pick<Cache, 'match' | 'put'> & { store: Map<string, Response> } {
+  const store = new Map<string, Response>();
+  return {
+    store,
+    match: async (request: RequestInfo | URL) => store.get(String(request instanceof Request ? request.url : request))?.clone(),
+    put: async (request: RequestInfo | URL, response: Response) => void store.set(String(request instanceof Request ? request.url : request), response),
+  } as Pick<Cache, 'match' | 'put'> & { store: Map<string, Response> };
 }

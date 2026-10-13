@@ -179,4 +179,11 @@ describe('the interactions endpoint', () => {
     // #then
     expect(await Promise.all(replies.map((r) => r.json()))).toEqual([{ type: 8, data: { choices: [{ name: 'Base', value: '15971525489660198786' }] } }, { type: 8, data: { choices: [] } }]);
   });
+
+  it('serves the public roster beside the interactions endpoint', async () => {
+    // #when
+    const res = await handle(new Request('https://discord.ccip.dev/roster.json'), env);
+    // #then
+    expect([res.status, ((await res.json()) as { version: number }).version]).toEqual([200, 1]);
+  });
 });
