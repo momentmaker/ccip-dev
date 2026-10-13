@@ -1,7 +1,7 @@
 import { ROSTER_SCHEMA } from '@ccip-dev/core/roster';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { publicRoute } from '../src/public';
-import { fakeCache, publicDeps, resetStorage, seedMarine } from './helpers';
+import { fakeCache, publicDeps, resetStorage, seedMarine, SNAPSHOT } from './helpers';
 
 const PRIVATE_NAME = 'Zed PRIVATE-NAME 991';
 const PRIVATE_ID = '999888777666555444';
@@ -61,6 +61,22 @@ describe('/roster.json', () => {
     const [marine] = (await bodyOf(await publicRoute(get('/roster.json'), publicDeps()))).marines;
     // #then
     expect(marine.memes.map((m: { count: number }) => m.count)).toEqual([1, 1, 3]);
+  });
+
+  it('still builds when a Marine carries a tag the current snapshot lacks', async () => {
+    // #given a Marine whose memes were stored without counts, and a snapshot that has since dropped "space"
+    await seedMarine('a', 'momentmaker', 'painting-space-prophecy', { memes: ['shared.gif', 'sp1.jpeg', 'pr1.jpg'].map((file, i) => ({ tag: ['painting', 'space', 'prophecy'][i]!, file, key: `memes/${file}.png` })) });
+    const snapshot = { ...SNAPSHOT, tags: SNAPSHOT.tags.filter((t) => t.tag !== 'space') };
+    // #when
+    const res = (await publicRoute(get('/roster.json'), publicDeps({ snapshot })))!;
+    const body = await bodyOf(res);
+    // #then
+    expect({
+      status: res.status,
+      valid: ROSTER_SCHEMA.safeParse(body).success,
+      spaceCount: body.marines[0].memes[1].count,
+      spaceInSnapshot: body.snapshot.tags.some((t: { tag: string }) => t.tag === 'space'),
+    }).toEqual({ status: 200, valid: true, spaceCount: 1, spaceInSnapshot: false });
   });
 
   it('carries the snapshot: every tag with its count, its per-pick chance and its first meme', async () => {
