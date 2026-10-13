@@ -216,7 +216,7 @@ LinkMarine is a Discord app for the LinkMarine server: `/enlist` draws a permane
 - **Callsigns:** `docs/callsigns/tags.toml` (the allowed tags) and `docs/callsigns/lore.toml` (the BLOOD and FAITH lines, by weight) are read with the `../chainlinkmeme` checkout into `discord/src/data/callsigns.json` by `pnpm discord:snapshot` (add `--archive <path>` when the checkout is elsewhere). Commit that file; the deploy ships it. A new snapshot changes the odds of future draws only: a Marine's callsign, serial, tier, memes, lore and stamped name never change.
 - **Look at the cards:** `pnpm --filter @ccip-dev/site cards:linkmarine` writes every tier of the dog tag card, the Rare and Legendary glints and the four intel cards to `site/linkmarine-cards/` (git-ignored), from fixtures and the mockup's three memes in `../chainlinkmeme`.
 - **One-time setup (the owner, in order).** Until `DISCORD_BOT` is `on`, a merge deploys nothing of the bot, so nothing here is urgent.
-  1. Create the app at https://discord.com/developers/applications: name it LinkMarine. Note its Application ID and Public Key (General Information). Under Bot, reset the token once and keep it for step 8 only.
+  1. Create the app at https://discord.com/developers/applications: name it ccip.dev. Note its Application ID and Public Key (General Information). Under Bot, reset the token once and keep it for step 8 only.
   2. Create the database and the bucket:
      `pnpm --filter @ccip-dev/discord exec wrangler d1 create ccip-dev-marines`
      `pnpm --filter @ccip-dev/discord exec wrangler r2 bucket create ccip-dev-marines`
