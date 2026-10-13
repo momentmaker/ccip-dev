@@ -1,11 +1,76 @@
 name: monthly-video
 on:
+  schedule:
+    - cron: '15 1 1 * *'
   workflow_dispatch:
+    inputs:
+      month:
+        description: 'Month to record, as YYYY-MM (empty: last month)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Attach the video to the run without uploading it'
+        type: boolean
+        default: false
 permissions:
   contents: read
+concurrency: monthly-video
 jobs:
-  smoke:
+  record:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      month: ${{ steps.month.outputs.month }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Pick the month
+        id: month
+        env:
+          INPUT_MONTH: ${{ inputs.month }}
+        run: |
+          set -euo pipefail
+          month="${INPUT_MONTH:-$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m)}"
+          if ! [[ "${month}" =~ ^[0-9]{4}-(0[1-9]|1[0-2])$ ]]; then
+            echo "month must be YYYY-MM, not ${month}"
+            exit 1
+          fi
+          echo "month=${month}" >> "${GITHUB_OUTPUT}"
+      - name: Install Chrome stable and ffmpeg
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install --with-deps chrome
+          sudo apt-get install -y -qq ffmpeg
+      - name: Check Chrome can record
+        run: pnpm video:smoke
+      - name: Record the month
+        env:
+          MONTH: ${{ steps.month.outputs.month }}
+        run: pnpm video:monthly --month "${MONTH}" --out out/video
+      - name: Mux the soundtrack
+        env:
+          MONTH: ${{ steps.month.outputs.month }}
+        run: ffmpeg -y -v error -i out/video/video.mp4 -i out/video/audio.wav -c:v copy -c:a aac -b:a 128k -shortest -movflags +faststart "out/video/${MONTH}.mp4"
+      - name: Check the video
+        env:
+          MONTH: ${{ steps.month.outputs.month }}
+        run: pnpm video:check "out/video/${MONTH}.mp4"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: monthly-video-${{ steps.month.outputs.month }}
+          path: out/video/${{ steps.month.outputs.month }}.mp4
+          retention-days: 7
+          if-no-files-found: error
+  upload:
+    needs: record
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    environment: production
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -15,7 +80,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install Chrome stable
-        run: pnpm exec playwright install --with-deps chrome
-      - name: Check Chrome can record
-        run: pnpm video:smoke
+      - uses: actions/download-artifact@v8
+        with:
+          name: monthly-video-${{ needs.record.outputs.month }}
+          path: out/video
+      - name: Upload to the archive bucket
+        env:
+          MONTH: ${{ needs.record.outputs.month }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --filter @ccip-dev/worker exec wrangler r2 object put "ccip-dev-archive/videos/monthly/${MONTH}.mp4" --file "${GITHUB_WORKSPACE}/out/video/${MONTH}.mp4" --content-type video/mp4 --remote
