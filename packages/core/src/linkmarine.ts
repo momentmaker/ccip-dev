@@ -51,15 +51,25 @@ export function seededRandom(seed: number): () => number {
 
 export const RIM_PHRASES = ['LINK MARINES', 'STAY POOR', '4IR', 'FUNDAMENTALLY', 'WAGMI'] as const;
 
-/** The rim microtext: every phrase once, in an order the seed shuffles, then again, so it runs past the tag's edge. */
-export function rimText(seed: number): string {
+/**
+ * The rim microtext: every phrase once, in an order the seed shuffles, then again, so it runs past the tag's edge.
+ * With maxChars it is cut to whole phrases (repeating the order as needed) no longer than maxChars.
+ */
+export function rimText(seed: number, maxChars?: number): string {
   const random = seededRandom(seed);
   const order: string[] = [...RIM_PHRASES];
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [order[i], order[j]] = [order[j]!, order[i]!];
   }
-  return [...order, ...order].join(' · ');
+  if (maxChars === undefined) return [...order, ...order].join(' · ');
+  const phrases: string[] = [];
+  for (let i = 0; ; i++) {
+    const next = [...phrases, order[i % order.length]!].join(' · ');
+    if (next.length > maxChars) break;
+    phrases.push(order[i % order.length]!);
+  }
+  return phrases.join(' · ');
 }
 
 /** "0007": four digits until the 10,000th Marine. */

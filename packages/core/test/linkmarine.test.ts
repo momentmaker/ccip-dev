@@ -52,6 +52,30 @@ describe('LinkMarine seeds', () => {
     }).toEqual({ count: 10, each: true, repeat: true, stable: true, seeded: true });
   });
 
+  it('cuts the rim to whole phrases within a character budget, in the same order', () => {
+    // #given a seed and a budget that falls inside a phrase of the full rim
+    const full = rimText(1);
+    const maxChars = 40;
+    // #when
+    const rim = rimText(1, maxChars);
+    // #then
+    const phrases = rim.split(' · ');
+    expect({
+      fits: rim.length <= maxChars,
+      whole: phrases.every((p) => (RIM_PHRASES as readonly string[]).includes(p)),
+      sameOrder: full.startsWith(rim),
+      full: phrases.length >= 2,
+      none: rimText(1, 2),
+    }).toEqual({ fits: true, whole: true, sameOrder: true, full: true, none: '' });
+  });
+
+  it('repeats the phrases when the budget outruns one round', () => {
+    // #when
+    const rim = rimText(1, 200);
+    // #then
+    expect({ fits: rim.length <= 200, repeats: rim.split(' · ').length > 10 }).toEqual({ fits: true, repeats: true });
+  });
+
   it('pads a serial to four digits', () => {
     // #then
     expect([serialText(7), serialText(1234), serialText(12345)]).toEqual(['0007', '1234', '12345']);
