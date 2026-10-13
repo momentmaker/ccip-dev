@@ -38,6 +38,13 @@ describe('LinkMarine seeds', () => {
     expect({ same: draws.every(([x, y]) => x === y), inRange: draws.every(([x]) => x! >= 0 && x! < 1) }).toEqual({ same: true, inRange: true });
   });
 
+  it('pins the first draw of seed 7 and the rim of seed 1 to literal values, so a runtime that computes them differently fails here', () => {
+    // #when
+    const pinned = { first: seededRandom(7)(), rim: rimText(1) };
+    // #then
+    expect(pinned).toEqual({ first: 0.011704753153026104, rim: 'WAGMI · 4IR · STAY POOR · LINK MARINES · FUNDAMENTALLY · WAGMI · 4IR · STAY POOR · LINK MARINES · FUNDAMENTALLY' });
+  });
+
   it('writes the rim with every phrase twice, in an order the seed picks', () => {
     // #when
     const rims = [rimText(1), rimText(2), rimText(1)];
