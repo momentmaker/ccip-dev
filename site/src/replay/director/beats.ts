@@ -82,8 +82,8 @@ function withoutAdjacentDays(jumps: readonly Jump[]): Jump[] {
   return kept;
 }
 
-export function recordEvents(history: readonly { day: string; messages: number }[], days: readonly string[]): DayEvent[] {
-  const at = indexOf(days);
+/** Every busiest-day record after the first 30 days, a record beside a bigger one left out, the biggest jumps first. */
+function recordJumps(history: readonly { day: string; messages: number }[]): Jump[] {
   let best = 0;
   const jumps: Jump[] = [];
   [...history].sort(byDay).forEach((d, i) => {
@@ -91,14 +91,27 @@ export function recordEvents(history: readonly { day: string; messages: number }
     if (i >= RECORD_SKIP_DAYS && best > 0) jumps.push({ day: d.day, messages: d.messages, ratio: d.messages / best });
     best = d.messages;
   });
-  return withoutAdjacentDays(jumps)
-    .sort((a, b) => b.ratio - a.ratio || byDay(a, b))
-    .slice(0, MAX_RECORDS)
+  return withoutAdjacentDays(jumps).sort((a, b) => b.ratio - a.ratio || byDay(a, b));
+}
+
+function recordDayEvents(jumps: readonly Jump[], at: ReadonlyMap<string, number>): DayEvent[] {
+  return jumps
     .flatMap((j) => {
       const i = at.get(j.day);
       return i === undefined ? [] : [{ kind: 'record' as const, dayIndex: i, label: `Record day · ${formatCount(j.messages)} messages`, selectors: [] }];
     })
     .sort((a, b) => a.dayIndex - b.dayIndex);
+}
+
+/** The 3 biggest record jumps of all time, as beats when they fall among `days`. */
+export function recordEvents(history: readonly { day: string; messages: number }[], days: readonly string[]): DayEvent[] {
+  return recordDayEvents(recordJumps(history).slice(0, MAX_RECORDS), indexOf(days));
+}
+
+/** The 3 biggest record jumps among `days` (a month), measured against all of `history` before them. */
+export function windowRecordEvents(history: readonly { day: string; messages: number }[], days: readonly string[]): DayEvent[] {
+  const at = indexOf(days);
+  return recordDayEvents(recordJumps(history).filter((j) => at.has(j.day)).slice(0, MAX_RECORDS), at);
 }
 
 export function laneOpenEvents(replay: Pick<ReplayFile, 'chains' | 'lanes' | 'days'>, focus: string, days: readonly string[]): DayEvent[] {

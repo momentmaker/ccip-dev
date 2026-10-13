@@ -1,3 +1,4 @@
+import { monthBounds, monthLabel } from '@ccip-dev/core/month';
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { daysBetween } from '../../lib/days';
 import { formatUtcDay } from '../../lib/format';
@@ -10,6 +11,7 @@ import {
   laneOpenEvents,
   milestoneEvents,
   recordEvents,
+  windowRecordEvents,
   scheduleCards,
   scheduleSlams,
   SLAM_S,
@@ -19,7 +21,8 @@ import {
 } from './beats';
 import { cameraAt, punch, type Camera } from './camera';
 import { Leaderboard, type BoardRow } from './leaderboard';
-import { phaseAt, shotTiming, type Phase, type ShotTiming } from './phases';
+import { monthCardRows, type MonthInput } from './month';
+import { monthTiming, phaseAt, shotTiming, type Phase, type ShotTiming } from './phases';
 import { StoryCounter, type StoryValues } from './story';
 import { storyWarp, WARP_PRE_JOIN_SHARE, type Warp } from './warp';
 
@@ -34,6 +37,8 @@ export interface ShowInput {
   focus: string | null;
   eligible: (selector: string) => boolean;
   reducedMotion?: boolean;
+  /** The month cut: `replay` is then that month's (monthReplay), and `history` stays whole for the all-time beats. */
+  month?: MonthInput;
 }
 
 export interface ShowCard extends Card {
@@ -65,6 +70,8 @@ export interface ShowFrame {
   punch: number;
   focus: string | null;
   focusStar: number;
+  /** The month cut's end card rows, during its finale. */
+  endCard?: readonly string[];
 }
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
@@ -103,6 +110,8 @@ export class Show {
   private readonly title: { title: string; subtitle: string };
   private readonly hookLane: { from: number; to: number } | null;
   private readonly reducedMotion: boolean;
+  readonly month: string | null;
+  private readonly endCard: readonly string[] | null;
 
   constructor(input: ShowInput) {
     const { replay, history, stars, length } = input;
@@ -110,31 +119,39 @@ export class Show {
     const last = replay.days.at(-1)?.day;
     this.days = first && last ? daysBetween(first, last) : [];
     this.length = length;
-    this.timing = shotTiming(length);
+    const month = input.month ?? null;
+    this.month = month?.month ?? null;
+    this.timing = month ? monthTiming(length) : shotTiming(length);
     const focusChain = input.focus ? replay.chains.find((c) => c.selector === input.focus) ?? null : null;
     this.focus = focusChain?.selector ?? null;
     this.focusName = focusChain ? shortChainName(focusChain) : null;
     this.counter = new StoryCounter(this.days, history, replay, this.focus);
+    // The month cut's beats are all-time ones, as of the month's end, whenever the page is opened.
+    const known = month ? history.filter((d) => d.day <= monthBounds(month.month).last) : history;
     const milestones = this.focus
       ? computeMilestones(this.counter.dailyTotals(), [])
-      : computeMilestones(history, replay.chains);
+      : computeMilestones(known, month?.chains ?? replay.chains);
+    const records = month ? windowRecordEvents(known, this.days) : recordEvents(history, this.days);
     const events = [
       ...(this.focus ? laneOpenEvents(replay, this.focus, this.days) : joinEvents(replay.chains, this.days)),
       ...milestoneEvents(milestones, this.days),
-      ...(this.focus ? [] : recordEvents(history, this.days)),
+      ...(this.focus ? [] : records),
     ];
     const preJoin = focusChain ? { preDays: Math.max(0, this.days.indexOf(focusChain.first_day)), preShareMax: WARP_PRE_JOIN_SHARE } : undefined;
     this.warp = storyWarp(this.counter.dailyMessages(), dayFlags(events, this.days.length), this.timing.hook, length - this.timing.finale, length, preJoin);
     this.model = new ReplayModel(replay, history, stars, length, { count: REPLAY_COINS, eligible: input.eligible }, this.warp);
     this.cards = scheduleCards(events, this.warp, this.focusName);
     this.slams = scheduleSlams(events, this.warp);
-    this.board = new Leaderboard(replay, this.days, input.eligible, this.warp);
+    this.board = new Leaderboard(replay, this.days, input.eligible, this.warp, month ? this.days.length : undefined);
     this.fullExtent = Math.max(1e-6, ...stars.map((s) => Math.hypot(s.x, s.y)));
     this.focusPoint = this.focus ? stars.find((s) => s.selector === this.focus) ?? null : null;
     this.focusStar = this.focus ? stars.findIndex((s) => s.selector === this.focus) : -1;
-    this.title = focusChain
-      ? { title: `${this.focusName} × Chainlink CCIP`, subtitle: `since ${formatUtcDay(focusChain.first_day)}` }
-      : { title: `${yearsLabel(first ?? '', last ?? '')} of Chainlink CCIP`, subtitle: `in ${length} seconds` };
+    this.title = month
+      ? { title: `CCIP · ${monthLabel(month.month)}`, subtitle: '' }
+      : focusChain
+        ? { title: `${this.focusName} × Chainlink CCIP`, subtitle: `since ${formatUtcDay(focusChain.first_day)}` }
+        : { title: `${yearsLabel(first ?? '', last ?? '')} of Chainlink CCIP`, subtitle: `in ${length} seconds` };
+    this.endCard = month ? monthCardRows(month.summary) : null;
     const starOf = new Map(stars.map((s, i) => [s.selector, i]));
     const firstDay = [...replay.days].sort((a, b) => (a.day < b.day ? -1 : 1))[0];
     const lane = firstDay ? replay.lanes[firstDay.lanes[0]?.[0] ?? -1] : undefined;
@@ -146,7 +163,7 @@ export class Show {
 
   frameAt(t: number): ShowFrame {
     const time = Math.max(0, Math.min(t, this.length));
-    const phase = phaseAt(time, this.length);
+    const phase = phaseAt(time, this.length, this.timing);
     const modelT = Math.min(Math.max(time, this.warp.start), this.warp.end - 1e-6);
     const raw = this.model.frameAt(modelT);
     const sky = { ...raw.sky, comets: [...raw.sky.comets], lanes: [...raw.sky.lanes], stars: [...raw.sky.stars] };
@@ -202,7 +219,7 @@ export class Show {
       }),
       card: cardHit ? { ...cardHit, progress: (time - cardHit.start) / (cardHit.end - cardHit.start) } : null,
       slam: slamHit ? { ...slamHit, progress: (time - slamHit.start) / SLAM_S } : null,
-      story: this.counter.at(time, this.warp),
+      story: this.month ? { ...this.counter.at(time, this.warp), fees: this.counter.feesAt(time, this.warp) } : this.counter.at(time, this.warp),
       board: this.board.at(time, this.focus),
       hook: phase === 'hook' ? { ...this.title, progress: clamp01(time / this.timing.hook) } : null,
       finale: phase === 'finale' ? clamp01((time - finaleStart) / this.timing.finale) : 0,
@@ -210,6 +227,7 @@ export class Show {
       punch: Math.max(0, ...slamStarts.map((s) => punch(time - s))),
       focus: this.focus,
       focusStar: this.focusStar,
+      ...(this.endCard && phase === 'finale' ? { endCard: this.endCard } : {}),
     };
   }
 
@@ -226,6 +244,7 @@ export class Show {
   }
 
   yearTicks(): { time: number; label: string }[] {
+    if (this.month) return [];
     const years = this.days.flatMap((day, i) => (i === 0 || day.endsWith('-01-01') ? [{ time: this.warp.dayStart(i), label: day.slice(0, 4) }] : []));
     const gap = YEAR_TICK_GAP * (this.warp.end - this.warp.start);
     const kept: { time: number; label: string }[] = [];

@@ -6,7 +6,7 @@ export const BOARD_FADE_S = 0.4;
 export const BOARD_SWAP_S = 0.4;
 export const BOARD_REST_S = 0.4;
 export const BOARD_OVERTAKE = 1.05;
-const WINDOW_DAYS = 30;
+export const WINDOW_DAYS = 30;
 
 export interface BoardRow {
   selector: string;
@@ -99,6 +99,7 @@ export class Leaderboard {
     days: readonly string[],
     eligible: (selector: string) => boolean,
     private readonly warp: Warp,
+    windowDays: number = WINDOW_DAYS,
   ) {
     const lanesByDay = new Map(replay.days.map((d) => [d.day, d.lanes]));
     const running = new Map<string, number>();
@@ -115,7 +116,7 @@ export class Leaderboard {
     let order: string[] = [];
     days.forEach((_, d) => {
       shift(d, 1);
-      if (d >= WINDOW_DAYS) shift(d - WINDOW_DAYS, -1);
+      if (d >= windowDays) shift(d - windowDays, -1);
       const snapshot = new Map([...running].filter(([, v]) => v > 0));
       this.values.push(snapshot);
       order = overtakeOrder(order, new Map([...snapshot].filter(([s]) => eligible(s))));

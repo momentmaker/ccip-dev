@@ -7,6 +7,8 @@ export interface StoryValues {
   chains: number;
   day: string;
   timeline: number;
+  /** Fees paid so far; only the month cut counts them. */
+  fees?: number;
 }
 
 type Source = Pick<ReplayFile, 'chains' | 'lanes' | 'days'>;
@@ -16,11 +18,12 @@ export class StoryCounter {
   private readonly daily: { day: string; messages: number; usd_value: number }[];
   private readonly cumUsd: number[];
   private readonly cumMessages: number[];
+  private readonly cumFees: number[];
   private readonly chainsByDay: number[];
 
   constructor(
     private readonly days: readonly string[],
-    history: readonly { day: string; messages: number; usd_value: number }[],
+    history: readonly { day: string; messages: number; usd_value: number; fee_usd?: number | null }[],
     replay: Source,
     focus: string | null,
   ) {
@@ -57,6 +60,9 @@ export class StoryCounter {
     let messages = 0;
     this.cumUsd = this.daily.map((d) => (usd += d.usd_value));
     this.cumMessages = this.daily.map((d) => (messages += d.messages));
+    const feeByDay = new Map(history.map((h) => [h.day, h.fee_usd ?? 0]));
+    let fees = 0;
+    this.cumFees = days.map((day) => (fees += feeByDay.get(day) ?? 0));
   }
 
   dailyMessages(): number[] {
@@ -68,18 +74,28 @@ export class StoryCounter {
   }
 
   at(t: number, warp: Warp): StoryValues {
-    const { index, progress } = warp.dayAt(t);
-    const p = t <= warp.start ? 0 : progress;
-    const lerp = (cum: number[]) => {
-      const before = index > 0 ? cum[index - 1]! : 0;
-      return before + ((cum[index] ?? before) - before) * p;
-    };
+    const lerp = this.lerpAt(t, warp);
+    const { index } = warp.dayAt(t);
     return {
       usd: lerp(this.cumUsd),
       messages: lerp(this.cumMessages),
       chains: this.chainsByDay[index] ?? 0,
       day: this.days[index] ?? '',
       timeline: clamp01((t - warp.start) / Math.max(1e-9, warp.end - warp.start)),
+    };
+  }
+
+  /** The fees paid in the days so far, counted up through each day like the value moved. */
+  feesAt(t: number, warp: Warp): number {
+    return this.lerpAt(t, warp)(this.cumFees);
+  }
+
+  private lerpAt(t: number, warp: Warp): (cum: readonly number[]) => number {
+    const { index, progress } = warp.dayAt(t);
+    const p = t <= warp.start ? 0 : progress;
+    return (cum) => {
+      const before = index > 0 ? cum[index - 1]! : 0;
+      return before + ((cum[index] ?? before) - before) * p;
     };
   }
 }
