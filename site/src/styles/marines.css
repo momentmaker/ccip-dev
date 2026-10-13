@@ -32,6 +32,7 @@
 .mr-ticker-lane { flex: 1; min-width: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 50px, #000 calc(100% - 50px), transparent); mask-image: linear-gradient(90deg, transparent, #000 50px, #000 calc(100% - 50px), transparent); }
 .mr-ticker-run { display: inline-flex; white-space: nowrap; animation: mr-crawl linear infinite; }
 .mr-ticker-run ul { display: inline-flex; margin: 0; padding: 0; list-style: none; }
+.mr-still { overflow-x: auto; } .mr-still .mr-ticker-run { animation: none; }
 .mr-ticker:hover .mr-ticker-run, .mr-ticker:focus-within .mr-ticker-run { animation-play-state: paused; }
 @keyframes mr-crawl { to { transform: translateX(-50%); } }
 .mr-tk { display: inline-flex; align-items: center; gap: 9px; font: 700 13px/46px var(--font-mono); }
@@ -87,6 +88,7 @@ a.mr-seat { color: #0c0f14; }
 .mr-pill[aria-pressed='true'] { color: var(--fg); border-color: var(--blue-2); background: #13244d; }
 .mr-filter, .mr-empty { font: 600 13px var(--font-mono); color: #c3cad5; }
 .mr-filter button { background: none; border: 0; color: var(--blue-2); font: inherit; cursor: pointer; text-decoration: underline; }
+.mr-filter:empty { margin: 0; }
 .mr-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 26px 18px; margin: 22px 0 0; padding: 0; list-style: none; }
 .mr-wall-link { display: block; color: inherit; text-decoration: none; }
 .mr-slot { perspective: 900px; padding-top: 22px; position: relative; }

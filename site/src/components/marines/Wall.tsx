@@ -36,14 +36,16 @@ export default function Wall({ roster, query, onQuery }: { roster: RosterFile; q
           ))}
         </div>
       </div>
-      {query.tag !== null && (
-        <p className="mr-filter" role="status">
-          {marines.length} {marines.length === 1 ? 'Marine carries' : 'Marines carry'} “{query.tag}” ·{' '}
-          <button type="button" onClick={() => onQuery({ ...query, tag: null })}>
-            clear
-          </button>
-        </p>
-      )}
+      <p className="mr-filter" role="status">
+        {query.tag !== null && (
+          <>
+            {marines.length} {marines.length === 1 ? 'Marine carries' : 'Marines carry'} “{query.tag}” ·{' '}
+            <button type="button" onClick={() => onQuery({ ...query, tag: null })}>
+              clear
+            </button>
+          </>
+        )}
+      </p>
       {roster.marines.length === 0 ? (
         <p className="mr-empty">
           No Marines yet. Be #0001: <code>/enlist</code>

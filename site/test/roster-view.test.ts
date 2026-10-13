@@ -22,6 +22,13 @@ describe('the roster page', () => {
     expect({ label: out.includes('LIVE · ROSTER'), runs: out.match(/class="mr-ticker-run"/g)?.length, hidden: /<ul[^>]*aria-hidden="true"/.test(out), sighting: text(out).includes('FIRST SIGHTING “painting” about 1 in 7 · discovered by #0002') }).toEqual({ label: true, runs: 1, hidden: true, sighting: true });
   });
 
+  it('lets a near-empty roster sit still: one copy, no crawl', () => {
+    // #when
+    const out = html({ roster: { ...ROSTER_FIXTURE, marines: [] } });
+    // #then
+    expect({ still: out.includes('mr-still'), repeat: /<ul[^>]*aria-hidden="true"/.test(out), duration: out.includes('animation-duration') }).toEqual({ still: true, repeat: false, duration: false });
+  });
+
   it('bars each tier against its odds', () => {
     // #then
     expect(text(html())).toContain('LEGENDARY 1 · 25% / 3 RARE 1 · 25% / 12 UNCOMMON 1 · 25% / 25 COMMON 1 · 25% / 60');

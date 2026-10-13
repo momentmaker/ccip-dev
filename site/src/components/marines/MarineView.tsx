@@ -89,7 +89,7 @@ export function MarinePage({ roster, failed, serial }: { roster: RosterFile | nu
         <ul className="mr-profile-tags">
           {marineTags(roster, marine).map((t) => (
             <li key={t.tag}>
-              <span className="mr-profile-meme" style={{ backgroundImage: `url(${memeUrl(t.file)})` }} aria-hidden="true" />
+              <span className="mr-profile-meme" style={{ backgroundImage: `url("${memeUrl(t.file)}")` }} aria-hidden="true" />
               <span className="mr-profile-tag">{t.tag}</span>
               <span className="mr-profile-pips" aria-hidden="true">
                 {pipText(t.count)}
