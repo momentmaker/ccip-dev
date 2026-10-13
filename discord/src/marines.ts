@@ -86,7 +86,8 @@ async function avatar(bot: Bot, serial: number, url: string | null): Promise<Uin
 /** The card to post, best first: the glint when there is one, then the static PNG. */
 type Cards = Attachment[];
 
-async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes: Uint8Array | null): Promise<{ png: Uint8Array; gif: Uint8Array | null }> {
+/** The card, and the glint for Rare and up; a failed glint is reported and leaves the static card to post. */
+async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes: Uint8Array | null, reports: Report[]): Promise<{ png: Uint8Array; gif: Uint8Array | null }> {
   const count = (tag: string) => bot.snapshot.tags.find((t) => t.tag === tag)?.count ?? 1;
   const card: MarineCard = {
     serial: marine.serial,
@@ -100,7 +101,13 @@ async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes:
     enlistedAt: marine.enlistedAt,
     avatar: avatarBytes,
   };
-  const [png, gif] = await Promise.all([bot.renderer.renderMarineCard(card), hasGlint(marine.tier) ? bot.renderer.renderMarineGlint(card) : Promise.resolve(null)]);
+  const glint = hasGlint(marine.tier)
+    ? bot.renderer.renderMarineGlint(card).catch((err: unknown) => {
+        reports.push({ signature: 'discord-render:marine', text: `glint for Marine #${marine.serial} failed: ${reason(err)}` });
+        return null;
+      })
+    : null;
+  const [png, gif] = await Promise.all([bot.renderer.renderMarineCard(card), glint]);
   return { png, gif };
 }
 
@@ -133,7 +140,7 @@ export async function stampCard(bot: Bot, marine: Marine, avatarSource: string |
     }
     let rendered;
     try {
-      rendered = await render(bot, marine, pngs, avatarBytes);
+      rendered = await render(bot, marine, pngs, avatarBytes, reports);
     } catch (err) {
       reports.push({ signature: 'discord-render:marine', text: `Marine #${marine.serial}'s card failed to render: ${reason(err)}` });
       return null;

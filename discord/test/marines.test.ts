@@ -167,6 +167,21 @@ describe('/dogtag', () => {
     });
   });
 
+  it('stamps on demand without the glint when the glint fails, keeping and posting the static card', async () => {
+    // #given a Legendary whose card failed at enlistment
+    await enlistCommand(fakeBot({ snapshot: LEGENDARY, renderer: fakeRenderer('renderMarineCard') }), command('enlist'));
+    const bot = fakeBot({ snapshot: LEGENDARY, renderer: fakeRenderer('renderMarineGlint') });
+    // #when
+    await dogtagCommand(bot, command('dogtag'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({ calls: bot.discord.calls.map((c) => [c.kind, c.content, c.file]), cardKey: marine.cardKey, alerts: bot.alerts.map((a) => [a.signature, a.text]) }).toEqual({
+      calls: [['edit', marine.callsign, 'marine-1.png']],
+      cardKey: 'cards/1.png',
+      alerts: [['discord-render:marine', 'glint for Marine #1 failed: renderMarineGlint failed']],
+    });
+  });
+
   it('answers privately when the card still cannot be drawn', async () => {
     // #given
     await enlistCommand(fakeBot({ renderer: fakeRenderer('renderMarineCard') }), command('enlist'));
@@ -213,6 +228,26 @@ describe('a committed Marine always ends with the card or the stamping line', ()
     await enlistCommand(bot, command('enlist'));
     // #then
     expect({ last: bot.discord.calls.at(-1)!.file, alerts: bot.alerts.map((a) => a.signature) }).toEqual({ last: 'marine-1.png', alerts: ['discord-upload'] });
+  });
+
+  it('posts and keeps the static card when the glint fails to render, and alerts the glint alone', async () => {
+    // #given
+    const bot = fakeBot({ snapshot: LEGENDARY, renderer: fakeRenderer('renderMarineGlint') });
+    // #when
+    await enlistCommand(bot, command('enlist'));
+    // #then
+    const marine = (await findMarine(env.DB, 'discord', ME))!;
+    expect({
+      last: bot.discord.calls.at(-1),
+      cardKey: marine.cardKey,
+      gif: (await env.MARINES.head('cards/1.gif')) !== null,
+      alerts: bot.alerts,
+    }).toEqual({
+      last: { kind: 'edit', content: marine.callsign, file: 'marine-1.png', at: bot.clock.ms },
+      cardKey: 'cards/1.png',
+      gif: false,
+      alerts: [{ signature: 'discord-render:marine', text: 'glint for Marine #1 failed: renderMarineGlint failed' }],
+    });
   });
 
   it('says the tag is being stamped when neither card can be uploaded', async () => {
