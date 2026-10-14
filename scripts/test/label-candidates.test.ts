@@ -8,7 +8,7 @@ import { parse } from 'smol-toml';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, coverageWindows, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
-  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, solanaSendProgram, spreadMarkdown,
+  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, solanaSendProgram, CCIP_ROUTER_SOLANA, spreadMarkdown,
   spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
@@ -447,37 +447,67 @@ describe('the candidates pull request', () => {
 
 describe('Solana program hints', () => {
   const COMPUTE_BUDGET = 'ComputeBudget111111111111111111111111111111';
+  const SWAP_PROGRAM = 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK';
   const tx = (accountKeys: string[], programIdIndexes: number[], readonly: string[] = []) => ({
     transaction: { message: { accountKeys, instructions: programIdIndexes.map((programIdIndex) => ({ programIdIndex })) } },
     meta: { loadedAddresses: { writable: [], readonly } },
   });
-  const rpc = (signatures: unknown, transaction: unknown, seen: string[] = []) =>
+  const rpc = (signatures: unknown, transactions: Record<string, unknown>, seen: string[] = []) =>
     fakeFetch((_url, init) => {
       const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: unknown[] };
       seen.push(method === 'getTransaction' ? `${method} ${String(params[0])}` : method);
-      return jsonResponse({ jsonrpc: '2.0', id: 1, result: method === 'getSignaturesForAddress' ? signatures : transaction });
+      return jsonResponse({ jsonrpc: '2.0', id: 1, result: method === 'getSignaturesForAddress' ? signatures : (transactions[String(params[0])] ?? null) });
     });
+  const XBRIDGE_SEND = tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, XBRIDGE_PROGRAM], [1, 2], [CCIP_ROUTER_SOLANA]);
 
   it("names the program xStocks's Solana sender sends through, skipping compute budget, from its latest successful send", async () => {
-    // #given a failed send, then a successful one that sets a compute budget and calls the xBridge program
+    // #given a failed send, then a successful one that sets a compute budget and calls the xBridge program, which reaches the router
     const seen: string[] = [];
-    const fetchFn = rpc([{ signature: 'failed', err: { InstructionError: [0, 'Custom'] } }, { signature: 'sent', err: null }], tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, XBRIDGE_PROGRAM], [1, 2]), seen);
+    const fetchFn = rpc([{ signature: 'failed', err: { InstructionError: [0, 'Custom'] } }, { signature: 'sent', err: null }], { sent: XBRIDGE_SEND }, seen);
     // #when
     const program = await solanaSendProgram(fetchFn, 'https://rpc', XBRIDGE_SOLANA);
     // #then
     expect({ program, seen }).toEqual({ program: XBRIDGE_PROGRAM, seen: ['getSignaturesForAddress', 'getTransaction sent'] });
   });
 
+  it('skips its latest transactions that never reach the CCIP router, such as a swap', async () => {
+    // #given a swap after its latest CCIP send
+    const seen: string[] = [];
+    const fetchFn = rpc([{ signature: 'swap', err: null }, { signature: 'sent', err: null }], { swap: tx([XBRIDGE_SOLANA, SWAP_PROGRAM], [1]), sent: XBRIDGE_SEND }, seen);
+    // #when
+    const program = await solanaSendProgram(fetchFn, 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect({ program, seen }).toEqual({ program: XBRIDGE_PROGRAM, seen: ['getSignaturesForAddress', 'getTransaction swap', 'getTransaction sent'] });
+  });
+
+  it('names the CCIP router for a wallet that calls it directly, and the hint says so', async () => {
+    // #when
+    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], { sent: tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, CCIP_ROUTER_SOLANA], [1, 2]) }), 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect({ program, hints: candidateHints(XBRIDGE_SOLANA, program ?? undefined, new Map()) }).toEqual({ program: CCIP_ROUTER_SOLANA, hints: ['calls the CCIP router directly'] });
+  });
+
   it('finds a program held in the transaction’s loaded addresses', async () => {
     // #when the program sits in a lookup table, after the two static keys
-    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], tx([XBRIDGE_SOLANA, COMPUTE_BUDGET], [1, 2], [XBRIDGE_PROGRAM])), 'https://rpc', XBRIDGE_SOLANA);
+    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], { sent: tx([XBRIDGE_SOLANA, COMPUTE_BUDGET], [1, 2], [XBRIDGE_PROGRAM, CCIP_ROUTER_SOLANA]) }), 'https://rpc', XBRIDGE_SOLANA);
     // #then
     expect(program).toBe(XBRIDGE_PROGRAM);
   });
 
-  it('has no hint when the transaction only calls common programs', async () => {
+  it('reads at most 5 transactions, and has no hint when none of them reaches the router', async () => {
+    // #given 8 swaps
+    const seen: string[] = [];
+    const swaps = Array.from({ length: 8 }, (_, i) => `swap${i}`);
+    const fetchFn = rpc(swaps.map((signature) => ({ signature, err: null })), Object.fromEntries(swaps.map((s) => [s, tx([XBRIDGE_SOLANA, SWAP_PROGRAM], [1])])), seen);
     // #when
-    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, '11111111111111111111111111111111'], [1, 2])), 'https://rpc', XBRIDGE_SOLANA);
+    const program = await solanaSendProgram(fetchFn, 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect({ program, reads: seen.filter((m) => m.startsWith('getTransaction')).length }).toEqual({ program: null, reads: 5 });
+  });
+
+  it('has no hint when the CCIP send only calls common programs at the top level', async () => {
+    // #when
+    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], { sent: tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, '11111111111111111111111111111111'], [1, 2], [CCIP_ROUTER_SOLANA]) }), 'https://rpc', XBRIDGE_SOLANA);
     // #then
     expect(program).toBeNull();
   });
@@ -485,8 +515,8 @@ describe('Solana program hints', () => {
   it('has no hint without an RPC, without a successful send, or when the RPC fails', async () => {
     // #when
     const results = await Promise.all([
-      solanaSendProgram(rpc([], null), undefined, XBRIDGE_SOLANA),
-      solanaSendProgram(rpc([{ signature: 'failed', err: {} }], null), 'https://rpc', XBRIDGE_SOLANA),
+      solanaSendProgram(rpc([], {}), undefined, XBRIDGE_SOLANA),
+      solanaSendProgram(rpc([{ signature: 'failed', err: {} }], {}), 'https://rpc', XBRIDGE_SOLANA),
       solanaSendProgram(fakeFetch(() => jsonResponse({}, 500)), 'https://rpc', XBRIDGE_SOLANA),
       solanaSendProgram(fakeFetch(async () => { throw new Error('network'); }), 'https://rpc', XBRIDGE_SOLANA),
     ]);
