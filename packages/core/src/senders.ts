@@ -72,16 +72,16 @@ export function projectAddresses(labels: LabelIndex, slug: string): string[] {
  */
 function spreadIndex(labels: LabelIndex, chains: SenderChains): Map<string, Label> {
   const evmChains = new Set([...chains.values()].filter((c) => c.family === 'EVM').map((c) => c.name));
-  const claims = new Map<string, Label | null>();
+  const claimants = new Map<string, Set<string>>();
+  const spreadable = new Map<string, Label>();
   for (const [key, label] of Object.entries(labels)) {
     const chain = key.slice(0, key.indexOf(':'));
     const address = senderKeyAddress(key);
-    if (label.spread === false || !evmChains.has(chain) || !isAddressShape('EVM', address)) continue;
-    const claimed = claims.get(address);
-    if (claimed === undefined) claims.set(address, label);
-    else if (claimed !== null && claimed.slug !== label.slug) claims.set(address, null);
+    if (!evmChains.has(chain) || !isAddressShape('EVM', address)) continue;
+    claimants.set(address, (claimants.get(address) ?? new Set()).add(label.slug));
+    if (label.spread !== false) spreadable.set(address, label);
   }
-  return new Map([...claims].flatMap(([address, label]) => (label === null ? [] : [[address, label] as const])));
+  return new Map([...spreadable].filter(([address]) => claimants.get(address)!.size === 1));
 }
 
 /** The sender's own label on its chain, else a label spread from the same EVM address on another EVM chain, else the address. */

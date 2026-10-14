@@ -73,6 +73,16 @@ describe('sender identity', () => {
     expect(keys).toEqual(['project:maple-finance', 'project:xstocks', `address:${ADDR}`]);
   });
 
+  it('does not spread an address another project labels, even when the first project turned spreading off', () => {
+    // #given Maple (spread = false) on Ethereum and xStocks on Base claim the same address
+    const labels: LabelIndex = { [`ethereum-mainnet:${ADDR}`]: { ...MAPLE, spread: false }, [`ethereum-mainnet-base-1:${ADDR}`]: XSTOCKS_LABEL };
+    const resolve = identityResolver(labels, new Map([...CHAINS, ['3', { name: 'ethereum-mainnet-arbitrum-1', family: 'EVM' }]]));
+    // #when
+    const identity = resolve('3', ADDR);
+    // #then
+    expect(identity.key).toBe(`address:${ADDR}`);
+  });
+
   it('falls back to the address: one identity across chains, lowercased for EVM, as-is for Solana', () => {
     // #given
     const resolve = identityResolver({}, CHAINS);
