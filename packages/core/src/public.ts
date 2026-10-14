@@ -347,7 +347,15 @@ export const ReplayFileSchema = z.object({
   days: z.array(z.object({ day: z.string(), lanes: z.array(z.tuple([z.number(), z.number(), z.number()])) })),
 });
 
-const ProjectWindowSchema = z.object({ messages: z.number(), usd: z.number(), fee_usd: z.number().nullable(), share_pct: z.number().nullable() });
+const ProjectWindowSchema = z.object({
+  messages: z.number(),
+  usd: z.number(),
+  fee_usd: z.number().nullable(),
+  share_pct: z.number().nullable(),
+  /** The part of `messages` and `usd` credited via the project's claimed tokens. */
+  via_token_messages: z.number().optional(),
+  via_token_usd: z.number().optional(),
+});
 
 export const ProjectSchema = z.object({
   slug: z.string(),
@@ -362,6 +370,7 @@ export const ProjectSchema = z.object({
   lanes: z.array(z.object({ src: z.string(), dst: z.string(), messages: z.number(), usd: z.number() })),
   split: z.object({ data_messages: z.number(), token_messages: z.number() }),
   addresses: z.array(z.object({ chain: z.string(), address: z.string(), note: z.string().nullable(), inferred: z.boolean() })),
+  tokens: z.array(z.object({ chain: z.string(), address: z.string(), symbol: z.string().nullable(), source: z.string() })).optional(),
 });
 
 export const ProjectsFileSchema = z.object({ ...envelope, from: z.string(), to: z.string(), projects: z.array(ProjectSchema) });

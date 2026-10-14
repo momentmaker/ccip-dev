@@ -1,6 +1,6 @@
 import {
   addressKey, claimedTokenKeys, dayStartIso, identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, NEWCOMER_MIN_MESSAGES, NEWCOMER_TOP,
-  projectAddresses, rankIdentities, senderKeyAddress, splitViaToken, tokenClaims, viaTokenCredits, type DailyBreakdown, type IdentityOrder, type IdentityResolver,
+  projectAddresses, rankIdentities, senderKeyAddress, splitViaToken, taggableX, tokenClaims, viaTokenCredits, type DailyBreakdown, type IdentityOrder, type IdentityResolver,
   type IdentityTotals, type LabelCoverage, type LabelIndex, type SenderRow, type TokenClaims, type ViaTokenCredit,
 } from '@ccip-dev/core';
 import type { SenderArrival } from '@ccip-dev/core/public';
@@ -109,7 +109,7 @@ async function recordedIdentities(c: RunContext, identities: readonly IdentityTo
 export async function recordSenderArrivals(c: RunContext, day: string, breakdown: readonly DailyBreakdown[]): Promise<string[]> {
   const db = c.env.DB;
   const book = await senderBook(c);
-  const identities = mergeIdentities(breakdown.filter((b) => b.dim === 'sender'), book.resolve);
+  const identities = identitiesOf(book, breakdown.filter((b) => b.dim === 'sender'), breakdown.filter((b) => b.dim === 'via_token'));
   const top = rankIdentities(identities, 'messages', NEWCOMER_TOP).filter((i) => i.messages >= NEWCOMER_MIN_MESSAGES);
   if (top.length === 0) return [];
   const recorded = await recordedIdentities(c, top);
@@ -129,16 +129,24 @@ export async function senderArrivals(c: RunContext, since: string, lastDay: stri
   const out: SenderArrival[] = [];
   for (const row of rows) {
     const day = row.first_seen.slice(0, 10);
-    const ranked = rankIdentities(mergeIdentities(await store.breakdownBetween(db, 'sender', day, day), book.resolve), 'messages', Infinity);
+    const ranked = rankIdentities(
+      identitiesOf(book, await store.breakdownBetween(db, 'sender', day, day), await store.breakdownBetween(db, 'via_token', day, day)),
+      'messages',
+      Infinity,
+    );
     const rank = ranked.findIndex((i) => i.key === row.key);
     const identity = ranked[rank];
     if (identity === undefined) continue;
     const firstDay = (await identityFirstDays(c, [identity])).get(identity.key) ?? day;
-    const sinceFirst = mergeIdentities(await store.senderTotalsOf(db, firstDay, day, identityAddresses(c.labels, identity)), book.resolve).find((i) => i.key === identity.key);
+    const sinceFirst = mergeIdentities(
+      await store.senderTotalsOf(db, firstDay, day, identityAddresses(c.labels, identity)),
+      book.resolve,
+      await windowCredits(c, book, firstDay, day),
+    ).find((i) => i.key === identity.key);
     out.push({
       key: identity.key,
       label: identity.label,
-      x: identity.inferred ? null : identity.x,
+      x: taggableX(identity),
       kind: identity.kind,
       inferred: identity.inferred,
       day,

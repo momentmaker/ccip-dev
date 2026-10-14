@@ -1,4 +1,4 @@
-import { buildLabelIndex, buildProjectRegistry, type RegistryProject } from '@ccip-dev/core';
+import { buildLabelIndex, buildProjectRegistry, buildTokenLabels, type RegistryProject } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS } from '@ccip-dev/core/public';
 import { NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
@@ -50,13 +50,56 @@ beforeEach(async () => {
   ], []);
 });
 
+async function seedClaimedSends() {
+  // #given xStocks claims a Base token outside any registry group, which a wallet bridged 30 times on Oct 13
+  const XTOKEN = '0x00000000000000000000000000000000000000c3';
+  const WALLET = '0x00000000000000000000000000000000000000d4';
+  const withToken: RegistryProject = { ...XSTOCKS, tokens: [{ chain: 'ethereum-mainnet-base-1', address: XTOKEN, source: 'https://xstocks.fi/tokens' }] };
+  await env.DB.prepare("INSERT INTO tokens VALUES (?, ?, 'TSLAx', 'Tesla xStock', 18, NULL, 'x', 'x')").bind(BASE, XTOKEN).run();
+  await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [
+    ...xstocksBreakdown(),
+    { day: XSTOCKS_DAY, dim: 'sender', key: `${BASE}:${WALLET}`, messages: 30, usd_value: 3_000, fee_usd: 3 },
+    { day: XSTOCKS_DAY, dim: 'via_token', key: `${BASE}:${WALLET}|${BASE}:${XTOKEN}`, messages: 30, usd_value: 3_000, fee_usd: 3 },
+  ], NOW);
+  return { withToken, XTOKEN };
+}
+
 describe('projects.json', () => {
   it('gives a project its 7-day, 30-day and all-time totals and its share of all messages', async () => {
     // #then 319 of 1,569 over 7 days; 419 of 1,969 over 30 days and all time
     expect((await xstocks()).totals).toEqual({
-      '7d': { messages: 319, usd: 0, fee_usd: 79.75, share_pct: 20.3 },
-      '30d': { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3 },
-      all: { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3 },
+      '7d': { messages: 319, usd: 0, fee_usd: 79.75, share_pct: 20.3, via_token_messages: 0, via_token_usd: 0 },
+      '30d': { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3, via_token_messages: 0, via_token_usd: 0 },
+      all: { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3, via_token_messages: 0, via_token_usd: 0 },
+    });
+  });
+
+  it("adds its claimed token's direct sends to its totals and series, and lists the token", async () => {
+    const { withToken, XTOKEN } = await seedClaimedSends();
+    const c = harness({ now: NOW, labels: buildLabelIndex([withToken, IDLE]), labelTokens: buildTokenLabels([withToken, IDLE]), projects: buildProjectRegistry([withToken, IDLE]) }).c;
+    // #when
+    const project = (await buildProjects(c, XSTOCKS_DAY)).projects.find((p) => p.slug === 'xstocks')!;
+    // #then 349 of the day's 1,569 messages
+    expect({ week: project.totals['7d'], day: project.series.at(-1), tokens: project.tokens }).toEqual({
+      week: { messages: 349, usd: 3_000, fee_usd: 82.75, share_pct: 22.2, via_token_messages: 30, via_token_usd: 3_000 },
+      day: { day: XSTOCKS_DAY, messages: 349 },
+      tokens: [{ chain: BASE, address: XTOKEN, symbol: 'TSLAx', source: 'https://xstocks.fi/tokens' }],
+    });
+  });
+
+  it('keeps the new totals and tokens through the public schema when published', async () => {
+    // #given
+    const { withToken, XTOKEN } = await seedClaimedSends();
+    const c = harness({ now: NOW, labels: buildLabelIndex([withToken, IDLE]), labelTokens: buildTokenLabels([withToken, IDLE]), projects: buildProjectRegistry([withToken, IDLE]) }).c;
+    // #when
+    await publishHistoryFiles(c);
+    const parsed = PUBLIC_SCHEMAS['projects.json'].parse(await readPublic('projects.json'));
+    // #then
+    const project = parsed.projects.find((p) => p.slug === 'xstocks')!;
+    expect({ viaMessages: project.totals['7d'].via_token_messages, viaUsd: project.totals['7d'].via_token_usd, tokens: project.tokens?.map((t) => t.address) }).toEqual({
+      viaMessages: 30,
+      viaUsd: 3_000,
+      tokens: [XTOKEN],
     });
   });
 
@@ -106,7 +149,7 @@ describe('projects.json', () => {
       rest: [idle.chains, idle.lanes, idle.split, idle.addresses],
     }).toEqual({
       order: ['xstocks', 'idle'],
-      week: { messages: 0, usd: 0, fee_usd: null, share_pct: 0 },
+      week: { messages: 0, usd: 0, fee_usd: null, share_pct: 0, via_token_messages: 0, via_token_usd: 0 },
       series: true,
       rest: [[], [], { data_messages: 0, token_messages: 0 }, [{ chain: ETH, address: IDLE_ADDRESS, note: null, inferred: false }]],
     });

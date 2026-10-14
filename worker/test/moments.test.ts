@@ -1,5 +1,5 @@
 import { addDays, type DailyBreakdown, type Dim, type NetworkInfo } from '@ccip-dev/core';
-import type { DayTotals } from '@ccip-dev/core/public';
+import { PUBLIC_SCHEMAS, type DayTotals } from '@ccip-dev/core/public';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -277,6 +277,43 @@ describe('moments.json project spotlight', () => {
       before: 'project:beta',
       latest: { key: 'project:alpha', slug: 'alpha', name: 'Alpha', x: 'alpha', kind: 'app', inferred: false, messages: 300, previous_messages: 100, usd: 0, fee_usd: 75, chains: [BASE] },
     });
+  });
+
+  it('never tags a project whose week came only via its token, and counts those messages', async () => {
+    // #given Gamma claims a Base token with no registry row; a wallet bridged it 600 times in the week of Oct 5
+    const GAMMA_TOKEN = '0x00000000000000000000000000000000000000c3';
+    const WALLET = '0x00000000000000000000000000000000000000d4';
+    const gamma = {
+      name: 'Gamma', x: 'gamma', url: null, kind: 'issuer' as const, source: null, addresses: [],
+      tokens: [{ chain: 'ethereum-mainnet-base-1', address: GAMMA_TOKEN, source: 'https://gamma.example/ccip' }],
+    };
+    await seedRows([
+      sender('2026-10-06', WALLET, 600), row('2026-10-06', 'via_token', `${BASE}:${WALLET}|${BASE}:${GAMMA_TOKEN}`, 600, 0, 150),
+    ]);
+    const c = harness({ now: NOW, labels, labelTokens: { [`ethereum-mainnet-base-1:${GAMMA_TOKEN}`]: 'gamma' }, projects: { gamma } }).c;
+    // #when
+    const { weeks } = await buildMoments(c, { lastDay: LAST_DAY, days: [] });
+    // #then
+    expect(weeks.at(-1)!.project).toMatchObject({ key: 'project:gamma', x: null, inferred: false, messages: 600 });
+  });
+
+  it('keeps a via-token spotlight through the public schema, with x null', async () => {
+    // #given
+    const GAMMA_TOKEN = '0x00000000000000000000000000000000000000c3';
+    const WALLET = '0x00000000000000000000000000000000000000d4';
+    const gamma = {
+      name: 'Gamma', x: 'gamma', url: null, kind: 'issuer' as const, source: null, addresses: [],
+      tokens: [{ chain: 'ethereum-mainnet-base-1', address: GAMMA_TOKEN, source: 'https://gamma.example/ccip' }],
+    };
+    await seedRows([
+      sender('2026-10-06', WALLET, 600), row('2026-10-06', 'via_token', `${BASE}:${WALLET}|${BASE}:${GAMMA_TOKEN}`, 600, 0, 150),
+    ]);
+    const c = harness({ now: NOW, labels, labelTokens: { [`ethereum-mainnet-base-1:${GAMMA_TOKEN}`]: 'gamma' }, projects: { gamma } }).c;
+    // #when
+    await publishHistoryFiles(c);
+    const parsed = PUBLIC_SCHEMAS['moments.json'].parse(await readPublic('moments.json'));
+    // #then
+    expect(parsed.weeks.at(-1)!.project).toMatchObject({ key: 'project:gamma', x: null, messages: 600 });
   });
 
   it('publishes no x handle for a project whose label was spread from another chain', async () => {

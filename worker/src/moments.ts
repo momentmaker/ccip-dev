@@ -1,4 +1,4 @@
-import { addDays, lastCompleteMonday, mergeIdentities, normalizeAddress, weekStart, type Dim, type IdentityTotals } from '@ccip-dev/core';
+import { addDays, lastCompleteMonday, mergeIdentities, normalizeAddress, taggableX, weekStart, type Dim, type IdentityTotals } from '@ccip-dev/core';
 import {
   BOARD_SIZE, countdownsOf, parsePollRecord, pollAnswer, pollQuestion, pollRecordKey, projectSpotlightPick, rankBoard, SPOTLIGHT_SINCE, spotlightPicks, voteShares,
   type ChainArrival, type LaneArrival, type MomentsBody, type PollData, type PollResult, type TokenArrival,
@@ -6,7 +6,7 @@ import {
 import { chainName, chainNameMap, laneLabel, type ChainNames } from '@ccip-dev/core/names';
 import type { BoardEntry, DayTotals, MomentsWeek, Poll, ProjectSpotlight, SenderArrival, Spotlight } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
-import { senderArrivals, senderBook, type SenderBook } from './senders';
+import { senderArrivals, senderBook, windowCredits, type SenderBook } from './senders';
 import * as store from './store';
 
 export const ARRIVAL_DAYS = 30;
@@ -241,9 +241,11 @@ function projectWeeks(c: RunContext, book: SenderBook): ProjectWeeks {
   return (monday) => {
     let found = cache.get(monday);
     if (found === undefined) {
-      found = store
-        .senderTotalsOf(c.env.DB, monday, addDays(monday, 6), book.labeled)
-        .then((rows) => mergeIdentities(rows, book.resolve).filter((i) => i.slug !== null));
+      found = (async () => {
+        const sunday = addDays(monday, 6);
+        const rows = await store.senderTotalsOf(c.env.DB, monday, sunday, book.labeled);
+        return mergeIdentities(rows, book.resolve, await windowCredits(c, book, monday, sunday)).filter((i) => i.slug !== null);
+      })();
       cache.set(monday, found);
     }
     return found;
@@ -260,7 +262,7 @@ async function projectSpotlightOf(weeks: ProjectWeeks, monday: string): Promise<
     key: p.key,
     slug: p.slug,
     name: p.label,
-    x: p.inferred ? null : p.x,
+    x: taggableX(p),
     kind: p.kind,
     inferred: p.inferred,
     messages: p.messages,
