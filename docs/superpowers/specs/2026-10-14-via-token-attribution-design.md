@@ -1,6 +1,6 @@
 # ccip.dev: crediting direct sends to the token's project (via token)
 
-**Status:** Draft for owner review · **Date:** 2026-10-14 · **Builds on:** `2026-10-14-sender-attribution-design.md`
+**Status:** Approved by the owner, 2026-10-14 · **Date:** 2026-10-14 · **Builds on:** `2026-10-14-sender-attribution-design.md`
 
 In the week of 2026-10-07 to 2026-10-13 (12,401 messages, public CCIP API):
 - **28.9%** came from labeled senders.
@@ -16,7 +16,7 @@ In the week of 2026-10-07 to 2026-10-13 (12,401 messages, public CCIP API):
 A message is credited, in this order of precedence:
 1. **Sent by:** its sender has a verified label (as now).
 2. **Inferred:** its EVM sender is labeled on another EVM chain (as now).
-3. **Via token:** its sender is the wallet that signed it (`sender = origin`, normalized), and its first token (`message_tokens.idx = 0`) belongs to a registry group that a verified project claims with a `[[tokens]]` entry.
+3. **Via token:** its sender is the wallet that signed it (`sender = origin`, normalized), and its first token (`message_tokens.idx = 0`) is claimed by a verified project's `[[tokens]]` entry: either that exact token (many moved tokens are outside CCIP's registry), or any token in the same registry group as the entry's token.
 4. **Address:** otherwise, its sender address across chains (as now).
 
 Two consequences:
