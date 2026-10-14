@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { identityResolver, validateRegistry } from '@ccip-dev/core';
-import { BASE_SENDER_1, BASE_SENDER_2, fakeFetch, jsonResponse, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_DAY, XSTOCKS_LABEL, XSTOCKS_SENDER_ROWS } from '@ccip-dev/core/testing';
+import { BASE_SENDER_1, BASE_SENDER_2, fakeFetch, jsonResponse, NETWORKS, XBRIDGE_EVM, XBRIDGE_PROGRAM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_DAY, XSTOCKS_LABEL, XSTOCKS_SENDER_ROWS } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 import {
-  BUSY_WALLET_MESSAGES, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
-  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, prBody, spreadMarkdown,
+  BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
+  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, solanaSendProgram, spreadMarkdown,
   spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, windowStart, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
@@ -433,5 +433,84 @@ describe('the candidates pull request', () => {
       escaped: body.includes('X\\|Y'),
       spread: body.trimEnd().endsWith('No label spread this week.'),
     }).toEqual({ lead: 'Labeled senders: 81% of messages over the last 7 days.', order: ['0xccc', '0xbbb', '0xaaa'], cells: true, escaped: true, spread: true });
+  });
+});
+
+describe('Solana program hints', () => {
+  const COMPUTE_BUDGET = 'ComputeBudget111111111111111111111111111111';
+  const tx = (accountKeys: string[], programIdIndexes: number[], readonly: string[] = []) => ({
+    transaction: { message: { accountKeys, instructions: programIdIndexes.map((programIdIndex) => ({ programIdIndex })) } },
+    meta: { loadedAddresses: { writable: [], readonly } },
+  });
+  const rpc = (signatures: unknown, transaction: unknown, seen: string[] = []) =>
+    fakeFetch((_url, init) => {
+      const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: unknown[] };
+      seen.push(method === 'getTransaction' ? `${method} ${String(params[0])}` : method);
+      return jsonResponse({ jsonrpc: '2.0', id: 1, result: method === 'getSignaturesForAddress' ? signatures : transaction });
+    });
+
+  it("names the program xStocks's Solana sender sends through, skipping compute budget, from its latest successful send", async () => {
+    // #given a failed send, then a successful one that sets a compute budget and calls the xBridge program
+    const seen: string[] = [];
+    const fetchFn = rpc([{ signature: 'failed', err: { InstructionError: [0, 'Custom'] } }, { signature: 'sent', err: null }], tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, XBRIDGE_PROGRAM], [1, 2]), seen);
+    // #when
+    const program = await solanaSendProgram(fetchFn, 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect({ program, seen }).toEqual({ program: XBRIDGE_PROGRAM, seen: ['getSignaturesForAddress', 'getTransaction sent'] });
+  });
+
+  it('finds a program held in the transaction’s loaded addresses', async () => {
+    // #when the program sits in a lookup table, after the two static keys
+    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], tx([XBRIDGE_SOLANA, COMPUTE_BUDGET], [1, 2], [XBRIDGE_PROGRAM])), 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect(program).toBe(XBRIDGE_PROGRAM);
+  });
+
+  it('has no hint without an RPC, without a successful send, or when the RPC fails', async () => {
+    // #when
+    const results = await Promise.all([
+      solanaSendProgram(rpc([], null), undefined, XBRIDGE_SOLANA),
+      solanaSendProgram(rpc([{ signature: 'failed', err: {} }], null), 'https://rpc', XBRIDGE_SOLANA),
+      solanaSendProgram(fakeFetch(() => jsonResponse({}, 500)), 'https://rpc', XBRIDGE_SOLANA),
+      solanaSendProgram(fakeFetch(async () => { throw new Error('network'); }), 'https://rpc', XBRIDGE_SOLANA),
+    ]);
+    // #then
+    expect(results).toEqual([null, null, null, null]);
+  });
+});
+
+describe('pair hints', () => {
+  it("pairs xStocks's two senders: A8JP sends to the xBridge, and the xBridge sends to A8JP's program", () => {
+    // #when
+    const pairs = pairHints(
+      [XBRIDGE_EVM, XBRIDGE_SOLANA, BASE_SENDER_1],
+      [{ address: XBRIDGE_SOLANA, receiver: XBRIDGE_EVM }, { address: XBRIDGE_EVM, receiver: XBRIDGE_PROGRAM }, { address: BASE_SENDER_1, receiver: '0x2222222222222222222222222222222222222222' }],
+      new Map([[XBRIDGE_SOLANA, XBRIDGE_PROGRAM]]),
+    );
+    // #then
+    expect([...pairs]).toEqual([
+      [XBRIDGE_SOLANA, ['pairs with 0x9ec0…846b']],
+      [XBRIDGE_EVM, ['pairs with A8JP…in3u']],
+    ]);
+  });
+
+  it('writes the program hint first, then the pairs', () => {
+    // #then
+    expect(candidateHints(XBRIDGE_SOLANA, XBRIDGE_PROGRAM, new Map([[XBRIDGE_SOLANA, ['pairs with 0x9ec0…846b']]]))).toEqual(['sends via program F2ZY…KcZN', 'pairs with 0x9ec0…846b']);
+  });
+
+  it('reads who each candidate sent to over the week', () => {
+    // #given
+    const db = new DatabaseSync(':memory:');
+    db.exec('CREATE TABLE messages (message_id TEXT, day TEXT, src_chain TEXT, sender TEXT, receiver TEXT, token_count INTEGER)');
+    const insert = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, ?, 0)');
+    insert.run('a', '2026-10-13', '1', XBRIDGE_SOLANA, XBRIDGE_EVM);
+    insert.run('b', '2026-10-13', '1', XBRIDGE_SOLANA, XBRIDGE_EVM);
+    insert.run('c', '2026-09-01', '1', XBRIDGE_SOLANA, '0xold');
+    insert.run('d', '2026-10-13', '1', BASE_SENDER_1, null);
+    // #when
+    const q = receiversQuery('2026-10-07', [XBRIDGE_SOLANA, BASE_SENDER_1]);
+    // #then
+    expect((db.prepare(q.sql).all(...(q.params as string[])) as Record<string, unknown>[]).map((r) => ({ ...r }))).toEqual([{ address: XBRIDGE_SOLANA, receiver: XBRIDGE_EVM, messages: 2 }]);
   });
 });

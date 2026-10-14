@@ -6,6 +6,7 @@ import {
   validateChainHandles, validateRegistry, type Handles, type IdentityResolver, type LabelCoverage, type RegistryProject, type SenderRow,
 } from '@ccip-dev/core';
 import { dataSharePct, formatShare } from '@ccip-dev/core/format';
+import { shortAddress } from '@ccip-dev/core/names';
 import { byName } from '@ccip-dev/core/roster';
 import { stringify } from 'smol-toml';
 
@@ -229,6 +230,80 @@ export async function classifySolana(fetchFn: typeof fetch, rpcUrl: string | und
   } catch {
     return 'error';
   }
+}
+
+/** Programs nearly every Solana transaction calls; the program that says who the sender is is the first one after them. */
+const COMMON_PROGRAMS = new Set([
+  '11111111111111111111111111111111',
+  'ComputeBudget111111111111111111111111111111',
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+  'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+  'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo',
+]);
+
+interface SolanaTransaction {
+  transaction?: { message?: { accountKeys?: unknown; instructions?: unknown } };
+  meta?: { loadedAddresses?: { writable?: string[]; readonly?: string[] } };
+}
+
+/** The program a system-owned Solana sender's latest successful send invokes at the top level, past the common ones. */
+export async function solanaSendProgram(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<string | null> {
+  if (!rpcUrl) return null;
+  const call = async (method: string, params: unknown[]): Promise<unknown> => {
+    const res = await fetchFn(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    return res.ok ? ((await res.json()) as { result?: unknown }).result : undefined;
+  };
+  try {
+    const signatures = await call('getSignaturesForAddress', [address, { limit: 10 }]);
+    const sent = Array.isArray(signatures) ? (signatures as { signature?: unknown; err?: unknown }[]).find((s) => s.err === null && typeof s.signature === 'string') : undefined;
+    if (sent === undefined) return null;
+    const tx = (await call('getTransaction', [sent.signature, { encoding: 'json', maxSupportedTransactionVersion: 0 }])) as SolanaTransaction | null | undefined;
+    const message = tx?.transaction?.message;
+    if (!message || !Array.isArray(message.accountKeys) || !Array.isArray(message.instructions)) return null;
+    const keys: unknown[] = [...message.accountKeys, ...(tx?.meta?.loadedAddresses?.writable ?? []), ...(tx?.meta?.loadedAddresses?.readonly ?? [])];
+    for (const instruction of message.instructions as { programIdIndex?: unknown }[]) {
+      const program = typeof instruction.programIdIndex === 'number' ? keys[instruction.programIdIndex] : undefined;
+      if (typeof program === 'string' && !COMMON_PROGRAMS.has(program)) return program;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Who each address sent to since ?1, for pairing candidates. */
+export function receiversQuery(sinceDay: string, addresses: readonly string[]) {
+  return {
+    sql: `SELECT sender AS address, receiver, COUNT(*) AS messages FROM messages
+          WHERE day >= ?1 AND sender IN (SELECT value FROM json_each(?2)) AND receiver IS NOT NULL
+          GROUP BY sender, receiver`,
+    params: [sinceDay, JSON.stringify(addresses)],
+  };
+}
+
+/** Two candidates pair when one sends to the other, or to the program the other sends through. */
+export function pairHints(addresses: readonly string[], sends: readonly { address: string; receiver: string }[], programs: ReadonlyMap<string, string>): Map<string, string[]> {
+  const candidates = new Set(addresses);
+  const ownerOf = new Map<string, string>([...addresses.map((a) => [a, a] as const), ...[...programs].map(([a, program]) => [program, a] as const)]);
+  const pairs = new Map<string, Set<string>>();
+  const link = (a: string, b: string) => pairs.set(a, (pairs.get(a) ?? new Set<string>()).add(b));
+  for (const s of sends) {
+    const other = ownerOf.get(s.receiver);
+    if (!candidates.has(s.address) || other === undefined || other === s.address) continue;
+    link(s.address, other);
+    link(other, s.address);
+  }
+  return new Map([...pairs].map(([a, others]) => [a, [...others].sort().map((o) => `pairs with ${shortAddress(o)}`)]));
+}
+
+export function candidateHints(address: string, program: string | undefined, pairs: ReadonlyMap<string, string[]>): string[] {
+  return [...(program === undefined ? [] : [`sends via program ${shortAddress(program)}`]), ...(pairs.get(address) ?? [])];
 }
 
 /** A wallet is a user unless it is busy enough to be an operator or new on CCIP; an address the RPC could not check is skipped. */
@@ -618,12 +693,14 @@ async function main(): Promise<void> {
   const top3 = new Set((await d1<{ key: string }>(pq.sql, pq.params)).map((r) => senderKeyAddress(r.key)));
 
   const report: CandidateReportRow[] = [];
+  const kinds = new Map<string, AddressKind>();
   for (const c of groupCandidates(rows, stats)) {
     if (!isAddressShape(c.family ?? '', c.address)) {
       console.warn(`skipping ${c.address}: not a valid ${c.family} address`);
       continue;
     }
     const kind = await classifyCandidate(c, rpcMap);
+    kinds.set(c.address, kind);
     if (kind === 'error') console.warn(`skipping ${c.address}: RPC check failed`);
     if (!keepCandidate(kind, c.messages, newcomers.has(c.address))) continue;
     const busiest = c.chains[0]!;
@@ -654,6 +731,17 @@ async function main(): Promise<void> {
       }
     }
   }
+
+  const programs = new Map<string, string>();
+  for (const row of report) {
+    if (row.candidate.family !== 'SVM' || kinds.get(row.candidate.address) !== 'wallet') continue;
+    const program = await solanaSendProgram(fetch, rpcMap['solana-mainnet'], row.candidate.address);
+    if (program !== null) programs.set(row.candidate.address, program);
+  }
+  const addresses = report.map((r) => r.candidate.address);
+  const rq = receiversQuery(since, addresses);
+  const pairs = addresses.length === 0 ? new Map<string, string[]>() : pairHints(addresses, await d1<{ address: string; receiver: string }>(rq.sql, rq.params), programs);
+  for (const row of report) row.hints = candidateHints(row.candidate.address, programs.get(row.candidate.address), pairs);
 
   const lastWeek = { from: addDays(since, -7), to: addDays(since, -1) };
   const windowRows = (from: string, to: string) => {
