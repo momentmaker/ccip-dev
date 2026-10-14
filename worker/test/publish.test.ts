@@ -102,6 +102,7 @@ describe('publishLiveFiles', () => {
       env.DB.prepare("INSERT INTO arrivals VALUES ('chain', 'baseline-chain', '2026-10-08T10:00:00.000Z', '2026-10-08T10:00:00.000Z')"),
       env.DB.prepare("INSERT INTO arrivals VALUES ('token', 'new-token', '2026-10-08T09:00:00.000Z', NULL)"),
       env.DB.prepare("INSERT INTO arrivals VALUES ('lane', 'announced-lane', '2026-10-08T08:00:00.000Z', '2026-10-08T08:30:00.000Z')"),
+      env.DB.prepare("INSERT INTO arrivals VALUES ('sender', 'project:xstocks', '2026-10-08T00:00:00.000Z', NULL)"),
     ]);
     const { c } = harness({ now: '2026-10-08T12:00:00.000Z' });
     await publishLiveFiles(c);

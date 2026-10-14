@@ -6,6 +6,7 @@ import {
 import { chainName, chainNameMap, laneLabel, type ChainNames } from '@ccip-dev/core/names';
 import type { BoardEntry, DayTotals, MomentsWeek, Poll, Spotlight } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
+import { senderArrivals } from './senders';
 import * as store from './store';
 
 export const ARRIVAL_DAYS = 30;
@@ -61,6 +62,7 @@ export async function buildMoments(c: RunContext, { lastDay, days }: MomentsInpu
       chains: chainArrivals(chainFirst, recentLanes, since),
       lanes: laneArrivals(lanes, recentLanes, since),
       tokens: await tokenArrivals(c, since, lastDay),
+      senders: await senderArrivals(c, since, lastDay),
     },
     weeks,
     countdowns: countdownsOf(days),

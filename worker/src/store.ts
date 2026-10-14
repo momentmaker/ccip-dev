@@ -339,12 +339,39 @@ export async function recentArrivals(db: D1Database, limit: number): Promise<{ k
   const { results } = await db
     .prepare(
       `SELECT kind, key, first_seen FROM arrivals
-       WHERE announced_at IS NULL OR announced_at <> first_seen
+       WHERE kind <> 'sender' AND (announced_at IS NULL OR announced_at <> first_seen)
        ORDER BY first_seen DESC LIMIT ?`,
     )
     .bind(limit)
     .all<{ kind: string; key: string; first_seen: string }>();
   return results;
+}
+
+/** The keys among `keys` already recorded under `kind`. */
+export async function existingArrivals(db: D1Database, kind: 'sender', keys: readonly string[]): Promise<Set<string>> {
+  const { results } = await db
+    .prepare('SELECT key FROM arrivals WHERE kind = ?1 AND key IN (SELECT value FROM json_each(?2))')
+    .bind(kind, JSON.stringify(keys))
+    .all<{ key: string }>();
+  return new Set(results.map((r) => r.key));
+}
+
+/** Sender arrivals from `sinceIso` on, oldest first. */
+export async function senderArrivalsSince(db: D1Database, sinceIso: string): Promise<{ key: string; first_seen: string }[]> {
+  const { results } = await db
+    .prepare("SELECT key, first_seen FROM arrivals WHERE kind = 'sender' AND first_seen >= ? ORDER BY first_seen, key")
+    .bind(sinceIso)
+    .all<{ key: string; first_seen: string }>();
+  return results;
+}
+
+/** Each address's first day with a message from it, on any chain the registry lists, through messages_sender. */
+export const FIRST_SENDER_DAYS_SQL = `SELECT sender AS address, MIN(day) AS first_day FROM messages
+  WHERE src_chain IN (SELECT selector FROM chains) AND sender IN (SELECT value FROM json_each(?1)) GROUP BY sender`;
+
+export async function firstSenderDays(db: D1Database, addresses: readonly string[]): Promise<Map<string, string>> {
+  const { results } = await db.prepare(FIRST_SENDER_DAYS_SQL).bind(JSON.stringify(addresses)).all<{ address: string; first_day: string }>();
+  return new Map(results.map((r) => [r.address, r.first_day]));
 }
 
 export async function dueForDetail(db: D1Database, nowIso: string, limit: number): Promise<string[]> {
@@ -406,7 +433,7 @@ export async function countRows(db: D1Database, table: 'chains' | 'tokens'): Pro
   return row?.n ?? 0;
 }
 
-export async function countArrivals(db: D1Database, kind: 'chain' | 'token' | 'lane'): Promise<number> {
+export async function countArrivals(db: D1Database, kind: 'chain' | 'token' | 'lane' | 'sender'): Promise<number> {
   const row = await db.prepare('SELECT COUNT(*) AS n FROM arrivals WHERE kind = ?').bind(kind).first<{ n: number }>();
   return row?.n ?? 0;
 }
@@ -495,7 +522,7 @@ export async function coingeckoIds(db: D1Database): Promise<CoingeckoIdLookup> {
 
 export async function insertArrivals(
   db: D1Database,
-  kind: 'chain' | 'token',
+  kind: 'chain' | 'token' | 'sender',
   keys: string[],
   nowIso: string,
   announcedAt: string | null,

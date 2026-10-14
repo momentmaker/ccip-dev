@@ -956,3 +956,39 @@ describe("last week's poll after Monday's finalize", () => {
     expect(fetch.calls.filter((c) => c.url.endsWith('/stopPoll')).length).toBe(1);
   });
 });
+
+describe('new senders at finalize', () => {
+  const NEWBIE = '0x5555555555555555555555555555555555555555';
+  const newbieRows = () => Array.from({ length: 20 }, (_, i) => liveRow({ id: `n${i}`, sendTs: `2026-10-09T10:${String(i).padStart(2, '0')}:00.000Z`, sender: NEWBIE }));
+
+  it('records an address that sent 20 messages on its first day', async () => {
+    // #given
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedRegistry([NETWORKS.base, NETWORKS.bsc], []);
+    await store.upsertListRows(env.DB, newbieRows(), []);
+    // #when
+    await runFinalize(harness({ now: NOW, ccip: api() }).c, 'early');
+    // #then
+    const rows = (await env.DB.prepare("SELECT key, first_seen FROM arrivals WHERE kind = 'sender'").all()).results;
+    expect(rows).toEqual([{ key: `address:${NEWBIE}`, first_seen: '2026-10-09T00:00:00.000Z' }]);
+  });
+
+  it('still finalizes the day, and alerts, when recording new senders fails', async () => {
+    // #given
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedRegistry([NETWORKS.base, NETWORKS.bsc], []);
+    await store.upsertListRows(env.DB, newbieRows(), []);
+    vi.spyOn(store, 'firstSenderDays').mockRejectedValueOnce(new Error('D1 unavailable'));
+    const h = harness({ now: NOW, ccip: api() });
+    // #when
+    await runFinalize(h.c, 'early');
+    // #then
+    expect({
+      finalized: await store.getMeta(env.DB, 'last_finalize_day'),
+      alerts: h.alerts.filter((a) => a.signature.startsWith('sender-arrivals')),
+    }).toEqual({
+      finalized: '2026-10-09',
+      alerts: [{ signature: 'sender-arrivals:2026-10-09', text: 'New senders for 2026-10-09 were not recorded: D1 unavailable' }],
+    });
+  });
+});

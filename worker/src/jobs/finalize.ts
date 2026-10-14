@@ -1,11 +1,12 @@
 import {
   addDays, archiveKey, dayOf, dayStartIso, daysBetween, dedupeRawById, feeClassifier, feeGroupTotals, feePriceKeys, gzipText, rollupDay,
-  toJsonl, valueFee, type FeeClassifier, type ListMessage,
+  toJsonl, valueFee, type DailyBreakdown, type FeeClassifier, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { closeOpenPolls } from '../broadcasts/poll';
 import { broadcastSafely } from '../broadcasts/run';
 import { publishHistoryFiles, retryPut } from '../publish';
+import { recordSenderArrivals } from '../senders';
 import { triggerSiteBuild } from '../site-build';
 import * as store from '../store';
 import { fallbackLoader, type FallbackLoader } from '../price-fallback';
@@ -115,7 +116,17 @@ async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promi
   await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
   await alertOnUsdAnomaly(c, day, totals.usd_value);
   await store.setFeeGroupTotals(db, day, feeGroupTotals(messages, day, shared.classify));
+  await recordArrivalsSafely(c, day, breakdown);
   return raw;
+}
+
+/** New senders feed a moment, not the day's numbers, so a failure to record them alerts and lets the day finalize. */
+async function recordArrivalsSafely(c: RunContext, day: string, breakdown: readonly DailyBreakdown[]): Promise<void> {
+  try {
+    await recordSenderArrivals(c, day, breakdown);
+  } catch (err) {
+    await c.alert(`sender-arrivals:${day}`, `New senders for ${day} were not recorded: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 const retriesMaySucceed = (c: RunContext, day: string) => c.deps.now().getTime() < Date.parse(dayStartIso(day)) + RETRY_WINDOW_MS;

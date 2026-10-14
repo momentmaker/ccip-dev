@@ -1,0 +1,79 @@
+import { BASE_SENDER_1, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_LABELS, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
+import { env } from 'cloudflare:workers';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { buildMoments } from '../src/moments';
+import { recordSenderArrivals } from '../src/senders';
+import * as store from '../src/store';
+import { harness, liveRow, resetStorage, seedRegistry } from './helpers';
+
+beforeEach(resetStorage);
+
+const NOW = '2026-10-14T00:07:00.000Z';
+const CHAINS = [NETWORKS.ethereum, NETWORKS.base, NETWORKS.bsc, NETWORKS.solana, NETWORKS.ink, NETWORKS.xlayer, NETWORKS.hyperliquid];
+const [ETH, BSC, SOL, INK, XLAYER, HYPER] = [NETWORKS.ethereum, NETWORKS.bsc, NETWORKS.solana, NETWORKS.ink, NETWORKS.xlayer, NETWORKS.hyperliquid].map((n) => n.chainSelector);
+const context = () => harness({ now: NOW, labels: XSTOCKS_LABELS }).c;
+const senderRows = async () => (await env.DB.prepare("SELECT key, first_seen FROM arrivals WHERE kind = 'sender' ORDER BY key").all()).results;
+
+/** One message from `address` on `network` on `day`, so the store knows its first day. */
+const firstMessage = (id: string, day: string, network: (typeof CHAINS)[number], address: string) => liveRow({ id, sendTs: `${day}T09:00:00.000Z`, src: network, sender: address });
+
+beforeEach(async () => {
+  // #given 2026-10-13's senders; xStocks's xBridge first sent on Oct 9, its Solana sender on Oct 13, the Base senders in July
+  await seedRegistry(CHAINS, []);
+  await store.replaceDaily(env.DB, XSTOCKS_TOTALS, xstocksBreakdown(), NOW);
+  await store.upsertListRows(env.DB, [
+    firstMessage('x-ink', '2026-10-09', NETWORKS.ink, XBRIDGE_EVM),
+    firstMessage('x-sol', XSTOCKS_DAY, NETWORKS.solana, XBRIDGE_SOLANA),
+    firstMessage('b1', '2026-07-01', NETWORKS.base, BASE_SENDER_1),
+  ], []);
+});
+
+describe('recording new senders', () => {
+  it('records xStocks, new this month, and not the Base senders that have sent since July', async () => {
+    // #when the 23 smaller Base senders have no stored messages, so no known first day
+    const keys = await recordSenderArrivals(context(), XSTOCKS_DAY, xstocksBreakdown());
+    // #then
+    expect({ keys, rows: await senderRows() }).toEqual({ keys: ['project:xstocks'], rows: [{ key: 'project:xstocks', first_seen: '2026-10-13T00:00:00.000Z' }] });
+  });
+
+  it('records a sender once', async () => {
+    // #given
+    await recordSenderArrivals(context(), XSTOCKS_DAY, xstocksBreakdown());
+    // #when
+    const again = await recordSenderArrivals(context(), XSTOCKS_DAY, xstocksBreakdown());
+    // #then
+    expect({ again, rows: (await senderRows()).length }).toEqual({ again: [], rows: 1 });
+  });
+
+  it('does not count a project new when any of its addresses sent before the last 30 days', async () => {
+    // #given the xBridge sent from Ethereum in August
+    await store.upsertListRows(env.DB, [firstMessage('x-old', '2026-08-01', NETWORKS.ethereum, XBRIDGE_EVM)], []);
+    // #when
+    const keys = await recordSenderArrivals(context(), XSTOCKS_DAY, xstocksBreakdown());
+    // #then
+    expect(keys).toEqual([]);
+  });
+});
+
+describe('moments.json new senders', () => {
+  it('lists each new sender of the last 30 days with its day, first day, rank, messages and chains', async () => {
+    // #given
+    await recordSenderArrivals(context(), XSTOCKS_DAY, xstocksBreakdown());
+    // #when
+    const moments = await buildMoments(context(), { lastDay: XSTOCKS_DAY, days: [] });
+    // #then
+    expect(moments.arrivals.senders).toEqual([{
+      key: 'project:xstocks', label: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false,
+      day: XSTOCKS_DAY, first_day: '2026-10-09', rank: 1, messages: 319, total_messages: 319, chains: [SOL, INK, XLAYER, BSC, ETH, HYPER],
+    }]);
+  });
+
+  it('leaves out a sender that arrived more than 30 days before', async () => {
+    // #given
+    await store.insertArrivals(env.DB, 'sender', ['address:0xold'], '2026-09-01T00:00:00.000Z', null);
+    // #when
+    const moments = await buildMoments(context(), { lastDay: XSTOCKS_DAY, days: [] });
+    // #then
+    expect(moments.arrivals.senders).toEqual([]);
+  });
+});

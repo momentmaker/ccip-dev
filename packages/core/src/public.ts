@@ -192,6 +192,23 @@ export const PollSchema = z.object({
   total_votes: z.number().nullable(),
 });
 
+export const SenderArrivalSchema = z.object({
+  key: z.string(),
+  label: z.string().nullable(),
+  x: z.string().nullable(),
+  kind: z.string().nullable(),
+  inferred: z.boolean(),
+  /** The day it entered the day's top 10. */
+  day: z.string(),
+  /** Its first message's day, over all its addresses. */
+  first_day: z.string(),
+  rank: z.number(),
+  messages: z.number(),
+  /** Its messages from its first day through `day`. */
+  total_messages: z.number(),
+  chains: z.array(z.string()),
+});
+
 export const MomentsFileSchema = z.object({
   ...envelope,
   network: z.object({ chains: z.number(), lanes: z.number() }),
@@ -199,6 +216,7 @@ export const MomentsFileSchema = z.object({
     chains: z.array(z.object({ selector: z.string(), day: z.string(), number: z.number(), partners: z.array(z.string()), messages: z.number(), usd: z.number() })),
     lanes: z.array(z.object({ key: z.string(), day: z.string(), messages: z.number(), usd: z.number() })),
     tokens: z.array(z.object({ key: z.string(), symbol: z.string().nullable(), day: z.string(), chains: z.array(z.string()), usd: z.number() })),
+    senders: z.array(SenderArrivalSchema).optional(),
   }),
   weeks: z.array(MomentsWeekSchema),
   countdowns: z.array(
@@ -376,5 +394,6 @@ export type Spotlight = z.infer<typeof SpotlightSchema>;
 export type MomentsWeek = z.infer<typeof MomentsWeekSchema>;
 export type Poll = z.infer<typeof PollSchema>;
 export type MomentsFile = z.infer<typeof MomentsFileSchema>;
+export type SenderArrival = z.infer<typeof SenderArrivalSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type ProjectsFile = z.infer<typeof ProjectsFileSchema>;

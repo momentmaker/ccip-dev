@@ -478,3 +478,39 @@ describe('migration 0006', () => {
     expect((await store.dailyHistory(env.DB)).map((d) => [d.day, d.messages, d.token_messages, d.data_messages])).toEqual([[DAY, 5, 2, 3]]);
   });
 });
+
+describe('migration 0007', () => {
+  it('accepts sender arrivals and still refuses an unknown kind', async () => {
+    // #when
+    await store.insertArrivals(env.DB, 'sender', ['project:xstocks'], '2026-10-13T00:00:00.000Z', null);
+    const refused = await env.DB.prepare("INSERT INTO arrivals VALUES ('robot', 'k', 'x', NULL)").run().then(() => false, () => true);
+    // #then
+    expect({ count: await store.countArrivals(env.DB, 'sender'), refused }).toEqual({ count: 1, refused: true });
+  });
+
+  it('keeps every existing arrival and its announced_at through the rebuild', async () => {
+    // #given arrivals as migration 0001 shaped it, holding a row of each old kind
+    await env.DB.batch([
+      env.DB.prepare('DROP TABLE arrivals'),
+      env.DB.prepare("CREATE TABLE arrivals (kind TEXT NOT NULL CHECK (kind IN ('chain', 'token', 'lane')), key TEXT NOT NULL, first_seen TEXT NOT NULL, announced_at TEXT, PRIMARY KEY (kind, key))"),
+      env.DB.prepare("INSERT INTO arrivals VALUES ('chain', 'c', '2026-10-01T00:00:00.000Z', '2026-10-01T01:00:00.000Z'), ('token', 't', '2026-10-02T00:00:00.000Z', NULL), ('lane', 'l', '2026-10-03T00:00:00.000Z', '2026-10-03T00:00:00.000Z')"),
+    ]);
+    const migration = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0007'));
+    // #when
+    await env.DB.batch(migration!.queries.map((q) => env.DB.prepare(q)));
+    // #then
+    const rows = await env.DB.prepare('SELECT * FROM arrivals ORDER BY kind').all();
+    expect(rows.results).toEqual([
+      { kind: 'chain', key: 'c', first_seen: '2026-10-01T00:00:00.000Z', announced_at: '2026-10-01T01:00:00.000Z' },
+      { kind: 'lane', key: 'l', first_seen: '2026-10-03T00:00:00.000Z', announced_at: '2026-10-03T00:00:00.000Z' },
+      { kind: 'token', key: 't', first_seen: '2026-10-02T00:00:00.000Z', announced_at: null },
+    ]);
+  });
+
+  it("finds an address's first day on any chain through the messages_sender index", async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.FIRST_SENDER_DAYS_SQL}`).bind('["0xa"]').all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail).join(' | ')).toContain('messages_sender');
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Label, LabelIndex } from '../src/labels';
-import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
+import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, newcomerSpan, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
 import {
   BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_LABEL, XSTOCKS_LABELS, XSTOCKS_SENDER_ROWS, XSTOCKS_TOTALS,
 } from '../src/testing';
@@ -197,5 +197,47 @@ describe('label coverage', () => {
   it('has no shares for an empty window, never NaN', () => {
     // #then
     expect(labelCoverage([], { messages: 0, usd_value: 0, fee_usd: null })).toEqual({ messages_pct: null, usd_pct: null, fees_pct: null, window: '7d' });
+  });
+});
+
+describe('new on CCIP', () => {
+  const DAY = '2026-10-13';
+  const resolve = identityResolver({}, CHAINS);
+  /** Twelve unlabeled senders with 120, 110, … 10 messages: the 11th and 12th fall outside the top 10. */
+  const day = mergeIdentities(Array.from({ length: 12 }, (_, i) => row(BASE, `0x${String(i + 1).padStart(40, '0')}`, 120 - i * 10)), resolve);
+  const key = (i: number) => `address:0x${String(i).padStart(40, '0')}`;
+  const firstDays = new Map(Array.from({ length: 12 }, (_, i) => [key(i + 1), '2026-10-01']));
+
+  it('picks the top 10 senders of the day with 20 or more messages whose first message came within 30 days', () => {
+    // #when
+    const picks = newcomerPicks(day, firstDays, DAY, new Set());
+    // #then the 10th sender sent 30; the 11th and 12th are outside the top 10
+    expect(picks.map((p) => [p.identity.key, p.rank])).toEqual(Array.from({ length: 10 }, (_, i) => [key(i + 1), i + 1]));
+  });
+
+  it('counts the 30 days through the day itself: a first message 29 days back is new, 30 days back is not', () => {
+    // #given
+    const edges = new Map([[key(1), '2026-09-14'], [key(2), '2026-09-13']]);
+    // #when
+    const picks = newcomerPicks(day, edges, DAY, new Set());
+    // #then
+    expect(picks.map((p) => p.identity.key)).toEqual([key(1)]);
+  });
+
+  it('leaves out an identity already recorded, one under 20 messages, and one with no known first day', () => {
+    // #given only sender 1 qualifies on its own
+    const quiet = mergeIdentities([row(BASE, '0x00000000000000000000000000000000000000cc', 19)], resolve);
+    const picks = newcomerPicks([...day.slice(0, 3), ...quiet], new Map([[key(1), DAY], [key(2), DAY], ['address:0x00000000000000000000000000000000000000cc', DAY]]), DAY, new Set([key(2)]));
+    // #then sender 3 has no first day
+    expect(picks.map((p) => p.identity.key)).toEqual([key(1)]);
+  });
+
+  it.each([
+    ['2026-10-13', 'first-day'],
+    ['2026-10-07', 'first-week'],
+    ['2026-10-06', 'since'],
+  ] as const)('says a first message on %s came %s', (firstDay, span) => {
+    // #then
+    expect(newcomerSpan(firstDay, DAY)).toBe(span);
   });
 });

@@ -1,6 +1,7 @@
 import { isAddressShape } from './chain-map';
 import type { Label, LabelIndex, LabelProject } from './labels';
 import { byName } from './roster';
+import { addDays } from './time';
 
 export type LabelKind = LabelProject['kind'];
 
@@ -217,4 +218,36 @@ export function labelCoverage(identities: readonly IdentityTotals[], totals: { m
     fees_pct: sharePct(sum((i) => i.fee_usd ?? 0), totals.fee_usd),
     window: '7d',
   };
+}
+
+export const NEWCOMER_TOP = 10;
+export const NEWCOMER_MIN_MESSAGES = 20;
+/** "Never sent before the last 30 days": the 30 days ending on the day itself. */
+export const NEWCOMER_NEW_DAYS = 30;
+
+export interface Newcomer {
+  identity: IdentityTotals;
+  /** The identity's place in the day's ranking by messages. */
+  rank: number;
+  firstDay: string;
+}
+
+/**
+ * The day's new identities: in its top 10 by messages, with 20 or more, a first message within the 30 days ending on
+ * `day`, and not recorded before. `firstDays` holds each candidate's earliest day over all its addresses; an identity
+ * missing from it is left out rather than guessed new.
+ */
+export function newcomerPicks(dayIdentities: readonly IdentityTotals[], firstDays: ReadonlyMap<string, string>, day: string, recorded: ReadonlySet<string>): Newcomer[] {
+  const since = addDays(day, -(NEWCOMER_NEW_DAYS - 1));
+  return rankIdentities(dayIdentities, 'messages', NEWCOMER_TOP).flatMap((identity, i) => {
+    const firstDay = firstDays.get(identity.key);
+    if (identity.messages < NEWCOMER_MIN_MESSAGES || firstDay === undefined || firstDay < since || recorded.has(identity.key)) return [];
+    return [{ identity, rank: i + 1, firstDay }];
+  });
+}
+
+/** How a post words the time since a newcomer's first message: its first day, its first week, or since a date. */
+export function newcomerSpan(firstDay: string, day: string): 'first-day' | 'first-week' | 'since' {
+  if (firstDay === day) return 'first-day';
+  return firstDay >= addDays(day, -6) ? 'first-week' : 'since';
 }
