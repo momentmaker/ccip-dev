@@ -3093,9 +3093,9 @@ In `docs/runbook.md`, "Labels and handles":
 Under "Incidents and alerts", add after "### Re-finalize a day":
 
 ```markdown
-### Via-token backfill (migration 0008)
+### Via-token backfill
 
-The deploy applies `0008_via_token.sql` before it deploys the Worker; it fills `via_token` rows for every finalized day, one calendar month per statement, and is safe to run again. If a finalize ran between the migration and the deploy, the old Worker's `replaceDaily` deleted that day's `via_token` rows. Check: `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "SELECT day FROM daily_totals WHERE day >= '<deploy day minus 3>' AND day NOT IN (SELECT day FROM daily_breakdown WHERE dim = 'via_token')"`. For each day listed, re-finalize it (above), or run the last statement of the migration again with `wrangler d1 execute ccip-dev --remote --file` on a copy of it.
+The Worker's hourly run fills the `via_token` rows of the days rolled up before the dimension existed: 60 days a run, newest first, one statement a day, from the meta cursor `via_token_backfill:before` (the oldest day filled so far, then `done`). History takes about 20 hours after the deploy; until then, long windows count part of the via-token sends as their senders'. A failed run alerts `via-token-backfill` and resumes from the cursor the next hour. Progress: `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'via_token_backfill:before'"`. To fill the history again, delete that row; the rows are upserted, so a second pass changes nothing that is already right.
 ```
 
 - [ ] **Step 3: Check the docs against the code and commit**
@@ -3109,7 +3109,7 @@ git commit -m "docs: via-token attribution in the methodology and the runbook
 
 How a direct send is credited to the token's project, the token proof rule and the
 assets nobody claims, the new public fields, the candidates job's Tokens to claim, and
-what to do if a finalize ran between migration 0008 and the deploy.
+how the Worker backfills the via-token history.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
