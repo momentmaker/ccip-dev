@@ -5,9 +5,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { identityResolver, validateRegistry } from '@ccip-dev/core';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeFetch, jsonResponse, NETWORKS, XBRIDGE_EVM, XBRIDGE_PROGRAM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_DAY, XSTOCKS_LABEL, XSTOCKS_SENDER_ROWS } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
-  BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
+  BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, coverageWindows, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
   handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, solanaSendProgram, spreadMarkdown,
   spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, windowStart, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
@@ -466,6 +466,13 @@ describe('Solana program hints', () => {
     expect(program).toBe(XBRIDGE_PROGRAM);
   });
 
+  it('has no hint when the transaction only calls common programs', async () => {
+    // #when
+    const program = await solanaSendProgram(rpc([{ signature: 'sent', err: null }], tx([XBRIDGE_SOLANA, COMPUTE_BUDGET, '11111111111111111111111111111111'], [1, 2])), 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect(program).toBeNull();
+  });
+
   it('has no hint without an RPC, without a successful send, or when the RPC fails', async () => {
     // #when
     const results = await Promise.all([
@@ -479,7 +486,50 @@ describe('Solana program hints', () => {
   });
 });
 
+describe('coverage windows', () => {
+  it('compares the 7 complete days before today with the 7 before them, as the Worker does', () => {
+    // #then
+    expect(coverageWindows('2026-10-14')).toEqual({ week: { from: '2026-10-07', to: '2026-10-13' }, before: { from: '2026-09-30', to: '2026-10-06' } });
+  });
+});
+
+describe('RPC hardening', () => {
+  const timeouts = async (call: (fetchFn: typeof fetch) => Promise<unknown>) => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    await call(fakeFetch((_url, init) => {
+      signals.push(init?.signal);
+      return jsonResponse({ result: [] });
+    }));
+    return signals.every((s) => s instanceof AbortSignal) && signals.length > 0;
+  };
+
+  it.each([
+    ['classify', (f: typeof fetch) => classify(f, 'https://rpc', XBRIDGE_EVM)],
+    ['classifySolana', (f: typeof fetch) => classifySolana(f, 'https://rpc', XBRIDGE_SOLANA)],
+    ['solanaSendProgram', (f: typeof fetch) => solanaSendProgram(f, 'https://rpc', XBRIDGE_SOLANA)],
+  ])('gives every %s request a timeout', async (_name, call) => {
+    expect(await timeouts(call)).toBe(true);
+  });
+
+  it('warns with the status when the RPC answers a send lookup with an error', async () => {
+    // #given
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // #when
+    await solanaSendProgram(fakeFetch(() => jsonResponse({}, 429)), 'https://rpc', XBRIDGE_SOLANA);
+    // #then
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('429'));
+    warn.mockRestore();
+  });
+});
+
 describe('pair hints', () => {
+  it('does not pair a candidate with its own program', () => {
+    // #when A8JP sends to the xBridge program it sends through
+    const pairs = pairHints([XBRIDGE_SOLANA], [{ address: XBRIDGE_SOLANA, receiver: XBRIDGE_PROGRAM }], new Map([[XBRIDGE_SOLANA, XBRIDGE_PROGRAM]]));
+    // #then
+    expect([...pairs]).toEqual([]);
+  });
+
   it("pairs xStocks's two senders: A8JP sends to the xBridge, and the xBridge sends to A8JP's program", () => {
     // #when
     const pairs = pairHints(

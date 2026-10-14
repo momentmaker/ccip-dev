@@ -50,6 +50,14 @@ export interface Candidate {
   first_seen: string;
 }
 
+/** This week's label coverage is the 7 complete days before today, as the Worker computes it, against the 7 before them. */
+export function coverageWindows(today: string) {
+  return {
+    week: { from: addDays(today, -7), to: addDays(today, -1) },
+    before: { from: addDays(today, -14), to: addDays(today, -8) },
+  };
+}
+
 export function windowStart(today: string): string {
   return addDays(today, -6);
 }
@@ -186,6 +194,8 @@ export function priorityQuery(sinceDay: string) {
 
 export type AddressKind = 'contract' | 'wallet' | 'unknown' | 'error';
 
+const RPC_TIMEOUT_MS = 15_000;
+
 const EIP7702_MATCH = /^0xef0100[0-9a-f]{40}$/i;
 const SOLANA_SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
@@ -196,6 +206,7 @@ export async function classify(fetchFn: typeof fetch, rpcUrl: string | undefined
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getCode', params: [address, 'latest'] }),
+      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
     });
     if (!res.ok) return 'error';
     const body = (await res.json()) as { result?: unknown };
@@ -219,6 +230,7 @@ export async function classifySolana(fetchFn: typeof fetch, rpcUrl: string | und
         method: 'getAccountInfo',
         params: [address, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }],
       }),
+      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
     });
     if (!res.ok) return 'error';
     const body = (await res.json()) as { result?: { value?: { owner?: unknown; executable?: unknown } | null } };
@@ -256,7 +268,9 @@ export async function solanaSendProgram(fetchFn: typeof fetch, rpcUrl: string | 
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
     });
+    if (!res.ok) console.warn(`Solana RPC ${method} for ${address} returned HTTP ${res.status}`);
     return res.ok ? ((await res.json()) as { result?: unknown }).result : undefined;
   };
   try {
@@ -743,7 +757,7 @@ async function main(): Promise<void> {
   const pairs = addresses.length === 0 ? new Map<string, string[]>() : pairHints(addresses, await d1<{ address: string; receiver: string }>(rq.sql, rq.params), programs);
   for (const row of report) row.hints = candidateHints(row.candidate.address, programs.get(row.candidate.address), pairs);
 
-  const lastWeek = { from: addDays(since, -7), to: addDays(since, -1) };
+  const windows = coverageWindows(today);
   const windowRows = (from: string, to: string) => {
     const q = senderRowsQuery(from, to);
     return d1<SenderRow>(q.sql, q.params);
@@ -752,10 +766,10 @@ async function main(): Promise<void> {
     const q = windowTotalsQuery(from, to);
     return (await d1<{ messages: number; usd_value: number; fee_usd: number | null }>(q.sql, q.params))[0] ?? { messages: 0, usd_value: 0, fee_usd: null };
   };
-  const weekRows = await windowRows(since, today);
+  const weekRows = await windowRows(windows.week.from, windows.week.to);
   const coverage = coverageMarkdown(
-    labelCoverage(mergeIdentities(weekRows, resolve), await windowTotals(since, today)),
-    labelCoverage(mergeIdentities(await windowRows(lastWeek.from, lastWeek.to), resolve), await windowTotals(lastWeek.from, lastWeek.to)),
+    labelCoverage(mergeIdentities(weekRows, resolve), await windowTotals(windows.week.from, windows.week.to)),
+    labelCoverage(mergeIdentities(await windowRows(windows.before.from, windows.before.to), resolve), await windowTotals(windows.before.from, windows.before.to)),
   );
   const spread = spreadMarkdown(spreadReport(weekRows, resolve, chainNames));
 
