@@ -289,7 +289,6 @@ export async function tokenGroupIds(db: D1Database, tokens: { chain: string; add
   return groups;
 }
 
-/** The registry groups of the day's first tokens, as rollupDay keys via_token rows. */
 export async function firstTokenGroups(db: D1Database, tokens: readonly TokenRow[]): Promise<TokenGroupOf> {
   const first = tokens.filter((t) => t.idx === 0).map((t) => ({ chain: t.chain, address: t.token }));
   return tokenGroupLookup(await tokenGroupIds(db, first));

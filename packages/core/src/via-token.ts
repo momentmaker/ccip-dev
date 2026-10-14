@@ -8,7 +8,7 @@ export type TokenGroupOf = (chain: string, token: string) => string | null;
 /** For a rollup whose groups don't matter: tests that read only totals, and the fee backfill, whose rollup carries no tokens. */
 export const NO_TOKEN_GROUPS: TokenGroupOf = () => null;
 
-/** `groups` is keyed `<selector>:<address>`, as REGISTRY_GROUPS_SQL returns it; a token missing from it has no group. */
+/** Takes the `<selector>:<address>` to group_id map `tokenGroupIds` returns; a token missing from it has no group. */
 export function tokenGroupLookup(groups: ReadonlyMap<string, string | null>): TokenGroupOf {
   return (chain, token) => groups.get(`${chain}:${token}`) ?? null;
 }
