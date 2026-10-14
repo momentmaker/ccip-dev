@@ -8,8 +8,8 @@ import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 import {
   BUSY_WALLET_MESSAGES, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
-  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, prBody, spreadMarkdown,
-  spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, windowStart, type Candidate, type CandidateReportRow, type CandidateRow,
+  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, prBody, spreadMarkdown,
+  spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, windowStart, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
 const candidate: Candidate = {
@@ -248,7 +248,7 @@ describe('candidates by identity', () => {
     insert.run('c', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM, 0);
     insert.run('d', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM, 1);
     // #then
-    expect(rows(db, messageStatsQuery('2026-10-07', [XBRIDGE_EVM]))).toEqual([{ address: XBRIDGE_EVM, data_messages: 2, first_seen: '2026-08-01' }]);
+    expect(rows(db, messageStatsQuery('2026-10-07', [NETWORKS.ink, NETWORKS.xlayer].map((n) => ({ chain: n.chainSelector, address: XBRIDGE_EVM }))))).toEqual([{ address: XBRIDGE_EVM, data_messages: 2, first_seen: '2026-08-01' }]);
   });
 
   it('groups an address’s chains busiest first, with its data messages and first day', () => {
@@ -330,6 +330,57 @@ describe('candidates by identity', () => {
     insert.run('lane', 'a>b', '2026-10-13T00:00:00.000Z');
     // #then
     expect(rows(db, newcomerQuery('2026-10-07')).map((r) => r.address)).toEqual([BASE_SENDER_1]);
+  });
+  it('counts data messages only on the chains the candidate keeps, so its share stays within 100%', () => {
+    // #given an address labeled on Ink (left out) with data messages on both chains
+    const db = database();
+    const insert = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, NULL, 0)');
+    for (const id of ['a', 'b', 'c']) insert.run(id, XSTOCKS_DAY, NETWORKS.ink.chainSelector, XBRIDGE_EVM);
+    insert.run('d', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM);
+    // #when the candidate keeps X Layer only
+    const [stat] = rows(db, messageStatsQuery('2026-10-07', [{ chain: NETWORKS.xlayer.chainSelector, address: XBRIDGE_EVM }]));
+    // #then
+    expect(stat!.data_messages).toBe(1);
+  });
+
+  it('reads a newcomer’s rows with no threshold, by address', () => {
+    // #given
+    const db = database();
+    const insert = db.prepare("INSERT INTO daily_breakdown VALUES (?, 'sender', ?, ?, 0, 0)");
+    insert.run(XSTOCKS_DAY, `${NETWORKS.base.chainSelector}:${BASE_SENDER_1}`, 3);
+    insert.run(XSTOCKS_DAY, `${NETWORKS.base.chainSelector}:${BASE_SENDER_2}`, 9);
+    // #then
+    expect(rows(db, newcomerRowsQuery('2026-10-07', [BASE_SENDER_1])).map((r) => [r.address, r.messages])).toEqual([[BASE_SENDER_1, 3]]);
+  });
+
+  describe('fast-tracking newcomers', () => {
+    const row = (n: (typeof NETWORKS)[keyof typeof NETWORKS], address: string, messages: number): CandidateRow => ({ address, chain: n.chainSelector, chain_name: n.name, chain_id: n.chainId, family: n.chainFamily, messages, usd: 0 });
+    const none = identityResolver({}, XSTOCKS_CHAINS);
+
+    it('adds a newcomer below every threshold that the ranking missed', () => {
+      expect(withNewcomerRows([], [row(NETWORKS.base, BASE_SENDER_1, 1)], new Set(), none).map((r) => r.address)).toEqual([BASE_SENDER_1]);
+    });
+
+    it('does not add a newcomer a label names or spreads to', () => {
+      // #given xStocks labeled on Ink, so X Layer is spread
+      const resolve = identityResolver({ [`ethereum-mainnet-ink-1:${XBRIDGE_EVM}`]: XSTOCKS_LABEL }, XSTOCKS_CHAINS);
+      const labeled = new Set([`ethereum-mainnet-base-1:${BASE_SENDER_1}`]);
+      // #then
+      expect(withNewcomerRows([], [row(NETWORKS.xlayer, XBRIDGE_EVM, 1), row(NETWORKS.base, BASE_SENDER_1, 1)], labeled, resolve)).toEqual([]);
+    });
+
+    it('lists a newcomer that is also ranked once', () => {
+      const ranked = [row(NETWORKS.base, BASE_SENDER_1, 80)];
+      expect(withNewcomerRows(ranked, [row(NETWORKS.base, BASE_SENDER_1, 80), row(NETWORKS.ink, BASE_SENDER_1, 2)], new Set(), none)).toEqual(ranked);
+    });
+
+    it.each([
+      ['a newcomer wallet with 3 messages', 'wallet', 3, true, true],
+      ['the same wallet, not new', 'wallet', 3, false, false],
+      ['a newcomer the RPC could not check', 'error', 3, true, false],
+    ] as const)('keeps %s: %s', (_what, kind, messages, newcomer, kept) => {
+      expect(keepCandidate(kind, messages, newcomer)).toBe(kept);
+    });
   });
 });
 

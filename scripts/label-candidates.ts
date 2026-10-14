@@ -78,12 +78,29 @@ export function identityCandidateQuery(sinceDay: string, minUsd: number, minMess
   };
 }
 
-/** Each address's messages without tokens since ?1, and its first day ever, through the messages_sender index. */
-export function messageStatsQuery(sinceDay: string, addresses: readonly string[]) {
+/**
+ * Each address's first day ever, on any chain, and its messages without tokens since ?1 on the given (chain, address)
+ * pairs only, so a share is taken over the same chains its candidate's message count sums.
+ */
+export function messageStatsQuery(sinceDay: string, pairs: readonly { chain: string; address: string }[]) {
   return {
-    sql: `SELECT sender AS address, SUM(CASE WHEN day >= ?1 AND token_count = 0 THEN 1 ELSE 0 END) AS data_messages, MIN(day) AS first_seen
+    sql: `SELECT sender AS address,
+            SUM(CASE WHEN day >= ?1 AND token_count = 0 AND (src_chain || ':' || sender) IN (SELECT value FROM json_each(?3)) THEN 1 ELSE 0 END) AS data_messages,
+            MIN(day) AS first_seen
           FROM messages WHERE src_chain IN (SELECT selector FROM chains) AND sender IN (SELECT value FROM json_each(?2))
           GROUP BY sender`,
+    params: [sinceDay, JSON.stringify([...new Set(pairs.map((p) => p.address))]), JSON.stringify(pairs.map((p) => `${p.chain}:${p.address}`))],
+  };
+}
+
+/** Each (address, chain) row since ?1 of the given addresses, with no threshold: the rows of senders new on CCIP. */
+export function newcomerRowsQuery(sinceDay: string, addresses: readonly string[]) {
+  return {
+    sql: `SELECT substr(key, instr(key, ':') + 1) AS address, substr(key, 1, instr(key, ':') - 1) AS chain, c.name AS chain_name, c.chain_id AS chain_id,
+            c.family AS family, SUM(messages) AS messages, SUM(usd_value) AS usd
+          FROM daily_breakdown LEFT JOIN chains c ON c.selector = substr(key, 1, instr(key, ':') - 1)
+          WHERE dim = 'sender' AND day >= ?1 AND substr(key, instr(key, ':') + 1) IN (SELECT value FROM json_each(?2))
+          GROUP BY key ORDER BY address, messages DESC, chain`,
     params: [sinceDay, JSON.stringify(addresses)],
   };
 }
@@ -116,6 +133,17 @@ export function windowTotalsQuery(fromDay: string, toDay: string) {
 /** A row a label names (a draft included), or one a label spreads to, belongs to a project; the rest are candidates' rows. */
 export function unlabeledRows(rows: readonly CandidateRow[], labeled: ReadonlySet<string>, resolve: IdentityResolver): CandidateRow[] {
   return rows.filter((r) => !(r.chain_name !== null && labeled.has(labelKey(r.chain_name, r.address))) && resolve(r.chain, r.address).project === null);
+}
+
+/** The ranked rows plus the unlabeled rows of every newcomer the ranking missed, so a quiet new sender is still a candidate. */
+export function withNewcomerRows(
+  ranked: readonly CandidateRow[],
+  newcomerRows: readonly CandidateRow[],
+  labeled: ReadonlySet<string>,
+  resolve: IdentityResolver,
+): CandidateRow[] {
+  const rankedAddresses = new Set(ranked.map((r) => r.address));
+  return [...ranked, ...unlabeledRows(newcomerRows, labeled, resolve).filter((r) => !rankedAddresses.has(r.address))];
 }
 
 /** One candidate per address, its chains busiest first, busiest candidates first. */
@@ -203,10 +231,10 @@ export async function classifySolana(fetchFn: typeof fetch, rpcUrl: string | und
   }
 }
 
-/** A wallet is a user unless it is busy enough to be an operator; an address the RPC could not check is skipped. */
-export function keepCandidate(kind: AddressKind, messages: number): boolean {
+/** A wallet is a user unless it is busy enough to be an operator or new on CCIP; an address the RPC could not check is skipped. */
+export function keepCandidate(kind: AddressKind, messages: number, newcomer = false): boolean {
   if (kind === 'error') return false;
-  return kind !== 'wallet' || messages >= BUSY_WALLET_MESSAGES;
+  return kind !== 'wallet' || newcomer || messages >= BUSY_WALLET_MESSAGES;
 }
 
 export async function contractName(
@@ -307,7 +335,7 @@ export interface CandidateReportRow {
   priority: 'new on CCIP' | 'top 3' | null;
   tokens: string[];
   destinations: string[];
-  /** "sends via program F2ZY…KcZN", "pairs with 0x9ec0…846b" (Task 15 fills them). */
+  /** Short clues to who the sender is, such as "sends via program F2ZY…KcZN" or "pairs with 0x9ec0…846b". */
   hints: string[];
   explorer: string | null;
 }
@@ -573,18 +601,21 @@ async function main(): Promise<void> {
   const chainNames = new Map(chainRows.map((c) => [c.selector, c.name]));
   const resolve = identityResolver(buildLabelIndex(projects), new Map(chainRows.map((c) => [c.selector, { name: c.name, family: c.family }])));
 
+  const nq = newcomerQuery(since);
+  const newcomers = new Set((await d1<{ address: string }>(nq.sql, nq.params)).map((r) => r.address));
   const cq = identityCandidateQuery(since, minUsd, minMessages);
-  const rows = unlabeledRows(await d1<CandidateRow>(cq.sql, cq.params), labeled, resolve).filter((r) => {
+  const ranked = unlabeledRows(await d1<CandidateRow>(cq.sql, cq.params), labeled, resolve);
+  const nrq = newcomerRowsQuery(since, [...newcomers]);
+  const newcomerRows = newcomers.size === 0 ? [] : await d1<CandidateRow>(nrq.sql, nrq.params);
+  const rows = withNewcomerRows(ranked, newcomerRows, labeled, resolve).filter((r) => {
     if (r.chain_name !== null && knownChains.has(r.chain_name)) return true;
     console.warn(`skipping ${r.chain}:${r.address}: ${r.chain_name ?? 'its chain'} is not in labels/ccip-chains.json yet`);
     return false;
   });
-  const sq = messageStatsQuery(since, [...new Set(rows.map((r) => r.address))]);
+  const sq = messageStatsQuery(since, rows);
   const stats = new Map((await d1<{ address: string; data_messages: number; first_seen: string }>(sq.sql, sq.params)).map((s) => [s.address, s]));
   const pq = priorityQuery(since);
   const top3 = new Set((await d1<{ key: string }>(pq.sql, pq.params)).map((r) => senderKeyAddress(r.key)));
-  const nq = newcomerQuery(since);
-  const newcomers = new Set((await d1<{ address: string }>(nq.sql, nq.params)).map((r) => r.address));
 
   const report: CandidateReportRow[] = [];
   for (const c of groupCandidates(rows, stats)) {
@@ -594,7 +625,7 @@ async function main(): Promise<void> {
     }
     const kind = await classifyCandidate(c, rpcMap);
     if (kind === 'error') console.warn(`skipping ${c.address}: RPC check failed`);
-    if (!keepCandidate(kind, c.messages)) continue;
+    if (!keepCandidate(kind, c.messages, newcomers.has(c.address))) continue;
     const busiest = c.chains[0]!;
     const name =
       c.family === 'EVM'
@@ -625,9 +656,14 @@ async function main(): Promise<void> {
   }
 
   const lastWeek = { from: addDays(since, -7), to: addDays(since, -1) };
-  const windowRows = (from: string, to: string) => d1<SenderRow>(senderRowsQuery(from, to).sql, senderRowsQuery(from, to).params);
-  const windowTotals = async (from: string, to: string) =>
-    (await d1<{ messages: number; usd_value: number; fee_usd: number | null }>(windowTotalsQuery(from, to).sql, windowTotalsQuery(from, to).params))[0] ?? { messages: 0, usd_value: 0, fee_usd: null };
+  const windowRows = (from: string, to: string) => {
+    const q = senderRowsQuery(from, to);
+    return d1<SenderRow>(q.sql, q.params);
+  };
+  const windowTotals = async (from: string, to: string) => {
+    const q = windowTotalsQuery(from, to);
+    return (await d1<{ messages: number; usd_value: number; fee_usd: number | null }>(q.sql, q.params))[0] ?? { messages: 0, usd_value: 0, fee_usd: null };
+  };
   const weekRows = await windowRows(since, today);
   const coverage = coverageMarkdown(
     labelCoverage(mergeIdentities(weekRows, resolve), await windowTotals(since, today)),
