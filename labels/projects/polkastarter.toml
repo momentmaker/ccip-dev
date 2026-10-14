@@ -1,0 +1,16 @@
+# Source: https://polkastarter.com/bridge (the bridge page's config sets ethereum contractAddress "0x4d61b82eab6477C7B29E4190aF5c906b923EF3AD" and base contractAddress "0xa523F7414b8E9D283C091A5D3695A6b994Fe1c50")
+name = "Polkastarter"
+x = "polkastarter"
+url = "https://polkastarter.com"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x4d61b82eab6477c7b29e4190af5c906b923ef3ad"
+note = "PolsV2MigrationEth, the POLS bridge from Ethereum to Base (migrateToBase)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xa523f7414b8e9d283c091a5d3695a6b994fe1c50"
+note = "PolsV2MigrationBase, the POLS bridge from Base to Ethereum (migrateToEth)"

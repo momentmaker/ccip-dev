@@ -1,11 +1,26 @@
+# Source: https://app.transporter.io/ (the app's network config, chunk _next/static/chunks/0ovk1cilp665b.js, sets nativeSupport wrapperContract "0x66598216d8e4d9afe0f06d525b335b762229842f" for mainnet, arbitrum and optimism, and "0x696c73976ba5d4064a4639c5911b42130f4869fb" for base)
 name = "Transporter"
 x = "transporter_io"
 url = "https://www.transporter.io"
 kind = "app"
-# Unverified: identified via third-party lists (Ledger allowlist, etherscan labels), not by Transporter or Chainlink.
-verified = false
+verified = true
 
 [[addresses]]
 chain = "ethereum-mainnet"
 address = "0x66598216d8e4d9afe0f06d525b335b762229842f"
 note = "EtherSenderReceiver (ETH wrapper used by the Transporter app)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x66598216d8e4d9afe0f06d525b335b762229842f"
+note = "EtherSenderReceiver (arbitrum wrapperContract in the Transporter app config)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0x66598216d8e4d9afe0f06d525b335b762229842f"
+note = "EtherSenderReceiver (optimism wrapperContract in the Transporter app config)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x696c73976ba5d4064a4639c5911b42130f4869fb"
+note = "EtherSenderReceiver (base wrapperContract in the Transporter app config)"

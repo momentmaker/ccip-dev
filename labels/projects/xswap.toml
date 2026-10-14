@@ -39,3 +39,18 @@ note = "XSwapRouter proxy (chain 43114 in the xswap.link app config)"
 chain = "binance_smart_chain-mainnet"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
 note = "XSwapRouter proxy (chain 56 in the xswap.link app config)"
+
+[[addresses]]
+chain = "0g-mainnet"
+address = "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2"
+note = "XSwapRouter (chain 16661 in the xswap.link app config)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2"
+note = "XSwapRouter (chain 143 in the xswap.link app config)"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2"
+note = "XSwapRouter (chain 9745 in the xswap.link app config)"

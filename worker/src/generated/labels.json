@@ -1,4 +1,28 @@
 {
+  "ethereum-mainnet:0x0038dfb2bbc353daa6ad22cb11ee1d78f41b59cd": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "ethereum-mainnet-base-1:0x7d19077317b7574cd01aafa143e5e09f0f4df466": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "monad-mainnet:0xcbc823dce84215f5660922dd4d26f03ef6c04da1": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "plasma-mainnet:0xebf4b796b858210fbbbdab0a51bca61f1d9c1fe5": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
   "ethereum-mainnet-arbitrum-1:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
     "name": "Aave",
     "x": "aave",
@@ -6,6 +30,12 @@
     "slug": "aave"
   },
   "ethereum-mainnet:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
+    "name": "Aave",
+    "x": "aave",
+    "kind": "protocol",
+    "slug": "aave"
+  },
+  "ethereum-mainnet:0xed42a7d8559a463722ca4bed50e0cc05a386b0e1": {
     "name": "Aave",
     "x": "aave",
     "kind": "protocol",
@@ -321,6 +351,24 @@
     "kind": "protocol",
     "slug": "glacis"
   },
+  "ethereum-mainnet:0x65805d838a3504d283b92a623081e4b8c5583502": {
+    "name": "infiniFi",
+    "x": "infinifi",
+    "kind": "protocol",
+    "slug": "infinifi"
+  },
+  "ethereum-mainnet-base-1:0x386dffb5a31588ab56df20c54ec649f3b554362c": {
+    "name": "infiniFi",
+    "x": "infinifi",
+    "kind": "protocol",
+    "slug": "infinifi"
+  },
+  "monad-mainnet:0x1d95cc100d6cd9c7bbdbd7cb328d99b3d6037ff7": {
+    "name": "infiniFi",
+    "x": "infinifi",
+    "kind": "protocol",
+    "slug": "infinifi"
+  },
   "ethereum-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
     "name": "Interport Finance",
     "x": "InterportFi",
@@ -417,6 +465,18 @@
     "kind": "protocol",
     "slug": "interport"
   },
+  "ethereum-mainnet:0x771d10d0c86e26ea8d3b778ad4d31b30533b9cbf": {
+    "name": "LayerZero",
+    "x": "layerzero_core",
+    "kind": "protocol",
+    "slug": "layerzero"
+  },
+  "binance_smart_chain-mainnet:0x53561bcfe6b3f23bc72e5b9919c12322729942e8": {
+    "name": "LayerZero",
+    "x": "layerzero_core",
+    "kind": "protocol",
+    "slug": "layerzero"
+  },
   "ethereum-mainnet-base-1:0x328de900860816d29d1367f6903a24d8ed40c997": {
     "name": "Lido",
     "x": "lidofinance",
@@ -429,10 +489,39 @@
     "kind": "protocol",
     "slug": "mellow"
   },
+  "ethereum-mainnet:0x4d61b82eab6477c7b29e4190af5c906b923ef3ad": {
+    "name": "Polkastarter",
+    "x": "polkastarter",
+    "kind": "protocol",
+    "slug": "polkastarter"
+  },
+  "ethereum-mainnet-base-1:0xa523f7414b8e9d283c091a5d3695a6b994fe1c50": {
+    "name": "Polkastarter",
+    "x": "polkastarter",
+    "kind": "protocol",
+    "slug": "polkastarter"
+  },
+  "ethereum-mainnet:0x88135dd0e7a8a2e42272dda89849a997ce2e83f7": {
+    "name": "Rare Protocol",
+    "kind": "protocol",
+    "slug": "rare-protocol"
+  },
   "ethereum-mainnet-base-1:0x671be08d6d3c826c2f6d76915f1b54af484d4077": {
     "name": "Ribbita (TIBBIR)",
     "kind": "app",
     "slug": "ribbita"
+  },
+  "ethereum-mainnet:0xab5f1eb5b88c77651eed32104b19e34f36675893": {
+    "name": "Ronin",
+    "x": "Ronin_Network",
+    "kind": "protocol",
+    "slug": "ronin"
+  },
+  "ronin-mainnet:0xab5f1eb5b88c77651eed32104b19e34f36675893": {
+    "name": "Ronin",
+    "x": "Ronin_Network",
+    "kind": "protocol",
+    "slug": "ronin"
   },
   "ethereum-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
@@ -463,6 +552,54 @@
     "x": "StakeDAOHQ",
     "kind": "protocol",
     "slug": "stake-dao"
+  },
+  "ethereum-mainnet:0xc090e88bdaa823b7c1dd8d9e24cbacb0f35f2675": {
+    "name": "SuperEarn",
+    "x": "SuperearnX",
+    "kind": "protocol",
+    "slug": "superearn"
+  },
+  "kaia-mainnet:0x8e53cdaa89381c203a074fb3388f65936358f200": {
+    "name": "SuperEarn",
+    "x": "SuperearnX",
+    "kind": "protocol",
+    "slug": "superearn"
+  },
+  "ethereum-mainnet:0x03007f5a53e9387b30721753165d2f6eee5201f5": {
+    "name": "Tenbin",
+    "x": "tenbinlabs",
+    "kind": "issuer",
+    "slug": "tenbin"
+  },
+  "ethereum-mainnet:0xc96beefb03458b3358462f03c1cff00ff0f46e47": {
+    "name": "Tenbin",
+    "x": "tenbinlabs",
+    "kind": "issuer",
+    "slug": "tenbin"
+  },
+  "ethereum-mainnet:0x66598216d8e4d9afe0f06d525b335b762229842f": {
+    "name": "Transporter",
+    "x": "transporter_io",
+    "kind": "app",
+    "slug": "transporter"
+  },
+  "ethereum-mainnet-arbitrum-1:0x66598216d8e4d9afe0f06d525b335b762229842f": {
+    "name": "Transporter",
+    "x": "transporter_io",
+    "kind": "app",
+    "slug": "transporter"
+  },
+  "ethereum-mainnet-optimism-1:0x66598216d8e4d9afe0f06d525b335b762229842f": {
+    "name": "Transporter",
+    "x": "transporter_io",
+    "kind": "app",
+    "slug": "transporter"
+  },
+  "ethereum-mainnet-base-1:0x696c73976ba5d4064a4639c5911b42130f4869fb": {
+    "name": "Transporter",
+    "x": "transporter_io",
+    "kind": "app",
+    "slug": "transporter"
   },
   "ethereum-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
@@ -561,6 +698,24 @@
     "slug": "xswap"
   },
   "binance_smart_chain-mainnet:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "0g-mainnet:0x543f4ae34db4d5d11b564b578a2e79221a48ccc2": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "monad-mainnet:0x543f4ae34db4d5d11b564b578a2e79221a48ccc2": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "plasma-mainnet:0x543f4ae34db4d5d11b564b578a2e79221a48ccc2": {
     "name": "XSwap",
     "x": "xswap_link",
     "kind": "protocol",

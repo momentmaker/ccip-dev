@@ -1,10 +1,10 @@
+# Source: https://github.com/aave-dao/stable-vault/blob/main/deployments/prod/earning.json ("CcipAdapter"; one CREATE2 address)
 name = "Aave"
 x = "aave"
 url = "https://aave.com"
 kind = "protocol"
 verified = true
 
-# Source: https://github.com/aave-dao/stable-vault/blob/main/deployments/prod/earning.json ("CcipAdapter"; one CREATE2 address)
 [[addresses]]
 chain = "ethereum-mainnet-arbitrum-1"
 address = "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072"
@@ -14,6 +14,12 @@ note = "Stable-vault CcipAdapter (aave-dao/stable-vault deployments/prod)"
 chain = "ethereum-mainnet"
 address = "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072"
 note = "Stable-vault CcipAdapter, same CREATE2 address (aave-dao/stable-vault deployments/prod)"
+
+# Source: https://github.com/aave-dao/aave-address-book/blob/main/src/GovernanceV3Ethereum.sol (CROSS_CHAIN_CONTROLLER = 0xEd42a7D8559a463722Ca4beD50E0Cc05a386b0e1)
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xed42a7d8559a463722ca4bed50e0cc05a386b0e1"
+note = "Governance V3 CrossChainController (a.DI), sends through its CCIP adapter"
 
 [[tokens]]
 chain = "plasma-mainnet"

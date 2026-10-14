@@ -1,0 +1,16 @@
+# Source: https://metadata.layerzero-api.com/v1/metadata/dvns (LayerZero's DVN metadata API, which docs.layerzero.network/v2/deployments/dvn-addresses loads, lists both adapters as the "Chainlink CCIP" v2 DVN)
+name = "LayerZero"
+x = "layerzero_core"
+url = "https://layerzero.network"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x771d10d0c86e26ea8d3b778ad4d31b30533b9cbf"
+note = "CCIPDVNAdapter, the Chainlink CCIP DVN for LayerZero V2 (metadata API dvns.ethereum)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x53561bcfe6b3f23bc72e5b9919c12322729942e8"
+note = "CCIPDVNAdapter, the Chainlink CCIP DVN for LayerZero V2 (metadata API dvns.bsc)"

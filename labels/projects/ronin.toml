@@ -1,0 +1,16 @@
+# Source: https://github.com/axieinfinity/smart-contract-tracker/blob/main/contracts/protocol/bridge.json (MultiLockMintERC721PoolProxy 0xab5f1eb5b88c77651eed32104b19e34f36675893 on Ethereum and Ronin; also _NFT_OPERATOR "same for both chains" in github.com/ronin-chain/bridge-contract)
+name = "Ronin"
+x = "Ronin_Network"
+url = "https://roninchain.com"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xab5f1eb5b88c77651eed32104b19e34f36675893"
+note = "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
+
+[[addresses]]
+chain = "ronin-mainnet"
+address = "0xab5f1eb5b88c77651eed32104b19e34f36675893"
+note = "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"

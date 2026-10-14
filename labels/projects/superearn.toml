@@ -1,0 +1,16 @@
+# Source: https://docs.superearn.io/en/developers/smart-contracts (Ethereum "Adapter | Cross-chain adapter + bridge entry (Rhino + CCIP) | 0xC090e88bDAA823B7C1dd8d9e24CbacB0f35f2675")
+name = "SuperEarn"
+x = "SuperearnX"
+url = "https://superearn.io"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xc090e88bdaa823b7c1dd8d9e24cbacb0f35f2675"
+note = "CrosschainAdapter proxy, Ethereum side of the Kaia vaults (Rhino + CCIP)"
+
+[[addresses]]
+chain = "kaia-mainnet"
+address = "0x8e53cdaa89381c203a074fb3388f65936358f200"
+note = "OriginAdapter (CrosschainAdapter proxy), Kaia side (Rhino + CCIP)"

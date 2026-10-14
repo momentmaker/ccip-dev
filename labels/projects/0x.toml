@@ -1,9 +1,9 @@
+# Source: https://github.com/0xProject/0x-settler (README: the registry 0x00000000000004533Fe15556B1E086BB1A72cEae gives the current Settler through ownerOf(featureId), and "For bridge settler, the feature number is probably 5"; ownerOf(5) on Ethereum, Base, Monad and Plasma returns the four addresses below)
 name = "0x"
 x = "0xProject"
 url = "https://0x.org"
 kind = "protocol"
-# Unverified: BridgeSettler contracts from 0xProject/0x-settler, but 0x does not publish these addresses.
-verified = false
+verified = true
 
 [[addresses]]
 chain = "ethereum-mainnet"

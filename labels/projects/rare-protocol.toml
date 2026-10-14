@@ -1,0 +1,10 @@
+# Source: https://rare.xyz/docs (contracts table: "RARE bridge. Sends RARE across supported CCIP routes." Mainnet 0x88135dd0e7a8a2e42272dda89849a997ce2e83f7; also rareBridge in github.com/superrare/rare-sdk src/contracts/addresses.ts)
+name = "Rare Protocol"
+url = "https://rare.xyz"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x88135dd0e7a8a2e42272dda89849a997ce2e83f7"
+note = "RareBridgeLockAndUnlock proxy, the RARE token CCIP bridge on Ethereum"

@@ -1,0 +1,21 @@
+# Source: https://github.com/InfiniFi-Labs/infinifi-protocol/tree/master/deployment/configuration (addresses.1.json, addresses.8453.json and addresses.143.json list the Outland CCIP connectors)
+name = "infiniFi"
+x = "infinifi"
+url = "https://infinifi.xyz"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x65805d838a3504d283b92a623081e4b8c5583502"
+note = "Outland ConnectorCCIP (OUTLAND_CONNECTOR_CCIP in addresses.1.json)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x386dffb5a31588ab56df20c54ec649f3b554362c"
+note = "Outland ConnectorCCIP (OUTLAND_CONNECTOR_CCIP in addresses.8453.json)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x1d95cc100d6cd9c7bbdbd7cb328d99b3d6037ff7"
+note = "Outland ConnectorCCTP_Chainlink (OUTLAND_CONNECTOR_CCTP_CHAINLINK in addresses.143.json)"

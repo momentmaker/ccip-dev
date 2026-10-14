@@ -1,4 +1,33 @@
 {
+  "0x": {
+    "name": "0x",
+    "x": "0xProject",
+    "url": "https://0x.org",
+    "kind": "protocol",
+    "source": "https://github.com/0xProject/0x-settler (README: the registry 0x00000000000004533Fe15556B1E086BB1A72cEae gives the current Settler through ownerOf(featureId), and \"For bridge settler, the feature number is probably 5\"; ownerOf(5) on Ethereum, Base, Monad and Plasma returns the four addresses below)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x0038dfb2bbc353daa6ad22cb11ee1d78f41b59cd",
+        "note": "MainnetBridgeSettler (0x Settler)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x7d19077317b7574cd01aafa143e5e09f0f4df466",
+        "note": "BaseBridgeSettler (0x Settler)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0xcbc823dce84215f5660922dd4d26f03ef6c04da1",
+        "note": "MonadBridgeSettler (0x Settler)"
+      },
+      {
+        "chain": "plasma-mainnet",
+        "address": "0xebf4b796b858210fbbbdab0a51bca61f1d9c1fe5",
+        "note": "PlasmaBridgeSettler (0x Settler registry ownerOf(5))"
+      }
+    ]
+  },
   "aave": {
     "name": "Aave",
     "x": "aave",
@@ -15,6 +44,11 @@
         "chain": "ethereum-mainnet",
         "address": "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072",
         "note": "Stable-vault CcipAdapter, same CREATE2 address (aave-dao/stable-vault deployments/prod)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xed42a7d8559a463722ca4bed50e0cc05a386b0e1",
+        "note": "Governance V3 CrossChainController (a.DI), sends through its CCIP adapter"
       }
     ]
   },
@@ -421,6 +455,30 @@
     "source": null,
     "addresses": []
   },
+  "infinifi": {
+    "name": "infiniFi",
+    "x": "infinifi",
+    "url": "https://infinifi.xyz",
+    "kind": "protocol",
+    "source": "https://github.com/InfiniFi-Labs/infinifi-protocol/tree/master/deployment/configuration (addresses.1.json, addresses.8453.json and addresses.143.json list the Outland CCIP connectors)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x65805d838a3504d283b92a623081e4b8c5583502",
+        "note": "Outland ConnectorCCIP (OUTLAND_CONNECTOR_CCIP in addresses.1.json)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x386dffb5a31588ab56df20c54ec649f3b554362c",
+        "note": "Outland ConnectorCCIP (OUTLAND_CONNECTOR_CCIP in addresses.8453.json)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x1d95cc100d6cd9c7bbdbd7cb328d99b3d6037ff7",
+        "note": "Outland ConnectorCCTP_Chainlink (OUTLAND_CONNECTOR_CCTP_CHAINLINK in addresses.143.json)"
+      }
+    ]
+  },
   "interport": {
     "name": "Interport Finance",
     "x": "InterportFi",
@@ -518,6 +576,25 @@
     "source": null,
     "addresses": []
   },
+  "layerzero": {
+    "name": "LayerZero",
+    "x": "layerzero_core",
+    "url": "https://layerzero.network",
+    "kind": "protocol",
+    "source": "https://metadata.layerzero-api.com/v1/metadata/dvns (LayerZero's DVN metadata API, which docs.layerzero.network/v2/deployments/dvn-addresses loads, lists both adapters as the \"Chainlink CCIP\" v2 DVN)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x771d10d0c86e26ea8d3b778ad4d31b30533b9cbf",
+        "note": "CCIPDVNAdapter, the Chainlink CCIP DVN for LayerZero V2 (metadata API dvns.ethereum)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x53561bcfe6b3f23bc72e5b9919c12322729942e8",
+        "note": "CCIPDVNAdapter, the Chainlink CCIP DVN for LayerZero V2 (metadata API dvns.bsc)"
+      }
+    ]
+  },
   "lido": {
     "name": "Lido",
     "x": "lidofinance",
@@ -554,6 +631,39 @@
       }
     ]
   },
+  "polkastarter": {
+    "name": "Polkastarter",
+    "x": "polkastarter",
+    "url": "https://polkastarter.com",
+    "kind": "protocol",
+    "source": "https://polkastarter.com/bridge (the bridge page's config sets ethereum contractAddress \"0x4d61b82eab6477C7B29E4190aF5c906b923EF3AD\" and base contractAddress \"0xa523F7414b8E9D283C091A5D3695A6b994Fe1c50\")",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x4d61b82eab6477c7b29e4190af5c906b923ef3ad",
+        "note": "PolsV2MigrationEth, the POLS bridge from Ethereum to Base (migrateToBase)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xa523f7414b8e9d283c091a5d3695a6b994fe1c50",
+        "note": "PolsV2MigrationBase, the POLS bridge from Base to Ethereum (migrateToEth)"
+      }
+    ]
+  },
+  "rare-protocol": {
+    "name": "Rare Protocol",
+    "x": null,
+    "url": "https://rare.xyz",
+    "kind": "protocol",
+    "source": "https://rare.xyz/docs (contracts table: \"RARE bridge. Sends RARE across supported CCIP routes.\" Mainnet 0x88135dd0e7a8a2e42272dda89849a997ce2e83f7; also rareBridge in github.com/superrare/rare-sdk src/contracts/addresses.ts)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x88135dd0e7a8a2e42272dda89849a997ce2e83f7",
+        "note": "RareBridgeLockAndUnlock proxy, the RARE token CCIP bridge on Ethereum"
+      }
+    ]
+  },
   "ribbita": {
     "name": "Ribbita (TIBBIR)",
     "x": null,
@@ -565,6 +675,25 @@
         "chain": "ethereum-mainnet-base-1",
         "address": "0x671be08d6d3c826c2f6d76915f1b54af484d4077",
         "note": "TibbirBridgeBase, the TIBBIR Base to Robinhood Chain bridge gate (ribbita.ai ORIGIN_GATE)"
+      }
+    ]
+  },
+  "ronin": {
+    "name": "Ronin",
+    "x": "Ronin_Network",
+    "url": "https://roninchain.com",
+    "kind": "protocol",
+    "source": "https://github.com/axieinfinity/smart-contract-tracker/blob/main/contracts/protocol/bridge.json (MultiLockMintERC721PoolProxy 0xab5f1eb5b88c77651eed32104b19e34f36675893 on Ethereum and Ronin; also _NFT_OPERATOR \"same for both chains\" in github.com/ronin-chain/bridge-contract)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xab5f1eb5b88c77651eed32104b19e34f36675893",
+        "note": "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
+      },
+      {
+        "chain": "ronin-mainnet",
+        "address": "0xab5f1eb5b88c77651eed32104b19e34f36675893",
+        "note": "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
       }
     ]
   },
@@ -607,6 +736,73 @@
         "chain": "ethereum-mainnet-base-1",
         "address": "0xf0000058000021003e4754dca700c766de7601c2",
         "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
+      }
+    ]
+  },
+  "superearn": {
+    "name": "SuperEarn",
+    "x": "SuperearnX",
+    "url": "https://superearn.io",
+    "kind": "protocol",
+    "source": "https://docs.superearn.io/en/developers/smart-contracts (Ethereum \"Adapter | Cross-chain adapter + bridge entry (Rhino + CCIP) | 0xC090e88bDAA823B7C1dd8d9e24CbacB0f35f2675\")",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xc090e88bdaa823b7c1dd8d9e24cbacb0f35f2675",
+        "note": "CrosschainAdapter proxy, Ethereum side of the Kaia vaults (Rhino + CCIP)"
+      },
+      {
+        "chain": "kaia-mainnet",
+        "address": "0x8e53cdaa89381c203a074fb3388f65936358f200",
+        "note": "OriginAdapter (CrosschainAdapter proxy), Kaia side (Rhino + CCIP)"
+      }
+    ]
+  },
+  "tenbin": {
+    "name": "Tenbin",
+    "x": "tenbinlabs",
+    "url": "https://tenbinlabs.xyz",
+    "kind": "issuer",
+    "source": "https://app.tenbinlabs.xyz/ (the app's bridge config, chunk _next/static/immutable/chunks/0st0eq-h7qb25.js, sets adapter tbrl \"0xC96BeeFb03458B3358462f03C1CFf00Ff0F46E47\" and tgld \"0x03007f5A53E9387B30721753165D2f6eEE5201f5\")",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x03007f5a53e9387b30721753165d2f6eee5201f5",
+        "note": "TenbinCrossChainERC4626Adapter for tGLD / stGLD (app bridge config)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xc96beefb03458b3358462f03c1cff00ff0f46e47",
+        "note": "TenbinCrossChainERC4626Adapter for tBRL / stBRL (app bridge config)"
+      }
+    ]
+  },
+  "transporter": {
+    "name": "Transporter",
+    "x": "transporter_io",
+    "url": "https://www.transporter.io",
+    "kind": "app",
+    "source": "https://app.transporter.io/ (the app's network config, chunk _next/static/chunks/0ovk1cilp665b.js, sets nativeSupport wrapperContract \"0x66598216d8e4d9afe0f06d525b335b762229842f\" for mainnet, arbitrum and optimism, and \"0x696c73976ba5d4064a4639c5911b42130f4869fb\" for base)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x66598216d8e4d9afe0f06d525b335b762229842f",
+        "note": "EtherSenderReceiver (ETH wrapper used by the Transporter app)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x66598216d8e4d9afe0f06d525b335b762229842f",
+        "note": "EtherSenderReceiver (arbitrum wrapperContract in the Transporter app config)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0x66598216d8e4d9afe0f06d525b335b762229842f",
+        "note": "EtherSenderReceiver (optimism wrapperContract in the Transporter app config)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x696c73976ba5d4064a4639c5911b42130f4869fb",
+        "note": "EtherSenderReceiver (base wrapperContract in the Transporter app config)"
       }
     ]
   },
@@ -710,6 +906,21 @@
         "chain": "binance_smart_chain-mainnet",
         "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
         "note": "XSwapRouter proxy (chain 56 in the xswap.link app config)"
+      },
+      {
+        "chain": "0g-mainnet",
+        "address": "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2",
+        "note": "XSwapRouter (chain 16661 in the xswap.link app config)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2",
+        "note": "XSwapRouter (chain 143 in the xswap.link app config)"
+      },
+      {
+        "chain": "plasma-mainnet",
+        "address": "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2",
+        "note": "XSwapRouter (chain 9745 in the xswap.link app config)"
       }
     ]
   }
