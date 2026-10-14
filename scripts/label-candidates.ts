@@ -3,7 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   addDays, buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, claimedTokenKeys, dayOf, identityResolver, isAddressShape, labelCoverage,
-  labeledAddresses, labelKey, mergeIdentities, REGISTRY_GROUPS_SQL, sanitize, senderKeyAddress, tokenClaims, validateChainHandles, validateRegistry,
+  labeledAddresses, labelKey, mergeIdentities, normalizeAddress, REGISTRY_GROUPS_SQL, sanitize, senderKeyAddress, tokenClaims, validateChainHandles, validateRegistry,
   VIA_GROUP, VIA_SELECTOR, VIA_TOKEN_CREDITS_SQL, viaTokenCredits, type Handles, type IdentityResolver, type LabelCoverage, type RegistryProject, type SenderRow,
 } from '@ccip-dev/core';
 import { dataSharePct, formatShare, labelCoverageLine } from '@ccip-dev/core/format';
@@ -503,9 +503,13 @@ export function viaTokenCreditsQuery(fromDay: string, toDay: string, claimed: re
   return { sql: VIA_TOKEN_CREDITS_SQL, params: [fromDay, toDay, JSON.stringify(claimed), JSON.stringify(labeled)] };
 }
 
-/** Registry groups by `<selector>:<address>`, for resolving the claims. */
+/** Registry rows of `<selector>:<address>` keys, for resolving the claims. */
 export function registryGroupsQuery(keys: readonly string[]) {
   return { sql: REGISTRY_GROUPS_SQL, params: [JSON.stringify(keys)] };
+}
+
+export function registryGroupMap(rows: readonly { chain: string; address: string; group_id: string | null }[]): Map<string, string | null> {
+  return new Map(rows.map((r) => [`${r.chain}:${normalizeAddress(r.address)}`, r.group_id]));
 }
 
 export interface SpreadRow {
@@ -678,19 +682,24 @@ export function tokensToClaimQuery(fromDay: string, toDay: string, claimed: read
             SELECT v.group_key, v.selector, ROW_NUMBER() OVER (PARTITION BY v.group_key ORDER BY v.messages DESC, v.selector) AS rn
             FROM via v JOIN top ON top.group_key = v.group_key
           ), tok AS (
-            SELECT chain, address, symbol, name, group_id, COALESCE(group_id, chain || ':' || address) AS group_key,
-              ROW_NUMBER() OVER (PARTITION BY chain, COALESCE(group_id, chain || ':' || address) ORDER BY address) AS rn
+            SELECT chain, address, symbol, name, group_id, lower(COALESCE(group_id, chain || ':' || address)) AS group_key,
+              ROW_NUMBER() OVER (PARTITION BY chain, lower(COALESCE(group_id, chain || ':' || address)) ORDER BY address) AS rn
             FROM tokens
           )
           SELECT top.group_key AS group_key, top.messages AS messages, top.usd AS usd, b.selector AS selector, c.name AS chain_name,
             COALESCE(t.address, CASE WHEN instr(top.group_key, ':') > 0 THEN substr(top.group_key, instr(top.group_key, ':') + 1) END) AS address,
             t.symbol AS symbol, t.name AS name, t.group_id AS group_id
           FROM top JOIN busiest b ON b.group_key = top.group_key AND b.rn = 1
-          LEFT JOIN tok t ON t.rn = 1 AND t.chain = b.selector AND t.group_key = top.group_key
+          LEFT JOIN tok t ON t.rn = 1 AND t.chain = b.selector AND t.group_key = lower(top.group_key)
           LEFT JOIN chains c ON c.selector = b.selector
           ORDER BY top.messages DESC, top.usd DESC, top.group_key`,
     params: [fromDay, toDay, JSON.stringify(claimed), limit],
   };
+}
+
+function explorerBase(explorerMap: Record<string, string>, chainName: string | null): string | undefined {
+  const base = chainName === null ? undefined : explorerMap[chainName];
+  return base?.replace(/\/$/, '');
 }
 
 /** The Blockscout page of a token on its chain, when the chain has one. */
@@ -784,11 +793,6 @@ function classifyCandidate(c: Candidate, rpcMap: Record<string, string>): Promis
   return Promise.resolve('unknown');
 }
 
-function explorerBase(explorerMap: Record<string, string>, chainName: string | null): string | undefined {
-  const base = chainName === null ? undefined : explorerMap[chainName];
-  return base?.replace(/\/$/, '');
-}
-
 /** The Blockscout page of the address on the first of its chains that has one. */
 export function explorerLink(explorerMap: Record<string, string>, c: Candidate): string | null {
   const base = c.chains.map((ch) => explorerBase(explorerMap, ch.name)).find((b) => b !== undefined);
@@ -820,7 +824,7 @@ async function main(): Promise<void> {
   const resolve = identityResolver(labelIndex, senderChains);
   const tokenLabels = buildTokenLabels(projects);
   const rgq = registryGroupsQuery(claimedTokenKeys(tokenLabels, senderChains));
-  const groups = new Map((await d1<{ key: string; group_id: string | null }>(rgq.sql, rgq.params)).map((r) => [r.key, r.group_id]));
+  const groups = registryGroupMap(await d1<{ chain: string; address: string; group_id: string | null }>(rgq.sql, rgq.params));
   const claims = tokenClaims(tokenLabels, buildProjectRegistry(projects), senderChains, groups);
   const claimed = [...claims.keys()];
   const labeledList = labeledAddresses(labelIndex);

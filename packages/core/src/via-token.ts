@@ -160,9 +160,12 @@ const viaTokenCreditsSql = (withDay: boolean) => {
 export const VIA_TOKEN_CREDITS_SQL = viaTokenCreditsSql(false);
 export const VIA_TOKEN_CREDIT_DAYS_SQL = viaTokenCreditsSql(true);
 
-/** Registry groups, as `<selector>:<address>` keys, for the JSON list of keys ?1: what `tokenClaims` needs to claim by group. */
-export const REGISTRY_GROUPS_SQL = `SELECT chain || ':' || lower(address) AS key, group_id FROM tokens
-  WHERE chain || ':' || lower(address) IN (SELECT value FROM json_each(?1))`;
+/**
+ * The registry rows of the `<selector>:<address>` keys in the JSON list ?1, matched without regard to case; the caller
+ * re-keys each row with `normalizeAddress`, as the Worker does, since only the address's family says whether case counts.
+ */
+export const REGISTRY_GROUPS_SQL = `SELECT chain, address, group_id FROM tokens
+  WHERE lower(chain || ':' || address) IN (SELECT lower(value) FROM json_each(?1))`;
 
 const VIA_TOKEN_GROUP_OF_FIRST = "COALESCE(t.group_id, mt.chain || ':' || mt.token)";
 

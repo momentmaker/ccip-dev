@@ -2,13 +2,13 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { identityResolver, validateRegistry } from '@ccip-dev/core';
+import { identityResolver, tokenClaims, validateRegistry } from '@ccip-dev/core';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeFetch, jsonResponse, NETWORKS, XBRIDGE_EVM, XBRIDGE_PROGRAM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_DAY, XSTOCKS_LABEL, XSTOCKS_SENDER_ROWS } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, coverageWindows, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
-  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, registryGroupsQuery, tokensToClaimMarkdown, tokensToClaimQuery, viaTokenCreditsQuery, solanaSendProgram, CCIP_ROUTER_SOLANA, spreadMarkdown,
+  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, registryGroupMap, registryGroupsQuery, tokensToClaimMarkdown, tokensToClaimQuery, viaTokenCreditsQuery, solanaSendProgram, CCIP_ROUTER_SOLANA, spreadMarkdown,
   spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
@@ -218,15 +218,66 @@ describe('handle gaps', () => {
     expect(rows.map((r) => ({ ...r }))).toEqual([{ key: '2|g-eliza', messages: 8, usd_value: 80, fee_usd: null }]);
   });
 
-  it('reads the registry group of each claimed token by selector and address', () => {
+  it('reads the registry rows of the claimed tokens whatever the case they are stored in', () => {
     // #given
     const { db } = tables();
-    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)').run('1', '0xe1', 'ELIZA', 'elizaOS', 'g-eliza');
+    const token = db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)');
+    token.run('1', '0xE1', 'ELIZA', 'elizaOS', 'g-eliza');
+    token.run('9', 'AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj', 'syrupUSDC', 'Syrup USDC', 'g-syrup');
     // #when
-    const q = registryGroupsQuery(['1:0xe1', '1:0xnone']);
+    const q = registryGroupsQuery(['1:0xe1', '9:AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj', '1:0xnone']);
     const rows = db.prepare(q.sql).all(...(q.params as string[])) as any[];
     // #then
-    expect(rows.map((r) => ({ ...r }))).toEqual([{ key: '1:0xe1', group_id: 'g-eliza' }]);
+    expect(rows.map((r) => ({ ...r }))).toEqual([
+      { chain: '1', address: '0xE1', group_id: 'g-eliza' },
+      { chain: '9', address: 'AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj', group_id: 'g-syrup' },
+    ]);
+  });
+
+  it('keys an EVM registry row by its lowercase address and a Solana one by its own case', () => {
+    // #when
+    const groups = registryGroupMap([
+      { chain: '1', address: `0x${'AB'.repeat(20)}`, group_id: 'g-evm' },
+      { chain: '9', address: 'AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj', group_id: null },
+    ]);
+    // #then
+    expect([...groups]).toEqual([[`1:0x${'ab'.repeat(20)}`, 'g-evm'], ['9:AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj', null]]);
+  });
+
+  it("counts a Solana token's group once its mixed-case entry is claimed, and leaves it out of the tokens to claim", () => {
+    // #given a Solana token stored in its own case, claimed by an entry
+    const { db } = tables();
+    const SOL = 'AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj';
+    db.prepare('INSERT INTO chains VALUES (?, ?)').run('9', 'solana-mainnet');
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)').run('9', SOL, 'syrupUSDC', 'Syrup USDC', 'g-syrup');
+    db.prepare("INSERT INTO daily_breakdown VALUES ('2026-10-08', 'via_token', ?, 6, 60, NULL)").run('9:wallet|g-syrup');
+    const chains = new Map([['9', { name: 'solana-mainnet', family: 'SVM' }]]);
+    const tokenLabels = { [`solana-mainnet:${SOL}`]: 'maple' };
+    const projects = { maple: { name: 'Maple', kind: 'issuer' as const, slug: 'maple' } };
+    // #when
+    const q = registryGroupsQuery([`9:${SOL}`]);
+    const groups = registryGroupMap(db.prepare(q.sql).all(...(q.params as string[])) as any[]);
+    const claims = tokenClaims(tokenLabels as any, projects as any, chains as any, groups);
+    const toClaim = tokensToClaimQuery('2026-10-07', '2026-10-13', [...claims.keys()]);
+    // #then
+    expect({ claimed: [...claims.keys()].sort(), listed: db.prepare(toClaim.sql).all(...(toClaim.params as (string | number)[])).length }).toEqual({ claimed: ['9:' + SOL, 'g-syrup'].sort(), listed: 0 });
+  });
+
+  it('drops a claimed key with no registry group, and lists a registry token without a group by its address', () => {
+    // #given 1:0xloose claimed exactly, and a registry token with a NULL group_id sending
+    const { db } = tables();
+    db.prepare('INSERT INTO chains VALUES (?, ?)').run('1', 'ethereum-mainnet');
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)').run('1', '0xAAA', 'NOGRP', 'No Group', null);
+    const via = db.prepare("INSERT INTO daily_breakdown VALUES ('2026-10-08', 'via_token', ?, ?, ?, NULL)");
+    via.run('1:0xw1|1:0xloose', 9, 90);
+    via.run('1:0xw2|1:0xaaa', 3, 30);
+    // #when
+    const q = tokensToClaimQuery('2026-10-07', '2026-10-13', ['1:0xloose']);
+    const rows = db.prepare(q.sql).all(...(q.params as (string | number)[])) as any[];
+    // #then
+    expect(rows.map((r) => ({ group_key: r.group_key, address: r.address, symbol: r.symbol, name: r.name, group_id: r.group_id }))).toEqual([
+      { group_key: '1:0xaaa', address: '0xAAA', symbol: 'NOGRP', name: 'No Group', group_id: null },
+    ]);
   });
 
   it('lists the busiest unclaimed token groups by direct sends, each with the token on its busiest chain', () => {
