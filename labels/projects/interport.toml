@@ -1,16 +1,87 @@
+# Source: https://docs.interport.fi/rocket-science/contracts/ (Interport's contracts page lists "InterportCCIPTokenBridgeV2 0x0772C76c3e4b081E85747f248ed76CC3813d46C4" under Ethereum, BSC, Base, Arbitrum, Avalanche, Unichain, Sonic, OP Mainnet, Linea, WorldChain, Scroll, Ink and Botanix)
+# BOB, 0G and the V3 bridge: the bridge app's config at https://app.interport.fi (/_next/static/chunks/pages/_app-f9caccbc47c2f381.js) maps chain ids 60808 and 16661 to the V2 address, and 8453 to 0x814899380bc056b843999f48e3ae520baa711895 (Sourcify: InterportCCIPTokenBridgeV3).
 name = "Interport Finance"
 x = "InterportFi"
 url = "https://interport.fi"
 kind = "protocol"
-# Unverified: contract names identify Interport, but its docs do not list these addresses.
-verified = false
+verified = true
 
 [[addresses]]
 chain = "ethereum-mainnet"
 address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
-note = "InterportCCIPTokenBridgeV2"
+note = "InterportCCIPTokenBridgeV2 (Ethereum in the Interport docs)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (BSC in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Base in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Arbitrum in the Interport docs)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Avalanche in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-unichain-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Unichain in the Interport docs)"
+
+[[addresses]]
+chain = "sonic-mainnet"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Sonic in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (OP Mainnet in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-linea-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Linea in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-worldchain-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (WorldChain in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-scroll-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Scroll in the Interport docs)"
+
+[[addresses]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Ink in the Interport docs)"
+
+[[addresses]]
+chain = "bitcoin-mainnet-botanix"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (Botanix in the Interport docs)"
+
+[[addresses]]
+chain = "bitcoin-mainnet-bob-1"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (chain 60808 in the app.interport.fi bridge config)"
+
+[[addresses]]
+chain = "0g-mainnet"
+address = "0x0772c76c3e4b081e85747f248ed76cc3813d46c4"
+note = "InterportCCIPTokenBridgeV2 (chain 16661 in the app.interport.fi bridge config)"
 
 [[addresses]]
 chain = "ethereum-mainnet-base-1"
 address = "0x814899380bc056b843999f48e3ae520baa711895"
-note = "InterportCCIPTokenBridgeV3"
+note = "InterportCCIPTokenBridgeV3 (chain 8453 in the app.interport.fi bridge config)"

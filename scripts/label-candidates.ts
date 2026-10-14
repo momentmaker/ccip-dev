@@ -251,12 +251,29 @@ const COMMON_PROGRAMS = new Set([
   'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo',
 ]);
 
+/** Chainlink's CCIP router program on Solana mainnet: every CCIP send reaches it, directly or through the sender's own program. */
+export const CCIP_ROUTER_SOLANA = 'Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C';
+/** How many of a sender's latest successful transactions to read looking for a CCIP send. */
+const SOLANA_SENDS_CHECKED = 5;
+
 interface SolanaTransaction {
   transaction?: { message?: { accountKeys?: unknown; instructions?: unknown } };
   meta?: { loadedAddresses?: { writable?: string[]; readonly?: string[] } };
 }
 
-/** The program a system-owned Solana sender's latest successful send invokes at the top level, past the common ones. */
+/** Every account a transaction loads, static keys first, and the programs its top-level instructions call. */
+function transactionPrograms(tx: SolanaTransaction | null | undefined): { keys: unknown[]; topLevel: unknown[] } | null {
+  const message = tx?.transaction?.message;
+  if (!message || !Array.isArray(message.accountKeys) || !Array.isArray(message.instructions)) return null;
+  const keys: unknown[] = [...message.accountKeys, ...(tx?.meta?.loadedAddresses?.writable ?? []), ...(tx?.meta?.loadedAddresses?.readonly ?? [])];
+  const topLevel = (message.instructions as { programIdIndex?: unknown }[]).map((i) => (typeof i.programIdIndex === 'number' ? keys[i.programIdIndex] : undefined));
+  return { keys, topLevel };
+}
+
+/**
+ * The program a system-owned Solana sender's latest CCIP send invokes at the top level, past the common ones: its own program,
+ * or CCIP_ROUTER_SOLANA when it calls the router directly. Its latest transactions that never reach the router are skipped.
+ */
 export async function solanaSendProgram(fetchFn: typeof fetch, rpcUrl: string | undefined, address: string): Promise<string | null> {
   if (!rpcUrl) return null;
   const call = async (method: string, params: unknown[]): Promise<unknown> => {
@@ -271,15 +288,14 @@ export async function solanaSendProgram(fetchFn: typeof fetch, rpcUrl: string | 
   };
   try {
     const signatures = await call('getSignaturesForAddress', [address, { limit: 10 }]);
-    const sent = Array.isArray(signatures) ? (signatures as { signature?: unknown; err?: unknown }[]).find((s) => s.err === null && typeof s.signature === 'string') : undefined;
-    if (sent === undefined) return null;
-    const tx = (await call('getTransaction', [sent.signature, { encoding: 'json', maxSupportedTransactionVersion: 0 }])) as SolanaTransaction | null | undefined;
-    const message = tx?.transaction?.message;
-    if (!message || !Array.isArray(message.accountKeys) || !Array.isArray(message.instructions)) return null;
-    const keys: unknown[] = [...message.accountKeys, ...(tx?.meta?.loadedAddresses?.writable ?? []), ...(tx?.meta?.loadedAddresses?.readonly ?? [])];
-    for (const instruction of message.instructions as { programIdIndex?: unknown }[]) {
-      const program = typeof instruction.programIdIndex === 'number' ? keys[instruction.programIdIndex] : undefined;
-      if (typeof program === 'string' && !COMMON_PROGRAMS.has(program)) return program;
+    if (!Array.isArray(signatures)) return null;
+    const succeeded = (signatures as { signature?: unknown; err?: unknown }[]).filter((s) => s.err === null && typeof s.signature === 'string');
+    for (const { signature } of succeeded.slice(0, SOLANA_SENDS_CHECKED)) {
+      const tx = (await call('getTransaction', [signature, { encoding: 'json', maxSupportedTransactionVersion: 0 }])) as SolanaTransaction | null | undefined;
+      const programs = transactionPrograms(tx);
+      if (programs === null || !programs.keys.includes(CCIP_ROUTER_SOLANA)) continue;
+      const program = programs.topLevel.find((p) => typeof p === 'string' && !COMMON_PROGRAMS.has(p));
+      return typeof program === 'string' ? program : null;
     }
     return null;
   } catch {
@@ -312,8 +328,11 @@ export function pairHints(addresses: readonly string[], sends: readonly { addres
   return new Map([...pairs].map(([a, others]) => [a, [...others].sort().map((o) => `pairs with ${shortAddress(o)}`)]));
 }
 
+const programHints = (program: string | undefined): string[] =>
+  program === undefined ? [] : [program === CCIP_ROUTER_SOLANA ? 'calls the CCIP router directly' : `sends via program ${shortAddress(program)}`];
+
 export function candidateHints(address: string, program: string | undefined, pairs: ReadonlyMap<string, string[]>): string[] {
-  return [...(program === undefined ? [] : [`sends via program ${shortAddress(program)}`]), ...(pairs.get(address) ?? [])];
+  return [...programHints(program), ...(pairs.get(address) ?? [])];
 }
 
 /** A wallet is a user unless it is busy enough to be an operator or new on CCIP; an address the RPC could not check is skipped. */
