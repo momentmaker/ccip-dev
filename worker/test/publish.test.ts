@@ -732,6 +732,16 @@ describe('senders by identity', () => {
     });
   });
 
+  it('publishes no x handle for an identity whose label was spread from another chain', async () => {
+    // #given a Base sender labeled only on Ethereum
+    const labels = { [labelKey('ethereum-mainnet', BASE_SENDER_1)]: { name: 'Spread Co', x: 'spreadco', kind: 'app' as const, slug: 'spread-co' } };
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels }).c);
+    // #then
+    const entry = (await readPublic('top/sender.json')).identities['7d'].find((e: { key: string }) => e.key === 'project:spread-co');
+    expect({ inferred: entry.inferred, x: entry.x }).toEqual({ inferred: true, x: null });
+  });
+
   it.each([
     ['ranking identities', () => vi.spyOn(store, 'senderTotalsOf')],
     ['reading the sender chains', () => vi.spyOn(store, 'senderChains')],
@@ -789,7 +799,7 @@ describe("today's and the live feed's senders by identity", () => {
     });
   });
 
-  it('names a live message by a label spread from the same address on another chain', async () => {
+  it('leaves a live message from an address with only a spread label unnamed, since the feed marks a name verified', async () => {
     // #given Maple is labeled on Ethereum and the message comes from the same address on Base
     await seedRegistry([NETWORKS.ethereum, NETWORKS.base], []);
     await store.upsertListRows(env.DB, [liveRow({ id: 'b1', sendTs: at(55), sender: SENDER })], []);
@@ -797,7 +807,7 @@ describe("today's and the live feed's senders by identity", () => {
     // #when
     await publishLiveFiles(harness({ now: '2026-10-13T20:00:00.000Z', labels }).c);
     // #then
-    expect((await readPublic('live.json')).messages[0].sender_label).toBe('Maple Finance');
+    expect((await readPublic('live.json')).messages[0].sender_label).toBeNull();
   });
 });
 

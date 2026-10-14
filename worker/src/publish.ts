@@ -1,4 +1,4 @@
-import { addDays, dayOf, feeClassifier, lastCompleteMonday, mergeIdentities, normalizeAddress, rankIdentities, sharePct, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, feeClassifier, lastCompleteMonday, mergeIdentities, normalizeAddress, rankIdentities, sharePct, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
 import { LabelCoverageSchema, TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
@@ -105,7 +105,7 @@ export function identityEntry(i: IdentityTotals, periodMessages: number | null):
     messages: i.messages,
     usd: usd(i.usd_value),
     fee_usd: usd(i.fee_usd),
-    x: i.x,
+    x: i.inferred ? null : i.x,
     kind: i.kind,
     inferred: i.inferred,
     chains: i.chains,
@@ -214,6 +214,11 @@ async function rollupToday(c: RunContext, now: Date) {
   return { day, messages, ...rollupDay(day, messages, await store.tokensForDay(c.env.DB, day)) };
 }
 
+/** The feed shows a live message's label as verified, so a label spread from another chain is left out. */
+function verifiedLabel(identity: SenderIdentity): string | null {
+  return identity.inferred ? null : (identity.project?.name ?? null);
+}
+
 async function publishLive(c: RunContext, now: Date, book: SenderBook, rows: store.LiveRow[], symbols: Map<string, string>): Promise<void> {
   await putJson(
     c.env.PUBLIC,
@@ -228,7 +233,7 @@ async function publishLive(c: RunContext, now: Date, book: SenderBook, rows: sto
         dst: r.dst_chain,
         token: r.symbol ?? (r.chain !== null && r.token !== null ? symbolOf(symbols, `${r.chain}:${r.token}`) : null),
         usd: usd(r.usd_value),
-        sender_label: book.resolve(r.src_chain, r.sender).project?.name ?? null,
+        sender_label: verifiedLabel(book.resolve(r.src_chain, r.sender)),
       })),
     },
     TTL.live,
