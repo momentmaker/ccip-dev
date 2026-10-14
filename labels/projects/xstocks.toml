@@ -1,0 +1,59 @@
+name = "xStocks"
+x = "xStocksFi"
+url = "https://xstocks.fi"
+kind = "protocol"
+verified = true
+
+# Source: https://api.xstocks.fi/api/v2/public/bridges (xStocks public API, documented at https://docs.xstocks.fi/apis/openapi/bridges/list_public_bridges):
+# the xBridge, managedBy "ChainlinkCCIP", at one address on every EVM chain and program F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN on Solana.
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (Ethereum in the xStocks bridges API)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (Arbitrum in the xStocks bridges API)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (Optimism in the xStocks bridges API)"
+
+[[addresses]]
+chain = "ethereum-mainnet-mantle-1"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (Mantle in the xStocks bridges API)"
+
+[[addresses]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (Ink in the xStocks bridges API)"
+
+[[addresses]]
+chain = "ethereum-mainnet-xlayer-1"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (XLayer in the xStocks bridges API)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (BinanceSmartChain in the xStocks bridges API)"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (HyperEVM in the xStocks bridges API)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x9ec0e4a4c411493773e01e2abf4d42395788846b"
+note = "xBridge (Monad in the xStocks bridges API)"
+
+# The Solana xBridge program F2ZYgyh8… sends from this account: its sends invoke F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN, which calls the CCIP router.
+[[addresses]]
+chain = "solana-mainnet"
+address = "A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u"
+note = "xBridge sender for Solana program F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN"

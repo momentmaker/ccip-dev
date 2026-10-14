@@ -278,5 +278,55 @@
     "name": "Stake DAO",
     "x": "StakeDAOHQ",
     "kind": "protocol"
+  },
+  "ethereum-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-arbitrum-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-optimism-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-mantle-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-ink-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "ethereum-mainnet-xlayer-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "binance_smart_chain-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "hyperliquid-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "monad-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
+  },
+  "solana-mainnet:A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "kind": "protocol"
   }
 }
