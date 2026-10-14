@@ -4,7 +4,9 @@ import type { ListMessage, NetworkInfo, RegistryToken } from './ccip/schemas';
 import type { CoingeckoClient, CoingeckoLists } from './coingecko';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
-import type { PriceInfo } from './types';
+import type { Label, LabelIndex } from './labels';
+import type { SenderChain, SenderRow } from './senders';
+import type { DailyBreakdown, DailyTotals, PriceInfo } from './types';
 import type { RosterFile } from './roster';
 
 export type FakeRoute = (url: string, init?: RequestInit) => Response | undefined | Promise<Response | undefined>;
@@ -42,6 +44,9 @@ export const NETWORKS = {
   bsc: net('binance_smart_chain-mainnet', 'BNB Chain Mainnet', '11344663589394136015', '56'),
   sui: net('sui-mainnet', null, '17529533435026248318', '1', 'SUI'),
   solana: net('solana-mainnet', 'Solana', '124615329519749607', '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', 'SVM'),
+  ink: net('ethereum-mainnet-ink-1', 'Ink Mainnet', '3461204551265785888', '57073'),
+  xlayer: net('ethereum-mainnet-xlayer-1', 'X Layer Mainnet', '3016212468291539606', '196'),
+  hyperliquid: net('hyperliquid-mainnet', 'HyperEVM Mainnet', '2442541497099098535', '999'),
 } as const;
 
 export interface ListMessageSpec {
@@ -249,3 +254,67 @@ export const ROSTER_FIXTURE: RosterFile = {
     { serial: 4, callsign: 'comfy-painting-sergey', tags: ['comfy', 'painting', 'sergey'], tier: 'rare', score: 17.5, percentile: 88.2, memes: [rosterMeme('comfy', 25), rosterMeme('painting', 1), rosterMeme('sergey', 400)], blood: '7777777', faith: '4IR', enlisted: '2026-10-14' },
   ],
 };
+
+/** The day CCIPMetrics named xStocks the top sender and our daily named one of its addresses (2026-10-13). */
+export const XSTOCKS_DAY = '2026-10-13';
+/** xStocks's xBridge: one address on every EVM chain it bridges. */
+export const XBRIDGE_EVM = '0x9ec0e4a4c411493773e01e2abf4d42395788846b';
+/** The account xStocks's Solana xBridge program sends from: system-owned, so the candidates job used to skip it as a wallet. */
+export const XBRIDGE_SOLANA = 'A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u';
+/** xStocks's Solana xBridge program, which A8JP's sends invoke. */
+export const XBRIDGE_PROGRAM = 'F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN';
+/** The day's next busiest senders, both unlabeled, on Base. */
+export const BASE_SENDER_1 = '0x671be08d6d3c826c2f6d76915f1b54af484d4077';
+export const BASE_SENDER_2 = '0xd791156a50c586c4e8b313d35bc8017b2556dfcc';
+
+export const XSTOCKS_LABEL: Label = { name: 'xStocks', x: 'xStocksFi', kind: 'protocol', slug: 'xstocks' };
+
+const XBRIDGE_CHAINS = [
+  'ethereum-mainnet', 'ethereum-mainnet-arbitrum-1', 'ethereum-mainnet-optimism-1', 'ethereum-mainnet-mantle-1', 'ethereum-mainnet-ink-1',
+  'ethereum-mainnet-xlayer-1', 'binance_smart_chain-mainnet', 'hyperliquid-mainnet', 'monad-mainnet',
+];
+
+/** labels.json's xStocks entries, as labels/projects/xstocks.toml builds them. */
+export const XSTOCKS_LABELS: LabelIndex = Object.fromEntries([
+  ...XBRIDGE_CHAINS.map((chain) => [`${chain}:${XBRIDGE_EVM}`, XSTOCKS_LABEL] as const),
+  [`solana-mainnet:${XBRIDGE_SOLANA}`, XSTOCKS_LABEL] as const,
+]);
+
+/** The day's source chains, by selector. */
+export const XSTOCKS_CHAINS: ReadonlyMap<string, SenderChain> = new Map(
+  [NETWORKS.ethereum, NETWORKS.base, NETWORKS.bsc, NETWORKS.solana, NETWORKS.ink, NETWORKS.xlayer, NETWORKS.hyperliquid].map((n) => [
+    n.chainSelector,
+    { name: n.name, family: n.chainFamily },
+  ]),
+);
+
+const senderRow = (network: NetworkInfo, address: string, messages: number, usd = 0): SenderRow => ({
+  key: `${network.chainSelector}:${address}`,
+  messages,
+  usd_value: usd,
+  fee_usd: messages / 4,
+});
+
+/**
+ * The day's sender rows as daily_breakdown holds them: xStocks's 319 messages (81 Ink, 58 X Layer, 22 BNB Chain,
+ * 6 Ethereum, 3 HyperEVM and 149 Solana), the two Base senders behind it (76 and 68), and 23 smaller Base senders
+ * (22 of 50 and one of 6), 1,569 in all. Fees are a quarter of a dollar a message, so every sum is exact.
+ */
+export const XSTOCKS_SENDER_ROWS: SenderRow[] = [
+  senderRow(NETWORKS.ink, XBRIDGE_EVM, 81),
+  senderRow(NETWORKS.xlayer, XBRIDGE_EVM, 58),
+  senderRow(NETWORKS.bsc, XBRIDGE_EVM, 22),
+  senderRow(NETWORKS.ethereum, XBRIDGE_EVM, 6),
+  senderRow(NETWORKS.hyperliquid, XBRIDGE_EVM, 3),
+  senderRow(NETWORKS.solana, XBRIDGE_SOLANA, 149),
+  senderRow(NETWORKS.base, BASE_SENDER_1, 76, 250_000),
+  senderRow(NETWORKS.base, BASE_SENDER_2, 68),
+  ...Array.from({ length: 22 }, (_, i) => senderRow(NETWORKS.base, `0x${String(i + 1).padStart(40, '0')}`, 50)),
+  senderRow(NETWORKS.base, `0x${'9'.repeat(40)}`, 6),
+];
+
+export const XSTOCKS_TOTALS: DailyTotals = {
+  day: XSTOCKS_DAY, messages: 1_569, token_messages: 0, usd_value: 250_000, fee_usd: 392.25, unique_senders: 31, median_delivery_s: null, unpriced_messages: 0,
+};
+
+export const xstocksBreakdown = (day = XSTOCKS_DAY): DailyBreakdown[] => XSTOCKS_SENDER_ROWS.map((r) => ({ day, dim: 'sender', ...r }));

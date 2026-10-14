@@ -50,7 +50,7 @@ describe('buildLabelIndex', () => {
     );
     const index = buildLabelIndex(projects);
     expect(index).toEqual({
-      'ethereum-mainnet:0x514910771af9ca656af840dff83e8264ecf986ca': { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol' },
+      'ethereum-mainnet:0x514910771af9ca656af840dff83e8264ecf986ca': { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol', slug: 'maple' },
     });
     expect(index[labelKey('ethereum-mainnet', LINK)]).toBeDefined();
   });
@@ -131,6 +131,39 @@ describe('buildHandles', () => {
     expect(handles).toEqual({
       chains: { 'ethereum-mainnet-base-1': 'base' },
       tokens: [{ chain: 'ethereum-mainnet', address: MIXED.toLowerCase(), project: 'Maple', x: 'maplefinance' }],
+    });
+  });
+});
+
+describe('slugs, sources and spread', () => {
+  const XBRIDGE = '0x9ec0e4a4c411493773e01e2abf4d42395788846b';
+  const xstocks = (extra = '') =>
+    `name = "xStocks"\nx = "xStocksFi"\nkind = "protocol"\nverified = true\n${extra}\n` +
+    `# Source: https://api.xstocks.fi/api/v2/public/bridges (the xBridge)\n[[addresses]]\nchain = "ethereum-mainnet"\naddress = "${XBRIDGE}"\n`;
+
+  it('names a project by its file, keeps its first source line, and spreads by default', () => {
+    // #when
+    const { projects } = validateRegistry([{ file: 'labels/projects/xstocks.toml', text: xstocks() }], chains);
+    // #then
+    expect(projects.map((p) => [p.slug, p.source, p.spread])).toEqual([['xstocks', 'https://api.xstocks.fi/api/v2/public/bridges (the xBridge)', true]]);
+  });
+
+  it('refuses a verified project whose file name is not a slug', () => {
+    // #when
+    const { errors } = validateRegistry([{ file: 'labels/projects/xStocks.toml', text: xstocks() }], chains);
+    // #then
+    expect(errors).toEqual(['labels/projects/xStocks.toml: a verified project needs a file name of lowercase letters, digits and dashes']);
+  });
+
+  it('indexes the slug, and writes spread = false only for a project that turns spreading off', () => {
+    // #given
+    const { projects } = validateRegistry([{ file: 'xstocks.toml', text: xstocks('spread = false') }, { file: 'maple.toml', text: project(LINK) }], chains);
+    // #when
+    const index = buildLabelIndex(projects);
+    // #then
+    expect(index).toEqual({
+      [`ethereum-mainnet:${XBRIDGE}`]: { name: 'xStocks', x: 'xStocksFi', kind: 'protocol', slug: 'xstocks', spread: false },
+      [`ethereum-mainnet:${LINK.toLowerCase()}`]: { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol', slug: 'maple' },
     });
   });
 });

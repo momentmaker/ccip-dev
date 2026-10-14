@@ -14,6 +14,8 @@ export const LabelProject = z.strictObject({
   url: z.url().optional(),
   kind: z.enum(['protocol', 'app', 'institution', 'exchange', 'issuer', 'unknown']),
   verified: z.boolean(),
+  /** false keeps the project's EVM addresses from being credited to it on chains its file does not list. */
+  spread: z.boolean().default(true),
   addresses: z
     .array(z.strictObject({ chain: z.string(), address: z.string(), note: z.string().max(120).optional() }))
     .default([]),
@@ -46,6 +48,19 @@ export interface Label {
   name: string;
   x?: string;
   kind: LabelProject['kind'];
+  /** The label file's name: the project's identity is `project:<slug>` and its page `/projects/<slug>/`. */
+  slug: string;
+  /** Present, as false, only for a project that turns label spread off. */
+  spread?: false;
+}
+
+export type RegistryProject = LabelProject & { slug: string; source: string | null };
+
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SOURCE_LINE = /^#\s*Source:\s*(.+)$/m;
+
+export function projectSlug(file: string): string {
+  return file.slice(file.lastIndexOf('/') + 1).replace(/\.toml$/, '');
 }
 
 export type LabelIndex = Record<string, Label>;
@@ -72,9 +87,9 @@ function hasMixedCase(address: string): boolean {
 export function validateRegistry(
   files: LabelFile[],
   chainNames: ReadonlySet<string>,
-): { projects: LabelProject[]; errors: string[] } {
+): { projects: RegistryProject[]; errors: string[] } {
   const errors: string[] = [];
-  const projects: LabelProject[] = [];
+  const projects: RegistryProject[] = [];
   const claimedBy = new Map<string, string>();
   const tokenClaimedBy = new Map<string, string>();
 
@@ -113,18 +128,19 @@ export function validateRegistry(
       if (owner) errors.push(`${file}: token ${chain} ${normalizeAddress(address)} already belongs to ${owner}`);
       else tokenClaimedBy.set(key, file);
     }
-    projects.push(result.data);
+    const slug = projectSlug(file);
+    if (result.data.verified && !SLUG.test(slug)) errors.push(`${file}: a verified project needs a file name of lowercase letters, digits and dashes`);
+    projects.push({ ...result.data, slug, source: SOURCE_LINE.exec(text)?.[1]?.trim() ?? null });
   }
   return { projects, errors };
 }
 
-export function buildLabelIndex(projects: LabelProject[]): LabelIndex {
+export function buildLabelIndex(projects: readonly RegistryProject[]): LabelIndex {
   const index: LabelIndex = {};
   for (const p of projects) {
     if (!p.verified) continue;
-    for (const { chain, address } of p.addresses) {
-      index[labelKey(chain, address)] = p.x ? { name: p.name, x: p.x, kind: p.kind } : { name: p.name, kind: p.kind };
-    }
+    const label: Label = { name: p.name, ...(p.x ? { x: p.x } : {}), kind: p.kind, slug: p.slug, ...(p.spread ? {} : { spread: false as const }) };
+    for (const { chain, address } of p.addresses) index[labelKey(chain, address)] = label;
   }
   return index;
 }

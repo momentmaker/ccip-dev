@@ -77,7 +77,7 @@ describe('publishLiveFiles', () => {
     await seed();
     const { c } = harness({
       now: '2026-10-08T12:00:00.000Z',
-      labels: { [`ethereum-mainnet-base-1:${SENDER}`]: { name: 'Maple Finance', kind: 'protocol' } },
+      labels: { [`ethereum-mainnet-base-1:${SENDER}`]: { name: 'Maple Finance', kind: 'protocol', slug: 'maple-finance' } },
     });
     await publishLiveFiles(c);
     const live = await readPublic('live.json');
@@ -127,7 +127,7 @@ describe('publishLiveFiles', () => {
 
 describe('a mixed-case (EIP-55) sender', () => {
   const CHECKSUMMED = toChecksumAddress(SENDER);
-  const labels = buildLabelIndex([{ name: 'Maple Finance', kind: 'protocol', verified: true, addresses: [{ chain: 'ethereum-mainnet-base-1', address: CHECKSUMMED }], tokens: [] }]);
+  const labels = buildLabelIndex([{ name: 'Maple Finance', kind: 'protocol', verified: true, spread: true, slug: 'maple-finance', source: null, addresses: [{ chain: 'ethereum-mainnet-base-1', address: CHECKSUMMED }], tokens: [] }]);
 
   it('is mixed case to begin with, so the test exercises normalization', () => {
     expect(CHECKSUMMED).not.toBe(SENDER);
@@ -527,7 +527,7 @@ describe('day-leaders.json', () => {
   const OTHER = '0x9999999999999999999999999999999999999999';
   const totals = (day: string) => ({ day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
   const row = (day: string, dim: Dim, key: string, messages: number, usd_value: number, fee_usd: number | null) => ({ day, dim, key, messages, usd_value, fee_usd });
-  const labels = { [labelKey('ethereum-mainnet-base-1', SENDER)]: { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol' as const } };
+  const labels = { [labelKey('ethereum-mainnet-base-1', SENDER)]: { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol' as const, slug: 'maple-finance' } };
 
   beforeEach(async () => {
     // #given one day with two of each: the leader by each rule is not the leader by the others

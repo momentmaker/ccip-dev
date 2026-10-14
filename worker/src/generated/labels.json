@@ -2,331 +2,397 @@
   "ethereum-mainnet-arbitrum-1:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
     "name": "Aave",
     "x": "aave",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "aave"
   },
   "ethereum-mainnet:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
     "name": "Aave",
     "x": "aave",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "aave"
   },
   "ethereum-mainnet:0xac20cd734c65baf48a1476447af7d3e3165dc739": {
     "name": "Arbitrum Foundation",
     "x": "arbitrum",
-    "kind": "institution"
+    "kind": "institution",
+    "slug": "arbitrum-foundation"
   },
   "polkadot-mainnet-astar:0x4036a6ff8c1a29677108aef299b560f6e4fa5e71": {
     "name": "Astar Network",
     "x": "AstarNetwork",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "astar"
   },
   "ethereum-mainnet:0x20ea2f2ecf36bcb6df086d923a120496dc616f76": {
     "name": "Auto Finance",
     "x": "autopools",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "auto-finance"
   },
   "soneium-mainnet:0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2": {
     "name": "Bifrost",
     "x": "Bifrost",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "bifrost"
   },
   "ethereum-mainnet:0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a": {
     "name": "Bungee (Socket)",
     "x": "SocketProtocol",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "bungee"
   },
   "ethereum-mainnet-optimism-1:0xb509c046e1182c7b36d2d9733554bc268716803c": {
     "name": "Chainlink CCIP tests",
     "x": "chainlink",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "chainlink-ccip-tests"
   },
   "ethereum-mainnet-arbitrum-1:0xb509c046e1182c7b36d2d9733554bc268716803c": {
     "name": "Chainlink CCIP tests",
     "x": "chainlink",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "chainlink-ccip-tests"
   },
   "avalanche-mainnet:0xb509c046e1182c7b36d2d9733554bc268716803c": {
     "name": "Chainlink CCIP tests",
     "x": "chainlink",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "chainlink-ccip-tests"
   },
   "wemix-mainnet:0xb509c046e1182c7b36d2d9733554bc268716803c": {
     "name": "Chainlink CCIP tests",
     "x": "chainlink",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "chainlink-ccip-tests"
   },
   "ethereum-mainnet-base-1:0x0ae1b2730066ad46481ab0a5fd2b5893f8aba323": {
     "name": "Concero",
     "x": "concero_io",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "concero"
   },
   "ethereum-mainnet-arbitrum-1:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
     "name": "Concero",
     "x": "concero_io",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "concero"
   },
   "avalanche-mainnet:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
     "name": "Concero",
     "x": "concero_io",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "concero"
   },
   "polygon-mainnet:0x164c20a4e11cbe0d8b5e23f5ee35675890be280d": {
     "name": "Concero",
     "x": "concero_io",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "concero"
   },
   "hyperliquid-mainnet:0x169a99b9958386a5d91e732ed08b344946a92391": {
     "name": "Derive",
     "x": "DeriveXYZ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "derive"
   },
   "ethereum-mainnet-base-1:0x169a99b9958386a5d91e732ed08b344946a92391": {
     "name": "Derive",
     "x": "DeriveXYZ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "derive"
   },
   "avalanche-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
     "name": "Enso",
     "x": "EnsoBuild",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "enso"
   },
   "ethereum-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
     "name": "Enso",
     "x": "EnsoBuild",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "enso"
   },
   "monad-mainnet:0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76": {
     "name": "Enso",
     "x": "EnsoBuild",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "enso"
   },
   "avalanche-mainnet:0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "avalanche-mainnet:0x5f2f4771b7dc7e2f7e9c1308b154e1e8957ecab0": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet-base-1:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet-base-1:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "binance_smart_chain-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "binance_smart_chain-mainnet:0x802063a23e78d0f5d158feaac605028ee490b03b": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet-arbitrum-1:0x7218bd1050d41a9ecfc517abdd294fb8116aee81": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet-arbitrum-1:0x0700b2cb26688c035bd5dbbda070be408c20779c": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "polygon-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "polygon-mainnet:0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "sei-mainnet:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "sei-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "monad-mainnet:0xeb48a1ee43b91959a1686b70b7cd482c65de69c9": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "monad-mainnet:0x5c60f12838b8e3eeb525f299cd7c454c989dd04e": {
     "name": "Folks Finance",
     "x": "folksfinance",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "folks-finance"
   },
   "ethereum-mainnet-base-1:0x1da2415229b614c787e145d1d7346eb496319c52": {
     "name": "Forever Money",
     "x": "forevermoney_ai",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "forever-money"
   },
   "bittensor-mainnet:0xd5fa238aa4177f6c1341491969d9cbeec94eed69": {
     "name": "Forever Money",
     "x": "forevermoney_ai",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "forever-money"
   },
   "bittensor-mainnet:0xcd0c6d98d0a126b1c113d15b4c28f38321437787": {
     "name": "Forever Money",
     "x": "forevermoney_ai",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "forever-money"
   },
   "robinhood-mainnet:0xf27fda637131e25b2a1b4865ed9597d881980c7e": {
     "name": "Forever Money",
     "x": "forevermoney_ai",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "forever-money"
   },
   "ethereum-mainnet:0xf98c221661f51578f5e5236b189a493e2a8a1916": {
     "name": "Frankencoin",
     "x": "frankencoinzchf",
-    "kind": "issuer"
+    "kind": "issuer",
+    "slug": "frankencoin"
   },
   "ethereum-mainnet-optimism-1:0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553": {
     "name": "Frankencoin",
     "x": "frankencoinzchf",
-    "kind": "issuer"
+    "kind": "issuer",
+    "slug": "frankencoin"
   },
   "gnosis_chain-mainnet:0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553": {
     "name": "Frankencoin",
     "x": "frankencoinzchf",
-    "kind": "issuer"
+    "kind": "issuer",
+    "slug": "frankencoin"
   },
   "ethereum-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "glacis"
   },
   "ethereum-mainnet-base-1:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "glacis"
   },
   "binance_smart_chain-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "glacis"
   },
   "polygon-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "glacis"
   },
   "monad-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
     "name": "Glacis Labs",
     "x": "glacislabs",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "glacis"
   },
   "avalanche-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "glacis"
   },
   "ethereum-mainnet-base-1:0x328de900860816d29d1367f6903a24d8ed40c997": {
     "name": "Lido",
     "x": "lidofinance",
-    "kind": "issuer"
+    "kind": "issuer",
+    "slug": "lido"
   },
   "ethereum-mainnet:0xe02cf8d7b3ce12fc0626346bca160b548525d807": {
     "name": "Mellow",
     "x": "Mellowprotocol",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "mellow"
   },
   "ethereum-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
     "x": "StakeDAOHQ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "stake-dao"
   },
   "polygon-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
     "x": "StakeDAOHQ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "stake-dao"
   },
   "ethereum-mainnet-arbitrum-1:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
     "x": "StakeDAOHQ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "stake-dao"
   },
   "ethereum-mainnet-optimism-1:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
     "x": "StakeDAOHQ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "stake-dao"
   },
   "ethereum-mainnet-base-1:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
     "x": "StakeDAOHQ",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "stake-dao"
   },
   "ethereum-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "ethereum-mainnet-arbitrum-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "ethereum-mainnet-optimism-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "ethereum-mainnet-mantle-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "ethereum-mainnet-ink-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "ethereum-mainnet-xlayer-1:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "binance_smart_chain-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "hyperliquid-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "monad-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   },
   "solana-mainnet:A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u": {
     "name": "xStocks",
     "x": "xStocksFi",
-    "kind": "protocol"
+    "kind": "protocol",
+    "slug": "xstocks"
   }
 }

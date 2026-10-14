@@ -26,7 +26,7 @@ const HANDLES = {
   chains: { 'ethereum-mainnet': 'ethereum', 'ethereum-mainnet-base-1': 'base' },
   tokens: [{ chain: 'ethereum-mainnet', address: SYRUP_ETH, project: 'Maple', x: 'maplefinance' }],
 };
-const LABELS = { [labelKey('ethereum-mainnet', SENDER)]: { name: 'xStocks', x: 'xStocksFi', kind: 'issuer' as const } };
+const LABELS = { [labelKey('ethereum-mainnet', SENDER)]: { name: 'xStocks', x: 'xStocksFi', kind: 'issuer' as const, slug: 'xstocks' } };
 
 /** Seven days of 200 messages, $8M and $4 in fees, then a day of 150 messages, $2M and $5 with one of each leader. */
 async function seedDay(): Promise<void> {

@@ -19,4 +19,5 @@ export * from './reserve-stats';
 export * from './replay';
 export * from './archive';
 export * from './labels';
+export * from './senders';
 export * from './sql';
