@@ -1,4 +1,4 @@
-import { feeClassifier, senderKeyAddress } from '@ccip-dev/core';
+import { feeClassifier, mostlyViaToken, senderKeyAddress } from '@ccip-dev/core';
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, reserveDepositFacts, weekTotalsFacts,
   type DayTotalsFacts, type RecordDriver, type ReserveDepositFacts, type WeekTotalsFacts,
@@ -35,6 +35,8 @@ export interface SenderFacts {
   messages: number;
   /** Share of the period's messages; null for a leader published before identities. */
   sharePct: number | null;
+  /** Half or more of its messages came via its token, so the post says so. */
+  viaToken: boolean;
 }
 
 export interface ChainFeeFacts {
@@ -132,7 +134,7 @@ function leaderFacts(tags: Tagger, token: Leader | null, sender: Leader | null, 
           sharePct: token.usd === null || !periodValue ? null : (token.usd / periodValue) * 100,
         }
       : null,
-    sender: sender ? { key: sender.key, player: { name: sender.label ?? shortAddress(senderKeyAddress(sender.key)), x: sender.inferred ? null : sender.x ?? null }, messages: sender.messages, sharePct: sender.share_pct ?? null } : null,
+    sender: sender ? { key: sender.key, player: { name: sender.label ?? shortAddress(senderKeyAddress(sender.key)), x: sender.inferred ? null : sender.x ?? null }, messages: sender.messages, sharePct: sender.share_pct ?? null, viaToken: mostlyViaToken(sender.messages, sender.via_token_messages) } : null,
     lane: lane ? laneFacts(tags, lane) : null,
   };
 }

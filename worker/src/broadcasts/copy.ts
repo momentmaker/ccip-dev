@@ -2,7 +2,7 @@ import { addDays } from '@ccip-dev/core';
 import { recordValueText } from '@ccip-dev/core/broadcasts';
 import { formatCompactCount, formatCount, formatFeeTotal, formatLinkAmount, formatPct, formatShare, formatUsd } from '@ccip-dev/core/format';
 import type { RecordKind } from '@ccip-dev/core/records';
-import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, RecordFacts, ReserveFacts, WeeklyFacts } from './facts';
+import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, RecordFacts, ReserveFacts, SenderFacts, WeeklyFacts } from './facts';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -68,6 +68,7 @@ export const bold = (s: string) => `<b>${s}</b>`;
 export const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
 const millions = (link: number) => `${formatCount(link / 1_000_000)}M`;
 const present = (parts: (string | null)[]) => parts.filter((s): s is string => s !== null);
+const viaItsToken = (s: SenderFacts) => (s.viaToken ? ' via its token' : '');
 
 function leaderLinesX(l: LeaderFacts): Line[] {
   const lines: Line[] = [];
@@ -78,7 +79,7 @@ function leaderLinesX(l: LeaderFacts): Line[] {
   }
   if (l.sender) {
     const share = l.sender.sharePct === null ? null : formatShare(l.sender.sharePct);
-    lines.push({ text: `Top sender: ${plainName(l.sender.player)} · ${plural(l.sender.messages, 'message')}${paren(share)}`, drop: DROP.sender });
+    lines.push({ text: `Top sender: ${plainName(l.sender.player)}${viaItsToken(l.sender)} · ${plural(l.sender.messages, 'message')}${paren(share)}`, drop: DROP.sender });
   }
   if (l.lane) lines.push({ text: `Busiest lane: ${plainName(l.lane.src)} → ${plainName(l.lane.dst)} · ${formatUsd(l.lane.usd)}`, drop: DROP.lane });
   return lines;
@@ -93,7 +94,7 @@ function leaderLinesTg(l: LeaderFacts, period: 'day' | 'week'): Line[] {
   }
   if (l.sender) {
     const share = l.sender.sharePct === null ? '' : `, ${formatShare(l.sender.sharePct)} of the ${period}'s`;
-    lines.push({ text: `Top sender: ${tgName(l.sender.player)} · ${plural(l.sender.messages, 'message')}${share}`, drop: DROP.sender });
+    lines.push({ text: `Top sender: ${tgName(l.sender.player)}${viaItsToken(l.sender)} · ${plural(l.sender.messages, 'message')}${share}`, drop: DROP.sender });
   }
   if (l.lane) lines.push({ text: `Busiest lane: ${tgName(l.lane.src)} → ${tgName(l.lane.dst)} · ${formatUsd(l.lane.usd)}`, drop: DROP.lane });
   return lines;

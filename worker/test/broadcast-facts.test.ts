@@ -62,7 +62,7 @@ describe('daily facts', () => {
       totals: { day: DAY, messages: { value: 150, pct: -25 }, value: { value: 2e6, pct: -75 }, fees: { value: 5, pct: 25 }, linkSharePct: 25, linkUsd: 1.25, linkAmount: 0.1 },
       leaders: {
         token: { key: `${BASE}:${SYRUP_BASE}`, symbol: 'syrupUSDC', project: { name: 'Maple', x: 'maplefinance' }, usd: 500_000, sharePct: 25 },
-        sender: { key: 'project:xstocks', player: { name: 'xStocks', x: 'xStocksFi' }, messages: 97, sharePct: 64.7 },
+        sender: { key: 'project:xstocks', player: { name: 'xStocks', x: 'xStocksFi' }, messages: 97, sharePct: 64.7, viaToken: false },
         lane: { key: `${ETH}>${BASE}`, src: { name: 'Ethereum', x: 'ethereum' }, dst: { name: 'Base', x: 'base' }, usd: 1_200_000, messages: 30, feeUsd: 1 },
       },
       feeChain: { key: BASE, player: { name: 'Base', x: 'base' }, feeUsd: 4 },
@@ -98,6 +98,23 @@ describe('daily facts', () => {
     await seedDay();
     const { c } = harness({ now: NOW });
     expect(dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), '2026-10-01')).toBeNull();
+  });
+
+  it('marks a top sender credited mostly via its token, and names it without its handle', async () => {
+    // #given a wallet bridged 120 of a syrupUSDC token Maple claims, ahead of xStocks's 97
+    await seedDay();
+    const WALLET = '0x00000000000000000000000000000000000000d4';
+    const insert = env.DB.prepare('INSERT INTO daily_breakdown VALUES (?, ?, ?, ?, ?, ?)');
+    await env.DB.batch([
+      insert.bind(DAY, 'sender', `${BASE}:${WALLET}`, 120, 0, 1),
+      insert.bind(DAY, 'via_token', `${BASE}:${WALLET}|syrup`, 120, 0, 1),
+    ]);
+    const maple = { name: 'Maple', x: 'maplefinance', url: null, kind: 'protocol' as const, source: null, addresses: [], tokens: [] };
+    const { c } = harness({ now: NOW, labels: LABELS, handles: HANDLES, labelTokens: { [labelKey('ethereum-mainnet', SYRUP_ETH)]: 'maple' }, projects: { maple } });
+    // #when
+    const facts = dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), DAY);
+    // #then
+    expect(facts?.leaders.sender).toEqual({ key: 'project:maple', player: { name: 'Maple', x: null }, messages: 120, sharePct: 80, viaToken: true });
   });
 });
 
