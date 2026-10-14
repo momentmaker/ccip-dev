@@ -1,7 +1,7 @@
 import {
-  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
+  addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
-  type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenRow,
+  type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 
@@ -287,6 +287,12 @@ export async function tokenGroupIds(db: D1Database, tokens: { chain: string; add
     for (const r of results) groups.set(tokenKey(r.chain, r.address), r.group_id);
   }
   return groups;
+}
+
+/** The registry groups of the day's first tokens, as rollupDay keys via_token rows. */
+export async function firstTokenGroups(db: D1Database, tokens: readonly TokenRow[]): Promise<TokenGroupOf> {
+  const first = tokens.filter((t) => t.idx === 0).map((t) => ({ chain: t.chain, address: t.token }));
+  return tokenGroupLookup(await tokenGroupIds(db, first));
 }
 
 export async function messagesForDay(db: D1Database, day: string): Promise<MessageRow[]> {

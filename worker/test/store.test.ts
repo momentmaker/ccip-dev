@@ -1,4 +1,4 @@
-import { chainRef, rollupDay, siblingKeys } from '@ccip-dev/core';
+import { chainRef, NO_TOKEN_GROUPS, rollupDay, siblingKeys } from '@ccip-dev/core';
 import { BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -455,7 +455,7 @@ describe('migration 0006', () => {
   async function rollUpFiveMessages(): Promise<ReturnType<typeof rollupDay>> {
     // 3 messages without tokens and 2 with one
     await store.upsertListRows(env.DB, [0, 0, 0, 1, 1].map((tokens, i) => liveRow({ id: `m${i}`, sendTs: `${DAY}T10:0${i}:00.000Z` }, { token_count: tokens })), []);
-    return rollupDay(DAY, await store.messagesForDay(env.DB, DAY), []);
+    return rollupDay(DAY, await store.messagesForDay(env.DB, DAY), [], NO_TOKEN_GROUPS);
   }
 
   it("backfills each day's data messages as its messages without tokens", async () => {

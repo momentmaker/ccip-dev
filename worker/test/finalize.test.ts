@@ -1,6 +1,6 @@
 import {
   buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS, coingeckoKey, groupFallback, gunzipText, normalizeList,
-  normalizeRegistryToken, rollupDay, tokenGroupEntry, UpstreamHttpError, type CoingeckoIdLookup,
+  normalizeRegistryToken, NO_TOKEN_GROUPS, rollupDay, tokenGroupEntry, UpstreamHttpError, type CoingeckoIdLookup,
 } from '@ccip-dev/core';
 import { fakeCcip, fakeFetch, fakePrices, jsonResponse, listMessage, NETWORKS, type FakeFetch } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
@@ -641,7 +641,7 @@ describe('runFinalize', () => {
     const lookup = (key: string) => prices.get(key);
     const fallback = groupFallback(groups, lookup, { coingeckoIdOf });
     const { rows, tokens } = buildRows(unique.map(normalizeList), lookup, () => ({ source: 'backfill' }), fallback);
-    const expected = rollupDay(day, rows, tokens).totals;
+    const expected = rollupDay(day, rows, tokens, NO_TOKEN_GROUPS).totals;
     const stored = (await store.dailyHistory(env.DB)).find((t) => t.day === day);
     expect(expected).toMatchObject({ usd_value: 27, unpriced_messages: 1 });
     expect(stored).toEqual(expected);
@@ -990,5 +990,26 @@ describe('new senders at finalize', () => {
       finalized: '2026-10-09',
       alerts: [{ signature: 'sender-arrivals:2026-10-09', text: 'New senders for 2026-10-09 were not recorded: D1 unavailable' }],
     });
+  });
+});
+
+describe('via token at finalize', () => {
+  const WALLET = '0x6666666666666666666666666666666666666666';
+  const TOKEN = '0x7777777777777777777777777777777777777777';
+
+  it("rolls a wallet's direct send up under its first token", async () => {
+    // #given
+    await seedMeta('2026-10-08', '2026-10-08');
+    await seedRegistry([NETWORKS.base], [{ chainSelector: NETWORKS.base.chainSelector, address: TOKEN, symbol: 'TKN', name: 'Token', decimals: 18, groupId: 'g-tkn' }]);
+    await store.upsertListRows(
+      env.DB,
+      [liveRow({ id: 'direct', sendTs: '2026-10-09T10:00:00.000Z', sender: WALLET }, { origin: WALLET, token_count: 1, usd_value: 4 })],
+      [{ message_id: 'direct', idx: 0, chain: NETWORKS.base.chainSelector, token: TOKEN, amount: '1', usd_value: 4 }],
+    );
+    // #when
+    await runFinalize(harness({ now: NOW, ccip: api() }).c, 'early');
+    // #then
+    const rows = (await env.DB.prepare("SELECT key, messages, usd_value FROM daily_breakdown WHERE dim = 'via_token'").all()).results;
+    expect(rows).toEqual([{ key: `${NETWORKS.base.chainSelector}:${WALLET}|g-tkn`, messages: 1, usd_value: 4 }]);
   });
 });

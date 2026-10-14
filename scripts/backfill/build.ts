@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import {
   addDays, archiveKey, BREAKDOWN_CONFLICT, buildCoingeckoIdIndex, buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS,
   coingeckoKeys, createCcipClient, createCoingeckoClient, createPricesClient, dayOf, dayStartIso, fallbackKeys, groupFallback, gzipText,
-  insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, MAX_TRANSFER_USD, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize,
+  insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, MAX_TRANSFER_USD, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize, tokenGroupLookup,
   sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT, type CcipClient, type CoingeckoClient, type CoingeckoIdIndex,
   type CoingeckoLists, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
   type TokenGroupIndex,
@@ -107,6 +107,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
   assertCompleteDayLeft(coverageFrom, opts.liveStartDay);
   const networks = networksOf(registry, spooled.networks);
   const groups = tokenGroupsOf(registry.tokens, networks);
+  const registryGroupOf = tokenGroupLookup(new Map(registry.tokens.map(normalizeRegistryToken).map((t) => [`${t.chain}:${t.address}`, t.groupId])));
 
   await rm(path.join(opts.dir, 'sql'), { recursive: true, force: true });
   await rm(path.join(opts.dir, 'archive'), { recursive: true, force: true });
@@ -136,7 +137,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
       ...tokens.map((t) => insertSql('message_tokens', t, TOKEN_CONFLICT)),
     ];
     if (rollup) {
-      const { totals, breakdown } = rollupDay(day, rows, tokens);
+      const { totals, breakdown } = rollupDay(day, rows, tokens, registryGroupOf);
       statements.push(
         insertSql('daily_totals', { ...totals, computed_at: computedAt }, TOTALS_CONFLICT),
         `DELETE FROM daily_breakdown WHERE day = ${sqlLiteral(day)};`,

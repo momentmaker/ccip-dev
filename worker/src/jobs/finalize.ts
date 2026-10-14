@@ -112,7 +112,8 @@ async function finalizeDay(c: RunContext, day: string, shared: RunShared): Promi
   await fillDetails(c, day, shared);
   await repriceUnpricedFees(c, day);
   const messages = await store.messagesForDay(db, day);
-  const { totals, breakdown } = rollupDay(day, messages, await store.tokensForDay(db, day));
+  const tokens = await store.tokensForDay(db, day);
+  const { totals, breakdown } = rollupDay(day, messages, tokens, await store.firstTokenGroups(db, tokens));
   await store.replaceDaily(db, totals, breakdown, c.deps.now().toISOString());
   await alertOnUsdAnomaly(c, day, totals.usd_value);
   await store.setFeeGroupTotals(db, day, feeGroupTotals(messages, day, shared.classify));

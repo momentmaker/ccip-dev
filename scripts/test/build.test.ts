@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   archiveKey, BREAKDOWN_CONFLICT, buildCoingeckoIdIndex, buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS, groupFallback,
-  gunzipText, insertSql, normalizeList, normalizeRegistryToken, rollupDay, tokenGroupEntry, TOTALS_CONFLICT, type NetworkInfo,
+  gunzipText, insertSql, normalizeList, normalizeRegistryToken, NO_TOKEN_GROUPS, rollupDay, tokenGroupEntry, TOTALS_CONFLICT, type NetworkInfo,
   type RegistryToken,
 } from '@ccip-dev/core';
 import { fakeCcip, fakeCoingecko, fakePrices, listMessage, NETWORKS, type FakePrices } from '@ccip-dev/core/testing';
@@ -189,7 +189,7 @@ describe('build', () => {
     expect(live.rows.find((r) => r.message_id === 'a4')).toMatchObject({ usd_value: 8, unpriced: 0 });
     const expected = insertSql(
       'daily_totals',
-      { ...rollupDay('2026-10-06', live.rows, live.tokens).totals, computed_at: NOW.toISOString() },
+      { ...rollupDay('2026-10-06', live.rows, live.tokens, NO_TOKEN_GROUPS).totals, computed_at: NOW.toISOString() },
       TOTALS_CONFLICT,
     );
     expect(await allSql(dir)).toContain(expected);

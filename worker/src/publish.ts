@@ -211,7 +211,8 @@ function symbolOf(symbols: Map<string, string>, key: string): string | null {
 async function rollupToday(c: RunContext, now: Date) {
   const day = dayOf(now);
   const messages = await store.messagesForDay(c.env.DB, day);
-  return { day, messages, ...rollupDay(day, messages, await store.tokensForDay(c.env.DB, day)) };
+  const tokens = await store.tokensForDay(c.env.DB, day);
+  return { day, messages, ...rollupDay(day, messages, tokens, await store.firstTokenGroups(c.env.DB, tokens)) };
 }
 
 /** The feed shows a live message's label as verified, so a label spread from another chain is left out. */

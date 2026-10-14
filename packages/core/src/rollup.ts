@@ -1,5 +1,6 @@
 import { normalizeAddress } from './normalize';
 import { LINK_TOKEN, LINK_TOKEN_CHAIN_SELECTOR, LINK_TOKEN_DECIMALS, UNLISTED_LINK_FEE_TOKENS } from './reserve';
+import { viaTokenGroup, viaTokenKey, type TokenGroupOf } from './via-token';
 import type { DailyBreakdown, DailyTotals, Dim, MessageRow, TokenRow } from './types';
 
 export interface DayRollup {
@@ -16,7 +17,7 @@ interface Group {
 
 const senderKey = (r: MessageRow) => `${r.src_chain}:${r.sender}`;
 
-export function rollupDay(day: string, messages: MessageRow[], tokens: TokenRow[]): DayRollup {
+export function rollupDay(day: string, messages: MessageRow[], tokens: TokenRow[], tokenGroup: TokenGroupOf): DayRollup {
   const byId = new Map<string, MessageRow>();
   for (const m of messages) if (m.day === day) byId.set(m.message_id, m);
   const rows = [...byId.values()];
@@ -37,10 +38,12 @@ export function rollupDay(day: string, messages: MessageRow[], tokens: TokenRow[
   };
 
   const breakdown: DailyBreakdown[] = [];
-  const addMessageGroups = (dim: Dim, keyOf: (r: MessageRow) => string) => {
+  const addMessageGroups = (dim: Dim, keyOf: (r: MessageRow) => string | null) => {
     const groups = new Map<string, Group>();
     for (const r of rows) {
-      const g = groupFor(groups, keyOf(r));
+      const key = keyOf(r);
+      if (key === null) continue;
+      const g = groupFor(groups, key);
       g.ids.add(r.message_id);
       g.usd += r.usd_value;
       if (r.fee_usd !== null) {
@@ -54,6 +57,14 @@ export function rollupDay(day: string, messages: MessageRow[], tokens: TokenRow[
   addMessageGroups('dst_chain', (r) => r.dst_chain);
   addMessageGroups('lane', (r) => `${r.src_chain}>${r.dst_chain}`);
   addMessageGroups('sender', senderKey);
+
+  // A wallet's direct send, which the sender row already counts: publish moves this part to the project claiming the token.
+  const firstTokens = new Map(tokens.filter((t) => t.idx === 0).map((t) => [t.message_id, t]));
+  addMessageGroups('via_token', (r) => {
+    const first = firstTokens.get(r.message_id);
+    if (first === undefined || r.origin === null || r.sender !== r.origin) return null;
+    return viaTokenKey(r.src_chain, r.sender, viaTokenGroup(first.chain, first.token, tokenGroup));
+  });
 
   const tokenGroups = new Map<string, Group>();
   for (const t of tokens) {

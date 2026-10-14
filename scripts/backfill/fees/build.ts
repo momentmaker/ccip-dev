@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   buildRows, createCoingeckoClient, createPricesClient, FEE_PRICE_ALIASES, FEE_TOKEN_GROUPS, feeClassifier, feeGroupTotals, feePriceAlias, feePriceKeys, linkFeeKeys, ListMessage,
-  normalizeList, normalizeRegistryToken, rollupDay, sqlLiteral, UNLISTED_LINK_FEE_TOKENS, valueFee, ZERO_VALUE_FEE_TOKENS, type ChainRef, type Fee, type FeePriceAlias, type FeeTokenGroup, type HttpDeps,
+  normalizeList, NO_TOKEN_GROUPS, normalizeRegistryToken, rollupDay, sqlLiteral, UNLISTED_LINK_FEE_TOKENS, valueFee, ZERO_VALUE_FEE_TOKENS, type ChainRef, type Fee, type FeePriceAlias, type FeeTokenGroup, type HttpDeps,
   type NormalizedMessage, type PricesClient, type RegistryToken,
 } from '@ccip-dev/core';
 import { PriceCache, SqlWriter, type PriceCacheOptions } from '../build';
@@ -161,7 +161,7 @@ export async function buildFees(opts: { dir: string; prices: PricesClient; coing
         `UPDATE messages SET fee_token = ${sqlLiteral(r.fee_token)}, fee_amount = ${sqlLiteral(r.fee_amount)}, fee_usd = ${sqlLiteral(r.fee_usd)}, ` +
         `detail_fetched_at = ${sqlLiteral(r.detail_fetched_at)} WHERE message_id = ${sqlLiteral(r.message_id)} AND source = 'backfill' AND (detail_fetched_at IS NULL OR fee_usd IS NULL);`,
     );
-    const { totals, breakdown } = rollupDay(day, rows, []);
+    const { totals, breakdown } = rollupDay(day, rows, [], NO_TOKEN_GROUPS);
     const groups = feeGroupTotals(rows, day, classify);
     statements.push(
       `UPDATE daily_totals SET fee_usd = ${sqlLiteral(totals.fee_usd)}, fee_link_usd = ${sqlLiteral(groups.link_usd)}, ` +

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dayOf } from '../src/time';
 import { linkFeeMatcher, linkFeeKeys, linkFeeUsd, median, rollupDay } from '../src/rollup';
 import type { MessageRow, TokenRow } from '../src/types';
+import { NO_TOKEN_GROUPS, type TokenGroupOf } from '../src/via-token';
 
 function row(id: string, overrides: Partial<MessageRow> = {}): MessageRow {
   return {
@@ -26,7 +27,7 @@ const tokens: TokenRow[] = [
 ];
 
 describe('rollupDay', () => {
-  const { totals, breakdown } = rollupDay('2026-10-05', messages, tokens);
+  const { totals, breakdown } = rollupDay('2026-10-05', messages, tokens, NO_TOKEN_GROUPS);
 
   it('totals one day, counting a message seen twice only once', () => {
     expect(totals).toEqual({
@@ -52,7 +53,7 @@ describe('rollupDay', () => {
   });
 
   it('reports fee_usd as null when no message on the day has a fee', () => {
-    expect(rollupDay('2026-10-05', [row('a')], []).totals.fee_usd).toBeNull();
+    expect(rollupDay('2026-10-05', [row('a')], [], NO_TOKEN_GROUPS).totals.fee_usd).toBeNull();
   });
 });
 
@@ -61,7 +62,7 @@ describe('rollupDay boundaries and senders', () => {
     const { totals } = rollupDay('2026-10-05', [
       row('a', { src_chain: 'A', sender: '0xsame' }),
       row('b', { src_chain: 'B', sender: '0xsame' }),
-    ], []);
+    ], [], NO_TOKEN_GROUPS);
     expect(totals.unique_senders).toBe(2);
   });
 
@@ -72,8 +73,8 @@ describe('rollupDay boundaries and senders', () => {
       row('late', { send_ts: lastMs, day: dayOf(lastMs) }),
       row('early', { send_ts: midnight, day: dayOf(midnight) }),
     ];
-    expect(rollupDay('2026-10-05', all, []).totals.messages).toBe(1);
-    expect(rollupDay('2026-10-06', all, []).totals.messages).toBe(1);
+    expect(rollupDay('2026-10-05', all, [], NO_TOKEN_GROUPS).totals.messages).toBe(1);
+    expect(rollupDay('2026-10-06', all, [], NO_TOKEN_GROUPS).totals.messages).toBe(1);
   });
 });
 
@@ -144,5 +145,47 @@ describe('linkFeeKeys', () => {
       keys.get('6433500567565415381:0x5947bb275c521040051d82396192181b413227a3'),
       keys.get(`${solLink.chain}:${solLink.address}`),
     ]).toEqual([18, 18, 9]);
+  });
+});
+
+describe('rollupDay via token', () => {
+  const W = '0xw';
+  const direct = (id: string, overrides: Partial<MessageRow> = {}) => row(id, { sender: W, origin: W, token_count: 1, ...overrides });
+  const first = (id: string, token: string, idx = 0): TokenRow => ({ message_id: id, idx, chain: 'A', token, amount: '1', usd_value: null });
+  const groupOf: TokenGroupOf = (chain, token) => (chain === 'A' && token === '0xeliza' ? 'g-eliza' : null);
+  const viaRows = (messages: MessageRow[], tokens: TokenRow[]) =>
+    rollupDay('2026-10-05', messages, tokens, groupOf)
+      .breakdown.filter((b) => b.dim === 'via_token')
+      .map(({ key, messages: count, usd_value, fee_usd }) => ({ key, messages: count, usd_value, fee_usd }));
+
+  it("keys a wallet's direct sends by their first token's registry group", () => {
+    // #then
+    expect(viaRows([direct('d1', { usd_value: 10, fee_usd: 1 }), direct('d2', { usd_value: 20 })], [first('d1', '0xeliza'), first('d2', '0xeliza')])).toEqual([
+      { key: 'A:0xw|g-eliza', messages: 2, usd_value: 30, fee_usd: 1 },
+    ]);
+  });
+
+  it('keys a token with no registry group by its own chain and address', () => {
+    // #then
+    expect(viaRows([direct('d1')], [first('d1', '0xloose')]).map((r) => r.key)).toEqual(['A:0xw|A:0xloose']);
+  });
+
+  it('keys a message by its first token only', () => {
+    // #then
+    expect(viaRows([direct('d1')], [first('d1', '0xloose', 1), first('d1', '0xeliza', 0)]).map((r) => r.key)).toEqual(['A:0xw|g-eliza']);
+  });
+
+  it("never keys an app contract's send, a message with no origin, or one with no token", () => {
+    // #given
+    const messages = [direct('app', { sender: '0xapp' }), direct('no-origin', { origin: null }), direct('data', { token_count: 0 })];
+    // #then
+    expect(viaRows(messages, [first('app', '0xeliza'), first('no-origin', '0xeliza')])).toEqual([]);
+  });
+
+  it('leaves the sender row whole', () => {
+    // #when
+    const { breakdown } = rollupDay('2026-10-05', [direct('d1', { usd_value: 10 }), direct('d2')], [first('d1', '0xeliza')], groupOf);
+    // #then
+    expect(breakdown.find((b) => b.dim === 'sender')).toMatchObject({ key: 'A:0xw', messages: 2, usd_value: 10 });
   });
 });

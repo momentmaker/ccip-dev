@@ -77,7 +77,7 @@ export interface TokenRow {
   usd_value: number | null;
 }
 
-export type Dim = 'src_chain' | 'dst_chain' | 'lane' | 'token' | 'sender';
+export type Dim = 'src_chain' | 'dst_chain' | 'lane' | 'token' | 'sender' | 'via_token';
 
 export interface DailyTotals {
   day: string;
