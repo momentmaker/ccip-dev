@@ -1,7 +1,7 @@
 import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
-  type ReserveTransfer, type TokenGroupIndex, type TokenRow,
+  type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenRow,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 
@@ -670,6 +670,99 @@ export async function dailyLeaders(db: D1Database, dim: Dim, order: TopOrder, fr
     .bind(dim, fromDay, toDay)
     .all<LeaderRow>();
   return results;
+}
+
+export async function senderChains(db: D1Database): Promise<Map<string, SenderChain>> {
+  const { results } = await db.prepare('SELECT selector, name, family FROM chains').all<{ selector: string; name: string; family: string }>();
+  return new Map(results.map((r) => [r.selector, { name: r.name, family: r.family }]));
+}
+
+/** A sender key's address: daily_breakdown keys senders `<selector>:<address>`, and selectors hold no colon. */
+const SENDER_ADDRESS = "substr(key, instr(key, ':') + 1)";
+
+/** No LIMIT: a project's rows on every chain must all arrive before they merge and rank. */
+export const SENDER_TOTALS_OF_SQL = `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+  FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
+  GROUP BY key ORDER BY key`;
+
+export async function senderTotalsOf(db: D1Database, fromDay: string | null, toDay: string, addresses: readonly string[]): Promise<BreakdownRow[]> {
+  const { results } = await db.prepare(SENDER_TOTALS_OF_SQL).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(addresses)).all<BreakdownRow>();
+  return results;
+}
+
+export async function senderDaysOf(db: D1Database, fromDay: string, toDay: string, addresses: readonly string[]): Promise<LeaderRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT day, key, messages, usd_value, fee_usd FROM daily_breakdown
+       WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3)) ORDER BY day, key`,
+    )
+    .bind(fromDay, toDay, JSON.stringify(addresses))
+    .all<LeaderRow>();
+  return results;
+}
+
+/** An address's rank over its rows summed across chains; each order ends on the address, as ORDER_COLUMNS ends on the key. */
+const ADDRESS_ORDER_SQL: Record<TopOrder, string> = {
+  value: 'ORDER BY SUM(usd_value) DESC, SUM(messages) DESC, address',
+  fees: 'HAVING SUM(fee_usd) IS NOT NULL ORDER BY SUM(fee_usd) DESC, SUM(usd_value) DESC, address',
+  messages: 'ORDER BY SUM(messages) DESC, SUM(usd_value) DESC, address',
+};
+
+const unlabeledRowsSql = (withDay: boolean) => `SELECT ${withDay ? 'day, ' : ''}key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd
+  FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} NOT IN (SELECT value FROM json_each(?3))`;
+
+/**
+ * The per-key rows of the ?4 busiest addresses outside the labeled list ?3 over [?1, ?2], each address ranked by its rows
+ * summed across chains. An address no label names is one identity, so these merge into exactly ?4 ranked identities.
+ */
+export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledRowsSql(false)}),
+  top AS (SELECT address FROM rows GROUP BY address ${ADDRESS_ORDER_SQL[order]} LIMIT ?4)
+  SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+  FROM rows WHERE address IN (SELECT address FROM top) GROUP BY key ORDER BY key`;
+
+export async function topUnlabeledSenders(
+  db: D1Database,
+  fromDay: string | null,
+  toDay: string,
+  labeled: readonly string[],
+  limit: number,
+  order: TopOrder,
+): Promise<BreakdownRow[]> {
+  const { results } = await db.prepare(topUnlabeledSendersSql(order)).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(labeled), limit).all<BreakdownRow>();
+  return results;
+}
+
+/** By messages, summed across chains, so a day's leader is one identity with every chain it sent from. */
+export const DAILY_TOP_UNLABELED_SQL = `WITH rows AS (${unlabeledRowsSql(true)}),
+  ranked AS (
+    SELECT day, address, ROW_NUMBER() OVER (PARTITION BY day ORDER BY SUM(messages) DESC, SUM(usd_value) DESC, address) AS rn
+    FROM rows GROUP BY day, address
+  )
+  SELECT r.day, r.key, r.messages, r.usd_value, r.fee_usd FROM rows r JOIN ranked k ON k.day = r.day AND k.address = r.address
+  WHERE k.rn = 1 ORDER BY r.day, r.key`;
+
+export async function dailyTopUnlabeledSenders(db: D1Database, fromDay: string, toDay: string, labeled: readonly string[]): Promise<LeaderRow[]> {
+  const { results } = await db.prepare(DAILY_TOP_UNLABELED_SQL).bind(fromDay, toDay, JSON.stringify(labeled)).all<LeaderRow>();
+  return results;
+}
+
+export interface WindowTotals {
+  messages: number;
+  usd_value: number;
+  fee_usd: number | null;
+}
+
+export async function totalsBetween(db: D1Database, fromDay: string | null, toDay: string): Promise<WindowTotals> {
+  const row = await db
+    .prepare('SELECT COALESCE(SUM(messages), 0) AS messages, COALESCE(SUM(usd_value), 0) AS usd_value, SUM(fee_usd) AS fee_usd FROM daily_totals WHERE day >= ? AND day <= ?')
+    .bind(fromDay ?? '0000-00-00', toDay)
+    .first<WindowTotals>();
+  return row ?? { messages: 0, usd_value: 0, fee_usd: null };
+}
+
+export async function messagesByDay(db: D1Database, fromDay: string, toDay: string): Promise<Map<string, number>> {
+  const { results } = await db.prepare('SELECT day, messages FROM daily_totals WHERE day >= ? AND day <= ? ORDER BY day').bind(fromDay, toDay).all<{ day: string; messages: number }>();
+  return new Map(results.map((r) => [r.day, r.messages]));
 }
 
 export interface FirstDayRow {

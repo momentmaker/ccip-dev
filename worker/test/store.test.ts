@@ -1,5 +1,5 @@
 import { chainRef, siblingKeys } from '@ccip-dev/core';
-import { NETWORKS } from '@ccip-dev/core/testing';
+import { BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as store from '../src/store';
@@ -317,5 +317,124 @@ describe('dailyLeaders', () => {
 
   it('ranks a window by messages', async () => {
     expect((await store.topBetween(env.DB, 'lane', D9, D10, 10, 'messages')).map((r) => r.key)).toEqual(['b', 'a', 'c']);
+  });
+});
+
+describe('sender identity queries', () => {
+  const NOW = '2026-10-14T00:07:00.000Z';
+  const DAY = XSTOCKS_DAY;
+  const ETH = NETWORKS.ethereum.chainSelector;
+  const BASE = NETWORKS.base.chainSelector;
+  const SOL = NETWORKS.solana.chainSelector;
+  const LABELED = [XBRIDGE_EVM, XBRIDGE_SOLANA];
+  const sender = (day: string, key: string, messages: number, usd_value: number, fee_usd: number | null) => ({ day, dim: 'sender' as const, key, messages, usd_value, fee_usd });
+
+  beforeEach(async () => {
+    // #given 2026-10-13's sender rows: xStocks on six chains, then 25 unlabeled Base senders
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, xstocksBreakdown(), NOW);
+  });
+
+  it('sums every row of a labeled address with no limit, so all six of xStocks’s chains are there to merge', async () => {
+    // #when
+    const rows = await store.senderTotalsOf(env.DB, DAY, DAY, LABELED);
+    // #then
+    expect({ keys: rows.length, messages: rows.reduce((sum, r) => sum + r.messages, 0) }).toEqual({ keys: 6, messages: 319 });
+  });
+
+  it('ranks only addresses outside the labeled list', async () => {
+    // #when
+    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 2, 'messages');
+    // #then
+    expect(rows.map((r) => r.key)).toEqual([`${BASE}:${BASE_SENDER_1}`, `${BASE}:${BASE_SENDER_2}`]);
+  });
+
+  it('ranks an unlabeled address by its sum across chains and returns each of its chains’ rows', async () => {
+    // #given the second Base sender also sent 30 from Ethereum: 98 in all, ahead of the first one's 76
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), sender(DAY, `${ETH}:${BASE_SENDER_2}`, 30, 0, 7.5)], NOW);
+    // #when
+    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'messages');
+    // #then
+    expect(rows).toEqual([
+      { key: `${BASE}:${BASE_SENDER_2}`, messages: 68, usd_value: 0, fee_usd: 17 },
+      { key: `${ETH}:${BASE_SENDER_2}`, messages: 30, usd_value: 0, fee_usd: 7.5 },
+    ]);
+  });
+
+  it('ranks by fees only the addresses with fee data', async () => {
+    // #given an address with the most messages of the day but no fee data
+    const QUIET = '0x00000000000000000000000000000000000000ff';
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), sender(DAY, `${BASE}:${QUIET}`, 900, 0, null)], NOW);
+    // #when
+    const [first] = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'fees');
+    // #then
+    expect(first?.key).toBe(`${BASE}:${BASE_SENDER_1}`);
+  });
+
+  it('tells a Solana address from one that differs only in letter case', async () => {
+    // #given an unlabeled Solana sender whose address is xStocks's lowercased
+    const lower = XBRIDGE_SOLANA.toLowerCase();
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), sender(DAY, `${SOL}:${lower}`, 500, 0, 1)], NOW);
+    // #when
+    const labeled = await store.senderTotalsOf(env.DB, DAY, DAY, LABELED);
+    const [top] = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'messages');
+    // #then
+    expect({ labeled: labeled.some((r) => r.key === `${SOL}:${lower}`), top: top?.key }).toEqual({ labeled: false, top: `${SOL}:${lower}` });
+  });
+
+  it("gives each day its busiest unlabeled address with every chain it sent from, and the labeled rows per day", async () => {
+    // #given on Oct 12 the second Base sender also sent from Ethereum
+    await store.replaceDaily(env.DB, { ...XSTOCKS_TOTALS, day: '2026-10-12' }, [
+      sender('2026-10-12', `${BASE}:${BASE_SENDER_2}`, 10, 0, 1), sender('2026-10-12', `${ETH}:${BASE_SENDER_2}`, 10, 0, 1),
+      sender('2026-10-12', `${BASE}:${BASE_SENDER_1}`, 15, 0, 1), sender('2026-10-12', `${SOL}:${XBRIDGE_SOLANA}`, 40, 0, 1),
+    ], NOW);
+    // #when
+    const unlabeled = await store.dailyTopUnlabeledSenders(env.DB, '2026-10-12', DAY, LABELED);
+    const labeled = await store.senderDaysOf(env.DB, '2026-10-12', DAY, LABELED);
+    // #then
+    expect({
+      unlabeled: unlabeled.map((r) => `${r.day} ${r.key}`),
+      labeled: labeled.filter((r) => r.day === '2026-10-12').map((r) => r.key),
+    }).toEqual({
+      unlabeled: [`2026-10-12 ${BASE}:${BASE_SENDER_2}`, `2026-10-12 ${ETH}:${BASE_SENDER_2}`, `${DAY} ${BASE}:${BASE_SENDER_1}`],
+      labeled: [`${SOL}:${XBRIDGE_SOLANA}`],
+    });
+  });
+
+  it("totals a window's messages, value and fees, and each day's messages, from daily_totals", async () => {
+    // #when
+    const totals = await store.totalsBetween(env.DB, '2026-10-07', DAY);
+    const byDay = await store.messagesByDay(env.DB, '2026-10-07', DAY);
+    // #then
+    expect({ totals, byDay: [...byDay] }).toEqual({ totals: { messages: 1_569, usd_value: 250_000, fee_usd: 392.25 }, byDay: [[DAY, 1_569]] });
+  });
+
+  it('totals an empty window as zero messages and value, and no fees', async () => {
+    // #when
+    const totals = await store.totalsBetween(env.DB, '2026-01-01', '2026-01-07');
+    // #then
+    expect(totals).toEqual({ messages: 0, usd_value: 0, fee_usd: null });
+  });
+
+  it('reads the labeled rows through a daily_breakdown index', async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.SENDER_TOTALS_OF_SQL}`).bind('2026-10-07', DAY, JSON.stringify(LABELED)).all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail).join(' | ')).toMatch(/SEARCH daily_breakdown USING (COVERING )?INDEX/);
+  });
+});
+
+describe('senderChains', () => {
+  it("maps each selector to its CCIP name and family", async () => {
+    // #given
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.solana], []);
+    // #when
+    const chains = await store.senderChains(env.DB);
+    // #then
+    expect([...chains]).toEqual(
+      expect.arrayContaining([
+        [NETWORKS.ethereum.chainSelector, { name: 'ethereum-mainnet', family: 'EVM' }],
+        [NETWORKS.solana.chainSelector, { name: 'solana-mainnet', family: 'SVM' }],
+      ]),
+    );
   });
 });
