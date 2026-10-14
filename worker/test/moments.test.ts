@@ -279,38 +279,45 @@ describe('moments.json project spotlight', () => {
     });
   });
 
-  it('never tags a project whose week came only via its token, and counts those messages', async () => {
-    // #given Gamma claims a Base token with no registry row; a wallet bridged it 600 times in the week of Oct 5
-    const GAMMA_TOKEN = '0x00000000000000000000000000000000000000c3';
-    const WALLET = '0x00000000000000000000000000000000000000d4';
+  const GAMMA_TOKEN = '0x00000000000000000000000000000000000000c3';
+  const WALLET = '0x00000000000000000000000000000000000000d4';
+
+  /** Gamma claims a Base token with no registry row; the wallet bridged it `messages` times on `day`. */
+  async function seedGammaBridging(day: string, messages: number) {
+    await seedRows([sender(day, WALLET, messages), row(day, 'via_token', `${BASE}:${WALLET}|${BASE}:${GAMMA_TOKEN}`, messages, 0, messages / 4)]);
+  }
+  const gammaContext = () => {
     const gamma = {
       name: 'Gamma', x: 'gamma', url: null, kind: 'issuer' as const, source: null, addresses: [],
       tokens: [{ chain: 'ethereum-mainnet-base-1', address: GAMMA_TOKEN, source: 'https://gamma.example/ccip' }],
     };
-    await seedRows([
-      sender('2026-10-06', WALLET, 600), row('2026-10-06', 'via_token', `${BASE}:${WALLET}|${BASE}:${GAMMA_TOKEN}`, 600, 0, 150),
-    ]);
-    const c = harness({ now: NOW, labels, labelTokens: { [`ethereum-mainnet-base-1:${GAMMA_TOKEN}`]: 'gamma' }, projects: { gamma } }).c;
+    return harness({ now: NOW, labels, labelTokens: { [`ethereum-mainnet-base-1:${GAMMA_TOKEN}`]: 'gamma' }, projects: { gamma } }).c;
+  };
+
+  it('never tags a project whose week came only via its token, and counts those messages', async () => {
+    // #given the wallet bridged it 600 times in the week of Oct 5
+    await seedGammaBridging('2026-10-06', 600);
     // #when
-    const { weeks } = await buildMoments(c, { lastDay: LAST_DAY, days: [] });
+    const { weeks } = await buildMoments(gammaContext(), { lastDay: LAST_DAY, days: [] });
     // #then
     expect(weeks.at(-1)!.project).toMatchObject({ key: 'project:gamma', x: null, inferred: false, messages: 600 });
   });
 
+  it('counts credits in both weeks of the week-over-week gain', async () => {
+    // #given 200 bridged the week before, 600 the week of Oct 5
+    await seedGammaBridging('2026-09-29', 200);
+    await seedGammaBridging('2026-10-06', 600);
+    // #when
+    const { weeks } = await buildMoments(gammaContext(), { lastDay: LAST_DAY, days: [] });
+    // #then
+    expect(weeks.at(-1)!.project).toMatchObject({ key: 'project:gamma', messages: 600, previous_messages: 200 });
+  });
+
   it('keeps a via-token spotlight through the public schema, with x null', async () => {
     // #given
-    const GAMMA_TOKEN = '0x00000000000000000000000000000000000000c3';
-    const WALLET = '0x00000000000000000000000000000000000000d4';
-    const gamma = {
-      name: 'Gamma', x: 'gamma', url: null, kind: 'issuer' as const, source: null, addresses: [],
-      tokens: [{ chain: 'ethereum-mainnet-base-1', address: GAMMA_TOKEN, source: 'https://gamma.example/ccip' }],
-    };
-    await seedRows([
-      sender('2026-10-06', WALLET, 600), row('2026-10-06', 'via_token', `${BASE}:${WALLET}|${BASE}:${GAMMA_TOKEN}`, 600, 0, 150),
-    ]);
-    const c = harness({ now: NOW, labels, labelTokens: { [`ethereum-mainnet-base-1:${GAMMA_TOKEN}`]: 'gamma' }, projects: { gamma } }).c;
+    await seedGammaBridging('2026-10-06', 600);
     // #when
-    await publishHistoryFiles(c);
+    await publishHistoryFiles(gammaContext());
     const parsed = PUBLIC_SCHEMAS['moments.json'].parse(await readPublic('moments.json'));
     // #then
     expect(parsed.weeks.at(-1)!.project).toMatchObject({ key: 'project:gamma', x: null, messages: 600 });

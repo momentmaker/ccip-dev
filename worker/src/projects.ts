@@ -44,6 +44,13 @@ export async function buildProjects(c: RunContext, lastDay: string): Promise<Pro
   const dayRows = await store.senderDaysOf(db, from30, lastDay, book.labeled);
   const creditDays = await store.viaTokenCreditDays(db, from30, lastDay, book.claimed, book.labeled);
   const creditsOf = (rows: readonly store.LeaderRow[]) => viaTokenCredits(rows, book.claims);
+  const creditsByProject = new Map<string, store.LeaderRow[]>();
+  for (const r of creditDays) {
+    const [credit] = creditsOf([r]);
+    if (credit === undefined) continue;
+    const key = projectKey(credit.project.slug);
+    creditsByProject.set(key, [...(creditsByProject.get(key) ?? []), r]);
+  }
   const month = mergeIdentities(dayRows, book.resolve, creditsOf(creditDays));
   const week = mergeIdentities(dayRows.filter((r) => r.day >= from7), book.resolve, creditsOf(creditDays.filter((r) => r.day >= from7)));
   const allTime = mergeIdentities(await store.senderTotalsOf(db, null, lastDay, book.labeled), book.resolve, await windowCredits(c, book, null, lastDay));
@@ -65,10 +72,7 @@ export async function buildProjects(c: RunContext, lastDay: string): Promise<Pro
     const thisMonth = find(month);
     const perDay = new Map<string, number>();
     for (const r of dayRows) if (identityOfKey(r.key).key === key) perDay.set(r.day, (perDay.get(r.day) ?? 0) + r.messages);
-    for (const r of creditDays) {
-      const [credit] = creditsOf([r]);
-      if (credit !== undefined && projectKey(credit.project.slug) === key) perDay.set(r.day, (perDay.get(r.day) ?? 0) + r.messages);
-    }
+    for (const r of creditsByProject.get(key) ?? []) perDay.set(r.day, (perDay.get(r.day) ?? 0) + r.messages);
     return {
       slug,
       name: entry.name,

@@ -12,6 +12,7 @@ const NOW = '2026-10-14T00:07:00.000Z';
 const CHAINS = [NETWORKS.ethereum, NETWORKS.base, NETWORKS.bsc, NETWORKS.solana, NETWORKS.ink, NETWORKS.xlayer, NETWORKS.hyperliquid];
 const [ETH, BSC, SOL, INK, XLAYER, HYPER] = [NETWORKS.ethereum, NETWORKS.bsc, NETWORKS.solana, NETWORKS.ink, NETWORKS.xlayer, NETWORKS.hyperliquid].map((n) => n.chainSelector);
 const context = () => harness({ now: NOW, labels: XSTOCKS_LABELS }).c;
+const resetArrivals = () => env.DB.prepare("DELETE FROM arrivals WHERE kind = 'sender'").run();
 const senderRows = async () => (await env.DB.prepare("SELECT key, first_seen FROM arrivals WHERE kind = 'sender' ORDER BY key").all()).results;
 
 /** One message from `address` on `network` on `day`, so the store knows its first day. */
@@ -92,6 +93,37 @@ describe('via-token senders', () => {
     const { arrivals } = await buildMoments(withClaim(), { lastDay: XSTOCKS_DAY, days: [] });
     // #then
     expect(arrivals.senders!.map((a) => [a.key, a.x])).toEqual([['project:gamma', null]]);
+  });
+
+  it('does not post a project again when credits join it on a day it ranks, whether its project key or one of its addresses was recorded', async () => {
+    // #given xStocks also claims the token the wallet bridged, and was recorded as new on an earlier run
+    const xstocks = { name: 'xStocks', x: 'xStocksFi', url: null, kind: 'protocol' as const, source: null, addresses: [], tokens: [] };
+    const c = harness({ now: NOW, labels: XSTOCKS_LABELS, labelTokens: { [`ethereum-mainnet-base-1:${TOKEN}`]: 'xstocks' }, projects: { xstocks } }).c;
+    const breakdown = [...xstocksBreakdown(), ...viaToken(400)];
+    const recordedAs = async (key: string) => {
+      await resetArrivals();
+      await store.insertArrivals(env.DB, 'sender', [key], '2026-10-10T00:00:00.000Z', null);
+      return recordSenderArrivals(c, XSTOCKS_DAY, breakdown);
+    };
+    // #when
+    const afterProjectKey = await recordedAs('project:xstocks');
+    const afterAddress = await recordedAs(`address:${XBRIDGE_EVM}`);
+    // #then
+    expect({ afterProjectKey, afterAddress }).toEqual({ afterProjectKey: [], afterAddress: [] });
+  });
+
+  it("dates a via-token-only project by its label's addresses, so one that first sent in the last 30 days is posted, with x null", async () => {
+    // #given Gamma's labeled address first sent on Oct 10; the day's only Gamma messages came via its token
+    const GAMMA_ADDRESS = '0x00000000000000000000000000000000000000e5';
+    const labels = { ...XSTOCKS_LABELS, [`ethereum-mainnet-base-1:${GAMMA_ADDRESS}`]: { name: 'Gamma', x: 'gamma', kind: 'issuer' as const, slug: 'gamma' } };
+    await store.upsertListRows(env.DB, [firstMessage('g', '2026-10-10', NETWORKS.base, GAMMA_ADDRESS), firstMessage('w', XSTOCKS_DAY, NETWORKS.base, WALLET)], []);
+    const c = harness({ now: NOW, labels, labelTokens: { [`ethereum-mainnet-base-1:${TOKEN}`]: 'gamma' }, projects: { gamma } }).c;
+    // #when
+    await recordSenderArrivals(c, XSTOCKS_DAY, [...xstocksBreakdown(), ...viaToken(400)]);
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), ...viaToken(400)], NOW);
+    const { arrivals } = await buildMoments(c, { lastDay: XSTOCKS_DAY, days: [] });
+    // #then
+    expect(arrivals.senders!.map((a) => [a.key, a.first_day, a.x])).toEqual([['project:gamma', '2026-10-10', null], ['project:xstocks', '2026-10-09', 'xStocksFi']]);
   });
 
   it("counts an address's total since its first day before any move, while its messages are net", async () => {
