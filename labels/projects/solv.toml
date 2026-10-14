@@ -2,16 +2,10 @@ name = "Solv Protocol"
 x = "SolvProtocol"
 url = "https://solv.finance"
 kind = "protocol"
-# Unverified: Solv does not publish this Safe. Its signers overlap Solv's documented admin Safe 0x0c2bc4d2698820e12e6ebe863e7b9e2650cd5b7d
-# (4 of 5 on Ethereum, 3 of 5 on BNB Chain; https://docs.solv.finance/onchain-security/smart-contract-governance) and it holds only SolvBTC.
-verified = false
+verified = true
 
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0xb26b467028ae4e14a13ec3f77e2e433b48530cd4"
-note = "SolvBTC treasury Safe (signers shared with Solv admin Safe)"
-
-[[addresses]]
-chain = "binance_smart_chain-mainnet"
-address = "0xb26b467028ae4e14a13ec3f77e2e433b48530cd4"
-note = "SolvBTC treasury Safe (signers shared with Solv admin Safe)"
+# CCIP: https://docs.solv.finance/developer-guide/other-components/cross-chain-bridge ("SolvBTC's cross-chain functionality is powered by Chainlink's Cross-Chain Interoperability Protocol (CCIP)")
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0x3b86ad95859b6ab773f55f8d94b4b9d443ee931f"
+source = "https://docs.solv.finance/developer-guide/contracts"

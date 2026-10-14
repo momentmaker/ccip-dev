@@ -1,0 +1,11 @@
+# Source: https://docs.flock.io/flock-tokenomics/contract-details ("Chainlink CCIP Bridge" table: Base FLock.io FLOCK 0x5aB3D4c385B400F3aBB49e80DE2fAF6a88A7B691)
+name = "FLock.io"
+x = "flock_io"
+url = "https://www.flock.io"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691"
+source = "https://docs.flock.io/flock-tokenomics/contract-details"

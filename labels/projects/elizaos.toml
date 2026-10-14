@@ -1,0 +1,11 @@
+# Source: https://docs.elizaos.ai/tokenomics ("$elizaOS EVM (ETH & Base & BSC): 0xea17Df5Cf6D172224892B5477A16ACb111182478" and "CCIP enabled day one")
+name = "elizaOS"
+x = "elizaos"
+url = "https://docs.elizaos.ai"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0xea17df5cf6d172224892b5477a16acb111182478"
+source = "https://docs.elizaos.ai/tokenomics"

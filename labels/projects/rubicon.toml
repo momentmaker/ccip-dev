@@ -1,0 +1,11 @@
+# Source: https://docs.rubiconbridge.io/developer/contract-addresses (xSN8 Base address) and https://docs.rubiconbridge.io/ ("xAlpha tokens can then be bridged to other EVM networks by leveraging the Chainlink Cross-Chain Interoperability Protocol (CCIP)")
+name = "Rubicon"
+x = "Rubicon_Bridge"
+url = "https://www.rubiconbridge.io"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0xd321054982b8aa84785c21e1e2371ebf2e00eb47"
+source = "https://docs.rubiconbridge.io/developer/contract-addresses"

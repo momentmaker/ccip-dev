@@ -19,3 +19,9 @@ note = "Bridged Frankencoin ZCHF (frankencoin.com/token)"
 chain = "gnosis_chain-mainnet"
 address = "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553"
 note = "Bridged Frankencoin ZCHF (frankencoin.com/token)"
+
+# CCIP: https://docs.frankencoin.com/risks ("Cross-chain transfers rely on Chainlink CCIP")
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553"
+source = "https://frankencoin.com/token"

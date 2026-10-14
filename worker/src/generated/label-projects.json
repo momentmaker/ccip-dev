@@ -1,4 +1,19 @@
 {
+  "0g": {
+    "name": "0G",
+    "x": "0g_labs",
+    "url": "https://0g.ai",
+    "kind": "protocol",
+    "source": "https://docs.0g.ai/introduction/how-to-get-0g (\"0G Mainnet (chain ID 16661) W0G (Wrapped 0G) 0x1Cd0690fF9a693f5EF2dD976660a8dAFc81A109c\"; \"W0G is also issued on Ethereum, Base, Solana and Robinhood Chain through Chainlink CCIP\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "0g-mainnet",
+        "address": "0x1cd0690ff9a693f5ef2dd976660a8dafc81a109c",
+        "source": "https://docs.0g.ai/introduction/how-to-get-0g"
+      }
+    ]
+  },
   "0x": {
     "name": "0x",
     "x": "0xProject",
@@ -60,6 +75,26 @@
       }
     ]
   },
+  "apyx": {
+    "name": "Apyx",
+    "x": "apyx_fi",
+    "url": "https://apyx.fi",
+    "kind": "issuer",
+    "source": "https://docs.apyx.fi (contract addresses for apxUSD and apyUSD) and https://blog.apyx.fi/apyx-strengthens-its-cross-chain-expansion-with-chainlink/ (\"Apyx is now leveraging Chainlink CCIP ... cross-chain expansion of apxUSD and apyUSD\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x98a878b1cd98131b271883b390f68d2c90674665",
+        "source": "https://docs.apyx.fi"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x38eeb52f0771140d10c4e9a9a72349a329fe8a6a",
+        "source": "https://docs.apyx.fi"
+      }
+    ]
+  },
   "arbitrum-foundation": {
     "name": "Arbitrum Foundation",
     "x": "arbitrum",
@@ -88,7 +123,13 @@
         "note": "CCIP bridge etherSenderReceiverAstar (AstarNetwork/astar-apps, modules/ccip-bridge)"
       }
     ],
-    "tokens": []
+    "tokens": [
+      {
+        "chain": "soneium-mainnet",
+        "address": "0x2cae934a1e84f693fbb78ca5ed3b0a6893259441",
+        "source": "https://github.com/AstarNetwork/astar-apps/blob/main/src/modules/ccip-bridge/index.ts"
+      }
+    ]
   },
   "auto-finance": {
     "name": "Auto Finance",
@@ -119,6 +160,21 @@
       }
     ],
     "tokens": []
+  },
+  "bitlayer": {
+    "name": "Bitlayer",
+    "x": "BitlayerLabs",
+    "url": "https://www.bitlayer.org",
+    "kind": "protocol",
+    "source": "https://blog.bitlayer.org/btr-token-transparency-report-v1/ (\"BTR Token BNB Chain 0xfed13d0c40790220fbde712987079eda1ed75c51\"; \"BTR uses Chainlink's Cross-Chain Interoperability Protocol (CCIP) for cross-chain transfers\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0xfed13d0c40790220fbde712987079eda1ed75c51",
+        "source": "https://blog.bitlayer.org/btr-token-transparency-report-v1/"
+      }
+    ]
   },
   "bungee": {
     "name": "Bungee (Socket)",
@@ -235,6 +291,26 @@
     ],
     "tokens": []
   },
+  "dexlab": {
+    "name": "Dexlab",
+    "x": "Dexlab_official",
+    "url": "https://www.dexlab.space",
+    "kind": "app",
+    "source": "https://docs.dexlab.space/dxl-token (\"XLAB on Solana (Native): XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH\", \"XLAB on BNB: 0x5BA9bfFFB868859064C33D4f995A0828b2B1d2d3\") and https://x.com/Dexlab_official/status/1963694458928869794 (\"XLAB is now bridgeable between Solana <-> BNB Chain thanks to Chainlink's CCIP integration\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "solana-mainnet",
+        "address": "XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH",
+        "source": "https://docs.dexlab.space/dxl-token"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x5ba9bfffb868859064c33d4f995a0828b2b1d2d3",
+        "source": "https://docs.dexlab.space/dxl-token"
+      }
+    ]
+  },
   "eco": {
     "name": "Eco",
     "x": "eco",
@@ -260,6 +336,21 @@
     ],
     "tokens": []
   },
+  "elizaos": {
+    "name": "elizaOS",
+    "x": "elizaos",
+    "url": "https://docs.elizaos.ai",
+    "kind": "protocol",
+    "source": "https://docs.elizaos.ai/tokenomics (\"$elizaOS EVM (ETH & Base & BSC): 0xea17Df5Cf6D172224892B5477A16ACb111182478\" and \"CCIP enabled day one\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xea17df5cf6d172224892b5477a16acb111182478",
+        "source": "https://docs.elizaos.ai/tokenomics"
+      }
+    ]
+  },
   "enso": {
     "name": "Enso",
     "x": "EnsoBuild",
@@ -284,6 +375,36 @@
       }
     ],
     "tokens": []
+  },
+  "flock-io": {
+    "name": "FLock.io",
+    "x": "flock_io",
+    "url": "https://www.flock.io",
+    "kind": "issuer",
+    "source": "https://docs.flock.io/flock-tokenomics/contract-details (\"Chainlink CCIP Bridge\" table: Base FLock.io FLOCK 0x5aB3D4c385B400F3aBB49e80DE2fAF6a88A7B691)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
+        "source": "https://docs.flock.io/flock-tokenomics/contract-details"
+      }
+    ]
+  },
+  "fluid": {
+    "name": "Fluid",
+    "x": "0xfluid",
+    "url": "https://fluid.io",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x6f40d4a6237c257fff2db00fa0510deeecd303eb",
+        "source": "https://github.com/Instadapp/fluid-governance/blob/main/scripts/verify/lib/tokens.ts"
+      }
+    ]
   },
   "folks-finance": {
     "name": "Folks Finance",
@@ -428,7 +549,13 @@
         "note": "Bridged Frankencoin ZCHF (frankencoin.com/token)"
       }
     ],
-    "tokens": []
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
+        "source": "https://frankencoin.com/token"
+      }
+    ]
   },
   "glacis": {
     "name": "Glacis Labs",
@@ -656,6 +783,31 @@
       }
     ]
   },
+  "lombard": {
+    "name": "Lombard",
+    "x": "Lombard_Finance",
+    "url": "https://www.lombard.finance",
+    "kind": "issuer",
+    "source": "https://docs.lombard.finance/learn/products/assets (LBTC contract addresses) and https://docs.lombard.finance/use/bridging (\"Lombard uses Chainlink CCIP for secure cross-chain transfers\"; Base and Solana are CCIP lanes)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x8236a87084f8b84306f72007f36f2618a5634494",
+        "source": "https://docs.lombard.finance/learn/products/assets"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xecac9c5f704e954931349da37f60e39f515c11c1",
+        "source": "https://docs.lombard.finance/learn/products/assets"
+      },
+      {
+        "chain": "solana-mainnet",
+        "address": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+        "source": "https://docs.lombard.finance/learn/products/assets"
+      }
+    ]
+  },
   "maple-finance": {
     "name": "Maple Finance",
     "x": "maplefinance",
@@ -706,6 +858,36 @@
     ],
     "tokens": []
   },
+  "memento": {
+    "name": "Memento",
+    "x": "Memento_Bc",
+    "url": "https://mementoblockchain.com",
+    "kind": "protocol",
+    "source": "https://dfm-docs.mementoblockchain.com/introduction/dextf-token/addresses (\"The official $DEXTF addresses Ethereum: 0x5F64Ab1544D28732F0A24F4713c2C8ec0dA089f0\") and https://memento-bc.medium.com/domani-integrates-chainlink-ccip-and-price-feeds-to-unlock-institutional-cross-chain-use-cases-9dbaf4067c7e (\"leveraging CCIP's Simplified Token Transfer mechanism to facilitate cross-chain bridging of our DEXTF token\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0",
+        "source": "https://dfm-docs.mementoblockchain.com/introduction/dextf-token/addresses"
+      }
+    ]
+  },
+  "overtime": {
+    "name": "Overtime",
+    "x": "overtime_io",
+    "url": "https://www.overtime.io",
+    "kind": "app",
+    "source": "https://github.com/thales-markets/thales-io-dapp/blob/main/src/utils/contracts/overContract.ts (OVER on Base) and https://github.com/thales-markets/overtime-improvement-proposals/blob/main/OIPs/TIP-198.md (\"Create OVER using CCT standard\"; \"Use Chainlink Cross-Chain Interoperability Protocol (CCIP) to bridge OVER token\"); the thales-markets GitHub org is \"Overtime\" (blog overtime.io, X overtime_io)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x7750c092e284e2c7366f50c8306f43c7eb2e82a2",
+        "source": "https://github.com/thales-markets/thales-io-dapp/blob/main/src/utils/contracts/overContract.ts"
+      }
+    ]
+  },
   "polkastarter": {
     "name": "Polkastarter",
     "x": "polkastarter",
@@ -725,6 +907,36 @@
       }
     ],
     "tokens": []
+  },
+  "quickswap": {
+    "name": "QuickSwap",
+    "x": "QuickswapDEX",
+    "url": "https://quickswap.exchange",
+    "kind": "protocol",
+    "source": "https://dapp.quickswap.exchange/bridge (app chunk /_next/static/chunks/5803-22352aceff3d3695.js lists QUICK on Base \"0x7094c27f342DBAdfbbeD005b219431595E33b305\" and Polygon \"0xB5C064F955D8e7F38fE0460C556a72987494eE17\", plus a bridge config with the Chainlink CCIP chain selectors and routers: Base {chainSelector:0xdda641cfe44aff82n, router:\"0x881e3A65B4d4a04dD529061dd0071cf975F58bCD\"}, Polygon {chainSelector:0x383a1891ae1915b1n, router:\"0x849c5ED5a80F5B408Dd4969b78c2C8fdf0565Bfe\"}); handle linked from https://quickswap.exchange. The bundle never spells out \"CCIP\"; accepted by the owner on the router and selector config.",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x7094c27f342dbadfbbed005b219431595e33b305",
+        "source": "https://dapp.quickswap.exchange/bridge"
+      }
+    ]
+  },
+  "rain-coin": {
+    "name": "Rain Coin",
+    "x": "GetRainCoin",
+    "url": "https://raincoin.xyz",
+    "kind": "issuer",
+    "source": "https://raincoin.xyz/wrain (\"Bridge wRAIN to Base, BNB Chain, or Ethereum using Chainlink CCIP\"; Base RAIN links https://basescan.org/address/0x4e21eabf4fc4cf66f10a93395e4b0e2438de81a6)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x4e21eabf4fc4cf66f10a93395e4b0e2438de81a6",
+        "source": "https://raincoin.xyz/wrain"
+      }
+    ]
   },
   "rare-protocol": {
     "name": "Rare Protocol",
@@ -756,6 +968,21 @@
     ],
     "tokens": []
   },
+  "rize": {
+    "name": "RIZE",
+    "x": "CarbonZeroCorp",
+    "url": "https://rizenet.io",
+    "kind": "issuer",
+    "source": "https://rizenet.io/assets/index-B2g5Ty5b.js (the RIZE site's app config: CCIPRizeToken on chain 56 at 0xAEDAff046601BEb063b647845Dfb21841f32d6A4, with ccipTokenPool entries; the bundle hash changes on redeploy)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0xaedaff046601beb063b647845dfb21841f32d6a4",
+        "source": "https://rizenet.io/assets/index-B2g5Ty5b.js"
+      }
+    ]
+  },
   "ronin": {
     "name": "Ronin",
     "x": "Ronin_Network",
@@ -776,6 +1003,21 @@
     ],
     "tokens": []
   },
+  "rubicon": {
+    "name": "Rubicon",
+    "x": "Rubicon_Bridge",
+    "url": "https://www.rubiconbridge.io",
+    "kind": "protocol",
+    "source": "https://docs.rubiconbridge.io/developer/contract-addresses (xSN8 Base address) and https://docs.rubiconbridge.io/ (\"xAlpha tokens can then be bridged to other EVM networks by leveraging the Chainlink Cross-Chain Interoperability Protocol (CCIP)\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xd321054982b8aa84785c21e1e2371ebf2e00eb47",
+        "source": "https://docs.rubiconbridge.io/developer/contract-addresses"
+      }
+    ]
+  },
   "saturn": {
     "name": "Saturn",
     "x": "saturn_credit",
@@ -788,6 +1030,21 @@
         "chain": "ethereum-mainnet",
         "address": "0x23238f20b894f29041f48d88ee91131c395aaa71",
         "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+      }
+    ]
+  },
+  "solv": {
+    "name": "Solv Protocol",
+    "x": "SolvProtocol",
+    "url": "https://solv.finance",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x3b86ad95859b6ab773f55f8d94b4b9d443ee931f",
+        "source": "https://docs.solv.finance/developer-guide/contracts"
       }
     ]
   },
@@ -866,6 +1123,26 @@
     ],
     "tokens": []
   },
+  "tori-finance": {
+    "name": "Tori Finance",
+    "x": "tori_finance",
+    "url": "https://tori.finance",
+    "kind": "issuer",
+    "source": "https://docs.tori.finance/resources/contracts (\"trUSD and strUSD support native cross-chain transfers via Chainlink CCIP using the Cross-Chain Token (CCT) standard\"; Ethereum addresses)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x280839980a7ed0d7717f64125fe241012e5f5815",
+        "source": "https://docs.tori.finance/resources/contracts"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xd0580192e98ea6ceb9c7b6191ed2e27560911697",
+        "source": "https://docs.tori.finance/resources/contracts"
+      }
+    ]
+  },
   "transporter": {
     "name": "Transporter",
     "x": "transporter_io",
@@ -895,6 +1172,61 @@
       }
     ],
     "tokens": []
+  },
+  "unstable-coin": {
+    "name": "Unstable Coin",
+    "x": "usduc_official",
+    "url": "https://usduc.io",
+    "kind": "issuer",
+    "source": "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js (the USDUC bridge app linked from https://usduc.io: CCIP config with Solana tokenMint CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump and hyperevm and robinhood router, pool and token; \"Unsupported CCIP network\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "solana-mainnet",
+        "address": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+        "source": "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js"
+      },
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0x61ef9543f8919bb06e374b3bb58a17725e34f9d9",
+        "source": "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0xbbb8ef3181661512ceab66e0b213c29211b24b6c",
+        "source": "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js"
+      }
+    ]
+  },
+  "virtuals-protocol": {
+    "name": "Virtuals Protocol",
+    "x": "virtuals_io",
+    "url": "https://www.virtuals.io",
+    "kind": "protocol",
+    "source": "https://whitepaper.virtuals.io/info-hub/important-links-and-resources/virtuals-protocol-contract-addresses ($VIRTUAL \"Robinhood Chain 0xc6911796042b15d7Fa4F6CDe69e245DdCd3d9c31\") and https://x.com/virtuals_io/status/2062525455148941497 (\"Virtuals Protocol is officially migrating to @Chainlink CCIP\"); handle linked from https://www.virtuals.io",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31",
+        "source": "https://whitepaper.virtuals.io/info-hub/important-links-and-resources/virtuals-protocol-contract-addresses"
+      }
+    ]
+  },
+  "world-mobile": {
+    "name": "World Mobile",
+    "x": "WorldMobileTeam",
+    "url": "https://worldmobile.io",
+    "kind": "issuer",
+    "source": "https://worldmobile.io/blog/post/world-mobile-token-expands-to-solana (\"Powered by Chainlink CCIP, this integration makes WMTx available on ... Solana\"; links the mint WMTXyYKUMTG3VuZA5beXuHVRLpyTwwaoP7h2i8YpuRH on the Solana explorer)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "solana-mainnet",
+        "address": "WMTXyYKUMTG3VuZA5beXuHVRLpyTwwaoP7h2i8YpuRH",
+        "source": "https://worldmobile.io/blog/post/world-mobile-token-expands-to-solana"
+      }
+    ]
   },
   "xstocks": {
     "name": "xStocks",
@@ -1015,5 +1347,35 @@
       }
     ],
     "tokens": []
+  },
+  "yesnoerror": {
+    "name": "YesNoError",
+    "x": "yesnoerror",
+    "url": "https://yesnoerror.com",
+    "kind": "app",
+    "source": "https://yesnoerror.com (home page bundle /_next/static/chunks/app/page-58620f91aa1d5cc8.js lists $YNE \"Available on Base network\" \"Contract Address:\" \"0xe2f9db0186b13668aec9fe0e15dbd13004ed8d6f\" and \"Move your $YNE tokens between Solana and Base using Chainlink's secure cross-chain infrastructure\", with a \"Bridge from SOL to Base using Chainlink\" button linking app.transporter.io); handle from https://yesnoerror.com/about (\"Follow on X\" opens https://x.com/yesnoerror)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xe2f9db0186b13668aec9fe0e15dbd13004ed8d6f",
+        "source": "https://yesnoerror.com"
+      }
+    ]
+  },
+  "zest-protocol": {
+    "name": "Zest Protocol",
+    "x": "ZestProtocol",
+    "url": "https://www.zestprotocol.com",
+    "kind": "protocol",
+    "source": "https://docs.zestprotocol.com/zest-token/bridge (\"Ethereum: 0xf326c8c9a691319f6330e27aa4a39f2d22c88dc5\") and https://x.com/ZestProtocol/status/2062174866267378171 (\"$ZEST is now live on Ethereum and Base via @chainlink CCIP.\"); handle linked from https://www.zestprotocol.com",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xf326c8c9a691319f6330e27aa4a39f2d22c88dc5",
+        "source": "https://docs.zestprotocol.com/zest-token/bridge"
+      }
+    ]
   }
 }

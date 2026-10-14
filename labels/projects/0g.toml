@@ -1,0 +1,11 @@
+# Source: https://docs.0g.ai/introduction/how-to-get-0g ("0G Mainnet (chain ID 16661) W0G (Wrapped 0G) 0x1Cd0690fF9a693f5EF2dD976660a8dAFc81A109c"; "W0G is also issued on Ethereum, Base, Solana and Robinhood Chain through Chainlink CCIP")
+name = "0G"
+x = "0g_labs"
+url = "https://0g.ai"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "0g-mainnet"
+address = "0x1cd0690ff9a693f5ef2dd976660a8dafc81a109c"
+source = "https://docs.0g.ai/introduction/how-to-get-0g"

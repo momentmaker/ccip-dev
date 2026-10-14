@@ -1,0 +1,12 @@
+# Source: https://dapp.quickswap.exchange/bridge (app chunk /_next/static/chunks/5803-22352aceff3d3695.js lists QUICK on Base "0x7094c27f342DBAdfbbeD005b219431595E33b305" and Polygon "0xB5C064F955D8e7F38fE0460C556a72987494eE17", plus a bridge config with the Chainlink CCIP chain selectors and routers: Base {chainSelector:0xdda641cfe44aff82n, router:"0x881e3A65B4d4a04dD529061dd0071cf975F58bCD"}, Polygon {chainSelector:0x383a1891ae1915b1n, router:"0x849c5ED5a80F5B408Dd4969b78c2C8fdf0565Bfe"}); handle linked from https://quickswap.exchange. The bundle never spells out "CCIP"; accepted by the owner on the router and selector config.
+name = "QuickSwap"
+x = "QuickswapDEX"
+url = "https://quickswap.exchange"
+kind = "protocol"
+verified = true
+
+# Polygon QUICK 0xb5c064f955d8e7f38fe0460c556a72987494ee17 is in the same registry group (933fcb9f) as this Base copy, so one entry covers both.
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0x7094c27f342dbadfbbed005b219431595e33b305"
+source = "https://dapp.quickswap.exchange/bridge"

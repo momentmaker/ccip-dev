@@ -1,0 +1,11 @@
+# Source: https://yesnoerror.com (home page bundle /_next/static/chunks/app/page-58620f91aa1d5cc8.js lists $YNE "Available on Base network" "Contract Address:" "0xe2f9db0186b13668aec9fe0e15dbd13004ed8d6f" and "Move your $YNE tokens between Solana and Base using Chainlink's secure cross-chain infrastructure", with a "Bridge from SOL to Base using Chainlink" button linking app.transporter.io); handle from https://yesnoerror.com/about ("Follow on X" opens https://x.com/yesnoerror)
+name = "YesNoError"
+x = "yesnoerror"
+url = "https://yesnoerror.com"
+kind = "app"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0xe2f9db0186b13668aec9fe0e15dbd13004ed8d6f"
+source = "https://yesnoerror.com"

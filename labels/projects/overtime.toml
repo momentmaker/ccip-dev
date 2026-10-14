@@ -1,0 +1,11 @@
+# Source: https://github.com/thales-markets/thales-io-dapp/blob/main/src/utils/contracts/overContract.ts (OVER on Base) and https://github.com/thales-markets/overtime-improvement-proposals/blob/main/OIPs/TIP-198.md ("Create OVER using CCT standard"; "Use Chainlink Cross-Chain Interoperability Protocol (CCIP) to bridge OVER token"); the thales-markets GitHub org is "Overtime" (blog overtime.io, X overtime_io)
+name = "Overtime"
+x = "overtime_io"
+url = "https://www.overtime.io"
+kind = "app"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0x7750c092e284e2c7366f50c8306f43c7eb2e82a2"
+source = "https://github.com/thales-markets/thales-io-dapp/blob/main/src/utils/contracts/overContract.ts"

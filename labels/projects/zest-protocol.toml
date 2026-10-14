@@ -1,0 +1,11 @@
+# Source: https://docs.zestprotocol.com/zest-token/bridge ("Ethereum: 0xf326c8c9a691319f6330e27aa4a39f2d22c88dc5") and https://x.com/ZestProtocol/status/2062174866267378171 ("$ZEST is now live on Ethereum and Base via @chainlink CCIP."); handle linked from https://www.zestprotocol.com
+name = "Zest Protocol"
+x = "ZestProtocol"
+url = "https://www.zestprotocol.com"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0xf326c8c9a691319f6330e27aa4a39f2d22c88dc5"
+source = "https://docs.zestprotocol.com/zest-token/bridge"

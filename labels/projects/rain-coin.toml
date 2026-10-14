@@ -1,0 +1,11 @@
+# Source: https://raincoin.xyz/wrain ("Bridge wRAIN to Base, BNB Chain, or Ethereum using Chainlink CCIP"; Base RAIN links https://basescan.org/address/0x4e21eabf4fc4cf66f10a93395e4b0e2438de81a6)
+name = "Rain Coin"
+x = "GetRainCoin"
+url = "https://raincoin.xyz"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0x4e21eabf4fc4cf66f10a93395e4b0e2438de81a6"
+source = "https://raincoin.xyz/wrain"

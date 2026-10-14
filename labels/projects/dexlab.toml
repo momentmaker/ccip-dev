@@ -1,0 +1,17 @@
+# Source: https://docs.dexlab.space/dxl-token ("XLAB on Solana (Native): XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH", "XLAB on BNB: 0x5BA9bfFFB868859064C33D4f995A0828b2B1d2d3") and https://x.com/Dexlab_official/status/1963694458928869794 ("XLAB is now bridgeable between Solana <-> BNB Chain thanks to Chainlink's CCIP integration")
+name = "Dexlab"
+x = "Dexlab_official"
+url = "https://www.dexlab.space"
+kind = "app"
+verified = true
+
+# XLAB has no CCIP registry group in ccip.dev's copy, so both CCIP copies are listed.
+[[tokens]]
+chain = "solana-mainnet"
+address = "XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH"
+source = "https://docs.dexlab.space/dxl-token"
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0x5ba9bfffb868859064c33d4f995a0828b2b1d2d3"
+source = "https://docs.dexlab.space/dxl-token"
