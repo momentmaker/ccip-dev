@@ -1,0 +1,12 @@
+{
+  "plasma-mainnet:0xb77e872a68c62cfc0dfb02c067ecc3da23b4bbf3": "aave",
+  "solana-mainnet:59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw": "huma-finance",
+  "hyperliquid-mainnet:0xfd739d4e423301ce9385c1fb8850539d657c296d": "kinetiq",
+  "ethereum-mainnet:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": "lido",
+  "ethereum-mainnet:0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b": "maple-finance",
+  "ethereum-mainnet:0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d": "maple-finance",
+  "ethereum-mainnet:0x87b65c4aaffa76881f9e96f3e7ed945ddfc3cd7a": "maple-finance",
+  "robinhood-mainnet:0x40858070814a57fdf33a613ae84fe0a8b4a874f7": "maple-finance",
+  "solana-mainnet:AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj": "maple-finance",
+  "ethereum-mainnet:0x23238f20b894f29041f48d88ee91131c395aaa71": "saturn"
+}

@@ -26,7 +26,8 @@
         "address": "0xebf4b796b858210fbbbdab0a51bca61f1d9c1fe5",
         "note": "PlasmaBridgeSettler (0x Settler registry ownerOf(5))"
       }
-    ]
+    ],
+    "tokens": []
   },
   "aave": {
     "name": "Aave",
@@ -50,6 +51,13 @@
         "address": "0xed42a7d8559a463722ca4bed50e0cc05a386b0e1",
         "note": "Governance V3 CrossChainController (a.DI), sends through its CCIP adapter"
       }
+    ],
+    "tokens": [
+      {
+        "chain": "plasma-mainnet",
+        "address": "0xb77e872a68c62cfc0dfb02c067ecc3da23b4bbf3",
+        "source": "https://aave.com/docs/ecosystem/gho"
+      }
     ]
   },
   "arbitrum-foundation": {
@@ -64,7 +72,8 @@
         "address": "0xac20cd734c65baf48a1476447af7d3e3165dc739",
         "note": "Foundation Safe for DAO treasury stablecoin strategies"
       }
-    ]
+    ],
+    "tokens": []
   },
   "astar": {
     "name": "Astar Network",
@@ -78,7 +87,8 @@
         "address": "0x4036a6ff8c1a29677108aef299b560f6e4fa5e71",
         "note": "CCIP bridge etherSenderReceiverAstar (AstarNetwork/astar-apps, modules/ccip-bridge)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "auto-finance": {
     "name": "Auto Finance",
@@ -92,7 +102,8 @@
         "address": "0x20ea2f2ecf36bcb6df086d923a120496dc616f76",
         "note": "MessageProxy (docs.auto.finance contract addresses)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "bifrost": {
     "name": "Bifrost",
@@ -106,7 +117,8 @@
         "address": "0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2",
         "note": "SLPx on Soneium (bifrost-io/slpx-contracts deployments/soneium/SoneiumSlpx.json)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "bungee": {
     "name": "Bungee (Socket)",
@@ -120,7 +132,8 @@
         "address": "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a",
         "note": "OpenRouter (SocketDotTech/openrouter deployments.csv)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "centrifuge": {
     "name": "Centrifuge",
@@ -139,7 +152,8 @@
         "address": "0x39cf679eb0ac9075cfb5f94930a367ba1557d955",
         "note": "ChainlinkAdapter (Centrifuge docs, deployments; centrifuge/sdk chain 196)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "chainlink-ccip-tests": {
     "name": "Chainlink CCIP tests",
@@ -168,7 +182,8 @@
         "address": "0xb509c046e1182c7b36d2d9733554bc268716803c",
         "note": "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "concero": {
     "name": "Concero",
@@ -197,7 +212,8 @@
         "address": "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d",
         "note": "Child pool on Polygon (concero/app.concero.io poolMainnetAddresses.ts)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "derive": {
     "name": "Derive",
@@ -216,7 +232,8 @@
         "address": "0x169a99b9958386a5d91e732ed08b344946a92391",
         "note": "Derive 3-of-5 Safe (derive-bridges DERIVE_SAFE)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "eco": {
     "name": "Eco",
@@ -240,7 +257,8 @@
         "address": "0xec0b53a81c996da376f125e541e40082815cdcdc",
         "note": "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 2020)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "enso": {
     "name": "Enso",
@@ -264,7 +282,8 @@
         "address": "0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76",
         "note": "EnsoShortcuts (Enso docs, Monad)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "folks-finance": {
     "name": "Folks Finance",
@@ -353,7 +372,8 @@
         "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
         "note": "xChain CCIP Token Adapter (Folks docs, Monad)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "forever-money": {
     "name": "Forever Money",
@@ -382,7 +402,8 @@
         "address": "0xf27fda637131e25b2a1b4865ed9597d881980c7e",
         "note": "SpokeGateway v5 (ForeverMoney-Ai/bridge-contracts README)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "frankencoin": {
     "name": "Frankencoin",
@@ -406,7 +427,8 @@
         "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
         "note": "Bridged Frankencoin ZCHF (frankencoin.com/token)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "glacis": {
     "name": "Glacis Labs",
@@ -445,7 +467,8 @@
         "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
         "note": "Airlift (Glacis docs, supported chains)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "huma-finance": {
     "name": "Huma Finance",
@@ -453,7 +476,14 @@
     "url": "https://huma.finance",
     "kind": "issuer",
     "source": null,
-    "addresses": []
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "solana-mainnet",
+        "address": "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+        "source": "https://docs.huma.finance/ecosystem-resources/smart-contracts"
+      }
+    ]
   },
   "infinifi": {
     "name": "infiniFi",
@@ -477,7 +507,8 @@
         "address": "0x1d95cc100d6cd9c7bbdbd7cb328d99b3d6037ff7",
         "note": "Outland ConnectorCCTP_Chainlink (OUTLAND_CONNECTOR_CCTP_CHAINLINK in addresses.143.json)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "interport": {
     "name": "Interport Finance",
@@ -566,7 +597,8 @@
         "address": "0x814899380bc056b843999f48e3ae520baa711895",
         "note": "InterportCCIPTokenBridgeV3 (chain 8453 in the app.interport.fi bridge config)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "kinetiq": {
     "name": "Kinetiq",
@@ -574,7 +606,14 @@
     "url": "https://kinetiq.xyz",
     "kind": "issuer",
     "source": null,
-    "addresses": []
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0xfd739d4e423301ce9385c1fb8850539d657c296d",
+        "source": "https://kinetiq.xyz/docs/khype"
+      }
+    ]
   },
   "layerzero": {
     "name": "LayerZero",
@@ -593,7 +632,8 @@
         "address": "0x53561bcfe6b3f23bc72e5b9919c12322729942e8",
         "note": "CCIPDVNAdapter, the Chainlink CCIP DVN for LayerZero V2 (metadata API dvns.bsc)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "lido": {
     "name": "Lido",
@@ -607,6 +647,13 @@
         "address": "0x328de900860816d29d1367f6903a24d8ed40c997",
         "note": "CCIP Direct Staking CustomSenderReferral (Lido docs, Base)"
       }
+    ],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "source": "https://docs.lido.fi/deployed-contracts/"
+      }
     ]
   },
   "maple-finance": {
@@ -615,7 +662,34 @@
     "url": "https://maple.finance",
     "kind": "issuer",
     "source": null,
-    "addresses": []
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b",
+        "source": "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d",
+        "source": "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x87b65c4aaffa76881f9e96f3e7ed945ddfc3cd7a",
+        "source": "https://docs.maple.finance/integrate/ethereum-mainnet/asset-integration"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0x40858070814a57fdf33a613ae84fe0a8b4a874f7",
+        "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+      },
+      {
+        "chain": "solana-mainnet",
+        "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+        "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+      }
+    ]
   },
   "mellow": {
     "name": "Mellow",
@@ -629,7 +703,8 @@
         "address": "0xe02cf8d7b3ce12fc0626346bca160b548525d807",
         "note": "rUSDG vault subvault (mellow-finance/flexible-vaults scripts/jsons)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "polkastarter": {
     "name": "Polkastarter",
@@ -648,7 +723,8 @@
         "address": "0xa523f7414b8e9d283c091a5d3695a6b994fe1c50",
         "note": "PolsV2MigrationBase, the POLS bridge from Base to Ethereum (migrateToEth)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "rare-protocol": {
     "name": "Rare Protocol",
@@ -662,7 +738,8 @@
         "address": "0x88135dd0e7a8a2e42272dda89849a997ce2e83f7",
         "note": "RareBridgeLockAndUnlock proxy, the RARE token CCIP bridge on Ethereum"
       }
-    ]
+    ],
+    "tokens": []
   },
   "ribbita": {
     "name": "Ribbita (TIBBIR)",
@@ -676,7 +753,8 @@
         "address": "0x671be08d6d3c826c2f6d76915f1b54af484d4077",
         "note": "TibbirBridgeBase, the TIBBIR Base to Robinhood Chain bridge gate (ribbita.ai ORIGIN_GATE)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "ronin": {
     "name": "Ronin",
@@ -695,7 +773,8 @@
         "address": "0xab5f1eb5b88c77651eed32104b19e34f36675893",
         "note": "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
       }
-    ]
+    ],
+    "tokens": []
   },
   "saturn": {
     "name": "Saturn",
@@ -703,7 +782,14 @@
     "url": "https://saturn.credit",
     "kind": "issuer",
     "source": null,
-    "addresses": []
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x23238f20b894f29041f48d88ee91131c395aaa71",
+        "source": "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+      }
+    ]
   },
   "stake-dao": {
     "name": "Stake DAO",
@@ -737,7 +823,8 @@
         "address": "0xf0000058000021003e4754dca700c766de7601c2",
         "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "superearn": {
     "name": "SuperEarn",
@@ -756,7 +843,8 @@
         "address": "0x8e53cdaa89381c203a074fb3388f65936358f200",
         "note": "OriginAdapter (CrosschainAdapter proxy), Kaia side (Rhino + CCIP)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "tenbin": {
     "name": "Tenbin",
@@ -775,7 +863,8 @@
         "address": "0xc96beefb03458b3358462f03c1cff00ff0f46e47",
         "note": "TenbinCrossChainERC4626Adapter for tBRL / stBRL (app bridge config)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "transporter": {
     "name": "Transporter",
@@ -804,7 +893,8 @@
         "address": "0x696c73976ba5d4064a4639c5911b42130f4869fb",
         "note": "EtherSenderReceiver (base wrapperContract in the Transporter app config)"
       }
-    ]
+    ],
+    "tokens": []
   },
   "xstocks": {
     "name": "xStocks",
@@ -863,7 +953,8 @@
         "address": "A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u",
         "note": "xBridge sender for Solana program F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN"
       }
-    ]
+    ],
+    "tokens": []
   },
   "xswap": {
     "name": "XSwap",
@@ -922,6 +1013,7 @@
         "address": "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2",
         "note": "XSwapRouter (chain 9745 in the xswap.link app config)"
       }
-    ]
+    ],
+    "tokens": []
   }
 }

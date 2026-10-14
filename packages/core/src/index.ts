@@ -20,4 +20,5 @@ export * from './replay';
 export * from './archive';
 export * from './labels';
 export * from './senders';
+export * from './via-token';
 export * from './sql';

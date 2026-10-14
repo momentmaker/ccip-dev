@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHandles, buildLabelIndex, buildProjectRegistry, labelKey, toChecksumAddress, validateChainHandles, validateRegistry } from '../src/labels';
+import { buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, labelKey, toChecksumAddress, validateChainHandles, validateRegistry } from '../src/labels';
 
 const chains = new Set(['ethereum-mainnet', 'ethereum-mainnet-base-1']);
 const LINK = '0x514910771AF9Ca656af840dff83E8264EcF986CA';
@@ -177,7 +177,31 @@ describe('buildProjectRegistry', () => {
     const registry = buildProjectRegistry(projects);
     // #then
     expect(registry).toEqual({
-      maple: { name: 'Maple Finance', x: 'maplefinance', url: null, kind: 'protocol', source: null, addresses: [{ chain: 'ethereum-mainnet', address: LINK.toLowerCase(), note: 'test' }] },
+      maple: { name: 'Maple Finance', x: 'maplefinance', url: null, kind: 'protocol', source: null, addresses: [{ chain: 'ethereum-mainnet', address: LINK.toLowerCase(), note: 'test' }], tokens: [] },
     });
+  });
+});
+
+describe('token labels', () => {
+  const SYRUP = '0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b';
+  const OTHER = '0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d';
+  const tokenFile = (address: string, extra: string) =>
+    `name = "Maple Finance"\nkind = "issuer"\n${extra}\n[[tokens]]\nchain = "ethereum-mainnet"\naddress = "${address}"\nsource = "https://docs.maple.finance/integrate"\n`;
+
+  it("maps each verified project's tokens to its slug, with or without an x, and leaves drafts out", () => {
+    // #given Maple has no x; the draft has one but is not verified
+    const { projects } = validateRegistry(
+      [{ file: 'maple.toml', text: tokenFile(SYRUP, 'verified = true') }, { file: '_draft.toml', text: tokenFile(OTHER, 'x = "draft"\nverified = false') }],
+      chains,
+    );
+    // #then
+    expect(buildTokenLabels(projects)).toEqual({ [`ethereum-mainnet:${SYRUP}`]: 'maple' });
+  });
+
+  it("carries each verified project's tokens in the registry, for its page", () => {
+    // #given
+    const { projects } = validateRegistry([{ file: 'maple.toml', text: tokenFile(SYRUP, 'verified = true') }], chains);
+    // #then
+    expect(buildProjectRegistry(projects).maple?.tokens).toEqual([{ chain: 'ethereum-mainnet', address: SYRUP, source: 'https://docs.maple.finance/integrate' }]);
   });
 });

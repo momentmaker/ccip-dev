@@ -145,6 +145,19 @@ export function buildLabelIndex(projects: readonly RegistryProject[]): LabelInde
   return index;
 }
 
+/** `<chainName>:<address>` of each verified project's `[[tokens]]` entry, to the project's slug. */
+export type TokenLabels = Record<string, string>;
+
+/** Every verified project's tokens, with or without an `x`: crediting direct sends needs the verified claim, tagging still needs the `x`. */
+export function buildTokenLabels(projects: readonly RegistryProject[]): TokenLabels {
+  const index: TokenLabels = {};
+  for (const p of projects) {
+    if (!p.verified) continue;
+    for (const { chain, address } of p.tokens) index[labelKey(chain, address)] = p.slug;
+  }
+  return index;
+}
+
 export function validateChainHandles(
   text: string,
   chainNames: ReadonlySet<string>,
@@ -183,6 +196,8 @@ export interface RegistryEntry {
   kind: LabelProject['kind'];
   source: string | null;
   addresses: { chain: string; address: string; note: string | null }[];
+  /** Its `[[tokens]]` entries, which the project page lists. */
+  tokens: { chain: string; address: string; source: string }[];
 }
 
 export type ProjectRegistry = Record<string, RegistryEntry>;
@@ -200,6 +215,7 @@ export function buildProjectRegistry(projects: readonly RegistryProject[]): Proj
           kind: p.kind,
           source: p.source,
           addresses: p.addresses.map((a) => ({ chain: a.chain, address: normalizeAddress(a.address), note: a.note ?? null })),
+          tokens: p.tokens.map((t) => ({ chain: t.chain, address: normalizeAddress(t.address), source: t.source })),
         },
       ]),
   );
