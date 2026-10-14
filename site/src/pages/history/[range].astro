@@ -5,8 +5,8 @@ import ShareButton from '../../components/ShareButton';
 import Base from '../../layouts/Base.astro';
 import { BUILD_DATE, buildData } from '../../lib/build-data';
 import { HISTORY_RANGES, type HistoryRange } from '../../lib/card-paths';
-import { rangeRows, rangeTotals } from '../../lib/charts';
-import { formatCount, formatUsd } from '../../lib/format';
+import { dataShareOf, rangeRows, rangeTotals } from '../../lib/charts';
+import { formatCount, formatShare, formatUsd } from '../../lib/format';
 import { feesNote, feesSince } from '../../lib/records';
 import '../../styles/history.css';
 
@@ -20,6 +20,7 @@ const history = await buildData('history.json');
 const lastDay = history.days.at(-1)?.day ?? BUILD_DATE;
 const rows = rangeRows(history.days, range, lastDay);
 const totals = rangeTotals(rows);
+const dataShare = dataShareOf(rows);
 const since = feesSince(history.days);
 const feesSub = feesNote(rows, since);
 const scope = range === 'all' ? `since ${history.since}` : `last ${LABEL[range]} to ${lastDay}`;
@@ -37,6 +38,9 @@ const scope = range === 'all' ? `since ${history.since}` : `last ${LABEL[range]}
   </nav>
   <section class="tiles">
     <div class="tile"><span class="label">Messages<InfoLink metric="messages" label="messages" /></span><p class="value">{formatCount(totals.messages)}</p></div>
+    {dataShare !== null && (
+      <div class="tile"><span class="label">Data messages<InfoLink metric="messages" label="data messages" /></span><p class="value">{formatCount(totals.data_messages)}</p><span class="sub">{formatShare(dataShare)} of messages carry no tokens</span></div>
+    )}
     <div class="tile"><span class="label">Value transferred<InfoLink metric="value" label="value transferred" /></span><p class="value">{formatUsd(totals.usd_value)}</p></div>
     <div class="tile"><span class="label">Fees<InfoLink metric="fees" label="fees" /></span><p class="value">{formatUsd(totals.fee_usd)}</p>{feesSub && <span class="sub">{feesSub}</span>}</div>
   </section>

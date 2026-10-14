@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DASH, formatAgo, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatLinkAmount, formatPct, formatPrice, formatShare, formatUsd, formatUsdDown, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
+  DASH, formatAgo, dataSharePct, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatLinkAmount, formatPct, formatPrice, formatShare, formatUsd, formatUsdDown, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
 } from '../src/format';
 
 describe('formatUsd', () => {
@@ -186,5 +186,17 @@ describe('formatUsdDown', () => {
 describe('formatLinkAmount', () => {
   it.each([[0.29, '0.29 LINK'], [12.346, '12.35 LINK'], [100, '100 LINK'], [82_480.4, '82,480 LINK'], [null, '—']])('%s → %s', (value, text) => {
     expect(formatLinkAmount(value)).toBe(text);
+  });
+});
+
+describe('dataSharePct', () => {
+  it.each([
+    [150, 93, 62],
+    [150, null, null],
+    [150, undefined, null],
+    [0, 0, null],
+  ])('%s messages with %s data messages is %s', (messages, data, pct) => {
+    // #then
+    expect(dataSharePct(messages, data)).toBe(pct);
   });
 });

@@ -19,7 +19,7 @@ describe('daily broadcast card', () => {
     expect(words).toEqual(
       expect.arrayContaining([
         'ccip.dev', 'Daily report · Sat, Oct 10, 2026', 'Yesterday on CCIP',
-        'Messages', '150', '25% vs 7d avg', 'Value moved', '$2.0M', '75%', 'Fees', '$3', 'Paid in LINK', '25%', '0.29 LINK',
+        'Messages', '150', '25% vs 7d avg', 'Value moved', '$2.0M', '75%', 'Fees', '$3', 'Paid in LINK', '25%', '0.29 LINK', '62% data',
         'Top token', 'syrupUSDC', '$500.0K', 'Top sender', 'xStocks', '97 msgs', 'Top fee chain', 'Base', '$2 fees',
         'Busiest lane: ', 'Ethereum', ' · $1.2M', `${ctaFor(DAY).lead} `, ctaFor(DAY).path,
       ]),
@@ -73,6 +73,16 @@ describe('daily broadcast card', () => {
     const cards = [await broadcastTree({ kind: 'daily', day: '2026-09-01' }, inputs), await broadcastTree({ kind: 'daily', day: '2026-10-09' }, inputs)];
     // #then
     expect(cards).toEqual([null, null]);
+  });
+
+  it('leaves the data line out for a day published before data messages were counted', async () => {
+    // #given history.json without data_messages
+    const old: typeof loadFixture = async (name) =>
+      name === 'history.json' ? ({ ...HISTORY, days: HISTORY.days.map(({ data_messages: _, ...d }) => d) } as never) : loadFixture(name);
+    // #when
+    const words = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: old }));
+    // #then
+    expect(words.some((w) => w.endsWith('% data'))).toBe(false);
   });
 });
 

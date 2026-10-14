@@ -48,3 +48,21 @@ describe('HistoryCharts daily or cumulative switch', () => {
     }).toEqual({ messages: true, fees: true, takeRate: false, cumulativeChecked: true });
   });
 });
+
+describe('HistoryCharts data messages', () => {
+  const withData = (day: string, data: number | undefined): DayTotals => ({ ...row(day, 100, 1), ...(data === undefined ? {} : { data_messages: data }) });
+
+  it('draws a Data messages chart right after Messages', () => {
+    // #when
+    const html = renderToString(createElement(HistoryCharts, { rows: [withData('2026-10-05', 6), withData('2026-10-06', 7)], feesSince: '2026-10-05' }));
+    // #then
+    expect(html.indexOf('aria-label="Messages,') < html.indexOf('aria-label="Data messages,')).toBe(true);
+  });
+
+  it('reads as no data for days published before data messages were counted', () => {
+    // #when
+    const html = renderToString(createElement(HistoryCharts, { rows: [withData('2026-10-05', undefined), withData('2026-10-06', undefined)], feesSince: '2026-10-05' }));
+    // #then
+    expect(html).toMatch(/aria-label="Data messages[^"]*no data/i);
+  });
+});

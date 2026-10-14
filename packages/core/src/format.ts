@@ -43,6 +43,11 @@ export function formatShare(pct: number | null | undefined): string {
   return pct < 9.95 ? `${pct.toFixed(1)}%` : `${Math.round(pct)}%`;
 }
 
+/** The share of a day's messages that carried no tokens; null when the day predates counting them or had none. */
+export function dataSharePct(messages: number, dataMessages: number | null | undefined): number | null {
+  return dataMessages === null || dataMessages === undefined || messages === 0 ? null : (dataMessages / messages) * 100;
+}
+
 /** A total of fees: under a dollar keeps cents, where formatUsd would round to "$0". */
 export function formatFeeTotal(value: number | null | undefined): string {
   return usable(value) && value > 0 && value < 1 ? formatFee(value) : formatUsd(value);

@@ -1,10 +1,11 @@
+import { dataSharePct } from '@ccip-dev/core/format';
 import type { DayTotals } from '@ccip-dev/core/public';
 import { area, line } from 'd3-shape';
 import type { HistoryRange } from './card-paths';
 import { addDays } from './days';
 import { formatUtcDay } from './format';
 
-export type HistoryMetric = 'messages' | 'usd_value' | 'fee_usd' | 'take_rate_bps' | 'unique_senders' | 'median_delivery_s';
+export type HistoryMetric = 'messages' | 'data_messages' | 'usd_value' | 'fee_usd' | 'take_rate_bps' | 'unique_senders' | 'median_delivery_s';
 
 export interface ChartPoint {
   day: string;
@@ -19,7 +20,7 @@ export interface ChartGeometry {
   last: ChartPoint | null;
 }
 
-export const ADDITIVE: ReadonlySet<HistoryMetric> = new Set<HistoryMetric>(['messages', 'usd_value', 'fee_usd']);
+export const ADDITIVE: ReadonlySet<HistoryMetric> = new Set<HistoryMetric>(['messages', 'data_messages', 'usd_value', 'fee_usd']);
 /** Charts that start where fee data starts, as the fees chart does. */
 export const FEE_METRICS: ReadonlySet<HistoryMetric> = new Set<HistoryMetric>(['fee_usd', 'take_rate_bps']);
 
@@ -28,7 +29,7 @@ export function takeRateBps(d: Pick<DayTotals, 'fee_usd' | 'usd_value'>): number
   return d.fee_usd === null || d.fee_usd === 0 || d.usd_value === 0 ? null : (d.fee_usd * 10_000) / d.usd_value;
 }
 
-const metricValue = (d: DayTotals, metric: HistoryMetric): number | null => (metric === 'take_rate_bps' ? takeRateBps(d) : d[metric]);
+const metricValue = (d: DayTotals, metric: HistoryMetric): number | null => (metric === 'take_rate_bps' ? takeRateBps(d) : (d[metric] ?? null));
 
 export const RANGE_DAYS: Record<HistoryRange, number | null> = { '30d': 30, '90d': 90, '1y': 365, all: null };
 export const CHART_W = 600;
@@ -77,13 +78,24 @@ export function chartGeometry(points: readonly ChartPoint[], width: number, heig
   return { line: lineGen(list) ?? '', area: areaGen(list) ?? '', min, max, last: [...list].reverse().find(defined) ?? null };
 }
 
-export function rangeTotals(rows: readonly DayTotals[]): { messages: number; usd_value: number; fee_usd: number | null } {
+export function rangeTotals(rows: readonly DayTotals[]): { messages: number; usd_value: number; fee_usd: number | null; data_messages: number | null } {
   const fees = rows.flatMap((d) => (d.fee_usd === null ? [] : [d.fee_usd]));
+  const data = rows.flatMap((d) => (d.data_messages === undefined || d.data_messages === null ? [] : [d.data_messages]));
   return {
     messages: rows.reduce((s, d) => s + d.messages, 0),
     usd_value: rows.reduce((s, d) => s + d.usd_value, 0),
     fee_usd: fees.length === 0 ? null : fees.reduce((s, v) => s + v, 0),
+    data_messages: data.length === 0 ? null : data.reduce((s, v) => s + v, 0),
   };
+}
+
+/** The share of messages without tokens, over the days that count them; null when none does. */
+export function dataShareOf(rows: readonly DayTotals[]): number | null {
+  const counted = rows.filter((d) => d.data_messages !== undefined && d.data_messages !== null);
+  return dataSharePct(
+    counted.reduce((s, d) => s + d.messages, 0),
+    counted.length === 0 ? null : counted.reduce((s, d) => s + (d.data_messages ?? 0), 0),
+  );
 }
 
 export function linkShare(rows: readonly DayTotals[], day: string, cumulative: boolean): number | null {

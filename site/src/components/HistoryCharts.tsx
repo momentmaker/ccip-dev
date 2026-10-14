@@ -17,6 +17,7 @@ interface MetricSpec {
 
 const METRICS: MetricSpec[] = [
   { key: 'messages', title: 'Messages', format: formatCount, metric: 'messages' },
+  { key: 'data_messages', title: 'Data messages', format: formatCount, metric: 'messages', note: 'Messages that carry no tokens.' },
   { key: 'usd_value', title: 'Value transferred', format: formatUsd, metric: 'value' },
   { key: 'fee_usd', title: 'Fees', format: formatUsd, metric: 'fees' },
   { key: 'take_rate_bps', title: 'Take rate', format: formatBps, metric: 'take_rate', note: 'Fees as basis points of value moved.' },

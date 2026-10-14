@@ -26,7 +26,7 @@ export const HISTORY: HistoryFile = {
   since: '2023-07-06',
   days: DAYS.map((day) => {
     const f = figures(day);
-    return { day, messages: f.messages, token_messages: 0, usd_value: f.usd, fee_usd: f.fee, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: f.link, fee_link_amount: f.amount };
+    return { day, messages: f.messages, token_messages: 0, data_messages: Math.round(f.messages * 0.62), usd_value: f.usd, fee_usd: f.fee, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: f.link, fee_link_amount: f.amount };
   }),
   largest_fees: [
     { message_id: '0x1', day: RECORD_DAY, src: ETH, dst: BASE, fee_usd: 120, symbol: 'LINK' },

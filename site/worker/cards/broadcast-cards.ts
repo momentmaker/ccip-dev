@@ -1,7 +1,7 @@
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, recordValueText, weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
 } from '@ccip-dev/core/broadcasts';
-import { formatCompactCount, formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
+import { dataSharePct, formatCompactCount, formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
 import { chainName, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
 import type { DayLeaders, Leader } from '@ccip-dev/core/public';
 import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
@@ -71,10 +71,20 @@ function feeChainsInsight(chains: readonly Leader[], names: ChainNames): Child[]
   return ['Top fee chains: ', ...chains.flatMap((l, i): Child[] => [...(i > 0 ? [' · '] : []), bold(chainName(names, l.key)), ` ${formatFeeTotal(l.fee_usd)}`])];
 }
 
+function dayFooter(dataShare: number | null, leaders: VNode): VNode {
+  return h(
+    'div',
+    { style: { display: 'flex', flexDirection: 'column' } },
+    dataShare === null ? null : h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop: 12 } }, `${formatShare(dataShare)} data`),
+    leaders,
+  );
+}
+
 async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | null> {
   const [history, leaders, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('day-leaders.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const totals = dayTotalsFacts(history.days, day);
   const lead = leaders.days.find((d) => d.day === day);
+  const row = history.days.find((d) => d.day === day);
   if (totals === null || lead === undefined || !hasReplayDay(replay, day)) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, day, day);
@@ -90,7 +100,7 @@ async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | 
         deltaStat('Fees', formatFeeTotal(totals.fees.value), totals.fees.pct, ''),
         mutedStat('Paid in LINK', formatShare(totals.linkSharePct), formatLinkAmount(totals.linkAmount)),
       ],
-      leadersRow(lead, names),
+      dayFooter(row ? dataSharePct(row.messages, row.data_messages) : null, leadersRow(lead, names)),
     ),
     insight: record ? recordInsight(record) : laneInsight(lead.lane, names),
     cta: ctaFor(day),

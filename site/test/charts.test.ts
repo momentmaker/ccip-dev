@@ -1,6 +1,6 @@
 import type { DayTotals } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { chartGeometry, chartSeries, chartSummary, linkShare, nearestIndex, pointX, rangeRows, rangeTotals, stepIndex, takeRateBps } from '../src/lib/charts';
+import { chartGeometry, chartSeries, chartSummary, dataShareOf, linkShare, nearestIndex, pointX, rangeRows, rangeTotals, stepIndex, takeRateBps } from '../src/lib/charts';
 import { feeChartRows } from '../src/lib/records';
 
 const row = (day: string, messages: number, usd: number, fee: number | null): DayTotals => ({
@@ -41,8 +41,8 @@ describe('history charts', () => {
   });
 
   it('totals a range, with null fees when none were collected', () => {
-    expect(rangeTotals(DAYS)).toEqual({ messages: 65, usd_value: 650, fee_usd: 5 });
-    expect(rangeTotals(DAYS.slice(0, 2))).toEqual({ messages: 15, usd_value: 150, fee_usd: null });
+    expect(rangeTotals(DAYS)).toEqual({ messages: 65, usd_value: 650, fee_usd: 5, data_messages: null });
+    expect(rangeTotals(DAYS.slice(0, 2))).toEqual({ messages: 15, usd_value: 150, fee_usd: null, data_messages: null });
   });
 
   describe('linkShare', () => {
@@ -150,5 +150,26 @@ describe('take rate', () => {
     const series = chartSeries(days, 'take_rate_bps', true);
     // #then
     expect(series.map((p) => p.value)).toEqual([null, null, 1.5]);
+  });
+});
+
+describe('data messages', () => {
+  const day = (d: string, messages: number, data: number | null | undefined) => ({
+    day: d, messages, token_messages: 0, usd_value: 0, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null,
+    ...(data === undefined ? {} : { data_messages: data }),
+  });
+
+  it('charts them as a series that adds up, with a gap on a day that lacks them', () => {
+    // #when
+    const points = chartSeries([day('2026-10-12', 10, 6), day('2026-10-13', 10, undefined), day('2026-10-14', 10, 7)], 'data_messages', true);
+    // #then
+    expect(points.map((p) => p.value)).toEqual([6, 6, 13]);
+  });
+
+  it('totals them for a range, and gives their share of the messages on the days that count them', () => {
+    // #given
+    const rows = [day('2026-10-12', 10, 6), day('2026-10-13', 30, undefined), day('2026-10-14', 10, 4)];
+    // #then
+    expect({ total: rangeTotals(rows).data_messages, share: dataShareOf(rows), none: dataShareOf([day('2026-10-13', 30, undefined)]) }).toEqual({ total: 10, share: 50, none: null });
   });
 });
