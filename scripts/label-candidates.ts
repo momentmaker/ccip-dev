@@ -50,16 +50,12 @@ export interface Candidate {
   first_seen: string;
 }
 
-/** This week's label coverage is the 7 complete days before today, as the Worker computes it, against the 7 before them. */
+/** This week is the 7 complete days before today, as the Worker computes coverage, and last week the 7 before them. */
 export function coverageWindows(today: string) {
   return {
     week: { from: addDays(today, -7), to: addDays(today, -1) },
     before: { from: addDays(today, -14), to: addDays(today, -8) },
   };
-}
-
-export function windowStart(today: string): string {
-  return addDays(today, -6);
 }
 
 /**
@@ -88,17 +84,17 @@ export function identityCandidateQuery(sinceDay: string, minUsd: number, minMess
 }
 
 /**
- * Each address's first day ever, on any chain, and its messages without tokens since ?1 on the given (chain, address)
- * pairs only, so a share is taken over the same chains its candidate's message count sums.
+ * Each address's first day ever, on any chain, and its messages without tokens over [?1, ?4] on the given (chain, address)
+ * pairs only, so a share is taken over the same days and chains its candidate's finalized message count sums.
  */
-export function messageStatsQuery(sinceDay: string, pairs: readonly { chain: string; address: string }[]) {
+export function messageStatsQuery(fromDay: string, toDay: string, pairs: readonly { chain: string; address: string }[]) {
   return {
     sql: `SELECT sender AS address,
-            SUM(CASE WHEN day >= ?1 AND token_count = 0 AND (src_chain || ':' || sender) IN (SELECT value FROM json_each(?3)) THEN 1 ELSE 0 END) AS data_messages,
+            SUM(CASE WHEN day >= ?1 AND day <= ?4 AND token_count = 0 AND (src_chain || ':' || sender) IN (SELECT value FROM json_each(?3)) THEN 1 ELSE 0 END) AS data_messages,
             MIN(day) AS first_seen
           FROM messages WHERE src_chain IN (SELECT selector FROM chains) AND sender IN (SELECT value FROM json_each(?2))
           GROUP BY sender`,
-    params: [sinceDay, JSON.stringify([...new Set(pairs.map((p) => p.address))]), JSON.stringify(pairs.map((p) => `${p.chain}:${p.address}`))],
+    params: [fromDay, JSON.stringify([...new Set(pairs.map((p) => p.address))]), JSON.stringify(pairs.map((p) => `${p.chain}:${p.address}`)), toDay],
   };
 }
 
@@ -679,7 +675,8 @@ export async function loadEndpointMaps(rootDir: string): Promise<{ rpcMap: Recor
 
 async function main(): Promise<void> {
   const today = dayOf(new Date());
-  const since = windowStart(today);
+  const windows = coverageWindows(today);
+  const since = windows.week.from;
   const minUsd = Number(process.env.CANDIDATE_MIN_USD_7D ?? '50000');
   const minMessages = Number(process.env.CANDIDATE_MIN_MESSAGES_7D ?? '50');
   const { rpcMap, explorerMap } = await loadEndpointMaps(ROOT);
@@ -701,7 +698,7 @@ async function main(): Promise<void> {
     console.warn(`skipping ${r.chain}:${r.address}: ${r.chain_name ?? 'its chain'} is not in labels/ccip-chains.json yet`);
     return false;
   });
-  const sq = messageStatsQuery(since, rows);
+  const sq = messageStatsQuery(since, windows.week.to, rows);
   const stats = new Map((await d1<{ address: string; data_messages: number; first_seen: string }>(sq.sql, sq.params)).map((s) => [s.address, s]));
   const pq = priorityQuery(since);
   const top3 = new Set((await d1<{ key: string }>(pq.sql, pq.params)).map((r) => senderKeyAddress(r.key)));
@@ -757,7 +754,6 @@ async function main(): Promise<void> {
   const pairs = addresses.length === 0 ? new Map<string, string[]>() : pairHints(addresses, await d1<{ address: string; receiver: string }>(rq.sql, rq.params), programs);
   for (const row of report) row.hints = candidateHints(row.candidate.address, programs.get(row.candidate.address), pairs);
 
-  const windows = coverageWindows(today);
   const windowRows = (from: string, to: string) => {
     const q = senderRowsQuery(from, to);
     return d1<SenderRow>(q.sql, q.params);

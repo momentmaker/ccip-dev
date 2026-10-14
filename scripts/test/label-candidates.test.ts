@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, coverageWindows, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
   handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, solanaSendProgram, spreadMarkdown,
-  spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, windowStart, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
+  spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
 const candidate: Candidate = {
@@ -26,10 +26,6 @@ const candidate: Candidate = {
 };
 
 describe('label candidates', () => {
-  it('window start is 6 days before today (7 day window inclusive)', () => {
-    expect(windowStart('2026-10-06')).toBe('2026-09-30');
-  });
-
   it('classify handles fetch errors as error state', async () => {
     const badStatus = fakeFetch(() => jsonResponse({ jsonrpc: '2.0', id: 1, result: null }, 500));
     const notString = fakeFetch(() => jsonResponse({ jsonrpc: '2.0', id: 1, result: 123 }));
@@ -248,7 +244,7 @@ describe('candidates by identity', () => {
     insert.run('c', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM, 0);
     insert.run('d', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM, 1);
     // #then
-    expect(rows(db, messageStatsQuery('2026-10-07', [NETWORKS.ink, NETWORKS.xlayer].map((n) => ({ chain: n.chainSelector, address: XBRIDGE_EVM }))))).toEqual([{ address: XBRIDGE_EVM, data_messages: 2, first_seen: '2026-08-01' }]);
+    expect(rows(db, messageStatsQuery('2026-10-07', '2026-10-13', [NETWORKS.ink, NETWORKS.xlayer].map((n) => ({ chain: n.chainSelector, address: XBRIDGE_EVM }))))).toEqual([{ address: XBRIDGE_EVM, data_messages: 2, first_seen: '2026-08-01' }]);
   });
 
   it('groups an address’s chains busiest first, with its data messages and first day', () => {
@@ -338,7 +334,20 @@ describe('candidates by identity', () => {
     for (const id of ['a', 'b', 'c']) insert.run(id, XSTOCKS_DAY, NETWORKS.ink.chainSelector, XBRIDGE_EVM);
     insert.run('d', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM);
     // #when the candidate keeps X Layer only
-    const [stat] = rows(db, messageStatsQuery('2026-10-07', [{ chain: NETWORKS.xlayer.chainSelector, address: XBRIDGE_EVM }]));
+    const [stat] = rows(db, messageStatsQuery('2026-10-07', '2026-10-13', [{ chain: NETWORKS.xlayer.chainSelector, address: XBRIDGE_EVM }]));
+    // #then
+    expect(stat!.data_messages).toBe(1);
+  });
+
+  it("counts no data messages from today, which the finalized message counts don't include yet", () => {
+    // #given a data message in the window and two sent today
+    const db = database();
+    const insert = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, NULL, 0)');
+    insert.run('a', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM);
+    insert.run('b', '2026-10-14', NETWORKS.xlayer.chainSelector, XBRIDGE_EVM);
+    insert.run('c', '2026-10-14', NETWORKS.xlayer.chainSelector, XBRIDGE_EVM);
+    // #when the window ends yesterday
+    const [stat] = rows(db, messageStatsQuery('2026-10-07', '2026-10-13', [{ chain: NETWORKS.xlayer.chainSelector, address: XBRIDGE_EVM }]));
     // #then
     expect(stat!.data_messages).toBe(1);
   });
