@@ -2,6 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
+  VIA_ADDRESS, VIA_GROUP, VIA_SENDER_KEY, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 
@@ -287,6 +288,11 @@ export async function tokenGroupIds(db: D1Database, tokens: { chain: string; add
     for (const r of results) groups.set(tokenKey(r.chain, r.address), r.group_id);
   }
   return groups;
+}
+
+/** Registry groups of `<selector>:<address>` keys, as tokenGroupIds returns them. */
+export async function registryGroups(db: D1Database, keys: readonly string[]): Promise<Map<string, string | null>> {
+  return tokenGroupIds(db, keys.map((k) => ({ chain: k.slice(0, k.indexOf(':')), address: k.slice(k.indexOf(':') + 1) })));
 }
 
 export async function firstTokenGroups(db: D1Database, tokens: readonly TokenRow[]): Promise<TokenGroupOf> {
@@ -742,17 +748,30 @@ const ADDRESS_ORDER_SQL: Record<TopOrder, string> = {
   messages: 'ORDER BY SUM(messages) DESC, SUM(usd_value) DESC, address',
 };
 
-const unlabeledRowsSql = (withDay: boolean) => `SELECT ${withDay ? 'day, ' : ''}key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd
-  FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} NOT IN (SELECT value FROM json_each(?3))`;
+/**
+ * The sender rows over [?1, ?2] of addresses outside the labeled list ?3, with the claimed direct sends (the keys in the
+ * JSON list `claimedParam`) as negative rows: summed per key, they leave what the move to the token's project leaves.
+ */
+const unlabeledRowsSql = (withDay: boolean, claimedParam: string) => `SELECT ${withDay ? 'day, ' : ''}key, address, messages, usd_value, fee_usd FROM (
+    SELECT day, key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd FROM daily_breakdown
+    WHERE dim = 'sender' AND day >= ?1 AND day <= ?2
+    UNION ALL
+    SELECT day, ${VIA_SENDER_KEY}, ${VIA_ADDRESS}, -messages, -usd_value, -fee_usd FROM daily_breakdown
+    WHERE dim = 'via_token' AND day >= ?1 AND day <= ?2 AND ${VIA_GROUP} IN (SELECT value FROM json_each(${claimedParam}))
+  ) WHERE address NOT IN (SELECT value FROM json_each(?3))`;
 
 /**
- * The per-key rows of the ?4 busiest addresses outside the labeled list ?3 over [?1, ?2], each address ranked by its rows
- * summed across chains. An address no label names is one identity, so these merge into exactly ?4 ranked identities.
+ * The per-key rows of the ?4 busiest addresses outside the labeled list ?3 over [?1, ?2], net of the claimed keys ?5,
+ * each address ranked by its rows summed across chains. A key with nothing left is dropped before the cut, so the ?4
+ * are the busiest by what they keep.
  */
-export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledRowsSql(false)}),
-  top AS (SELECT address FROM rows GROUP BY address ${ADDRESS_ORDER_SQL[order]} LIMIT ?4)
-  SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
-  FROM rows WHERE address IN (SELECT address FROM top) GROUP BY key ORDER BY key`;
+export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledRowsSql(false, '?5')}),
+  net AS (
+    SELECT key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+    FROM rows GROUP BY key HAVING SUM(messages) > 0
+  ),
+  top AS (SELECT address FROM net GROUP BY address ${ADDRESS_ORDER_SQL[order]} LIMIT ?4)
+  SELECT key, messages, usd_value, fee_usd FROM net WHERE address IN (SELECT address FROM top) ORDER BY key`;
 
 export async function topUnlabeledSenders(
   db: D1Database,
@@ -761,22 +780,43 @@ export async function topUnlabeledSenders(
   labeled: readonly string[],
   limit: number,
   order: TopOrder,
+  claimed: readonly string[],
 ): Promise<BreakdownRow[]> {
-  const { results } = await db.prepare(topUnlabeledSendersSql(order)).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(labeled), limit).all<BreakdownRow>();
+  const { results } = await db
+    .prepare(topUnlabeledSendersSql(order))
+    .bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(labeled), limit, JSON.stringify(claimed))
+    .all<BreakdownRow>();
   return results;
 }
 
-/** By messages, summed across chains, so a day's leader is one identity with every chain it sent from. */
-export const DAILY_TOP_UNLABELED_SQL = `WITH rows AS (${unlabeledRowsSql(true)}),
+/** By messages, summed across chains and net of the claimed keys ?4, so a day's leader is one identity with every chain it sent from. */
+export const DAILY_TOP_UNLABELED_SQL = `WITH rows AS (${unlabeledRowsSql(true, '?4')}),
+  net AS (
+    SELECT day, key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+    FROM rows GROUP BY day, key HAVING SUM(messages) > 0
+  ),
   ranked AS (
     SELECT day, address, ROW_NUMBER() OVER (PARTITION BY day ORDER BY SUM(messages) DESC, SUM(usd_value) DESC, address) AS rn
-    FROM rows GROUP BY day, address
+    FROM net GROUP BY day, address
   )
-  SELECT r.day, r.key, r.messages, r.usd_value, r.fee_usd FROM rows r JOIN ranked k ON k.day = r.day AND k.address = r.address
-  WHERE k.rn = 1 ORDER BY r.day, r.key`;
+  SELECT n.day, n.key, n.messages, n.usd_value, n.fee_usd FROM net n JOIN ranked k ON k.day = n.day AND k.address = n.address
+  WHERE k.rn = 1 ORDER BY n.day, n.key`;
 
-export async function dailyTopUnlabeledSenders(db: D1Database, fromDay: string, toDay: string, labeled: readonly string[]): Promise<LeaderRow[]> {
-  const { results } = await db.prepare(DAILY_TOP_UNLABELED_SQL).bind(fromDay, toDay, JSON.stringify(labeled)).all<LeaderRow>();
+export async function dailyTopUnlabeledSenders(db: D1Database, fromDay: string, toDay: string, labeled: readonly string[], claimed: readonly string[]): Promise<LeaderRow[]> {
+  const { results } = await db.prepare(DAILY_TOP_UNLABELED_SQL).bind(fromDay, toDay, JSON.stringify(labeled), JSON.stringify(claimed)).all<LeaderRow>();
+  return results;
+}
+
+/** The claimed direct sends over the window as credit rows (see VIA_TOKEN_CREDITS_SQL); none, unread, when nothing is claimed. */
+export async function viaTokenCreditsOf(db: D1Database, fromDay: string | null, toDay: string, claimed: readonly string[], labeled: readonly string[]): Promise<BreakdownRow[]> {
+  if (claimed.length === 0) return [];
+  const { results } = await db.prepare(VIA_TOKEN_CREDITS_SQL).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(claimed), JSON.stringify(labeled)).all<BreakdownRow>();
+  return results;
+}
+
+export async function viaTokenCreditDays(db: D1Database, fromDay: string, toDay: string, claimed: readonly string[], labeled: readonly string[]): Promise<LeaderRow[]> {
+  if (claimed.length === 0) return [];
+  const { results } = await db.prepare(VIA_TOKEN_CREDIT_DAYS_SQL).bind(fromDay, toDay, JSON.stringify(claimed), JSON.stringify(labeled)).all<LeaderRow>();
   return results;
 }
 

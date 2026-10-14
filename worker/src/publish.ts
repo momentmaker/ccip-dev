@@ -120,8 +120,9 @@ export async function dayLeaderEntries(c: RunContext, fromDay: string, toDay: st
   const book = await senderBook(c);
   const tokens = await store.dailyLeaders(db, 'token', 'value', fromDay, toDay);
   const senders = topIdentityByDay(
-    [...(await store.senderDaysOf(db, fromDay, toDay, book.labeled)), ...(await store.dailyTopUnlabeledSenders(db, fromDay, toDay, book.labeled))],
-    book.resolve,
+    book,
+    [...(await store.senderDaysOf(db, fromDay, toDay, book.labeled)), ...(await store.dailyTopUnlabeledSenders(db, fromDay, toDay, book.labeled, book.claimed))],
+    await store.viaTokenCreditDays(db, fromDay, toDay, book.claimed, book.labeled),
   );
   const dayMessages = await store.messagesByDay(db, fromDay, toDay);
   const lanes = await store.dailyLeaders(db, 'lane', 'value', fromDay, toDay);

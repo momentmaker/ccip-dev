@@ -343,7 +343,7 @@ describe('sender identity queries', () => {
 
   it('ranks only addresses outside the labeled list', async () => {
     // #when
-    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 2, 'messages');
+    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 2, 'messages', []);
     // #then
     expect(rows.map((r) => r.key)).toEqual([`${BASE}:${BASE_SENDER_1}`, `${BASE}:${BASE_SENDER_2}`]);
   });
@@ -352,7 +352,7 @@ describe('sender identity queries', () => {
     // #given the second Base sender also sent 30 from Ethereum: 98 in all, ahead of the first one's 76
     await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), sender(DAY, `${ETH}:${BASE_SENDER_2}`, 30, 0, 7.5)], NOW);
     // #when
-    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'messages');
+    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'messages', []);
     // #then
     expect(rows).toEqual([
       { key: `${BASE}:${BASE_SENDER_2}`, messages: 68, usd_value: 0, fee_usd: 17 },
@@ -365,7 +365,7 @@ describe('sender identity queries', () => {
     const QUIET = '0x00000000000000000000000000000000000000ff';
     await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), sender(DAY, `${BASE}:${QUIET}`, 900, 0, null)], NOW);
     // #when
-    const [first] = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'fees');
+    const [first] = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'fees', []);
     // #then
     expect(first?.key).toBe(`${BASE}:${BASE_SENDER_1}`);
   });
@@ -376,7 +376,7 @@ describe('sender identity queries', () => {
     await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), sender(DAY, `${SOL}:${lower}`, 500, 0, 1)], NOW);
     // #when
     const labeled = await store.senderTotalsOf(env.DB, DAY, DAY, LABELED);
-    const [top] = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'messages');
+    const [top] = await store.topUnlabeledSenders(env.DB, DAY, DAY, LABELED, 1, 'messages', []);
     // #then
     expect({ labeled: labeled.some((r) => r.key === `${SOL}:${lower}`), top: top?.key }).toEqual({ labeled: false, top: `${SOL}:${lower}` });
   });
@@ -388,7 +388,7 @@ describe('sender identity queries', () => {
       sender('2026-10-12', `${BASE}:${BASE_SENDER_1}`, 15, 0, 1), sender('2026-10-12', `${SOL}:${XBRIDGE_SOLANA}`, 40, 0, 1),
     ], NOW);
     // #when
-    const unlabeled = await store.dailyTopUnlabeledSenders(env.DB, '2026-10-12', DAY, LABELED);
+    const unlabeled = await store.dailyTopUnlabeledSenders(env.DB, '2026-10-12', DAY, LABELED, []);
     const labeled = await store.senderDaysOf(env.DB, '2026-10-12', DAY, LABELED);
     // #then
     expect({

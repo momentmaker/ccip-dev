@@ -136,3 +136,25 @@ export function splitViaToken(
   const credits = [...credited].map(([key, s]) => ({ key, messages: s.messages, usd_value: s.usd, fee_usd: s.anyFee ? s.fee : null }));
   return { senders, credits };
 }
+
+/** SQL over a via_token key `<selector>:<sender>|<group>`: its sender key, its address and its group. */
+export const VIA_SENDER_KEY = "substr(key, 1, instr(key, '|') - 1)";
+export const VIA_ADDRESS = "substr(key, instr(key, ':') + 1, instr(key, '|') - instr(key, ':') - 1)";
+export const VIA_GROUP = "substr(key, instr(key, '|') + 1)";
+const VIA_SELECTOR = "substr(key, 1, instr(key, ':') - 1)";
+
+const viaTokenCreditsSql = (withDay: boolean) => {
+  const day = withDay ? 'day, ' : '';
+  return `SELECT ${day}credit AS key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd FROM (
+    SELECT day, ${VIA_SELECTOR} || '|' || ${VIA_GROUP} AS credit, messages, usd_value, fee_usd FROM daily_breakdown
+    WHERE dim = 'via_token' AND day >= ?1 AND day <= ?2
+      AND ${VIA_GROUP} IN (SELECT value FROM json_each(?3)) AND ${VIA_ADDRESS} NOT IN (SELECT value FROM json_each(?4))
+  ) GROUP BY ${day}credit ORDER BY ${day}credit`;
+};
+
+/**
+ * Credit rows `<selector>|<group>` over [?1, ?2] for the claimed keys in the JSON list ?3, from senders outside the
+ * labeled addresses ?4. The Worker and the candidates job both read coverage through it, so their numbers match.
+ */
+export const VIA_TOKEN_CREDITS_SQL = viaTokenCreditsSql(false);
+export const VIA_TOKEN_CREDIT_DAYS_SQL = viaTokenCreditsSql(true);
