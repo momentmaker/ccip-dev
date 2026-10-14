@@ -428,6 +428,25 @@ async function identityWindows(c: RunContext, book: SenderBook, today: string, o
   return out;
 }
 
+async function senderBookOrAlert(c: RunContext): Promise<SenderBook | null> {
+  try {
+    return await senderBook(c);
+  } catch (err) {
+    await c.alert('top-sender-identities', `Sender identities were not computed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+/** The identity windows for top/sender.json; without them the file keeps its per-chain windows, which every reader falls back to. */
+async function topSenderIdentities(c: RunContext, book: SenderBook, today: string): Promise<{ identities?: Record<TopWindow, Leader[]>; identities_by_fees?: Record<TopWindow, Leader[]> }> {
+  try {
+    return { identities: await identityWindows(c, book, today, 'value'), identities_by_fees: await identityWindows(c, book, today, 'fees') };
+  } catch (err) {
+    await c.alert('top-sender-identities', `Sender identities were not computed: ${err instanceof Error ? err.message : String(err)}`);
+    return {};
+  }
+}
+
 export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
   const db = c.env.DB;
@@ -470,11 +489,13 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const today = dayOf(now);
   const lastDay = addDays(today, -1);
   const names = await store.chainNames(db);
-  const book = await senderBook(c);
-  try {
-    await store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay)));
-  } catch (err) {
-    await c.alert('label-coverage', `Label coverage was not computed: ${err instanceof Error ? err.message : String(err)}`);
+  const book = await senderBookOrAlert(c);
+  if (book) {
+    try {
+      await store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay)));
+    } catch (err) {
+      await c.alert('label-coverage', `Label coverage was not computed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
   for (const dim of DIMS) {
     const ranked = async (order: store.TopOrder) => ({
@@ -498,8 +519,7 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
         ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
       }));
     const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
-    const identities =
-      dim === 'sender' ? { identities: await identityWindows(c, book, today, 'value'), identities_by_fees: await identityWindows(c, book, today, 'fees') } : {};
+    const identities = dim === 'sender' && book ? await topSenderIdentities(c, book, today) : {};
     await putJson(
       c.env.PUBLIC,
       `top/${dim}.json`,

@@ -732,6 +732,26 @@ describe('senders by identity', () => {
     });
   });
 
+  it.each([
+    ['ranking identities', () => vi.spyOn(store, 'senderTotalsOf')],
+    ['reading the sender chains', () => vi.spyOn(store, 'senderChains')],
+  ])('still publishes top/sender.json windows, with one alert, when %s fails', async (_name, fail) => {
+    // #given
+    const failing = fail().mockRejectedValue(new Error('D1 unavailable'));
+    const { c, alerts } = harness({ now: NOW, labels: XSTOCKS_LABELS });
+    // #when
+    await expect(publishHistoryFiles(c)).resolves.toBeUndefined();
+    failing.mockRestore();
+    // #then
+    const top = await readPublic('top/sender.json');
+    expect({
+      windows: top.windows['7d'].length > 0,
+      identities: top.identities,
+      replay: (await env.PUBLIC.get('v1/replay.json')) !== null,
+      alerted: alerts.some((a) => a.signature === 'top-sender-identities'),
+    }).toEqual({ windows: true, identities: undefined, replay: true, alerted: true });
+  });
+
   it("names the week's top sender by identity", async () => {
     // #when
     const week = await weekLeaderRows(harness({ now: NOW, labels: XSTOCKS_LABELS }).c, '2026-10-12');
