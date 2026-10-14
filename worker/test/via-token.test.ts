@@ -1,9 +1,9 @@
-import { VIA_TOKEN_CREDITS_SQL, type Dim } from '@ccip-dev/core';
+import { rankIdentities, VIA_TOKEN_CREDITS_SQL, type Dim } from '@ccip-dev/core';
 import { fakeCcip, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runFinalize } from '../src/jobs/finalize';
-import { labelCoverageOf, rankedIdentities, senderBook } from '../src/senders';
+import { identitiesOf, labelCoverageOf, rankedIdentities, senderBook } from '../src/senders';
 import * as store from '../src/store';
 import { harness, liveRow, resetStorage, seedRegistry } from './helpers';
 
@@ -163,6 +163,24 @@ describe('via-token store queries', () => {
     });
   });
 
+  it.each(['value', 'fees'] as const)('ranks by %s what the move leaves a partly moved wallet, and drops a fully moved one', async (order) => {
+    // #when W1 moved everything and has the highest fees; W2's raw value and fees beat W3's until its claimed sends leave
+    const rows = await store.topUnlabeledSenders(env.DB, DAY, DAY, [LABELED_WALLET], 3, order, [GROUP]);
+    // #then
+    expect(rows.map((r) => [r.key, r.messages, r.usd_value, r.fee_usd])).toEqual([
+      [`${BASE}:${W2}`, 20, 200, 2],
+      [`${BASE}:${W3}`, 25, 250, 2.5],
+    ]);
+  });
+
+  it('keeps the busiest address by value and by fees from what it keeps', async () => {
+    // #when
+    const [byValue] = await store.topUnlabeledSenders(env.DB, DAY, DAY, [LABELED_WALLET], 1, 'value', [GROUP]);
+    const [byFees] = await store.topUnlabeledSenders(env.DB, DAY, DAY, [LABELED_WALLET], 1, 'fees', [GROUP]);
+    // #then
+    expect([byValue?.key, byFees?.key]).toEqual([`${BASE}:${W3}`, `${BASE}:${W3}`]);
+  });
+
   it('gives each day its busiest unlabeled address by what the move leaves it', async () => {
     // #when
     const rows = await store.dailyTopUnlabeledSenders(env.DB, DAY, DAY, [LABELED_WALLET], [GROUP]);
@@ -223,6 +241,17 @@ describe('via-token store queries', () => {
       expect(ranked.map((i) => [i.key, i.messages, i.via_token_messages])).toEqual([
         ['project:elizaos', 100, 60], [`address:${W3}`, 25, 0], [`address:${W2}`, 20, 0], ['project:other', 7, 0],
       ]);
+    });
+
+    it('ranks the window the way the day rows rank in JS', async () => {
+      // #given
+      const c = context();
+      const book = await senderBook(c);
+      const day = (dim: Dim) => store.breakdownBetween(env.DB, dim, DAY, DAY);
+      // #when
+      const windowed = await rankedIdentities(c, book, DAY, DAY, 'messages', 10);
+      // #then
+      expect(windowed).toEqual(rankIdentities(identitiesOf(book, await day('sender'), await day('via_token')), 'messages', 10));
     });
 
     it('counts the credits in label coverage, with their own part', async () => {
