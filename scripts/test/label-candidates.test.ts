@@ -2,53 +2,32 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { validateRegistry } from '@ccip-dev/core';
-import { fakeFetch, jsonResponse } from '@ccip-dev/core/testing';
+import { identityResolver, validateRegistry } from '@ccip-dev/core';
+import { BASE_SENDER_1, BASE_SENDER_2, fakeFetch, jsonResponse, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_DAY, XSTOCKS_LABEL, XSTOCKS_SENDER_ROWS } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
 import {
-  candidateQuery, chainGapQuery, classify, classifySolana, contractName, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, handleGaps, handleGapsMarkdown, handleGroupQuery, loadEndpointMaps, prBody, summarizeDetails, tokenGapQuery, windowStart, type Candidate,
+  BUSY_WALLET_MESSAGES, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
+  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, prBody, spreadMarkdown,
+  spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, windowStart, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
 const candidate: Candidate = {
-  chain: '5009297550715157269', chain_name: 'ethereum-mainnet', chain_id: '1', family: 'EVM',
-  address: '0x1111111111111111111111111111111111111111', messages: 120, usd: 75_000, first_seen: '2026-09-28',
+  address: '0x1111111111111111111111111111111111111111',
+  family: 'EVM',
+  chains: [
+    { selector: '5009297550715157269', name: 'ethereum-mainnet', chain_id: '1', family: 'EVM', messages: 90 },
+    { selector: '15971525489660198786', name: 'ethereum-mainnet-base-1', chain_id: '8453', family: 'EVM', messages: 30 },
+  ],
+  messages: 120,
+  usd: 75_000,
+  data_messages: 90,
+  first_seen: '2026-09-28',
 };
 
 describe('label candidates', () => {
   it('window start is 6 days before today (7 day window inclusive)', () => {
     expect(windowStart('2026-10-06')).toBe('2026-09-30');
-  });
-
-  it('queries the last 7 days with both thresholds and includes all-time first seen', () => {
-    const db = new DatabaseSync(':memory:');
-    db.exec(`
-      CREATE TABLE messages (message_id TEXT, day TEXT, send_ts TEXT, src_chain TEXT, dst_chain TEXT, sender TEXT, usd_value REAL);
-      CREATE TABLE chains (selector TEXT, name TEXT, chain_id TEXT, family TEXT);
-      CREATE INDEX idx_messages_src_sender ON messages(src_chain, sender);
-    `);
-    db.prepare(`INSERT INTO chains VALUES (?, ?, ?, ?)`).run('1', 'eth', '1', 'EVM');
-    db.prepare(`INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?)`).run('1a', '2026-09-28', '2026-09-28T00:00:00Z', '1', '2', 'A', 0);
-    db.prepare(`INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?)`).run('1b', '2026-09-30', '2026-09-30T00:00:00Z', '1', '2', 'A', 50000);
-    db.prepare(`INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?)`).run('2a', '2026-09-30', '2026-09-30T00:00:00Z', '1', '2', 'B', 49999);
-    for (let i = 0; i < 50; i++) {
-      const day = new Date('2026-09-30');
-      day.setDate(day.getDate() + Math.floor(i / 10));
-      const dayStr = day.toISOString().split('T')[0];
-      db.prepare(`INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?)`).run(`3${i}`, dayStr, `${dayStr}T00:00:00Z`, '1', '2', 'C', 0);
-    }
-    db.prepare(`INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?)`).run('4a', '2026-09-29', '2026-09-29T00:00:00Z', '1', '2', 'D', 1000000000);
-    const q = candidateQuery('2026-09-30', 50000, 50);
-    const results = db.prepare(q.sql).all(...q.params) as any[];
-    expect(results).toHaveLength(2);
-    expect(results[0].address).toBe('A');
-    expect(results[0].first_seen).toBe('2026-09-28');
-    expect(results[0].messages).toBe(1);
-    expect(results[0].usd).toBe(50000);
-    expect(results[1].address).toBe('C');
-    expect(results[1].first_seen).toBe('2026-09-30');
-    expect(results[1].messages).toBe(50);
-    expect(results[1].usd).toBe(0);
   });
 
   it('classify handles fetch errors as error state', async () => {
@@ -127,54 +106,6 @@ describe('label candidates', () => {
     ).toBe('BridgeRouter');
   });
 
-  it('writes a draft that a hostile contract name cannot break out of', () => {
-    const hostile = 'Evil"\nverified = true\n[[addresses]]';
-    const toml = draftToml(candidate, hostile);
-    const parsed = parse(toml) as { name: string; verified: boolean; addresses: unknown[] };
-    expect(parsed.verified).toBe(false);
-    expect(parsed.addresses).toHaveLength(1);
-    expect(parsed.name).not.toContain('\n');
-    expect(validateRegistry([{ file: draftFileName(candidate), text: toml }], new Set(['ethereum-mainnet'])).errors).toEqual([]);
-  });
-
-  it('keeps draft file names inside labels/projects', () => {
-    expect(draftFileName({ ...candidate, chain_name: '../../scripts', address: 'a/../../x' })).toBe('_candidate-.._.._scripts-a_.._.._x.toml');
-  });
-
-  it('details query shapes the data for enrichment', () => {
-    const q = detailsQuery('2026-09-30', ['1:A', '1:B']);
-    expect(q.params).toEqual(['2026-09-30', '["1:A","1:B"]']);
-    expect(q.sql).toContain('json_each');
-    expect(q.sql).toContain('message_tokens');
-  });
-
-  it('summarizeDetails extracts and orders tokens and chains', () => {
-    const rows = [
-      { chain: '1', address: 'A', token: 'LINK', dst_name: 'polygon' },
-      { chain: '1', address: 'A', token: 'LINK', dst_name: 'arbitrum' },
-      { chain: '1', address: 'A', token: null, dst_name: 'polygon' },
-      { chain: '1', address: 'A', token: 'USDC', dst_name: 'optimism' },
-    ];
-    const result = summarizeDetails(rows);
-    expect(result.get('1:A')).toEqual({
-      tokens: ['LINK', 'USDC'],
-      chains: ['arbitrum', 'optimism', 'polygon'],
-    });
-  });
-
-  it('escapes markdown in PR table cells and lists top-3 senders first', () => {
-    expect(escapeMarkdownCell('a|b`c[d](e)<f>')).toBe('a\\|b\\`c\\[d\\](e)&lt;f&gt;');
-    const body = prBody(
-      [
-        { candidate: { ...candidate, usd: 100_000 }, name: null, priority: false, tokens: [], chains: [], explorer: null },
-        { candidate: { ...candidate, address: '0x2222222222222222222222222222222222222222' }, name: 'X|Y', priority: true, tokens: ['LINK'], chains: ['polygon'], explorer: 'https://explorer.example.com/address/0x2222...' },
-      ],
-      '2026-10-12',
-    );
-    const rows = body.split('\n').filter((l) => l.startsWith('| top 3') || l.startsWith('|  |'));
-    expect(rows[0]).toContain('0x2222');
-    expect(body).toContain('X\\|Y');
-  });
 });
 
 describe('loadEndpointMaps', () => {
@@ -277,5 +208,179 @@ describe('handle gaps', () => {
       none: none.includes('Nothing to research this week.'),
       dated: /\d{4}-\d{2}-\d{2}/.test(some + none),
     }).toEqual({ heading: true, token: true, chain: true, none: true, dated: false });
+  });
+});
+
+describe('candidates by identity', () => {
+  const database = () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec(`
+      CREATE TABLE daily_breakdown (day TEXT, dim TEXT, key TEXT, messages INTEGER, usd_value REAL, fee_usd REAL);
+      CREATE TABLE daily_totals (day TEXT, messages INTEGER, usd_value REAL, fee_usd REAL);
+      CREATE TABLE chains (selector TEXT, name TEXT, chain_id TEXT, family TEXT);
+      CREATE TABLE messages (message_id TEXT, day TEXT, src_chain TEXT, sender TEXT, receiver TEXT, token_count INTEGER);
+      CREATE TABLE arrivals (kind TEXT, key TEXT, first_seen TEXT, announced_at TEXT);
+    `);
+    const chain = db.prepare('INSERT INTO chains VALUES (?, ?, ?, ?)');
+    for (const n of Object.values(NETWORKS)) chain.run(n.chainSelector, n.name, n.chainId, n.chainFamily);
+    return db;
+  };
+  const rows = (db: DatabaseSync, q: { sql: string; params: unknown[] }) => (db.prepare(q.sql).all(...(q.params as (string | number)[])) as Record<string, unknown>[]).map((r) => ({ ...r }));
+  const FILLER_1 = `0x${'0'.repeat(39)}1`;
+
+  it("finds xStocks's xBridge by its messages summed across five chains, though they carry no value", () => {
+    // #given 2026-10-13's senders, before xStocks had a label
+    const db = database();
+    const insert = db.prepare("INSERT INTO daily_breakdown VALUES (?, 'sender', ?, ?, ?, ?)");
+    for (const r of XSTOCKS_SENDER_ROWS) insert.run(XSTOCKS_DAY, r.key, r.messages, r.usd_value, r.fee_usd);
+    // #when the top 2 by messages and the top 2 by value
+    const candidates = groupCandidates(rows(db, identityCandidateQuery('2026-10-07', 50_000, 50, 2)) as unknown as CandidateRow[], new Map());
+    // #then
+    expect(candidates.map((c) => [c.address, c.messages, c.chains.length])).toEqual([[XBRIDGE_EVM, 170, 5], [XBRIDGE_SOLANA, 149, 1], [BASE_SENDER_1, 76, 1], [FILLER_1, 50, 1]]);
+  });
+
+  it("reads each address's data messages in the window and its first day ever, on any chain", () => {
+    // #given
+    const db = database();
+    const insert = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, NULL, ?)');
+    insert.run('a', '2026-08-01', NETWORKS.ink.chainSelector, XBRIDGE_EVM, 1);
+    insert.run('b', XSTOCKS_DAY, NETWORKS.ink.chainSelector, XBRIDGE_EVM, 0);
+    insert.run('c', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM, 0);
+    insert.run('d', XSTOCKS_DAY, NETWORKS.xlayer.chainSelector, XBRIDGE_EVM, 1);
+    // #then
+    expect(rows(db, messageStatsQuery('2026-10-07', [XBRIDGE_EVM]))).toEqual([{ address: XBRIDGE_EVM, data_messages: 2, first_seen: '2026-08-01' }]);
+  });
+
+  it('groups an address’s chains busiest first, with its data messages and first day', () => {
+    // #given
+    const row = (chain: string, name: string, messages: number): CandidateRow => ({ address: XBRIDGE_EVM, chain, chain_name: name, chain_id: '1', family: 'EVM', messages, usd: 1 });
+    // #when
+    const [c] = groupCandidates([row('9', 'b', 10), row('8', 'a', 30)], new Map([[XBRIDGE_EVM, { data_messages: 40, first_seen: '2026-10-09' }]]));
+    // #then
+    expect({ chains: c!.chains.map((ch) => ch.name), messages: c!.messages, usd: c!.usd, data: c!.data_messages, first: c!.first_seen }).toEqual({ chains: ['a', 'b'], messages: 40, usd: 2, data: 40, first: '2026-10-09' });
+  });
+
+  it("leaves out the rows a label names, a draft included, and the rows a label spreads to", () => {
+    // #given xStocks labeled on Ink (so X Layer is spread), and a draft naming the first Base sender
+    const resolve = identityResolver({ [`ethereum-mainnet-ink-1:${XBRIDGE_EVM}`]: XSTOCKS_LABEL }, XSTOCKS_CHAINS);
+    const row = (n: (typeof NETWORKS)[keyof typeof NETWORKS], address: string): CandidateRow => ({ address, chain: n.chainSelector, chain_name: n.name, chain_id: n.chainId, family: n.chainFamily, messages: 1, usd: 0 });
+    const labeled = new Set([`ethereum-mainnet-ink-1:${XBRIDGE_EVM}`, `ethereum-mainnet-base-1:${BASE_SENDER_1}`]);
+    // #when
+    const left = unlabeledRows([row(NETWORKS.ink, XBRIDGE_EVM), row(NETWORKS.xlayer, XBRIDGE_EVM), row(NETWORKS.base, BASE_SENDER_1), row(NETWORKS.base, BASE_SENDER_2)], labeled, resolve);
+    // #then
+    expect(left.map((r) => r.address)).toEqual([BASE_SENDER_2]);
+  });
+
+  it.each([
+    ['wallet', BUSY_WALLET_MESSAGES - 1, false],
+    ['wallet', 149, true],
+    ['contract', 1, true],
+    ['unknown', 1, true],
+    ['error', 500, false],
+  ] as const)('keeps a %s with %i messages in the week: %s (a busy wallet, like xStocks’s Solana sender, is an operator)', (kind, messages, kept) => {
+    // #then
+    expect(keepCandidate(kind, messages)).toBe(kept);
+  });
+
+  it('writes one draft with an address entry per known chain, which a hostile contract name cannot break out of', () => {
+    // #when
+    const toml = draftToml(candidate, 'Evil"\nverified = true\n[[addresses]]');
+    const parsed = parse(toml) as { name: string; verified: boolean; addresses: { chain: string }[] };
+    // #then
+    expect({
+      verified: parsed.verified,
+      chains: parsed.addresses.map((a) => a.chain),
+      newline: parsed.name.includes('\n'),
+      errors: validateRegistry([{ file: draftFileName(candidate), text: toml }], new Set(['ethereum-mainnet', 'ethereum-mainnet-base-1'])).errors,
+    }).toEqual({ verified: false, chains: ['ethereum-mainnet', 'ethereum-mainnet-base-1'], newline: false, errors: [] });
+  });
+
+  it('names a draft after its busiest chain, and keeps the name inside labels/projects', () => {
+    // #then
+    expect([draftFileName(candidate), draftFileName({ ...candidate, address: 'a/../../x', chains: [{ ...candidate.chains[0]!, name: '../../scripts' }] })]).toEqual([
+      '_candidate-ethereum-mainnet-0x1111111111111111111111111111111111111111.toml',
+      '_candidate-.._.._scripts-a_.._.._x.toml',
+    ]);
+  });
+
+  it('reads tokens and destinations by address, across all of a candidate’s chains', () => {
+    // #when
+    const q = detailsQuery('2026-09-30', ['0xa', 'A8JP']);
+    const summary = summarizeDetails([
+      { address: '0xa', token: 'LINK', dst_name: 'polygon' },
+      { address: '0xa', token: 'LINK', dst_name: 'arbitrum' },
+      { address: '0xa', token: null, dst_name: 'polygon' },
+      { address: '0xa', token: 'USDC', dst_name: 'optimism' },
+    ]);
+    // #then
+    expect({ params: q.params, json: q.sql.includes('json_each'), summary: summary.get('0xa') }).toEqual({
+      params: ['2026-09-30', '["0xa","A8JP"]'],
+      json: true,
+      summary: { tokens: ['LINK', 'USDC'], destinations: ['arbitrum', 'optimism', 'polygon'] },
+    });
+  });
+
+  it('fast-tracks the unlabeled addresses recorded as new on CCIP this week', () => {
+    // #given
+    const db = database();
+    const insert = db.prepare('INSERT INTO arrivals VALUES (?, ?, ?, NULL)');
+    insert.run('sender', `address:${BASE_SENDER_1}`, '2026-10-13T00:00:00.000Z');
+    insert.run('sender', 'project:xstocks', '2026-10-13T00:00:00.000Z');
+    insert.run('sender', `address:${BASE_SENDER_2}`, '2026-09-01T00:00:00.000Z');
+    insert.run('lane', 'a>b', '2026-10-13T00:00:00.000Z');
+    // #then
+    expect(rows(db, newcomerQuery('2026-10-07')).map((r) => r.address)).toEqual([BASE_SENDER_1]);
+  });
+});
+
+describe('the candidates pull request', () => {
+  it('leads with label coverage and its change in points from last week', () => {
+    // #given
+    const now = { messages_pct: 81.2, usd_pct: 94.4, fees_pct: 90, window: '7d' as const };
+    const before = { messages_pct: 78.2, usd_pct: 95.4, fees_pct: 90, window: '7d' as const };
+    const none = { messages_pct: null, usd_pct: null, fees_pct: null, window: '7d' as const };
+    // #then
+    expect([coverageMarkdown(now, before), coverageMarkdown(now, none), coverageMarkdown(none, before)]).toEqual([
+      'Labeled senders: 81% of messages (+3 points), 94% of value (−1 point), 90% of fees (±0 points) over the last 7 days.',
+      'Labeled senders: 81% of messages, 94% of value, 90% of fees over the last 7 days.',
+      'Labeled senders: no messages in the last 7 days.',
+    ]);
+  });
+
+  it("reports the rows a label spread to this week, busiest first, for the owner to confirm or block", () => {
+    // #given xStocks labeled on Ink only
+    const resolve = identityResolver({ [`ethereum-mainnet-ink-1:${XBRIDGE_EVM}`]: XSTOCKS_LABEL }, XSTOCKS_CHAINS);
+    // #when
+    const report = spreadReport(XSTOCKS_SENDER_ROWS, resolve, new Map([...XSTOCKS_CHAINS].map(([selector, c]) => [selector, c.name])));
+    // #then
+    expect({ report, table: spreadMarkdown(report).includes(`| xStocks | ethereum-mainnet-xlayer-1 | ${XBRIDGE_EVM} | 58 |`), none: spreadMarkdown([]).includes('No label spread this week.') }).toEqual({
+      report: [
+        { project: 'xStocks', chain: 'ethereum-mainnet-xlayer-1', address: XBRIDGE_EVM, messages: 58 },
+        { project: 'xStocks', chain: 'binance_smart_chain-mainnet', address: XBRIDGE_EVM, messages: 22 },
+        { project: 'xStocks', chain: 'ethereum-mainnet', address: XBRIDGE_EVM, messages: 6 },
+        { project: 'xStocks', chain: 'hyperliquid-mainnet', address: XBRIDGE_EVM, messages: 3 },
+      ],
+      table: true,
+      none: true,
+    });
+  });
+
+  it('lists new-on-CCIP addresses first, then the top 3, with chains, data share and hints, and escapes every cell', () => {
+    // #given
+    expect(escapeMarkdownCell('a|b`c[d](e)<f>')).toBe('a\\|b\\`c\\[d\\](e)&lt;f&gt;');
+    const row = (address: string, priority: CandidateReportRow['priority'], messages: number): CandidateReportRow => ({
+      candidate: { ...candidate, address, messages, data_messages: messages * 0.75 }, name: address === '0xaaa' ? 'X|Y' : null, priority, tokens: [], destinations: [], hints: ['pairs with 0x9ec0…846b'], explorer: null,
+    });
+    // #when
+    const body = prBody([row('0xaaa', null, 500), row('0xbbb', 'top 3', 10), row('0xccc', 'new on CCIP', 5)], '2026-10-19', 'Labeled senders: 81% of messages over the last 7 days.', 'No label spread this week.');
+    const table = body.split('\n').filter((l) => /^\| (new on CCIP|top 3|) \|/.test(l));
+    // #then
+    expect({
+      lead: body.split('\n')[0],
+      order: table.map((l) => l.split(' | ')[2]),
+      cells: table[0]!.includes('| ethereum-mainnet, ethereum-mainnet-base-1 |') && table[0]!.includes('| 75% |') && table[0]!.includes('| pairs with 0x9ec0…846b |'),
+      escaped: body.includes('X\\|Y'),
+      spread: body.trimEnd().endsWith('No label spread this week.'),
+    }).toEqual({ lead: 'Labeled senders: 81% of messages over the last 7 days.', order: ['0xccc', '0xbbb', '0xaaa'], cells: true, escaped: true, spread: true });
   });
 });

@@ -1,19 +1,51 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { addDays, buildHandles, dayOf, isAddressShape, labelKey, sanitize, validateChainHandles, validateRegistry, type Handles } from '@ccip-dev/core';
+import {
+  addDays, buildHandles, buildLabelIndex, dayOf, identityResolver, isAddressShape, labelCoverage, labelKey, mergeIdentities, sanitize, senderKeyAddress,
+  validateChainHandles, validateRegistry, type Handles, type IdentityResolver, type LabelCoverage, type RegistryProject, type SenderRow,
+} from '@ccip-dev/core';
+import { dataSharePct, formatShare } from '@ccip-dev/core/format';
+import { byName } from '@ccip-dev/core/roster';
 import { stringify } from 'smol-toml';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
-export interface Candidate {
+/** Senders rank by identity, an address summed across its chains: the top 100 by messages and the top 100 by value. */
+export const CANDIDATES_PER_ORDER = 100;
+/** A wallet sending this many messages in a week is an operator, not a user, so it stays a candidate. */
+export const BUSY_WALLET_MESSAGES = 100;
+
+const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
+
+export interface CandidateRow {
+  address: string;
   chain: string;
   chain_name: string | null;
   chain_id: string | null;
   family: string | null;
-  address: string;
   messages: number;
   usd: number;
+}
+
+export interface CandidateChain {
+  selector: string;
+  name: string | null;
+  chain_id: string | null;
+  family: string | null;
+  messages: number;
+}
+
+export interface Candidate {
+  address: string;
+  /** The family of its busiest chain. */
+  family: string | null;
+  /** Its source chains, busiest first. */
+  chains: CandidateChain[];
+  messages: number;
+  usd: number;
+  /** Its messages in the window that carried no tokens. */
+  data_messages: number;
   first_seen: string;
 }
 
@@ -21,18 +53,96 @@ export function windowStart(today: string): string {
   return addDays(today, -6);
 }
 
-export function candidateQuery(sinceDay: string, minUsd: number, minMessages: number) {
+/**
+ * Each (address, chain) row of the addresses in the top ?4 by messages or the top ?4 by value since ?1, each address
+ * summed across its chains and held to the thresholds (?2 dollars or ?3 messages).
+ */
+export function identityCandidateQuery(sinceDay: string, minUsd: number, minMessages: number, limit = CANDIDATES_PER_ORDER) {
   return {
-    sql: `SELECT m.src_chain AS chain, c.name AS chain_name, c.chain_id AS chain_id, c.family AS family, m.sender AS address,
-            COUNT(*) AS messages, SUM(m.usd_value) AS usd,
-            (SELECT MIN(m2.day) FROM messages m2 WHERE m2.src_chain = m.src_chain AND m2.sender = m.sender) AS first_seen
-          FROM messages m LEFT JOIN chains c ON c.selector = m.src_chain
-          WHERE m.day >= ?
-          GROUP BY m.src_chain, m.sender
-          HAVING SUM(m.usd_value) >= ? OR COUNT(*) >= ?
-          ORDER BY usd DESC LIMIT 200`,
-    params: [sinceDay, minUsd, minMessages],
+    sql: `WITH rows AS (
+            SELECT substr(key, 1, instr(key, ':') - 1) AS chain, substr(key, instr(key, ':') + 1) AS address, messages, usd_value
+            FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1
+          ), by_address AS (
+            SELECT address, SUM(messages) AS messages, SUM(usd_value) AS usd FROM rows GROUP BY address
+            HAVING SUM(usd_value) >= ?2 OR SUM(messages) >= ?3
+          ), picked AS (
+            SELECT address FROM (SELECT address FROM by_address ORDER BY messages DESC, address LIMIT ?4)
+            UNION
+            SELECT address FROM (SELECT address FROM by_address ORDER BY usd DESC, address LIMIT ?4)
+          )
+          SELECT r.address AS address, r.chain AS chain, c.name AS chain_name, c.chain_id AS chain_id, c.family AS family,
+            SUM(r.messages) AS messages, SUM(r.usd_value) AS usd
+          FROM rows r JOIN picked p ON p.address = r.address LEFT JOIN chains c ON c.selector = r.chain
+          GROUP BY r.address, r.chain ORDER BY r.address, messages DESC, r.chain`,
+    params: [sinceDay, minUsd, minMessages, limit],
   };
+}
+
+/** Each address's messages without tokens since ?1, and its first day ever, through the messages_sender index. */
+export function messageStatsQuery(sinceDay: string, addresses: readonly string[]) {
+  return {
+    sql: `SELECT sender AS address, SUM(CASE WHEN day >= ?1 AND token_count = 0 THEN 1 ELSE 0 END) AS data_messages, MIN(day) AS first_seen
+          FROM messages WHERE src_chain IN (SELECT selector FROM chains) AND sender IN (SELECT value FROM json_each(?2))
+          GROUP BY sender`,
+    params: [sinceDay, JSON.stringify(addresses)],
+  };
+}
+
+/** The unlabeled addresses the Worker recorded as new on CCIP since ?1, which the PR lists first. */
+export function newcomerQuery(sinceDay: string) {
+  return {
+    sql: `SELECT substr(key, 9) AS address FROM arrivals WHERE kind = 'sender' AND key LIKE 'address:%' AND first_seen >= ?1`,
+    params: [`${sinceDay}T00:00:00.000Z`],
+  };
+}
+
+/** Per-key sender sums over [?1, ?2], for label coverage and the spread report. */
+export function senderRowsQuery(fromDay: string, toDay: string) {
+  return {
+    sql: `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+          FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 GROUP BY key`,
+    params: [fromDay, toDay],
+  };
+}
+
+export function windowTotalsQuery(fromDay: string, toDay: string) {
+  return {
+    sql: `SELECT COALESCE(SUM(messages), 0) AS messages, COALESCE(SUM(usd_value), 0) AS usd_value, SUM(fee_usd) AS fee_usd
+          FROM daily_totals WHERE day >= ?1 AND day <= ?2`,
+    params: [fromDay, toDay],
+  };
+}
+
+/** A row a label names (a draft included), or one a label spreads to, belongs to a project; the rest are candidates' rows. */
+export function unlabeledRows(rows: readonly CandidateRow[], labeled: ReadonlySet<string>, resolve: IdentityResolver): CandidateRow[] {
+  return rows.filter((r) => !(r.chain_name !== null && labeled.has(labelKey(r.chain_name, r.address))) && resolve(r.chain, r.address).project === null);
+}
+
+/** One candidate per address, its chains busiest first, busiest candidates first. */
+export function groupCandidates(rows: readonly CandidateRow[], stats: ReadonlyMap<string, { data_messages: number; first_seen: string }>): Candidate[] {
+  const byAddress = new Map<string, CandidateRow[]>();
+  for (const r of rows) {
+    const list = byAddress.get(r.address);
+    if (list) list.push(r);
+    else byAddress.set(r.address, [r]);
+  }
+  return [...byAddress]
+    .map(([address, list]): Candidate => {
+      const chains = [...list]
+        .sort((a, b) => b.messages - a.messages || byName(a.chain, b.chain))
+        .map((r) => ({ selector: r.chain, name: r.chain_name, chain_id: r.chain_id, family: r.family, messages: r.messages }));
+      const stat = stats.get(address);
+      return {
+        address,
+        family: chains[0]?.family ?? null,
+        chains,
+        messages: sum(list.map((r) => r.messages)),
+        usd: sum(list.map((r) => r.usd)),
+        data_messages: stat?.data_messages ?? 0,
+        first_seen: stat?.first_seen ?? '-',
+      };
+    })
+    .sort((a, b) => b.messages - a.messages || b.usd - a.usd || byName(a.address, b.address));
 }
 
 export function priorityQuery(sinceDay: string) {
@@ -45,7 +155,7 @@ export function priorityQuery(sinceDay: string) {
   };
 }
 
-type AddressKind = 'contract' | 'wallet' | 'unknown' | 'error';
+export type AddressKind = 'contract' | 'wallet' | 'unknown' | 'error';
 
 const EIP7702_MATCH = /^0xef0100[0-9a-f]{40}$/i;
 const SOLANA_SYSTEM_PROGRAM = '11111111111111111111111111111111';
@@ -93,6 +203,12 @@ export async function classifySolana(fetchFn: typeof fetch, rpcUrl: string | und
   }
 }
 
+/** A wallet is a user unless it is busy enough to be an operator; an address the RPC could not check is skipped. */
+export function keepCandidate(kind: AddressKind, messages: number): boolean {
+  if (kind === 'error') return false;
+  return kind !== 'wallet' || messages >= BUSY_WALLET_MESSAGES;
+}
+
 export async function contractName(
   fetchFn: typeof fetch,
   opts: { chainId: string | null; address: string; etherscanKey?: string; blockscoutBase?: string },
@@ -118,54 +234,46 @@ export async function contractName(
   return null;
 }
 
-export function detailsQuery(sinceDay: string, keys: string[]) {
+export function detailsQuery(sinceDay: string, addresses: readonly string[]) {
   return {
-    sql: `SELECT m.src_chain AS chain, m.sender AS address, COALESCE(tk.symbol, mt.token) AS token, d.name AS dst_name
+    sql: `SELECT m.sender AS address, COALESCE(tk.symbol, mt.token) AS token, d.name AS dst_name
           FROM messages m
           LEFT JOIN message_tokens mt ON mt.message_id = m.message_id
           LEFT JOIN tokens tk ON tk.chain = mt.chain AND lower(tk.address) = lower(mt.token)
           LEFT JOIN chains d ON d.selector = m.dst_chain
-          WHERE m.day >= ? AND (m.src_chain || ':' || m.sender) IN (SELECT value FROM json_each(?))`,
-    params: [sinceDay, JSON.stringify(keys)],
+          WHERE m.day >= ? AND m.sender IN (SELECT value FROM json_each(?))`,
+    params: [sinceDay, JSON.stringify(addresses)],
   };
 }
 
-export function summarizeDetails(rows: Array<{ chain: string; address: string; token: string | null; dst_name: string | null }>): Map<string, { tokens: string[]; chains: string[] }> {
-  const result = new Map<string, { tokens: string[]; chains: string[] }>();
-  const tokenCountsMap = new Map<string, Map<string, number>>();
-  const chainSets = new Map<string, Set<string>>();
-
+/** Each address's five most-sent tokens and every destination chain, across all its source chains. */
+export function summarizeDetails(rows: readonly { address: string; token: string | null; dst_name: string | null }[]): Map<string, { tokens: string[]; destinations: string[] }> {
+  const tokenCounts = new Map<string, Map<string, number>>();
+  const destinations = new Map<string, Set<string>>();
   for (const row of rows) {
-    const key = `${row.chain}:${row.address}`;
-    if (!tokenCountsMap.has(key)) tokenCountsMap.set(key, new Map());
-    if (!chainSets.has(key)) chainSets.set(key, new Set());
-
-    if (row.token) {
-      const counts = tokenCountsMap.get(key)!;
-      counts.set(row.token, (counts.get(row.token) ?? 0) + 1);
-    }
-    if (row.dst_name) {
-      chainSets.get(key)!.add(row.dst_name);
-    }
+    const counts = tokenCounts.get(row.address) ?? new Map<string, number>();
+    tokenCounts.set(row.address, counts);
+    const dsts = destinations.get(row.address) ?? new Set<string>();
+    destinations.set(row.address, dsts);
+    if (row.token) counts.set(row.token, (counts.get(row.token) ?? 0) + 1);
+    if (row.dst_name) dsts.add(row.dst_name);
   }
-
-  for (const [key, tokenCounts] of tokenCountsMap) {
-    const tokenEntries = Array.from(tokenCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-    const tokens: string[] = tokenEntries.map(([token]) => sanitize(token));
-    const chainSet = chainSets.get(key) ?? (new Set<string>());
-    const chains: string[] = Array.from(chainSet).sort();
-    result.set(key, { tokens, chains });
-  }
-
-  return result;
+  return new Map(
+    [...tokenCounts].map(([address, counts]) => [
+      address,
+      {
+        tokens: [...counts].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([token]) => sanitize(token)),
+        destinations: [...(destinations.get(address) ?? [])].sort(),
+      },
+    ]),
+  );
 }
 
 const fileSafe = (text: string) => text.replace(/[^A-Za-z0-9._-]/g, '_');
 
 export function draftFileName(c: Candidate): string {
-  return `_candidate-${fileSafe(c.chain_name ?? c.chain)}-${fileSafe(c.address)}.toml`;
+  const busiest = c.chains[0];
+  return `_candidate-${fileSafe(busiest?.name ?? busiest?.selector ?? 'unknown')}-${fileSafe(c.address)}.toml`;
 }
 
 export function draftToml(c: Candidate, name: string | null): string {
@@ -173,13 +281,11 @@ export function draftToml(c: Candidate, name: string | null): string {
     name: sanitize(name ?? `Unknown ${c.address.slice(0, 10)}`),
     kind: 'unknown',
     verified: false,
-    addresses: [
-      {
-        chain: c.chain_name ?? c.chain,
-        address: c.address,
-        note: sanitize(`candidate: ${c.messages} messages, $${Math.round(c.usd)} in the last 7 days, first seen ${c.first_seen}`, 120),
-      },
-    ],
+    addresses: c.chains.flatMap((ch) =>
+      ch.name === null
+        ? []
+        : [{ chain: ch.name, address: c.address, note: sanitize(`candidate: ${ch.messages} of ${c.messages} messages in the last 7 days, $${Math.round(c.usd)} in all, first seen ${c.first_seen}`, 120) }],
+    ),
   });
   return `# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.\n${body}\n`;
 }
@@ -195,24 +301,101 @@ export function escapeMarkdownCell(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
-export function prBody(rows: { candidate: Candidate; name: string | null; priority: boolean; tokens: string[]; chains: string[]; explorer: string | null }[], weekOf: string): string {
-  const sorted = [...rows].sort((a, b) => Number(b.priority) - Number(a.priority) || b.candidate.usd - a.candidate.usd);
-  const lines = sorted.map(
-    ({ candidate: c, name, priority, tokens, chains, explorer }) => {
-      const explorerCell = explorer ? `[link](${explorer})` : '-';
-      return `| ${priority ? 'top 3' : ''} | ${escapeMarkdownCell(c.chain_name ?? c.chain)} | ${escapeMarkdownCell(c.address)} | ` +
-        `${escapeMarkdownCell(name ?? '-')} | ${c.messages} | ${Math.round(c.usd).toLocaleString('en-US')} | ` +
-        `${escapeMarkdownCell(c.first_seen)} | ${escapeMarkdownCell(tokens.join(', '))} | ${escapeMarkdownCell(chains.join(', '))} | ${explorerCell} |`;
-    },
-  );
+export interface CandidateReportRow {
+  candidate: Candidate;
+  name: string | null;
+  priority: 'new on CCIP' | 'top 3' | null;
+  tokens: string[];
+  destinations: string[];
+  /** "sends via program F2ZY…KcZN", "pairs with 0x9ec0…846b" (Task 15 fills them). */
+  hints: string[];
+  explorer: string | null;
+}
+
+const PRIORITY_ORDER = { 'new on CCIP': 0, 'top 3': 1 } as const;
+const dataShare = (c: Candidate) => formatShare(dataSharePct(c.messages, c.data_messages));
+
+export function prBody(rows: readonly CandidateReportRow[], weekOf: string, coverage: string, spread: string): string {
+  const rank = (r: CandidateReportRow) => (r.priority === null ? 2 : PRIORITY_ORDER[r.priority]);
+  const sorted = [...rows].sort((a, b) => rank(a) - rank(b) || b.candidate.messages - a.candidate.messages || b.candidate.usd - a.candidate.usd);
+  const lines = sorted.map(({ candidate: c, name, priority, tokens, destinations, hints, explorer }) =>
+    [
+      priority ?? '',
+      escapeMarkdownCell(c.chains.map((ch) => ch.name ?? ch.selector).join(', ')),
+      escapeMarkdownCell(c.address),
+      escapeMarkdownCell(name ?? '-'),
+      String(c.messages),
+      Math.round(c.usd).toLocaleString('en-US'),
+      dataShare(c),
+      escapeMarkdownCell(c.first_seen),
+      escapeMarkdownCell(tokens.join(', ')),
+      escapeMarkdownCell(destinations.join(', ')),
+      escapeMarkdownCell(hints.join('; ')),
+      explorer ? `[link](${explorer})` : '-',
+    ].join(' | '),
+  ).map((cells) => `| ${cells} |`);
   return [
-    `Label candidates for the week of ${weekOf}.`,
+    coverage,
+    '',
+    `Label candidates for the week of ${weekOf}: senders ranked by identity (an address summed across its chains), the top ${CANDIDATES_PER_ORDER} by messages and the top ${CANDIDATES_PER_ORDER} by value.`,
     '',
     'Each file is a draft with `verified = false`. Fill in the real name, `x` and `kind`, and set `verified = true` only if the project publicly confirms the address. Otherwise delete the file. Then merge.',
     '',
-    '| Priority | Chain | Address | Contract name | Messages (7d) | USD (7d) | First seen | Tokens | Chains | Explorer |',
-    '|---|---|---|---|---|---|---|---|---|---|',
+    '| Priority | Chains | Address | Contract name | Messages (7d) | USD (7d) | Data share | First seen | Tokens | Destinations | Hints | Explorer |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...lines,
+    '',
+    spread,
+    '',
+  ].join('\n');
+}
+
+const points = (delta: number) => {
+  const rounded = Math.round(delta * 10) / 10;
+  const size = Math.abs(rounded);
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : '±'}${size} ${size === 1 ? 'point' : 'points'}`;
+};
+
+/** The line the PR leads with: this week's labeled shares and their change from last week. */
+export function coverageMarkdown(now: LabelCoverage, before: LabelCoverage): string {
+  const part = (what: string, a: number | null, b: number | null) => (a === null ? [] : [`${formatShare(a)} of ${what}${b === null ? '' : ` (${points(a - b)})`}`]);
+  const parts = [...part('messages', now.messages_pct, before.messages_pct), ...part('value', now.usd_pct, before.usd_pct), ...part('fees', now.fees_pct, before.fees_pct)];
+  return now.messages_pct === null ? 'Labeled senders: no messages in the last 7 days.' : `Labeled senders: ${parts.join(', ')} over the last 7 days.`;
+}
+
+export interface SpreadRow {
+  project: string;
+  chain: string;
+  address: string;
+  messages: number;
+}
+
+/** The week's rows credited to a project through label spread, busiest first. */
+export function spreadReport(rows: readonly SenderRow[], resolve: IdentityResolver, chainNames: ReadonlyMap<string, string>): SpreadRow[] {
+  return rows
+    .flatMap((r) => {
+      const selector = r.key.slice(0, r.key.indexOf(':'));
+      const identity = resolve(selector, senderKeyAddress(r.key));
+      return identity.inferred && identity.project !== null
+        ? [{ project: identity.project.name, chain: chainNames.get(selector) ?? selector, address: senderKeyAddress(r.key), messages: r.messages }]
+        : [];
+    })
+    .sort((a, b) => b.messages - a.messages || byName(a.chain, b.chain));
+}
+
+export function spreadMarkdown(rows: readonly SpreadRow[]): string {
+  const intro = [
+    '## Label spread this week',
+    '',
+    "Addresses credited to a project because the same address is labeled on another EVM chain. Confirm each by adding it to the project's file, or turn the project's spread off with `spread = false`.",
+    '',
+  ];
+  if (rows.length === 0) return [...intro, 'No label spread this week.', ''].join('\n');
+  return [
+    ...intro,
+    '| Project | Chain | Address | Messages (7d) |',
+    '|---|---|---|---|',
+    ...rows.map((r) => `| ${escapeMarkdownCell(r.project)} | ${escapeMarkdownCell(r.chain)} | ${escapeMarkdownCell(r.address)} | ${r.messages} |`),
     '',
   ].join('\n');
 }
@@ -344,29 +527,29 @@ async function d1<T>(sql: string, params: unknown[]): Promise<T[]> {
   return body.result?.[0]?.results ?? [];
 }
 
-async function labeledKeys(): Promise<Set<string>> {
+async function loadProjects(knownChains: ReadonlySet<string>): Promise<RegistryProject[]> {
   const dir = path.join(ROOT, 'labels/projects');
   const files = await Promise.all(
     (await readdir(dir)).filter((f) => f.endsWith('.toml')).map(async (f) => ({ file: f, text: await readFile(path.join(dir, f), 'utf8') })),
   );
-  const chains = new Set<string>(JSON.parse(await readFile(path.join(ROOT, 'labels/ccip-chains.json'), 'utf8')));
-  return new Set(validateRegistry(files, chains).projects.flatMap((p) => p.addresses.map((a) => labelKey(a.chain, a.address))));
+  return validateRegistry(files, knownChains).projects;
 }
 
-async function currentHandles(): Promise<Handles> {
-  const dir = path.join(ROOT, 'labels/projects');
-  const files = await Promise.all(
-    (await readdir(dir)).filter((f) => f.endsWith('.toml')).map(async (f) => ({ file: f, text: await readFile(path.join(dir, f), 'utf8') })),
-  );
-  const chains = new Set<string>(JSON.parse(await readFile(path.join(ROOT, 'labels/ccip-chains.json'), 'utf8')));
-  const chainHandles = validateChainHandles(await readFile(path.join(ROOT, 'labels/chain-x.json'), 'utf8'), chains).handles;
-  return buildHandles(validateRegistry(files, chains).projects, chainHandles);
+async function currentHandles(projects: RegistryProject[], knownChains: ReadonlySet<string>): Promise<Handles> {
+  const chainHandles = validateChainHandles(await readFile(path.join(ROOT, 'labels/chain-x.json'), 'utf8'), knownChains).handles;
+  return buildHandles(projects, chainHandles);
 }
 
 function classifyCandidate(c: Candidate, rpcMap: Record<string, string>): Promise<AddressKind> {
-  if (c.family === 'EVM') return classify(fetch, rpcMap[c.chain_name ?? ''], c.address);
+  if (c.family === 'EVM') return classify(fetch, rpcMap[c.chains[0]?.name ?? ''], c.address);
   if (c.family === 'SVM') return classifySolana(fetch, rpcMap['solana-mainnet'], c.address);
   return Promise.resolve('unknown');
+}
+
+/** The Blockscout page of the address on the first of its chains that has one. */
+export function explorerLink(explorerMap: Record<string, string>, c: Candidate): string | null {
+  const base = c.chains.map((ch) => (ch.name === null ? undefined : explorerMap[ch.name])).find((b) => b !== undefined);
+  return base === undefined ? null : `${base.replace(/\/$/, '')}/address/${c.address}`;
 }
 
 export async function loadEndpointMaps(rootDir: string): Promise<{ rpcMap: Record<string, string>; explorerMap: Record<string, string> }> {
@@ -383,81 +566,89 @@ async function main(): Promise<void> {
   const minUsd = Number(process.env.CANDIDATE_MIN_USD_7D ?? '50000');
   const minMessages = Number(process.env.CANDIDATE_MIN_MESSAGES_7D ?? '50');
   const { rpcMap, explorerMap } = await loadEndpointMaps(ROOT);
-  const labeled = await labeledKeys();
   const knownChains = new Set<string>(JSON.parse(await readFile(path.join(ROOT, 'labels/ccip-chains.json'), 'utf8')));
+  const projects = await loadProjects(knownChains);
+  const labeled = new Set(projects.flatMap((p) => p.addresses.map((a) => labelKey(a.chain, a.address))));
+  const chainRows = await d1<{ selector: string; name: string; family: string }>('SELECT selector, name, family FROM chains', []);
+  const chainNames = new Map(chainRows.map((c) => [c.selector, c.name]));
+  const resolve = identityResolver(buildLabelIndex(projects), new Map(chainRows.map((c) => [c.selector, { name: c.name, family: c.family }])));
 
-  const q = candidateQuery(since, minUsd, minMessages);
-  const candidates = await d1<Candidate>(q.sql, q.params);
-  const p = priorityQuery(since);
-  const priority = new Set((await d1<{ key: string }>(p.sql, p.params)).map((r) => r.key));
+  const cq = identityCandidateQuery(since, minUsd, minMessages);
+  const rows = unlabeledRows(await d1<CandidateRow>(cq.sql, cq.params), labeled, resolve).filter((r) => {
+    if (r.chain_name !== null && knownChains.has(r.chain_name)) return true;
+    console.warn(`skipping ${r.chain}:${r.address}: ${r.chain_name ?? 'its chain'} is not in labels/ccip-chains.json yet`);
+    return false;
+  });
+  const sq = messageStatsQuery(since, [...new Set(rows.map((r) => r.address))]);
+  const stats = new Map((await d1<{ address: string; data_messages: number; first_seen: string }>(sq.sql, sq.params)).map((s) => [s.address, s]));
+  const pq = priorityQuery(since);
+  const top3 = new Set((await d1<{ key: string }>(pq.sql, pq.params)).map((r) => senderKeyAddress(r.key)));
+  const nq = newcomerQuery(since);
+  const newcomers = new Set((await d1<{ address: string }>(nq.sql, nq.params)).map((r) => r.address));
 
-  const rows: { candidate: Candidate; name: string | null; priority: boolean; tokens: string[]; chains: string[]; explorer: string | null }[] = [];
-  const candidateKeys: string[] = [];
-  for (const c of candidates) {
-    if (!c.chain_name) {
-      console.warn(`skipping ${c.chain}:${c.address}: chain not in the chains table yet`);
-      continue;
-    }
-    if (!knownChains.has(c.chain_name)) {
-      console.warn(`skipping ${c.chain}:${c.address}: ${c.chain_name} is not in labels/ccip-chains.json`);
-      continue;
-    }
+  const report: CandidateReportRow[] = [];
+  for (const c of groupCandidates(rows, stats)) {
     if (!isAddressShape(c.family ?? '', c.address)) {
-      console.warn(`skipping ${c.chain}:${c.address}: not a valid ${c.family} address`);
+      console.warn(`skipping ${c.address}: not a valid ${c.family} address`);
       continue;
     }
-    if (labeled.has(labelKey(c.chain_name, c.address))) continue;
     const kind = await classifyCandidate(c, rpcMap);
-    if (kind === 'wallet') continue;
-    if (kind === 'error') {
-      console.warn(`skipping ${c.chain}:${c.address}: RPC check failed`);
-      continue;
-    }
+    if (kind === 'error') console.warn(`skipping ${c.address}: RPC check failed`);
+    if (!keepCandidate(kind, c.messages)) continue;
+    const busiest = c.chains[0]!;
     const name =
       c.family === 'EVM'
-        ? await contractName(fetch, {
-            chainId: c.chain_id,
-            address: c.address,
-            etherscanKey: process.env.ETHERSCAN_API_KEY,
-            blockscoutBase: explorerMap[c.chain_name],
-          })
+        ? await contractName(fetch, { chainId: busiest.chain_id, address: c.address, etherscanKey: process.env.ETHERSCAN_API_KEY, blockscoutBase: explorerMap[busiest.name ?? ''] })
         : null;
     await writeFile(path.join(ROOT, 'labels/projects', draftFileName(c)), draftToml(c, name));
-    candidateKeys.push(`${c.chain}:${c.address}`);
-    rows.push({ candidate: c, name, priority: priority.has(`${c.chain}:${c.address}`), tokens: [], chains: [], explorer: null });
+    report.push({
+      candidate: c,
+      name,
+      priority: newcomers.has(c.address) ? 'new on CCIP' : top3.has(c.address) ? 'top 3' : null,
+      tokens: [],
+      destinations: [],
+      hints: [],
+      explorer: explorerLink(explorerMap, c),
+    });
   }
 
-  if (candidateKeys.length > 0) {
-    const dq = detailsQuery(since, candidateKeys);
-    const detailRows = await d1<{ chain: string; address: string; token: string | null; dst_name: string | null }>(dq.sql, dq.params);
-    const enrichment = summarizeDetails(detailRows);
-    for (const row of rows) {
-      const key = `${row.candidate.chain}:${row.candidate.address}`;
-      const details = enrichment.get(key);
-      if (details) {
-        row.tokens = details.tokens;
-        row.chains = details.chains;
-      }
-      if (explorerMap[row.candidate.chain_name ?? '']) {
-        row.explorer = `${explorerMap[row.candidate.chain_name ?? ''].replace(/\/$/, '')}/address/${row.candidate.address}`;
+  if (report.length > 0) {
+    const dq = detailsQuery(since, report.map((r) => r.candidate.address));
+    const details = summarizeDetails(await d1<{ address: string; token: string | null; dst_name: string | null }>(dq.sql, dq.params));
+    for (const row of report) {
+      const found = details.get(row.candidate.address);
+      if (found) {
+        row.tokens = found.tokens;
+        row.destinations = found.destinations;
       }
     }
   }
 
-  const handles = await currentHandles();
+  const lastWeek = { from: addDays(since, -7), to: addDays(since, -1) };
+  const windowRows = (from: string, to: string) => d1<SenderRow>(senderRowsQuery(from, to).sql, senderRowsQuery(from, to).params);
+  const windowTotals = async (from: string, to: string) =>
+    (await d1<{ messages: number; usd_value: number; fee_usd: number | null }>(windowTotalsQuery(from, to).sql, windowTotalsQuery(from, to).params))[0] ?? { messages: 0, usd_value: 0, fee_usd: null };
+  const weekRows = await windowRows(since, today);
+  const coverage = coverageMarkdown(
+    labelCoverage(mergeIdentities(weekRows, resolve), await windowTotals(since, today)),
+    labelCoverage(mergeIdentities(await windowRows(lastWeek.from, lastWeek.to), resolve), await windowTotals(lastWeek.from, lastWeek.to)),
+  );
+  const spread = spreadMarkdown(spreadReport(weekRows, resolve, chainNames));
+
+  const handles = await currentHandles(projects, knownChains);
   const tq = tokenGapQuery(since, GAP_TOKENS);
-  const cq = chainGapQuery(since, GAP_CHAINS_BY_VALUE, GAP_CHAINS_BY_FEES);
-  const gq = handleGroupQuery(handles.tokens);
+  const gq2 = chainGapQuery(since, GAP_CHAINS_BY_VALUE, GAP_CHAINS_BY_FEES);
+  const hq = handleGroupQuery(handles.tokens);
   const gaps = handleGaps(
     await d1<TokenGap>(tq.sql, tq.params),
-    await d1<ChainGap>(cq.sql, cq.params),
+    await d1<ChainGap>(gq2.sql, gq2.params),
     handles,
-    handles.tokens.length === 0 ? [] : await d1<HandleGroup>(gq.sql, gq.params),
+    handles.tokens.length === 0 ? [] : await d1<HandleGroup>(hq.sql, hq.params),
   );
   const gapsMarkdown = handleGapsMarkdown(gaps);
   await writeFile(path.join(ROOT, 'labels/handle-gaps.md'), gapsMarkdown);
-  await writeFile(path.join(ROOT, 'pr-body.md'), `${prBody(rows, today)}\n${gapsMarkdown}`);
-  console.log(`${rows.length} candidate draft(s) written; ${gaps.tokens.length} token and ${gaps.chains.length} chain handle gap(s)`);
+  await writeFile(path.join(ROOT, 'pr-body.md'), `${prBody(report, today, coverage, spread)}\n${gapsMarkdown}`);
+  console.log(`${report.length} candidate draft(s) written; ${gaps.tokens.length} token and ${gaps.chains.length} chain handle gap(s)`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
