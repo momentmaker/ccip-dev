@@ -1,10 +1,10 @@
-import { addDays, dayOf, feeClassifier, lastCompleteMonday, mergeIdentities, normalizeAddress, rankIdentities, sharePct, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, feeClassifier, lastCompleteMonday, normalizeAddress, rankIdentities, sharePct, taggableX, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
 import { LabelCoverageSchema, TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
 import { buildProjects } from './projects';
-import { LABEL_COVERAGE_KEY, labelCoverageOf, rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
+import { identitiesOf, LABEL_COVERAGE_KEY, labelCoverageOf, rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
 import * as store from './store';
 
 export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'attribution'>;
@@ -97,7 +97,7 @@ export function leader(r: store.BreakdownRow, label: string | null): Leader {
   return { key: r.key, label, messages: r.messages, usd: usd(r.usd_value), fee_usd: usd(r.fee_usd) };
 }
 
-/** A sender identity as every public file publishes it, with its share of the period's messages. */
+/** A sender identity as every public file publishes it, with its share of the period's messages and its via-token part. */
 export function identityEntry(i: IdentityTotals, periodMessages: number | null): Leader {
   return {
     key: i.key,
@@ -105,12 +105,16 @@ export function identityEntry(i: IdentityTotals, periodMessages: number | null):
     messages: i.messages,
     usd: usd(i.usd_value),
     fee_usd: usd(i.fee_usd),
-    x: i.inferred ? null : i.x,
+    x: taggableX(i),
     kind: i.kind,
     inferred: i.inferred,
     chains: i.chains,
     addresses: i.addresses,
     share_pct: sharePct(i.messages, periodMessages),
+    via_token_messages: i.via_token_messages,
+    via_token_usd: usd(i.via_token_usd),
+    via_token_fee_usd: usd(i.via_token_fee_usd),
+    via_token: i.via_token,
   };
 }
 
@@ -259,9 +263,8 @@ async function publishToday(
       usd: usd(b.usd_value),
       ...(dim === 'token' ? { symbol: symbolOf(symbols, b.key) } : {}),
     }));
-  const senders = rankIdentities(mergeIdentities(breakdown.filter((b) => b.dim === 'sender'), book.resolve), 'value', TOP_LIMIT).map((i) =>
-    identityEntry(i, totals.messages),
-  );
+  const identities = identitiesOf(book, breakdown.filter((b) => b.dim === 'sender'), breakdown.filter((b) => b.dim === 'via_token'));
+  const senders = rankIdentities(identities, 'value', TOP_LIMIT).map((i) => identityEntry(i, totals.messages));
   await putJson(
     c.env.PUBLIC,
     'today.json',

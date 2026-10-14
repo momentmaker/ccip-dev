@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
-import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
+import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type LabelIndex, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeCcip, fakePrices, listMessage, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_LABELS, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
@@ -564,7 +564,7 @@ describe('day-leaders.json', () => {
     expect((await readPublic('day-leaders.json')).days).toEqual([{
       day: DAY,
       token: { key: `${BASE}:0xtok`, label: 'USDC', messages: 3, usd: 900, fee_usd: null },
-      sender: { key: 'project:maple-finance', label: 'Maple Finance', messages: 7, usd: 10, fee_usd: 1, x: 'maplefinance', kind: 'protocol', inferred: false, chains: [BASE], addresses: 1, share_pct: 35 },
+      sender: { key: 'project:maple-finance', label: 'Maple Finance', messages: 7, usd: 10, fee_usd: 1, x: 'maplefinance', kind: 'protocol', inferred: false, chains: [BASE], addresses: 1, share_pct: 35, via_token_messages: 0, via_token_usd: 0, via_token_fee_usd: null, via_token: false },
       lane: { key: `${ETH}>${BASE}`, label: null, messages: 5, usd: 800, fee_usd: 1 },
       fee_lane: { key: `${BASE}>${ETH}`, label: null, messages: 4, usd: 200, fee_usd: 6 },
       fee_chain: { key: BASE, label: null, messages: 6, usd: 999, fee_usd: 7 },
@@ -712,7 +712,7 @@ describe('senders by identity', () => {
     const day = (await readPublic('day-leaders.json')).days.find((d: { day: string }) => d.day === XSTOCKS_DAY);
     expect(day.sender).toEqual({
       key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 0, fee_usd: 79.75, x: 'xStocksFi', kind: 'protocol', inferred: false,
-      chains: [SOL, INK, XLAYER, BSC, ETH, HYPER], addresses: 2, share_pct: 20.3,
+      chains: [SOL, INK, XLAYER, BSC, ETH, HYPER], addresses: 2, share_pct: 20.3, via_token_messages: 0, via_token_usd: 0, via_token_fee_usd: null, via_token: false,
     });
   });
 
@@ -776,7 +776,9 @@ describe('senders by identity', () => {
     await publishHistoryFiles(c);
     await publishLiveFiles(c);
     // #then
-    expect((await readPublic('status.json')).label_coverage).toEqual({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, window: '7d' });
+    expect((await readPublic('status.json')).label_coverage).toEqual({
+      messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d',
+    });
   });
 });
 
@@ -826,5 +828,122 @@ describe('data messages', () => {
     await publishLiveFiles(c);
     // #then
     expect([(await readPublic('history.json')).days[0].data_messages, (await readPublic('today.json')).totals.data_messages]).toEqual([3, 1]);
+  });
+});
+
+describe('senders via token', () => {
+  const NOW = '2026-10-14T00:07:00.000Z';
+  const DAY = '2026-10-13';
+  const ELIZA_BASE = '0x00000000000000000000000000000000000e1a01';
+  const APP = '0x00000000000000000000000000000000000d0001';
+  const W1 = '0x0000000000000000000000000000000000000a01';
+  const W2 = '0x0000000000000000000000000000000000000a02';
+  const W3 = '0x0000000000000000000000000000000000000a03';
+  const ELIZA = {
+    name: 'elizaOS', x: 'elizaOS', url: null, kind: 'protocol' as const, source: null, addresses: [],
+    tokens: [{ chain: 'ethereum-mainnet-base-1', address: ELIZA_BASE, source: 'https://elizaos.example/ccip' }],
+  };
+  const LABEL_TOKENS = { [`ethereum-mainnet-base-1:${ELIZA_BASE}`]: 'elizaos' };
+  const APP_LABEL = { [`ethereum-mainnet-base-1:${APP}`]: { name: 'elizaOS', x: 'elizaOS', kind: 'protocol' as const, slug: 'elizaos' } };
+  const TOTALS = { day: DAY, messages: 200, token_messages: 200, usd_value: 2_000, fee_usd: 20, unique_senders: 4, median_delivery_s: null, unpriced_messages: 0 };
+  const daily = (dim: Dim, key: string, messages: number) => ({ day: DAY, dim, key, messages, usd_value: messages * 10, fee_usd: messages / 10 });
+  /** Bridging elizaOS's Base token, which has no registry row, so its messages are keyed by the token itself. */
+  const via = (wallet: string, messages: number) => daily('via_token', `${BASE}:${wallet}|${BASE}:${ELIZA_BASE}`, messages);
+  const ROWS = [daily('sender', `${BASE}:${W1}`, 50), via(W1, 50), daily('sender', `${BASE}:${W2}`, 30), via(W2, 10), daily('sender', `${BASE}:${W3}`, 25)];
+  const context = (labels: LabelIndex = {}) => harness({ now: NOW, labels, labelTokens: LABEL_TOKENS, projects: { elizaos: ELIZA } }).c;
+  type Entry = { key: string; messages: number; via_token_messages: number; via_token: boolean; x: string | null };
+  const brief = (e: Entry) => [e.key, e.messages, e.via_token_messages, e.via_token, e.x];
+
+  beforeEach(async () => {
+    // #given W1 bridged elizaOS's token 50 times and sent nothing else, W2 bridged it 10 times of its 30, W3 sent 25 through no token
+    await seedRegistry([NETWORKS.base], []);
+    await store.replaceDaily(env.DB, TOTALS, ROWS, NOW);
+  });
+
+  it('credits the moved sends to the project, marked via token with no handle, and drops the wallet left with nothing', async () => {
+    // #when
+    await publishHistoryFiles(context());
+    // #then
+    expect((await readPublic('top/sender.json')).identities['7d'].map(brief)).toEqual([
+      ['project:elizaos', 60, 60, true, null],
+      [`address:${W3}`, 25, 0, false, null],
+      [`address:${W2}`, 20, 0, false, null],
+    ]);
+  });
+
+  it('lists a project with its own contract and its token once, with both parts and its handle', async () => {
+    // #given elizaOS's own Base contract also sent 40
+    await store.replaceDaily(env.DB, TOTALS, [...ROWS, daily('sender', `${BASE}:${APP}`, 40)], NOW);
+    // #when
+    await publishHistoryFiles(context(APP_LABEL));
+    // #then
+    const eliza = (await readPublic('top/sender.json')).identities['7d'].filter((e: Entry) => e.key === 'project:elizaos');
+    expect(eliza.map(brief)).toEqual([['project:elizaos', 100, 60, false, 'elizaOS']]);
+  });
+
+  it("names the project the day's top sender, with its via-token part", async () => {
+    // #when
+    await publishHistoryFiles(context());
+    // #then
+    const day = (await readPublic('day-leaders.json')).days.find((d: { day: string }) => d.day === DAY);
+    expect([day.sender.key, day.sender.messages, day.sender.via_token_messages, day.sender.share_pct]).toEqual(['project:elizaos', 60, 60, 30]);
+  });
+
+  it('publishes coverage with its via-token part in status.json', async () => {
+    // #given
+    const c = context();
+    // #when
+    await publishHistoryFiles(c);
+    await publishLiveFiles(c);
+    // #then
+    expect((await readPublic('status.json')).label_coverage).toEqual({
+      messages_pct: 30, usd_pct: 30, fees_pct: 30, via_token_messages_pct: 30, via_token_usd_pct: 30, via_token_fees_pct: 30, window: '7d',
+    });
+  });
+
+  it("moves today's direct sends of the token to the project in today.json", async () => {
+    // #given today W1 bridged elizaOS's token twice and W3 sent once through no token
+    const at = (minute: number) => `2026-10-14T09:0${minute}:00.000Z`;
+    await store.upsertListRows(
+      env.DB,
+      [
+        liveRow({ id: 't1', sendTs: at(1), sender: W1 }, { origin: W1, token_count: 1 }),
+        liveRow({ id: 't2', sendTs: at(2), sender: W1 }, { origin: W1, token_count: 1 }),
+        liveRow({ id: 't3', sendTs: at(3), sender: W3 }),
+      ],
+      [
+        { message_id: 't1', idx: 0, chain: BASE, token: ELIZA_BASE, amount: '1', usd_value: null },
+        { message_id: 't2', idx: 0, chain: BASE, token: ELIZA_BASE, amount: '1', usd_value: null },
+      ],
+    );
+    // #when
+    await publishLiveFiles(harness({ now: '2026-10-14T10:00:00.000Z', labelTokens: LABEL_TOKENS, projects: { elizaos: ELIZA } }).c);
+    // #then
+    expect((await readPublic('today.json')).top.sender.map((e: Entry) => [e.key, e.messages, e.via_token])).toEqual([
+      ['project:elizaos', 2, true],
+      [`address:${W3}`, 1, false],
+    ]);
+  });
+
+  it('keeps the via-token fields when each changed file is parsed by its public schema', async () => {
+    // #given
+    await store.upsertListRows(
+      env.DB,
+      [liveRow({ id: 't1', sendTs: '2026-10-14T09:01:00.000Z', sender: W1 }, { origin: W1, token_count: 1 })],
+      [{ message_id: 't1', idx: 0, chain: BASE, token: ELIZA_BASE, amount: '1', usd_value: null }],
+    );
+    await publishHistoryFiles(context());
+    await publishLiveFiles(harness({ now: '2026-10-14T10:00:00.000Z', labelTokens: LABEL_TOKENS, projects: { elizaos: ELIZA } }).c);
+    // #when
+    const parse = async (name: PublicFileName) => PUBLIC_SCHEMAS[name].parse(await readPublic(name)) as Record<string, any>;
+    const [top, leaders, today, status] = [await parse('top/sender.json'), await parse('day-leaders.json'), await parse('today.json'), await parse('status.json')];
+    // #then
+    expect([
+      top.identities['7d'][0].via_token_messages,
+      top.identities['7d'][0].via_token,
+      leaders.days.find((d: { day: string }) => d.day === DAY).sender.via_token_usd,
+      today.top.sender[0].via_token_fee_usd,
+      status.label_coverage.via_token_messages_pct,
+    ]).toEqual([60, true, 600, null, 30]);
   });
 });

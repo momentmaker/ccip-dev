@@ -14,6 +14,9 @@ export const LabelCoverageSchema = z.object({
   messages_pct: z.number().nullable(),
   usd_pct: z.number().nullable(),
   fees_pct: z.number().nullable(),
+  via_token_messages_pct: z.number().nullable().optional(),
+  via_token_usd_pct: z.number().nullable().optional(),
+  via_token_fees_pct: z.number().nullable().optional(),
   window: z.literal('7d'),
 });
 
@@ -63,6 +66,10 @@ const identityFields = {
   chains: z.array(z.string()).optional(),
   addresses: z.number().optional(),
   share_pct: z.number().nullable().optional(),
+  via_token_messages: z.number().optional(),
+  via_token_usd: z.number().nullable().optional(),
+  via_token_fee_usd: z.number().nullable().optional(),
+  via_token: z.boolean().optional(),
 };
 
 export const TopEntrySchema = z.object({
