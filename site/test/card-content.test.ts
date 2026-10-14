@@ -214,4 +214,15 @@ describe('top senders card', () => {
     // #then
     expect(topCard(file, 'sender', '7d', 'value', names).big).toBe('xStocks');
   });
+
+  it("adds the via-token mark to the top sender's line", () => {
+    // #given
+    const file = {
+      ...envelope, dim: 'sender' as const, since: '2023-07-06',
+      windows: { '7d': [], '30d': [], all: [] },
+      identities: { '7d': [{ key: 'project:elizaos', label: 'elizaOS', messages: 1_889, usd: 10, via_token_messages: 1_889, via_token: true }], '30d': [], all: [] },
+    };
+    // #then
+    expect(topCard(file, 'sender', '7d', 'value', names).label).toBe('$10 · 1,889 messages · via token');
+  });
 });

@@ -8,7 +8,7 @@ import { TOP_DIMS, TOP_ORDERS, WINDOWS, topOrders, type TopDim, type TopOrder, t
 import { formatCount, formatFee, formatFeeTotal, formatPct, formatUsd } from '../../../../lib/format';
 import { chainNameMap } from '../../../../lib/names';
 import { projectSlugs } from '../../../../lib/projects';
-import { registryNames, senderEntries, senderRows } from '../../../../lib/senders';
+import { registryNames, senderEntries, senderRows, VIA_TOKEN_TITLE } from '../../../../lib/senders';
 import { TOP_FILE, topEntries, topHref, topRows, typicalFeeMap } from '../../../../lib/top';
 
 export function getStaticPaths() {
@@ -82,7 +82,7 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
             <tr>
               <td class="num muted">{r.rank}</td>
               <td>
-                <ChainIcons selectors={r.chains} />{r.href ? <a href={r.href} rel={r.href.startsWith('http') ? 'noopener' : undefined}>{r.primary}</a> : r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{r.inferred && <span class="inferred" title="Credited through the same address labeled on another chain">inferred</span>}
+                <ChainIcons selectors={r.chains} />{r.href ? <a href={r.href} rel={r.href.startsWith('http') ? 'noopener' : undefined}>{r.primary}</a> : r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{r.inferred && <span class="inferred" title="Credited through the same address labeled on another chain">inferred</span>}{r.viaToken && <span class="via-token" title={VIA_TOKEN_TITLE}>{r.viaToken}</span>}
                 {r.secondary && <span class="secondary">{r.secondary}</span>}
                 {r.suggestUrl && <a class="suggest" href={r.suggestUrl} rel="noopener">Suggest a label</a>}
               </td>
@@ -98,5 +98,5 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
       </table>
     </div>
   )}
-  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. {dim === 'sender' && 'A project counts every address its label names, on every chain; "inferred" marks one credited through the same address labeled on another chain.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
+  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. {dim === 'sender' && 'A project counts every address its label names, on every chain, and the direct sends of the tokens it claims; "inferred" marks an address credited through the same address labeled on another chain, and "via token" the messages of wallets bridging the project\'s token through CCIP themselves.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
 </Base>

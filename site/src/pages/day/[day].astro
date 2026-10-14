@@ -12,7 +12,7 @@ import { dayFeeMix } from '../../lib/fee-mix';
 import '../../styles/history.css';
 import { chainNameMap } from '../../lib/names';
 import { projectSlugs } from '../../lib/projects';
-import { daySender, registryNames } from '../../lib/senders';
+import { daySender, registryNames, VIA_TOKEN_TITLE } from '../../lib/senders';
 import { computeMilestones, computeRecords } from '../../lib/records';
 import { COINS_WIDE } from '../../sky/coins';
 import { changeTone } from '../../lib/tone';
@@ -83,7 +83,7 @@ const tiles = [
   </section>
   {sender && (
     <p class="top-sender">
-      Top sender: <ChainIcons selectors={sender.chains} />{sender.href ? <a href={sender.href} rel={sender.href.startsWith('http') ? 'noopener' : undefined}>{sender.primary}</a> : sender.primary}{sender.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{sender.inferred && <span class="inferred" title="Credited through the same address labeled on another chain">inferred</span>}
+      Top sender: <ChainIcons selectors={sender.chains} />{sender.href ? <a href={sender.href} rel={sender.href.startsWith('http') ? 'noopener' : undefined}>{sender.primary}</a> : sender.primary}{sender.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{sender.inferred && <span class="inferred" title="Credited through the same address labeled on another chain">inferred</span>}{sender.viaToken && <span class="via-token" title={VIA_TOKEN_TITLE}>{sender.viaToken}</span>}
       {` · ${formatCount(sender.messages)} messages`}{sender.sharePct !== null && ` (${formatShare(sender.sharePct)})`}
       {sender.suggestUrl && <>{' · '}<a href={sender.suggestUrl} rel="noopener">Suggest a label</a></>}
     </p>

@@ -21,6 +21,8 @@ export interface TopRow {
   /** Sender rows only: the project page or the address's explorer page. */
   href?: string | null;
   inferred?: boolean;
+  /** Sender rows only: the via-token mark. */
+  viaToken?: string | null;
   /** Sender rows only: the label issue form, for an address with no label. */
   suggestUrl?: string | null;
   messages: number;

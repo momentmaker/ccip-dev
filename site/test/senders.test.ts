@@ -1,7 +1,7 @@
 import type { TopFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { chainNameMap } from '../src/lib/names';
-import { daySender, senderEntries, senderRows, senderView, suggestLabelUrl } from '../src/lib/senders';
+import { daySender, senderEntries, senderRows, senderView, suggestLabelUrl, viaTokenMark } from '../src/lib/senders';
 import oldTopSender from './fixtures/top-sender.json';
 
 const ETH = '5009297550715157269';
@@ -28,7 +28,7 @@ describe('sender rows', () => {
     const view = senderView(XSTOCKS, names, registry, slugs);
     // #then
     expect(view).toEqual({
-      primary: 'xStocks', secondary: '2 addresses · 3 chains', verified: true, inferred: false, chains: [SOL, INK, ETH], href: '/projects/xstocks/', suggestUrl: null,
+      primary: 'xStocks', secondary: '2 addresses · 3 chains', verified: true, inferred: false, viaToken: null, chains: [SOL, INK, ETH], href: '/projects/xstocks/', suggestUrl: null,
     });
   });
 
@@ -46,12 +46,31 @@ describe('sender rows', () => {
     expect([view.verified, view.inferred, view.secondary]).toEqual([false, true, '1 address · 3 chains']);
   });
 
+  it("marks a project credited only via its token, without the tick or an address count", () => {
+    // #when
+    const view = senderView({ ...XSTOCKS, messages: 60, via_token_messages: 60, via_token: true, addresses: 0, chains: [BASE] }, names, registry, slugs);
+    // #then
+    expect([view.verified, view.viaToken, view.secondary]).toEqual([false, 'via token', '1 chain']);
+  });
+
+  it('marks a project with some messages via its token, keeping its tick', () => {
+    // #when
+    const view = senderView({ ...XSTOCKS, messages: 2_000, via_token_messages: 1_889, via_token: false }, names, registry, slugs);
+    // #then
+    expect([view.verified, view.viaToken]).toEqual([true, 'incl. 1,889 via token']);
+  });
+
+  it('has no mark for an entry from a file published before the split', () => {
+    // #then
+    expect(viaTokenMark(XSTOCKS)).toBeNull();
+  });
+
   it('names an unlabeled address by its short form and first three chains, links the explorer, and offers a label suggestion', () => {
     // #when
     const view = senderView(ADDRESS, names, registry, slugs);
     // #then
     expect({ ...view, suggestUrl: params(view.suggestUrl) }).toEqual({
-      primary: '0x671b…4077', secondary: 'Base · Ethereum · Ink +1 more', verified: false, inferred: false, chains: [BASE, ETH, INK, SOL],
+      primary: '0x671b…4077', secondary: 'Base · Ethereum · Ink +1 more', verified: false, inferred: false, viaToken: null, chains: [BASE, ETH, INK, SOL],
       href: `https://ccip.chain.link/address/${B1}`,
       suggestUrl: { template: 'label.yml', title: 'Label: 0x671b…4077', address: B1, chain: 'ethereum-mainnet-base-1' },
     });

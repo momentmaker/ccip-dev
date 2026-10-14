@@ -6,6 +6,7 @@ import { chainName, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/c
 import type { DayLeaders, Leader } from '@ccip-dev/core/public';
 import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
+import { viaTokenMark } from '../../src/lib/senders';
 import { h, type Child, type VNode } from '../h';
 import { moversTree, spotlightTree } from './board-cards';
 import {
@@ -30,13 +31,16 @@ export const RECORD_TITLES: Record<RecordKind, string> = {
 
 const addressOf = (key: string) => key.slice(key.indexOf(':') + 1);
 
-function leaderCell(label: string, name: string, value: string): VNode {
+function leaderCell(label: string, name: string, value: string, note: string | null = null): VNode {
   return h(
     'div',
     { style: { display: 'flex', flexDirection: 'column', width: 153 } },
     h('div', { style: { fontSize: 14, fontWeight: 700, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' } }, label),
     h('div', { style: { fontSize: 20, fontWeight: 700, marginTop: 4, maxWidth: 145, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, name),
     h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop: 2, maxWidth: 145, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, value),
+    note === null
+      ? null
+      : h('div', { style: { fontSize: 14, color: COLORS.muted, marginTop: 2, maxWidth: 145, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, note),
   );
 }
 
@@ -49,12 +53,20 @@ function senderFigure(l: Leader): string {
   return full.length <= SENDER_FIGURE_MAX ? full : `${formatCompactCount(l.messages)}${share}`;
 }
 
+const SENDER_MARK_MAX = 20;
+
+/** The via-token mark at 14px in a 145px cell, with the count compact when the full mark would not fit. */
+function senderMark(l: Leader): string | null {
+  const full = viaTokenMark(l);
+  return full !== null && full.length > SENDER_MARK_MAX ? viaTokenMark(l, formatCompactCount) : full;
+}
+
 function leadersRow(lead: DayLeaders, names: ChainNames): VNode {
   return h(
     'div',
     { style: { display: 'flex', marginTop: 18, paddingTop: 14, borderTop: '1px solid #1f2a3c' } },
     lead.token ? leaderCell('Top token', lead.token.label ?? shortAddress(addressOf(lead.token.key)), formatUsd(lead.token.usd)) : null,
-    lead.sender ? leaderCell('Top sender', lead.sender.label ?? shortAddress(addressOf(lead.sender.key)), senderFigure(lead.sender)) : null,
+    lead.sender ? leaderCell('Top sender', lead.sender.label ?? shortAddress(addressOf(lead.sender.key)), senderFigure(lead.sender), senderMark(lead.sender)) : null,
     lead.fee_chain ? leaderCell('Top fee chain', chainName(names, lead.fee_chain.key), `${formatFeeTotal(lead.fee_chain.fee_usd)} fees`) : null,
   );
 }

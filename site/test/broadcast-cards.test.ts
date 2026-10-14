@@ -11,6 +11,9 @@ import { BASE, DAY, DEPOSIT_TX, HISTORY, LEADERS, loadFixture, MONDAY, OUTFLOW_T
 const inputs = { load: loadFixture, icon: async (selector: string) => (selector === BASE ? 'data:image/svg+xml;base64,AAAA' : null) };
 const tree = async (target: Parameters<typeof broadcastTree>[0]) => (await broadcastTree(target, inputs)) as VNode;
 
+const withSender = (sender: object): typeof loadFixture => async (name) =>
+  name === 'day-leaders.json' ? ({ ...LEADERS, days: LEADERS.days.map((d) => (d.day === DAY ? { ...d, sender } : d)) } as never) : loadFixture(name);
+
 describe('daily broadcast card', () => {
   it('shows the day against its 7-day average, its leaders, and the busiest lane in the strip', async () => {
     // #when
@@ -40,8 +43,6 @@ describe('daily broadcast card', () => {
 
   it("shows an identity sender's share, and an unlabeled one by its short address", async () => {
     // #given the day's top sender as an identity with its share, then as an unlabeled address
-    const withSender = (sender: object): typeof loadFixture => async (name) =>
-      name === 'day-leaders.json' ? ({ ...LEADERS, days: LEADERS.days.map((d) => (d.day === DAY ? { ...d, sender } : d)) } as never) : loadFixture(name);
     const project = { key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 0, fee_usd: 79.75, share_pct: 20.3 };
     const address = { key: `address:${SENDER}`, label: null, messages: 76, usd: 0, fee_usd: 19, share_pct: 4.8 };
     // #when
@@ -52,6 +53,17 @@ describe('daily broadcast card', () => {
       expect.arrayContaining(['Top sender', 'xStocks', '319 msgs · 20%']),
       expect.arrayContaining(['Top sender', '0x7af7…ce09', '76 msgs · 4.8%']),
     ]);
+  });
+
+  it("marks the day's top sender credited via its token under its figure, compact so it fits the cell", async () => {
+    // #given the same sender with all, then some, of its messages via its token
+    const all = { key: 'project:elizaos', label: 'elizaOS', messages: 1_889, usd: 0, fee_usd: 1, share_pct: 15.2, via_token_messages: 1_889, via_token: true };
+    const some = { ...all, messages: 2_000, via_token: false };
+    // #when
+    const allTexts = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: withSender(all) }));
+    const someTexts = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: withSender(some) }));
+    // #then
+    expect([allTexts.includes('via token'), someTexts.includes('incl. 1.9K via token')]).toEqual([true, true]);
   });
 
   it('shows the record a day set in the strip instead', async () => {

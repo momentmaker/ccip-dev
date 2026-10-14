@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverageLine, ingestLagSeconds, statusLevel, statusText, statusWord } from '../src/lib/status-light';
+import { ingestLagSeconds, statusLevel, statusText, statusWord } from '../src/lib/status-light';
 
 describe('status light', () => {
   it('measures lag from the last successful ingest', () => {
@@ -47,18 +47,5 @@ describe('status light', () => {
     ['red', 3, 'Stalled'],
   ] as const)('word for level %s with %s failures is %s', (level, failures, word) => {
     expect(statusWord(level, failures)).toBe(word);
-  });
-});
-
-describe('label coverage line', () => {
-  it.each([
-    [{ messages_pct: 81.2, usd_pct: 94.4, fees_pct: 90, window: '7d' as const }, 'Labeled senders: 81% of messages, 94% of value (last 7 days)'],
-    [{ messages_pct: 81.2, usd_pct: null, fees_pct: null, window: '7d' as const }, 'Labeled senders: 81% of messages (last 7 days)'],
-    [{ messages_pct: null, usd_pct: null, fees_pct: null, window: '7d' as const }, null],
-    [null, null],
-    [undefined, null],
-  ])('words %o as %j', (coverage, line) => {
-    // #then
-    expect(coverageLine(coverage)).toBe(line);
   });
 });

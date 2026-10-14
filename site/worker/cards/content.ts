@@ -3,7 +3,7 @@ import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
 import { formatCount, formatFeeTotal, formatLink, formatPct, formatShare, formatUsd, formatUtcDay } from '../../src/lib/format';
-import { senderEntries } from '../../src/lib/senders';
+import { senderEntries, viaTokenMark } from '../../src/lib/senders';
 import { chainName, laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
 import { topEntries } from '../../src/lib/top';
 import { computeRecords } from '../../src/lib/records';
@@ -112,12 +112,13 @@ function entryLabel(e: TopEntry, dim: TopDim, names: ChainNames): string {
 export function topCard(top: TopFile, dim: TopDim, window: Window, order: TopOrder, names: ChainNames): CardSpec {
   const entries = dim === 'sender' ? senderEntries(top, window, order) : topEntries(top, window, order);
   const first = entries[0];
+  const mark = dim === 'sender' && first ? viaTokenMark(first) : null;
   const byFees = order === 'fees';
   const amount = (e: TopEntry) => byFees ? formatFeeTotal(e.fee_usd) : formatUsd(e.usd);
   return {
     eyebrow: `${DIM_LABEL[dim]}${byFees ? ' BY FEES' : ''} · ${WINDOW_LABEL[window]}`,
     big: first ? entryLabel(first, dim, names) : '—',
-    label: first ? `${amount(first)}${byFees ? ' in fees' : ''} · ${formatCount(first.messages)} messages` : 'No data yet',
+    label: first ? `${amount(first)}${byFees ? ' in fees' : ''} · ${formatCount(first.messages)} messages${mark === null ? '' : ` · ${mark}`}` : 'No data yet',
     date: window === 'all' ? `since ${top.since}` : '',
     extra: entries.slice(1, 3).map((e, i) => `#${i + 2} ${entryLabel(e, dim, names)} · ${amount(e)}`),
     spark: null,

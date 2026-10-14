@@ -3,6 +3,7 @@ import { parseSenderKey } from '@ccip-dev/core/senders';
 import { REPO_URL } from '../config';
 import type { TopOrder, Window } from './card-paths';
 import { chainName, senderLabel, shortAddress, type ChainNames } from './names';
+import { formatCount } from './format';
 import { addressExplorerUrl, projectHref } from './projects';
 import { topEntries, type TopRow } from './top';
 
@@ -10,6 +11,15 @@ import { topEntries, type TopRow } from './top';
 export type RegistryNames = ReadonlyMap<string, string>;
 
 export const registryNames = (chains: ChainsFile['chains']): RegistryNames => new Map(chains.map((c) => [c.selector, c.name]));
+
+export const VIA_TOKEN_TITLE = "Credited via its token: wallets bridging the project's token through CCIP themselves";
+
+/** "via token" when every message came via the project's token, "incl. 1,889 via token" when some did; null when none did or the file predates the split. */
+export function viaTokenMark(e: Pick<TopEntry, 'messages' | 'via_token_messages' | 'via_token'>, count: (n: number) => string = formatCount): string | null {
+  const via = e.via_token_messages ?? 0;
+  if (via <= 0) return null;
+  return e.via_token ? 'via token' : `incl. ${count(via)} via token`;
+}
 
 /** The ranking by identity when the file has it, already ordered by the Worker; a file published before identities has only its per-chain entries. */
 export function senderEntries(top: TopFile, window: Window, order: TopOrder): TopEntry[] {
@@ -28,6 +38,8 @@ export interface SenderView {
   secondary: string | null;
   verified: boolean;
   inferred: boolean;
+  /** The via-token mark of a project credited messages via its token. */
+  viaToken: string | null;
   chains: string[];
   href: string | null;
   suggestUrl: string | null;
@@ -35,7 +47,7 @@ export interface SenderView {
 
 const counted = (n: number, word: string, plural: string) => `${n.toLocaleString('en-US')} ${n === 1 ? word : plural}`;
 
-type SenderFields = Pick<TopEntry, 'key' | 'label' | 'inferred' | 'chains' | 'addresses'>;
+type SenderFields = Pick<TopEntry, 'key' | 'label' | 'inferred' | 'chains' | 'addresses' | 'messages' | 'via_token_messages' | 'via_token'>;
 
 /** How the site names a sender: a project by its label (linked only when the build has its page), an address by its short form, and an older per-chain key as before. */
 export function senderView(e: SenderFields, names: ChainNames, registry: RegistryNames, slugs: ReadonlySet<string>): SenderView {
@@ -43,7 +55,7 @@ export function senderView(e: SenderFields, names: ChainNames, registry: Registr
   if (parsed.kind === 'legacy') {
     const { primary, secondary, verified } = senderLabel(names, e.key, e.label);
     return {
-      primary, secondary, verified, inferred: false,
+      primary, secondary, verified, inferred: false, viaToken: null,
       chains: parsed.chain ? [parsed.chain] : [],
       href: verified ? null : addressExplorerUrl(parsed.address),
       suggestUrl: verified ? null : suggestLabelUrl(registry.get(parsed.chain) ?? null, parsed.address),
@@ -52,11 +64,13 @@ export function senderView(e: SenderFields, names: ChainNames, registry: Registr
   const chains = e.chains ?? [];
   if (parsed.kind === 'project') {
     const inferred = e.inferred ?? false;
+    const addresses = e.addresses ?? 0;
     return {
       primary: e.label ?? parsed.slug,
-      secondary: `${counted(e.addresses ?? 0, 'address', 'addresses')} · ${counted(chains.length, 'chain', 'chains')}`,
-      verified: !inferred,
+      secondary: [...(addresses > 0 ? [counted(addresses, 'address', 'addresses')] : []), counted(chains.length, 'chain', 'chains')].join(' · '),
+      verified: !inferred && !(e.via_token ?? false),
       inferred,
+      viaToken: viaTokenMark(e),
       chains,
       href: slugs.has(parsed.slug) ? projectHref(parsed.slug) : null,
       suggestUrl: null,
@@ -69,6 +83,7 @@ export function senderView(e: SenderFields, names: ChainNames, registry: Registr
     secondary: shown.length === 0 ? null : `${shown.join(' · ')}${more > 0 ? ` +${more} more` : ''}`,
     verified: false,
     inferred: false,
+    viaToken: null,
     chains,
     href: addressExplorerUrl(parsed.address),
     suggestUrl: suggestLabelUrl(chains[0] === undefined ? null : (registry.get(chains[0]) ?? null), parsed.address),
