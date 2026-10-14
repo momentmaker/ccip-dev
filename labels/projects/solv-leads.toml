@@ -1,0 +1,17 @@
+# Unconfirmed addresses kept as leads. Solv does not publish this Safe, so it has no first-party proof. Its signers overlap Solv's documented admin Safe 0x0c2bc4d2698820e12e6ebe863e7b9e2650cd5b7d
+# (4 of 5 on Ethereum, 3 of 5 on BNB Chain; https://docs.solv.finance/onchain-security/smart-contract-governance) and it holds only SolvBTC. Both entries below are this one Safe on two chains.
+name = "Solv Protocol (unconfirmed)"
+x = "SolvProtocol"
+url = "https://solv.finance"
+kind = "protocol"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xb26b467028ae4e14a13ec3f77e2e433b48530cd4"
+note = "SolvBTC treasury Safe (signers shared with Solv admin Safe)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xb26b467028ae4e14a13ec3f77e2e433b48530cd4"
+note = "SolvBTC treasury Safe (signers shared with Solv admin Safe)"

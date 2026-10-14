@@ -1,0 +1,23 @@
+# Source: https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js (the USDUC bridge app linked from https://usduc.io: CCIP config with Solana tokenMint CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump and hyperevm and robinhood router, pool and token; "Unsupported CCIP network")
+name = "Unstable Coin"
+x = "usduc_official"
+url = "https://usduc.io"
+kind = "issuer"
+verified = true
+
+# USDUC has no CCIP registry group in ccip.dev's copy, so each CCIP copy is listed.
+# The ETH/Base copy 0xeceDb6F8108b9f7Bbf499dA843DcED6C2Bb6E270 bridges through LayerZero, not CCIP, so it is not claimed.
+[[tokens]]
+chain = "solana-mainnet"
+address = "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump"
+source = "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js"
+
+[[tokens]]
+chain = "hyperliquid-mainnet"
+address = "0x61ef9543f8919bb06e374b3bb58a17725e34f9d9"
+source = "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js"
+
+[[tokens]]
+chain = "robinhood-mainnet"
+address = "0xbbb8ef3181661512ceab66e0b213c29211b24b6c"
+source = "https://bridge.usduc.io/_next/static/chunks/app/page-37624c6ca334ea17.js"

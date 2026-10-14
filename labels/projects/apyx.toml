@@ -1,0 +1,16 @@
+# Source: https://docs.apyx.fi (contract addresses for apxUSD and apyUSD) and https://blog.apyx.fi/apyx-strengthens-its-cross-chain-expansion-with-chainlink/ ("Apyx is now leveraging Chainlink CCIP ... cross-chain expansion of apxUSD and apyUSD")
+name = "Apyx"
+x = "apyx_fi"
+url = "https://apyx.fi"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x98a878b1cd98131b271883b390f68d2c90674665"
+source = "https://docs.apyx.fi"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x38eeb52f0771140d10c4e9a9a72349a329fe8a6a"
+source = "https://docs.apyx.fi"

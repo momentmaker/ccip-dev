@@ -1,0 +1,11 @@
+# Source: https://rizenet.io/assets/index-B2g5Ty5b.js (the RIZE site's app config: CCIPRizeToken on chain 56 at 0xAEDAff046601BEb063b647845Dfb21841f32d6A4, with ccipTokenPool entries; the bundle hash changes on redeploy)
+name = "RIZE"
+x = "CarbonZeroCorp"
+url = "https://rizenet.io"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0xaedaff046601beb063b647845dfb21841f32d6a4"
+source = "https://rizenet.io/assets/index-B2g5Ty5b.js"

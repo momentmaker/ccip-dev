@@ -1,0 +1,11 @@
+# Source: https://dfm-docs.mementoblockchain.com/introduction/dextf-token/addresses ("The official $DEXTF addresses Ethereum: 0x5F64Ab1544D28732F0A24F4713c2C8ec0dA089f0") and https://memento-bc.medium.com/domani-integrates-chainlink-ccip-and-price-feeds-to-unlock-institutional-cross-chain-use-cases-9dbaf4067c7e ("leveraging CCIP's Simplified Token Transfer mechanism to facilitate cross-chain bridging of our DEXTF token")
+name = "Memento"
+x = "Memento_Bc"
+url = "https://mementoblockchain.com"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+source = "https://dfm-docs.mementoblockchain.com/introduction/dextf-token/addresses"

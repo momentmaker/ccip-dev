@@ -22,10 +22,76 @@
   },
   "tokens": [
     {
+      "chain": "0g-mainnet",
+      "address": "0x1cd0690ff9a693f5ef2dd976660a8dafc81a109c",
+      "project": "0G",
+      "x": "0g_labs"
+    },
+    {
       "chain": "plasma-mainnet",
       "address": "0xb77e872a68c62cfc0dfb02c067ecc3da23b4bbf3",
       "project": "Aave",
       "x": "aave"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x98a878b1cd98131b271883b390f68d2c90674665",
+      "project": "Apyx",
+      "x": "apyx_fi"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x38eeb52f0771140d10c4e9a9a72349a329fe8a6a",
+      "project": "Apyx",
+      "x": "apyx_fi"
+    },
+    {
+      "chain": "soneium-mainnet",
+      "address": "0x2cae934a1e84f693fbb78ca5ed3b0a6893259441",
+      "project": "Astar Network",
+      "x": "AstarNetwork"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0xfed13d0c40790220fbde712987079eda1ed75c51",
+      "project": "Bitlayer",
+      "x": "BitlayerLabs"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH",
+      "project": "Dexlab",
+      "x": "Dexlab_official"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0x5ba9bfffb868859064c33d4f995a0828b2b1d2d3",
+      "project": "Dexlab",
+      "x": "Dexlab_official"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xea17df5cf6d172224892b5477a16acb111182478",
+      "project": "elizaOS",
+      "x": "elizaos"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
+      "project": "FLock.io",
+      "x": "flock_io"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x6f40d4a6237c257fff2db00fa0510deeecd303eb",
+      "project": "Fluid",
+      "x": "0xfluid"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
+      "project": "Frankencoin",
+      "x": "frankencoinzchf"
     },
     {
       "chain": "solana-mainnet",
@@ -44,6 +110,24 @@
       "address": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
       "project": "Lido",
       "x": "lidofinance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x8236a87084f8b84306f72007f36f2618a5634494",
+      "project": "Lombard",
+      "x": "Lombard_Finance"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xecac9c5f704e954931349da37f60e39f515c11c1",
+      "project": "Lombard",
+      "x": "Lombard_Finance"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+      "project": "Lombard",
+      "x": "Lombard_Finance"
     },
     {
       "chain": "ethereum-mainnet",
@@ -77,9 +161,105 @@
     },
     {
       "chain": "ethereum-mainnet",
+      "address": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0",
+      "project": "Memento",
+      "x": "Memento_Bc"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x7750c092e284e2c7366f50c8306f43c7eb2e82a2",
+      "project": "Overtime",
+      "x": "overtime_io"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x7094c27f342dbadfbbed005b219431595e33b305",
+      "project": "QuickSwap",
+      "x": "QuickswapDEX"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x4e21eabf4fc4cf66f10a93395e4b0e2438de81a6",
+      "project": "Rain Coin",
+      "x": "GetRainCoin"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0xaedaff046601beb063b647845dfb21841f32d6a4",
+      "project": "RIZE",
+      "x": "CarbonZeroCorp"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xd321054982b8aa84785c21e1e2371ebf2e00eb47",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet",
       "address": "0x23238f20b894f29041f48d88ee91131c395aaa71",
       "project": "Saturn",
       "x": "saturn_credit"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x3b86ad95859b6ab773f55f8d94b4b9d443ee931f",
+      "project": "Solv Protocol",
+      "x": "SolvProtocol"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x280839980a7ed0d7717f64125fe241012e5f5815",
+      "project": "Tori Finance",
+      "x": "tori_finance"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0xd0580192e98ea6ceb9c7b6191ed2e27560911697",
+      "project": "Tori Finance",
+      "x": "tori_finance"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "CB9dDufT3ZuQXqqSfa1c5kY935TEreyBw9XJXxHKpump",
+      "project": "Unstable Coin",
+      "x": "usduc_official"
+    },
+    {
+      "chain": "hyperliquid-mainnet",
+      "address": "0x61ef9543f8919bb06e374b3bb58a17725e34f9d9",
+      "project": "Unstable Coin",
+      "x": "usduc_official"
+    },
+    {
+      "chain": "robinhood-mainnet",
+      "address": "0xbbb8ef3181661512ceab66e0b213c29211b24b6c",
+      "project": "Unstable Coin",
+      "x": "usduc_official"
+    },
+    {
+      "chain": "robinhood-mainnet",
+      "address": "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31",
+      "project": "Virtuals Protocol",
+      "x": "virtuals_io"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "WMTXyYKUMTG3VuZA5beXuHVRLpyTwwaoP7h2i8YpuRH",
+      "project": "World Mobile",
+      "x": "WorldMobileTeam"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xe2f9db0186b13668aec9fe0e15dbd13004ed8d6f",
+      "project": "YesNoError",
+      "x": "yesnoerror"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0xf326c8c9a691319f6330e27aa4a39f2d22c88dc5",
+      "project": "Zest Protocol",
+      "x": "ZestProtocol"
     }
   ]
 }

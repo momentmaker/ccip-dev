@@ -1,0 +1,11 @@
+# Source: https://worldmobile.io/blog/post/world-mobile-token-expands-to-solana ("Powered by Chainlink CCIP, this integration makes WMTx available on ... Solana"; links the mint WMTXyYKUMTG3VuZA5beXuHVRLpyTwwaoP7h2i8YpuRH on the Solana explorer)
+name = "World Mobile"
+x = "WorldMobileTeam"
+url = "https://worldmobile.io"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "solana-mainnet"
+address = "WMTXyYKUMTG3VuZA5beXuHVRLpyTwwaoP7h2i8YpuRH"
+source = "https://worldmobile.io/blog/post/world-mobile-token-expands-to-solana"

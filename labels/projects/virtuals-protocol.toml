@@ -1,0 +1,11 @@
+# Source: https://whitepaper.virtuals.io/info-hub/important-links-and-resources/virtuals-protocol-contract-addresses ($VIRTUAL "Robinhood Chain 0xc6911796042b15d7Fa4F6CDe69e245DdCd3d9c31") and https://x.com/virtuals_io/status/2062525455148941497 ("Virtuals Protocol is officially migrating to @Chainlink CCIP"); handle linked from https://www.virtuals.io
+name = "Virtuals Protocol"
+x = "virtuals_io"
+url = "https://www.virtuals.io"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "robinhood-mainnet"
+address = "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31"
+source = "https://whitepaper.virtuals.io/info-hub/important-links-and-resources/virtuals-protocol-contract-addresses"

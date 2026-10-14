@@ -1,0 +1,16 @@
+# Source: https://docs.tori.finance/resources/contracts ("trUSD and strUSD support native cross-chain transfers via Chainlink CCIP using the Cross-Chain Token (CCT) standard"; Ethereum addresses)
+name = "Tori Finance"
+x = "tori_finance"
+url = "https://tori.finance"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x280839980a7ed0d7717f64125fe241012e5f5815"
+source = "https://docs.tori.finance/resources/contracts"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0xd0580192e98ea6ceb9c7b6191ed2e27560911697"
+source = "https://docs.tori.finance/resources/contracts"

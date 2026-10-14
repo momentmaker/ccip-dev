@@ -1,0 +1,22 @@
+# Source: https://docs.lombard.finance/learn/products/assets (LBTC contract addresses) and https://docs.lombard.finance/use/bridging ("Lombard uses Chainlink CCIP for secure cross-chain transfers"; Base and Solana are CCIP lanes)
+name = "Lombard"
+x = "Lombard_Finance"
+url = "https://www.lombard.finance"
+kind = "issuer"
+verified = true
+
+# LBTC has no CCIP registry group in ccip.dev's copy, so each chain's copy is listed.
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x8236a87084f8b84306f72007f36f2618a5634494"
+source = "https://docs.lombard.finance/learn/products/assets"
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0xecac9c5f704e954931349da37f60e39f515c11c1"
+source = "https://docs.lombard.finance/learn/products/assets"
+
+[[tokens]]
+chain = "solana-mainnet"
+address = "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY"
+source = "https://docs.lombard.finance/learn/products/assets"
