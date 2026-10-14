@@ -4,7 +4,7 @@ import { formatCompactCount, formatCount, formatFeeTotal, formatLinkAmount, form
 import type { RecordKind } from '@ccip-dev/core/records';
 import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, RecordFacts, ReserveFacts, WeeklyFacts } from './facts';
 import type { Player } from './tags';
-import { xLength } from './x-length';
+import { oneCashtag, xLength } from './x-length';
 
 export const X_MAX = 280;
 export const TELEGRAM_CAPTION_MAX = 1024;
@@ -290,7 +290,7 @@ export interface Copy {
 /** Telegram counts its 1,024 after removing tags; measuring the raw HTML is stricter, so a caption that passes here always fits. */
 export function composeCopy(facts: BroadcastFacts): Copy {
   return {
-    xText: fitLines(xLines(facts), (t) => xLength(t) <= X_MAX),
+    xText: oneCashtag(fitLines(xLines(facts), (t) => xLength(t) <= X_MAX)),
     telegramHtml: fitLines(telegramLines(facts), (t) => t.length <= TELEGRAM_CAPTION_MAX),
   };
 }

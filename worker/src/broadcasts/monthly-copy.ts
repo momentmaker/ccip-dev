@@ -3,7 +3,7 @@ import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUsdDown } fr
 import type { RecordKind } from '@ccip-dev/core/records';
 import { bold, fitLines, noLinks, plural, shortDay, TELEGRAM_CAPTION_MAX, tgText, X_MAX, type Copy, type Line } from './copy';
 import type { MonthlyFacts } from './monthly';
-import { xLength } from './x-length';
+import { oneCashtag, xLength } from './x-length';
 
 /** When the post is too long, its detail lines (New on CCIP, and on Telegram the records and the lane) go first, then the hashtags. */
 export const MONTHLY_DROP = { detail: 1, closing: 2 } as const;
@@ -60,7 +60,7 @@ function monthlyTelegram(f: MonthlyFacts): Line[] {
 /** The monthly video's X text and Telegram caption: no @ tags and no links. */
 export function composeMonthlyCopy(f: MonthlyFacts): Copy {
   return {
-    xText: fitLines(monthlyX(f), (t) => xLength(t) <= X_MAX),
+    xText: oneCashtag(fitLines(monthlyX(f), (t) => xLength(t) <= X_MAX)),
     telegramHtml: fitLines(monthlyTelegram(f), (t) => t.length <= TELEGRAM_CAPTION_MAX),
   };
 }

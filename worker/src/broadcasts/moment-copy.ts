@@ -6,7 +6,7 @@ import type { Poll } from '@ccip-dev/core/public';
 import { arrow, bold, fitLines, longDay, noLinks, plural, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
 import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
 import type { Player } from './tags';
-import { xLength } from './x-length';
+import { oneCashtag, xLength } from './x-length';
 
 /** When a moment post is too long, its detail line (climbers, partners) goes first, then its closing line. */
 export const MOMENT_DROP = { detail: 1, closing: 2 } as const;
@@ -281,5 +281,5 @@ function momentTelegram(f: MomentFacts): Line[] {
 /** A moment's X text and Telegram caption. The poll has no X draft, so its X text is empty. */
 export function composeMomentCopy(f: MomentFacts): Copy {
   const xText = f.kind === 'poll' ? '' : f.kind === 'roundup' ? roundupXText(f) : fitLines(momentX(f), fitsX);
-  return { xText, telegramHtml: fitLines(momentTelegram(f), fitsTelegram) };
+  return { xText: oneCashtag(xText), telegramHtml: fitLines(momentTelegram(f), fitsTelegram) };
 }

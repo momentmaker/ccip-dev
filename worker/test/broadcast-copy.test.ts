@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { composeCopy, fitLines, noLinks, TELEGRAM_CAPTION_MAX, X_MAX } from '../src/broadcasts/copy';
 import type { DailyFacts, MilestoneFacts, RecordFacts, ReserveFacts, WeeklyFacts } from '../src/broadcasts/facts';
-import { xLength } from '../src/broadcasts/x-length';
+import { cashtags, xLength } from '../src/broadcasts/x-length';
 
 const p = (name: string, x: string | null = null) => ({ name, x });
 const DAILY: DailyFacts = {
@@ -244,3 +244,15 @@ describe('Telegram captions', () => {
     expect(lines).toContain('1-week average: 85,687 LINK a week ($1.1M)');
   });
 });
+
+describe('X cashtags in the copy', () => {
+  it('posts at most one cashtag, keeping $LINK, when the top token has a short symbol', () => {
+    // #given the 2026-10-13 daily that X refused: a top token whose symbol X reads as a cashtag
+    const facts = { ...DAILY, leaders: { ...DAILY.leaders, token: { ...DAILY.leaders.token!, symbol: 'USDC', project: p('Circle') } } };
+    // #when
+    const { xText } = composeCopy(facts);
+    // #then
+    expect({ tags: cashtags(xText), token: xText.includes('Top token: USDC') }).toEqual({ tags: ['$LINK'], token: true });
+  });
+});
+
