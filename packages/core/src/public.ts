@@ -299,6 +299,25 @@ export const ReplayFileSchema = z.object({
   days: z.array(z.object({ day: z.string(), lanes: z.array(z.tuple([z.number(), z.number(), z.number()])) })),
 });
 
+const ProjectWindowSchema = z.object({ messages: z.number(), usd: z.number(), fee_usd: z.number().nullable(), share_pct: z.number().nullable() });
+
+export const ProjectSchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  x: z.string().nullable(),
+  url: z.string().nullable(),
+  kind: z.string(),
+  source: z.string().nullable(),
+  totals: z.object({ '7d': ProjectWindowSchema, '30d': ProjectWindowSchema, all: ProjectWindowSchema }),
+  series: z.array(z.object({ day: z.string(), messages: z.number() })),
+  chains: z.array(z.string()),
+  lanes: z.array(z.object({ src: z.string(), dst: z.string(), messages: z.number(), usd: z.number() })),
+  split: z.object({ data_messages: z.number(), token_messages: z.number() }),
+  addresses: z.array(z.object({ chain: z.string(), address: z.string(), note: z.string().nullable(), inferred: z.boolean() })),
+});
+
+export const ProjectsFileSchema = z.object({ ...envelope, from: z.string(), to: z.string(), projects: z.array(ProjectSchema) });
+
 export const PUBLIC_SCHEMAS = {
   'status.json': StatusFileSchema,
   'live.json': LiveFileSchema,
@@ -316,6 +335,7 @@ export const PUBLIC_SCHEMAS = {
   'cost.json': CostFileSchema,
   'day-leaders.json': DayLeadersFileSchema,
   'moments.json': MomentsFileSchema,
+  'projects.json': ProjectsFileSchema,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
@@ -348,3 +368,5 @@ export type Spotlight = z.infer<typeof SpotlightSchema>;
 export type MomentsWeek = z.infer<typeof MomentsWeekSchema>;
 export type Poll = z.infer<typeof PollSchema>;
 export type MomentsFile = z.infer<typeof MomentsFileSchema>;
+export type Project = z.infer<typeof ProjectSchema>;
+export type ProjectsFile = z.infer<typeof ProjectsFileSchema>;

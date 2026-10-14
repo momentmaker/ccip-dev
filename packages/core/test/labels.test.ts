@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHandles, buildLabelIndex, labelKey, toChecksumAddress, validateChainHandles, validateRegistry } from '../src/labels';
+import { buildHandles, buildLabelIndex, buildProjectRegistry, labelKey, toChecksumAddress, validateChainHandles, validateRegistry } from '../src/labels';
 
 const chains = new Set(['ethereum-mainnet', 'ethereum-mainnet-base-1']);
 const LINK = '0x514910771AF9Ca656af840dff83E8264EcF986CA';
@@ -164,6 +164,20 @@ describe('slugs, sources and spread', () => {
     expect(index).toEqual({
       [`ethereum-mainnet:${XBRIDGE}`]: { name: 'xStocks', x: 'xStocksFi', kind: 'protocol', slug: 'xstocks', spread: false },
       [`ethereum-mainnet:${LINK.toLowerCase()}`]: { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol', slug: 'maple' },
+    });
+  });
+});
+
+describe('buildProjectRegistry', () => {
+  it('keeps each verified project by slug, with its link, source and lowercased addresses, and leaves drafts out', () => {
+    // #given
+    const draft = project('0x1111111111111111111111111111111111111111').replace('verified = true', 'verified = false');
+    const { projects } = validateRegistry([{ file: 'maple.toml', text: project(LINK) }, { file: '_draft.toml', text: draft }], chains);
+    // #when
+    const registry = buildProjectRegistry(projects);
+    // #then
+    expect(registry).toEqual({
+      maple: { name: 'Maple Finance', x: 'maplefinance', url: null, kind: 'protocol', source: null, addresses: [{ chain: 'ethereum-mainnet', address: LINK.toLowerCase(), note: 'test' }] },
     });
   });
 });

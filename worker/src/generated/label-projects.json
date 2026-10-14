@@ -1,0 +1,526 @@
+{
+  "aave": {
+    "name": "Aave",
+    "x": "aave",
+    "url": "https://aave.com",
+    "kind": "protocol",
+    "source": "https://github.com/aave-dao/stable-vault/blob/main/deployments/prod/earning.json (\"CcipAdapter\"; one CREATE2 address)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072",
+        "note": "Stable-vault CcipAdapter (aave-dao/stable-vault deployments/prod)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072",
+        "note": "Stable-vault CcipAdapter, same CREATE2 address (aave-dao/stable-vault deployments/prod)"
+      }
+    ]
+  },
+  "arbitrum-foundation": {
+    "name": "Arbitrum Foundation",
+    "x": "arbitrum",
+    "url": "https://arbitrum.foundation",
+    "kind": "institution",
+    "source": "https://forum.arbitrum.foundation/t/29619/33 and https://forum.arbitrum.foundation/t/30691/20 (the Foundation's own forum account).",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xac20cd734c65baf48a1476447af7d3e3165dc739",
+        "note": "Foundation Safe for DAO treasury stablecoin strategies"
+      }
+    ]
+  },
+  "astar": {
+    "name": "Astar Network",
+    "x": "AstarNetwork",
+    "url": "https://astar.network",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [
+      {
+        "chain": "polkadot-mainnet-astar",
+        "address": "0x4036a6ff8c1a29677108aef299b560f6e4fa5e71",
+        "note": "CCIP bridge etherSenderReceiverAstar (AstarNetwork/astar-apps, modules/ccip-bridge)"
+      }
+    ]
+  },
+  "auto-finance": {
+    "name": "Auto Finance",
+    "x": "autopools",
+    "url": "https://auto.finance",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x20ea2f2ecf36bcb6df086d923a120496dc616f76",
+        "note": "MessageProxy (docs.auto.finance contract addresses)"
+      }
+    ]
+  },
+  "bifrost": {
+    "name": "Bifrost",
+    "x": "Bifrost",
+    "url": "https://bifrost.io",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [
+      {
+        "chain": "soneium-mainnet",
+        "address": "0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2",
+        "note": "SLPx on Soneium (bifrost-io/slpx-contracts deployments/soneium/SoneiumSlpx.json)"
+      }
+    ]
+  },
+  "bungee": {
+    "name": "Bungee (Socket)",
+    "x": "SocketProtocol",
+    "url": "https://www.socket.tech",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a",
+        "note": "OpenRouter (SocketDotTech/openrouter deployments.csv)"
+      }
+    ]
+  },
+  "chainlink-ccip-tests": {
+    "name": "Chainlink CCIP tests",
+    "x": "chainlink",
+    "url": "https://chain.link",
+    "kind": "protocol",
+    "source": "https://github.com/smartcontractkit/ccip/blob/ccip-develop/integration-tests/ccip-tests/testconfig/override/mainnet.toml",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0xb509c046e1182c7b36d2d9733554bc268716803c",
+        "note": "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0xb509c046e1182c7b36d2d9733554bc268716803c",
+        "note": "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0xb509c046e1182c7b36d2d9733554bc268716803c",
+        "note": "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+      },
+      {
+        "chain": "wemix-mainnet",
+        "address": "0xb509c046e1182c7b36d2d9733554bc268716803c",
+        "note": "Mainnet test dapp (smartcontractkit/ccip ccip-tests mainnet.toml)"
+      }
+    ]
+  },
+  "concero": {
+    "name": "Concero",
+    "x": "concero_io",
+    "url": "https://concero.io",
+    "kind": "protocol",
+    "source": "https://github.com/concero/app.concero.io/blob/master/src/shared/consts/config/poolMainnetAddresses.ts",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x0ae1b2730066ad46481ab0a5fd2b5893f8aba323",
+        "note": "Parent pool on Base (concero/app.concero.io poolMainnetAddresses.ts)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d",
+        "note": "Child pool on Arbitrum (concero/app.concero.io poolMainnetAddresses.ts)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d",
+        "note": "Child pool on Avalanche (concero/app.concero.io poolMainnetAddresses.ts)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0x164c20a4e11cbe0d8b5e23f5ee35675890be280d",
+        "note": "Child pool on Polygon (concero/app.concero.io poolMainnetAddresses.ts)"
+      }
+    ]
+  },
+  "derive": {
+    "name": "Derive",
+    "x": "DeriveXYZ",
+    "url": "https://www.derive.xyz",
+    "kind": "protocol",
+    "source": "https://github.com/derivexyz/derive-bridges/blob/master/test/foundry/Migration.t.sol (DERIVE_SAFE, 3-of-5 Safe v1.4.1).",
+    "addresses": [
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0x169a99b9958386a5d91e732ed08b344946a92391",
+        "note": "Derive 3-of-5 Safe (derive-bridges DERIVE_SAFE)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x169a99b9958386a5d91e732ed08b344946a92391",
+        "note": "Derive 3-of-5 Safe (derive-bridges DERIVE_SAFE)"
+      }
+    ]
+  },
+  "enso": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "url": "https://www.enso.build",
+    "kind": "protocol",
+    "source": "https://github.com/EnsoBuild/shortcuts-client-contracts/tree/main/broadcast/EnsoRouterDeployer.s.sol (43114 and 1)",
+    "addresses": [
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003",
+        "note": "EnsoShortcuts (EnsoBuild/shortcuts-client-contracts broadcast 43114)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003",
+        "note": "EnsoShortcuts (EnsoBuild/shortcuts-client-contracts broadcast 1)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76",
+        "note": "EnsoShortcuts (Enso docs, Monad)"
+      }
+    ]
+  },
+  "folks-finance": {
+    "name": "Folks Finance",
+    "x": "folksfinance",
+    "url": "https://folks.finance",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd",
+        "note": "xChain CCIP Data Adapter (Folks docs, Avalanche)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0x5f2f4771b7dc7e2f7e9c1308b154e1e8957ecab0",
+        "note": "xChain CCIP Token Adapter (Folks docs, Avalanche)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9",
+        "note": "xChain CCIP Data Adapter (Folks docs, Base)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
+        "note": "xChain CCIP Token Adapter (Folks docs, Base)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9",
+        "note": "xChain CCIP Data Adapter (Folks docs, Ethereum)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
+        "note": "xChain CCIP Token Adapter (Folks docs, Ethereum)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
+        "note": "xChain CCIP Data Adapter (Folks docs, BSC)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x802063a23e78d0f5d158feaac605028ee490b03b",
+        "note": "xChain CCIP Token Adapter (Folks docs, BSC)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x7218bd1050d41a9ecfc517abdd294fb8116aee81",
+        "note": "xChain CCIP Data Adapter (Folks docs, Arbitrum)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x0700b2cb26688c035bd5dbbda070be408c20779c",
+        "note": "xChain CCIP Token Adapter (Folks docs, Arbitrum)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
+        "note": "xChain CCIP Data Adapter (Folks docs, Polygon)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0xc7bc4a43384f84b8fc937ab58173edab23a4c3cd",
+        "note": "xChain CCIP Token Adapter (Folks docs, Polygon)"
+      },
+      {
+        "chain": "sei-mainnet",
+        "address": "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9",
+        "note": "xChain CCIP Data Adapter (Folks docs, Sei)"
+      },
+      {
+        "chain": "sei-mainnet",
+        "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
+        "note": "xChain CCIP Token Adapter (Folks docs, Sei)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0xeb48a1ee43b91959a1686b70b7cd482c65de69c9",
+        "note": "xChain CCIP Data Adapter (Folks docs, Monad)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x5c60f12838b8e3eeb525f299cd7c454c989dd04e",
+        "note": "xChain CCIP Token Adapter (Folks docs, Monad)"
+      }
+    ]
+  },
+  "forever-money": {
+    "name": "Forever Money",
+    "x": "forevermoney_ai",
+    "url": "https://forevermoney.ai",
+    "kind": "protocol",
+    "source": "https://github.com/ForeverMoney-Ai/bridge-contracts/blob/main/README.md",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x1da2415229b614c787e145d1d7346eb496319c52",
+        "note": "Spoke gateway (ForeverMoney-Ai/forevermoney-sdk src/chains/deployment.ts)"
+      },
+      {
+        "chain": "bittensor-mainnet",
+        "address": "0xd5fa238aa4177f6c1341491969d9cbeec94eed69",
+        "note": "AlphaGateway v6 hub (ForeverMoney-Ai/bridge-contracts README)"
+      },
+      {
+        "chain": "bittensor-mainnet",
+        "address": "0xcd0c6d98d0a126b1c113d15b4c28f38321437787",
+        "note": "AlphaGateway v5 hub (ForeverMoney-Ai/bridge-contracts README)"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0xf27fda637131e25b2a1b4865ed9597d881980c7e",
+        "note": "SpokeGateway v5 (ForeverMoney-Ai/bridge-contracts README)"
+      }
+    ]
+  },
+  "frankencoin": {
+    "name": "Frankencoin",
+    "x": "frankencoinzchf",
+    "url": "https://frankencoin.com",
+    "kind": "issuer",
+    "source": "https://frankencoin.com/token/ (Token Contract per chain)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xf98c221661f51578f5e5236b189a493e2a8a1916",
+        "note": "TransferReference (Frankencoin-ZCHF/Frankencoin exports/address.config.ts)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
+        "note": "Bridged Frankencoin ZCHF (frankencoin.com/token)"
+      },
+      {
+        "chain": "gnosis_chain-mainnet",
+        "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
+        "note": "Bridged Frankencoin ZCHF (frankencoin.com/token)"
+      }
+    ]
+  },
+  "glacis": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "url": "https://www.glacislabs.com",
+    "kind": "protocol",
+    "source": "https://docs.glacislabs.com/airlift/supported-chains-and-tokens (Airlift address table)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
+        "note": "Airlift (Glacis docs, supported chains)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
+        "note": "Airlift (Glacis docs, supported chains)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
+        "note": "Airlift (Glacis docs, supported chains)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
+        "note": "Airlift (Glacis docs, supported chains)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x290d54179960984599f16f77dcda81320301b158",
+        "note": "Airlift (Glacis docs, supported chains)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
+        "note": "Airlift (Glacis docs, supported chains)"
+      }
+    ]
+  },
+  "huma-finance": {
+    "name": "Huma Finance",
+    "x": "humafinance",
+    "url": "https://huma.finance",
+    "kind": "issuer",
+    "source": null,
+    "addresses": []
+  },
+  "kinetiq": {
+    "name": "Kinetiq",
+    "x": "kinetiq_xyz",
+    "url": "https://kinetiq.xyz",
+    "kind": "issuer",
+    "source": null,
+    "addresses": []
+  },
+  "lido": {
+    "name": "Lido",
+    "x": "lidofinance",
+    "url": "https://lido.fi",
+    "kind": "issuer",
+    "source": "https://docs.lido.fi/deployed-contracts/#ccip-direct-staking-base",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x328de900860816d29d1367f6903a24d8ed40c997",
+        "note": "CCIP Direct Staking CustomSenderReferral (Lido docs, Base)"
+      }
+    ]
+  },
+  "maple-finance": {
+    "name": "Maple Finance",
+    "x": "maplefinance",
+    "url": "https://maple.finance",
+    "kind": "issuer",
+    "source": null,
+    "addresses": []
+  },
+  "mellow": {
+    "name": "Mellow",
+    "x": "Mellowprotocol",
+    "url": "https://mellow.finance",
+    "kind": "protocol",
+    "source": null,
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xe02cf8d7b3ce12fc0626346bca160b548525d807",
+        "note": "rUSDG vault subvault (mellow-finance/flexible-vaults scripts/jsons)"
+      }
+    ]
+  },
+  "saturn": {
+    "name": "Saturn",
+    "x": "saturn_credit",
+    "url": "https://saturn.credit",
+    "kind": "issuer",
+    "source": null,
+    "addresses": []
+  },
+  "stake-dao": {
+    "name": "Stake DAO",
+    "x": "StakeDAOHQ",
+    "url": "https://www.stakedao.org",
+    "kind": "protocol",
+    "source": "https://github.com/stake-dao/laposte (README deployment table: same address on all five chains)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xf0000058000021003e4754dca700c766de7601c2",
+        "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0xf0000058000021003e4754dca700c766de7601c2",
+        "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0xf0000058000021003e4754dca700c766de7601c2",
+        "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0xf0000058000021003e4754dca700c766de7601c2",
+        "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xf0000058000021003e4754dca700c766de7601c2",
+        "note": "LaPoste cross-chain messenger (stake-dao/laposte README)"
+      }
+    ]
+  },
+  "xstocks": {
+    "name": "xStocks",
+    "x": "xStocksFi",
+    "url": "https://xstocks.fi",
+    "kind": "protocol",
+    "source": "https://api.xstocks.fi/api/v2/public/bridges (xStocks public API, documented at https://docs.xstocks.fi/apis/openapi/bridges/list_public_bridges):",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (Ethereum in the xStocks bridges API)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (Arbitrum in the xStocks bridges API)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (Optimism in the xStocks bridges API)"
+      },
+      {
+        "chain": "ethereum-mainnet-mantle-1",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (Mantle in the xStocks bridges API)"
+      },
+      {
+        "chain": "ethereum-mainnet-ink-1",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (Ink in the xStocks bridges API)"
+      },
+      {
+        "chain": "ethereum-mainnet-xlayer-1",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (XLayer in the xStocks bridges API)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (BinanceSmartChain in the xStocks bridges API)"
+      },
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (HyperEVM in the xStocks bridges API)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b",
+        "note": "xBridge (Monad in the xStocks bridges API)"
+      },
+      {
+        "chain": "solana-mainnet",
+        "address": "A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u",
+        "note": "xBridge sender for Solana program F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN"
+      }
+    ]
+  }
+}

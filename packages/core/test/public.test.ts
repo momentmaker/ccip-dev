@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, MomentsFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
+import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, MomentsFileSchema, ProjectsFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -28,6 +28,24 @@ const envelope = { schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', at
 const emptyStatus = { ...envelope, last_ingest_ok_at: null, lag_seconds: null, last_finalize_day: null, coverage_from: null };
 
 describe('public file schemas', () => {
+
+  it('parses projects.json and lists it among the public files', () => {
+    // #given
+    const window = { messages: 319, usd: 0, fee_usd: 79.75, share_pct: 20.3 };
+    const doc = {
+      ...envelope, from: '2026-09-14', to: '2026-10-13',
+      projects: [{
+        slug: 'xstocks', name: 'xStocks', x: 'xStocksFi', url: 'https://xstocks.fi', kind: 'protocol', source: null,
+        totals: { '7d': window, '30d': window, all: window }, series: [{ day: '2026-10-13', messages: 319 }], chains: ['1'],
+        lanes: [{ src: '1', dst: '2', messages: 2, usd: 0 }], split: { data_messages: 2, token_messages: 1 },
+        addresses: [{ chain: '1', address: '0xa', note: null, inferred: true }],
+      }],
+    };
+    // #when
+    const parsed = ProjectsFileSchema.parse(doc);
+    // #then
+    expect({ slug: parsed.projects[0]?.slug, listed: PUBLIC_SCHEMAS['projects.json'] === ProjectsFileSchema }).toEqual({ slug: 'xstocks', listed: true });
+  });
   it('reads identity fields on top entries and leaders, and still reads files without them', () => {
     // #given an identity entry, and the per-chain entry an older file holds
     const identity = { key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 0, fee_usd: 79.75, x: 'xStocksFi', kind: 'protocol', inferred: false, chains: ['1', '2'], addresses: 2, share_pct: 20.3 };

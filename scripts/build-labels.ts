@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { buildHandles, buildLabelIndex, validateChainHandles, validateRegistry } from '@ccip-dev/core';
+import { buildHandles, buildLabelIndex, buildProjectRegistry, validateChainHandles, validateRegistry } from '@ccip-dev/core';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -28,6 +28,9 @@ if (process.argv.includes('--check')) {
   const index = buildLabelIndex(projects);
   await writeFile(path.join(generated, 'labels.json'), `${JSON.stringify(index, null, 2)}\n`);
   console.log(`wrote ${Object.keys(index).length} verified address label(s) to worker/src/generated/labels.json`);
+  const registry = buildProjectRegistry(projects);
+  await writeFile(path.join(generated, 'label-projects.json'), `${JSON.stringify(registry, null, 2)}\n`);
+  console.log(`wrote ${Object.keys(registry).length} verified project(s) to worker/src/generated/label-projects.json`);
   const handles = buildHandles(projects, chainHandles);
   await writeFile(path.join(generated, 'handles.json'), `${JSON.stringify(handles, null, 2)}\n`);
   console.log(`wrote ${Object.keys(handles.chains).length} chain handle(s) and ${handles.tokens.length} token handle(s) to worker/src/generated/handles.json`);

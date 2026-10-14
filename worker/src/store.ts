@@ -765,6 +765,25 @@ export async function messagesByDay(db: D1Database, fromDay: string, toDay: stri
   return new Map(results.map((r) => [r.day, r.messages]));
 }
 
+export interface SenderLaneRow {
+  key: string;
+  dst_chain: string;
+  messages: number;
+  usd_value: number;
+  data_messages: number;
+}
+
+/** Messages by sender key and destination over [?1, ?2], for the keys in the JSON list ?3, with how many carried no tokens. */
+export const SENDER_LANES_SQL = `SELECT src_chain || ':' || sender AS key, dst_chain, COUNT(*) AS messages, SUM(usd_value) AS usd_value,
+    SUM(CASE WHEN token_count = 0 THEN 1 ELSE 0 END) AS data_messages
+  FROM messages WHERE day >= ?1 AND day <= ?2 AND (src_chain || ':' || sender) IN (SELECT value FROM json_each(?3))
+  GROUP BY src_chain, sender, dst_chain ORDER BY key, dst_chain`;
+
+export async function senderLanes(db: D1Database, fromDay: string, toDay: string, keys: readonly string[]): Promise<SenderLaneRow[]> {
+  const { results } = await db.prepare(SENDER_LANES_SQL).bind(fromDay, toDay, JSON.stringify(keys)).all<SenderLaneRow>();
+  return results;
+}
+
 export interface FirstDayRow {
   key: string;
   first_day: string;

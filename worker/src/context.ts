@@ -1,11 +1,11 @@
 import {
-  createCcipClient, createCoingeckoClient, createPricesClient, type CcipClient, type CoingeckoClient, type Handles, type LabelIndex, type PricesClient,
+  createCcipClient, createCoingeckoClient, createPricesClient, type CcipClient, type CoingeckoClient, type Handles, type LabelIndex, type PricesClient, type ProjectRegistry,
 } from '@ccip-dev/core';
 import { createAlerter, type Alert } from './alerts';
 import type { Deps } from './deps';
 import type { Env } from './env';
 import { bundledHandles } from './handles';
-import { bundledLabels } from './labels';
+import { bundledLabels, bundledProjects } from './labels';
 
 export interface RunContext {
   env: Env;
@@ -16,12 +16,13 @@ export interface RunContext {
   alert: Alert;
   labels: LabelIndex;
   handles: Handles;
+  projects: ProjectRegistry;
 }
 
 export function createRunContext(
   env: Env,
   deps: Deps,
-  overrides: Partial<Pick<RunContext, 'ccip' | 'prices' | 'coingecko' | 'alert' | 'labels' | 'handles'>> = {},
+  overrides: Partial<Pick<RunContext, 'ccip' | 'prices' | 'coingecko' | 'alert' | 'labels' | 'handles' | 'projects'>> = {},
 ): RunContext {
   return {
     env,
@@ -32,5 +33,6 @@ export function createRunContext(
     alert: overrides.alert ?? createAlerter(env.DB, { token: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_ALERT_CHAT_ID }, deps),
     labels: overrides.labels ?? bundledLabels,
     handles: overrides.handles ?? bundledHandles,
+    projects: overrides.projects ?? bundledProjects,
   };
 }

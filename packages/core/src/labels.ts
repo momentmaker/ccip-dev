@@ -175,3 +175,32 @@ export function buildHandles(projects: LabelProject[], chains: ChainHandles): Ha
     }),
   };
 }
+
+export interface RegistryEntry {
+  name: string;
+  x: string | null;
+  url: string | null;
+  kind: LabelProject['kind'];
+  source: string | null;
+  addresses: { chain: string; address: string; note: string | null }[];
+}
+
+export type ProjectRegistry = Record<string, RegistryEntry>;
+
+export function buildProjectRegistry(projects: readonly RegistryProject[]): ProjectRegistry {
+  return Object.fromEntries(
+    projects
+      .filter((p) => p.verified)
+      .map((p): [string, RegistryEntry] => [
+        p.slug,
+        {
+          name: p.name,
+          x: p.x ?? null,
+          url: p.url ?? null,
+          kind: p.kind,
+          source: p.source,
+          addresses: p.addresses.map((a) => ({ chain: a.chain, address: normalizeAddress(a.address), note: a.note ?? null })),
+        },
+      ]),
+  );
+}

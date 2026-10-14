@@ -3,6 +3,7 @@ import { TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Lea
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
+import { buildProjects } from './projects';
 import { rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
 import * as store from './store';
 
@@ -10,7 +11,7 @@ export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'a
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
-export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, cost: 300, leaders: 300, moments: 300, chains: 3600, tokens: 3600 } as const;
+export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, cost: 300, leaders: 300, moments: 300, projects: 300, chains: 3600, tokens: 3600 } as const;
 
 const LIVE_WINDOW_MINUTES = 15;
 
@@ -445,6 +446,12 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
     await putJson(c.env.PUBLIC, 'moments.json', await buildMoments(c, { lastDay: addDays(dayOf(now), -1), days }), TTL.moments, now);
   } catch (err) {
     await c.alert('moments-publish', `moments.json was not published: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  try {
+    await putJson(c.env.PUBLIC, 'projects.json', await buildProjects(c, addDays(dayOf(now), -1)), TTL.projects, now);
+  } catch (err) {
+    await c.alert('projects-publish', `projects.json was not published: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   const today = dayOf(now);
