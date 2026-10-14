@@ -919,10 +919,32 @@ describe('senders via token', () => {
     // #when
     await publishLiveFiles(harness({ now: '2026-10-14T10:00:00.000Z', labelTokens: LABEL_TOKENS, projects: { elizaos: ELIZA } }).c);
     // #then
-    expect((await readPublic('today.json')).top.sender.map((e: Entry) => [e.key, e.messages, e.via_token])).toEqual([
-      ['project:elizaos', 2, true],
-      [`address:${W3}`, 1, false],
+    expect((await readPublic('today.json')).top.sender.map((e: Entry) => [e.key, e.messages, e.via_token, e.x])).toEqual([
+      ['project:elizaos', 2, true, null],
+      [`address:${W3}`, 1, false, null],
     ]);
+  });
+
+  it("never shows the token's project as the sender in live.json", async () => {
+    // #given W1 bridged elizaOS's token a minute before the run
+    await store.upsertListRows(
+      env.DB,
+      [liveRow({ id: 't1', sendTs: '2026-10-14T09:59:00.000Z', sender: W1 }, { origin: W1, token_count: 1 })],
+      [{ message_id: 't1', idx: 0, chain: BASE, token: ELIZA_BASE, amount: '1', usd_value: null }],
+    );
+    // #when
+    await publishLiveFiles(harness({ now: '2026-10-14T10:00:00.000Z', labelTokens: LABEL_TOKENS, projects: { elizaos: ELIZA } }).c);
+    // #then
+    expect((await readPublic('live.json')).messages.map((m: { id: string; sender_label: string | null }) => [m.id, m.sender_label])).toEqual([['t1', null]]);
+  });
+
+  it('publishes a coverage stored before the via-token shares without them', async () => {
+    // #given
+    await store.setMeta(env.DB, 'label_coverage', JSON.stringify({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, window: '7d' }));
+    // #when
+    await publishLiveFiles(context());
+    // #then
+    expect((await readPublic('status.json')).label_coverage).toEqual({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, window: '7d' });
   });
 
   it('keeps the via-token fields when each changed file is parsed by its public schema', async () => {
