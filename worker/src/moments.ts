@@ -4,7 +4,7 @@ import {
   type ChainArrival, type LaneArrival, type MomentsBody, type PollData, type PollResult, type TokenArrival,
 } from '@ccip-dev/core/moments';
 import { chainName, chainNameMap, laneLabel, type ChainNames } from '@ccip-dev/core/names';
-import type { BoardEntry, DayTotals, MomentsWeek, Poll, ProjectSpotlight, Spotlight } from '@ccip-dev/core/public';
+import type { BoardEntry, DayTotals, MomentsWeek, Poll, ProjectSpotlight, SenderArrival, Spotlight } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { senderArrivals, senderBook, type SenderBook } from './senders';
 import * as store from './store';
@@ -62,7 +62,7 @@ export async function buildMoments(c: RunContext, { lastDay, days }: MomentsInpu
       chains: chainArrivals(chainFirst, recentLanes, since),
       lanes: laneArrivals(lanes, recentLanes, since),
       tokens: await tokenArrivals(c, since, lastDay),
-      senders: await senderArrivals(c, since, lastDay),
+      senders: await senderArrivalsSafely(c, since, lastDay),
     },
     weeks,
     countdowns: countdownsOf(days),
@@ -183,7 +183,7 @@ async function momentWeeks(c: RunContext, lastDay: string, chainFirst: ReadonlyM
       await top(dim, order, addDays(monday, -7), BOARD_SIZE),
     );
   const picks = await spotlightPicksFor(db, mondays, latest, chainFirst);
-  const projects = projectWeeks(c, await senderBook(c));
+  const projects = await projectSpotlights(c);
   const weeks: MomentsWeek[] = [];
   for (const monday of mondays) {
     const pick = picks.get(monday) ?? null;
@@ -195,10 +195,42 @@ async function momentWeeks(c: RunContext, lastDay: string, chainFirst: ReadonlyM
         lanes: await board('lane', 'value', monday, (r) => cents(r.usd_value), () => null),
       },
       spotlight: pick === null ? null : await spotlightOf(c, top, monday, pick),
-      project: await projectSpotlightOf(projects, monday),
+      project: await projects(monday),
     });
   }
   return weeks;
+}
+
+/** New senders are one moment among many, so a failure alerts and leaves them out of moments.json. */
+async function senderArrivalsSafely(c: RunContext, since: string, lastDay: string): Promise<SenderArrival[]> {
+  try {
+    return await senderArrivals(c, since, lastDay);
+  } catch (err) {
+    await c.alert('moments-sender-arrivals', `New senders were left out of moments.json: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
+}
+
+/** Each week's project spotlight; the first failure alerts once, and that week and every later one has none. */
+async function projectSpotlights(c: RunContext): Promise<(monday: string) => Promise<ProjectSpotlight | null>> {
+  const alertLeftOut = (err: unknown) =>
+    c.alert('moments-project-spotlight', `Project spotlights were left out of moments.json: ${err instanceof Error ? err.message : String(err)}`);
+  let weeks: ProjectWeeks | null = null;
+  try {
+    weeks = projectWeeks(c, await senderBook(c));
+  } catch (err) {
+    await alertLeftOut(err);
+  }
+  return async (monday) => {
+    if (weeks === null) return null;
+    try {
+      return await projectSpotlightOf(weeks, monday);
+    } catch (err) {
+      weeks = null;
+      await alertLeftOut(err);
+      return null;
+    }
+  };
 }
 
 type ProjectWeeks = (monday: string) => Promise<IdentityTotals[]>;
@@ -228,7 +260,7 @@ async function projectSpotlightOf(weeks: ProjectWeeks, monday: string): Promise<
     key: p.key,
     slug: p.slug,
     name: p.label,
-    x: p.x,
+    x: p.inferred ? null : p.x,
     kind: p.kind,
     inferred: p.inferred,
     messages: p.messages,

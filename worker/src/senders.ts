@@ -111,7 +111,7 @@ export async function senderArrivals(c: RunContext, since: string, lastDay: stri
     out.push({
       key: identity.key,
       label: identity.label,
-      x: identity.x,
+      x: identity.inferred ? null : identity.x,
       kind: identity.kind,
       inferred: identity.inferred,
       day,

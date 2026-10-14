@@ -279,6 +279,56 @@ describe('moments.json project spotlight', () => {
     });
   });
 
+  it('publishes no x handle for a project whose label was spread from another chain', async () => {
+    // #given Alpha is labeled on Ethereum only, and its sends are on Base
+    const spread = { [`ethereum-mainnet:${ALPHA}`]: labels[`ethereum-mainnet-base-1:${ALPHA}`] };
+    // #when
+    const { weeks } = await buildMoments(harness({ now: NOW, labels: spread }).c, { lastDay: LAST_DAY, days: [] });
+    // #then
+    expect({ inferred: weeks.at(-1)!.project?.inferred, x: weeks.at(-1)!.project?.x }).toEqual({ inferred: true, x: null });
+  });
+
+  it('publishes no x handle for a new sender whose label was spread from another chain', async () => {
+    // #given
+    const spread = { [`ethereum-mainnet:${ALPHA}`]: labels[`ethereum-mainnet-base-1:${ALPHA}`] };
+    await store.insertArrivals(env.DB, 'sender', ['project:alpha'], '2026-10-06T00:00:00.000Z', null);
+    // #when
+    const { arrivals } = await buildMoments(harness({ now: NOW, labels: spread }).c, { lastDay: LAST_DAY, days: [] });
+    // #then
+    expect(arrivals.senders!.map((a) => [a.key, a.inferred, a.x])).toEqual([['project:alpha', true, null]]);
+  });
+
+  it('still builds the other moments, with one alert, when the new senders cannot be read', async () => {
+    // #given
+    const failing = vi.spyOn(store, 'senderArrivalsSince').mockRejectedValue(new Error('D1 unavailable'));
+    const { c, alerts } = harness({ now: NOW, labels });
+    // #when
+    const moments = await buildMoments(c, { lastDay: LAST_DAY, days: [] });
+    failing.mockRestore();
+    // #then
+    expect({ senders: moments.arrivals.senders, weeks: moments.weeks.length, project: moments.weeks.at(-1)!.project?.key, alerts }).toEqual({
+      senders: [],
+      weeks: 8,
+      project: 'project:alpha',
+      alerts: [{ signature: 'moments-sender-arrivals', text: 'New senders were left out of moments.json: D1 unavailable' }],
+    });
+  });
+
+  it('still builds the other moments, with one alert, when the project spotlights cannot be read', async () => {
+    // #given
+    const failing = vi.spyOn(store, 'senderTotalsOf').mockRejectedValue(new Error('D1 unavailable'));
+    const { c, alerts } = harness({ now: NOW, labels });
+    // #when
+    const moments = await buildMoments(c, { lastDay: LAST_DAY, days: [] });
+    failing.mockRestore();
+    // #then
+    expect({ projects: moments.weeks.map((w) => w.project), weeks: moments.weeks.length, alerts }).toEqual({
+      projects: Array(8).fill(null),
+      weeks: 8,
+      alerts: [{ signature: 'moments-project-spotlight', text: 'Project spotlights were left out of moments.json: D1 unavailable' }],
+    });
+  });
+
   it('spotlights no project in a week without labeled senders', async () => {
     // #when
     const { weeks } = await buildMoments(harness({ now: NOW }).c, { lastDay: LAST_DAY, days: [] });
