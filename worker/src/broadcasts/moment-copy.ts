@@ -1,10 +1,10 @@
-import { addDays } from '@ccip-dev/core';
+import { addDays, newcomerSpanWords } from '@ccip-dev/core';
 import { formatCount, formatFeeTotal, formatShare, formatUsd } from '@ccip-dev/core/format';
 import { calledShare, type BoardName, type Countdown } from '@ccip-dev/core/moments';
 import { formatProgressUsd, formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
 import type { Poll } from '@ccip-dev/core/public';
-import { arrow, bold, fitLines, longDay, noLinks, plural, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
-import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
+import { arrow, bold, fitLines, longDay, noLinks, plural, postDay, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
+import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, NewcomerFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -60,6 +60,28 @@ function welcomeTg(f: WelcomeFacts): Line[] {
     { text: `${chain} is chain ${bold(`#${f.number}`)} on CCIP. Its first message was on ${longDay(f.day)}.` },
     { text: `First day: ${bold(formatCount(f.messages))} message${f.messages === 1 ? '' : 's'}${moved === null ? '' : ` and ${bold(moved)} moved`}.` },
     ...(f.partners.length > 0 ? [{ text: `Connected to ${andList(f.partners.slice(0, 3).map(tgName))}.`, drop: MOMENT_DROP.detail }] : []),
+    { text: '' },
+    { text: CLOSING_TG, drop: MOMENT_DROP.closing },
+  ];
+}
+
+const newcomerSpanText = (f: NewcomerFacts) => newcomerSpanWords(f.firstDay, f.day, shortDay);
+
+function newcomerX(f: NewcomerFacts): Line[] {
+  return [
+    { text: `🆕 New on #CCIP: ${subject(f.sender)} sent ${plural(f.total, 'message')} ${newcomerSpanText(f)}` },
+    { text: `#${f.rank} sender on ${postDay(f.day)}${f.chains.length > 1 ? ` · ${plural(f.chains.length, 'chain')}` : ''}` },
+    ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, plain)}`, drop: MOMENT_DROP.detail }] : []),
+    { text: '#Chainlink $LINK', drop: MOMENT_DROP.closing },
+  ];
+}
+
+function newcomerTg(f: NewcomerFacts): Line[] {
+  const name = tgName(f.sender);
+  return [
+    { text: bold(`New on CCIP: ${name}`) },
+    { text: `${name} sent ${bold(formatCount(f.total))} message${f.total === 1 ? '' : 's'} ${newcomerSpanText(f)}, and was the #${f.rank} sender on ${longDay(f.day)}.` },
+    ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, tgName)}`, drop: MOMENT_DROP.detail }] : []),
     { text: '' },
     { text: CLOSING_TG, drop: MOMENT_DROP.closing },
   ];
@@ -252,6 +274,8 @@ function momentX(f: Exclude<MomentFacts, PollFacts | RoundupFacts>): Line[] {
   switch (f.kind) {
     case 'welcome':
       return welcomeX(f);
+    case 'newcomer':
+      return newcomerX(f);
     case 'countdown':
       return countdownX(f);
     case 'movers':
@@ -265,6 +289,8 @@ function momentTelegram(f: MomentFacts): Line[] {
   switch (f.kind) {
     case 'welcome':
       return welcomeTg(f);
+    case 'newcomer':
+      return newcomerTg(f);
     case 'countdown':
       return countdownTg(f);
     case 'movers':

@@ -27,6 +27,7 @@ describe('card paths', () => {
     ['broadcast/movers/2026-10-05', { kind: 'broadcast', target: { kind: 'movers', monday: '2026-10-05' } }],
     ['broadcast/spotlight/2026-10-05', { kind: 'broadcast', target: { kind: 'spotlight', monday: '2026-10-05' } }],
     ['broadcast/roundup/2026-10-05', { kind: 'broadcast', target: { kind: 'roundup', monday: '2026-10-05' } }],
+    ['broadcast/newcomer/project/xstocks', { kind: 'broadcast', target: { kind: 'newcomer', key: 'project:xstocks' } }],
   ] as [string, CardRoute][])('parses %s and prints it back', (path, route) => {
     expect(parseCardPath(path)).toEqual(route);
     expect(cardPathOf(route)).toBe(path);

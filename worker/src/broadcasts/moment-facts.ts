@@ -1,8 +1,8 @@
-import { addDays, dayOf } from '@ccip-dev/core';
+import { addDays, dayOf, parseSenderKey, senderKeyAddress } from '@ccip-dev/core';
 import type { MomentTarget } from '@ccip-dev/core/broadcasts';
 import { moversOf, roundupOf, type BoardName, type Climber, type Countdown, type MomentsBody } from '@ccip-dev/core/moments';
 import { shortAddress } from '@ccip-dev/core/names';
-import type { BoardEntry, Poll, Spotlight } from '@ccip-dev/core/public';
+import type { BoardEntry, Poll, SenderArrival, Spotlight } from '@ccip-dev/core/public';
 import type { RunContext } from '../context';
 import { buildMoments } from '../moments';
 import { historyDays } from '../publish';
@@ -18,6 +18,23 @@ export interface WelcomeFacts {
   usd: number;
   /** By first-day value. */
   partners: Player[];
+}
+
+export interface NewcomerFacts {
+  kind: 'newcomer';
+  key: string;
+  /** The post's subject: tagged by its handle only as a verified project, never through a spread label. */
+  sender: Player;
+  /** The project's page, or null for an address. */
+  slug: string | null;
+  day: string;
+  firstDay: string;
+  rank: number;
+  /** Its messages on `day`. */
+  messages: number;
+  /** Its messages from its first day through `day`. */
+  total: number;
+  chains: Player[];
 }
 
 export interface CountdownFacts {
@@ -76,9 +93,9 @@ export interface PollFacts {
   last: Poll | null;
 }
 
-export type MomentFacts = WelcomeFacts | CountdownFacts | MoversFacts | SpotlightFacts | RoundupFacts | PollFacts;
+export type MomentFacts = WelcomeFacts | NewcomerFacts | CountdownFacts | MoversFacts | SpotlightFacts | RoundupFacts | PollFacts;
 
-const MOMENT_FACT_KINDS: ReadonlySet<string> = new Set<MomentFacts['kind']>(['welcome', 'countdown', 'movers', 'spotlight', 'roundup', 'poll']);
+const MOMENT_FACT_KINDS: ReadonlySet<string> = new Set<MomentFacts['kind']>(['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'roundup', 'poll']);
 
 export function isMomentFacts(facts: { kind: string }): facts is MomentFacts {
   return MOMENT_FACT_KINDS.has(facts.kind);
@@ -148,6 +165,22 @@ function roundupFacts(src: MomentsSource, monday: string): RoundupFacts | null {
   };
 }
 
+function newcomerFacts(tags: Tagger, a: SenderArrival): NewcomerFacts {
+  const parsed = parseSenderKey(a.key);
+  return {
+    kind: 'newcomer',
+    key: a.key,
+    sender: { name: a.label ?? shortAddress(senderKeyAddress(a.key)), x: a.inferred ? null : a.x },
+    slug: parsed.kind === 'project' ? parsed.slug : null,
+    day: a.day,
+    firstDay: a.first_day,
+    rank: a.rank,
+    messages: a.messages,
+    total: a.total_messages,
+    chains: a.chains.map((s) => tags.chain(s)),
+  };
+}
+
 /** The facts of one moment, or null when the data does not hold it. */
 export function momentFacts(src: MomentsSource, target: MomentTarget): MomentFacts | null {
   const { moments, tags } = src;
@@ -155,6 +188,10 @@ export function momentFacts(src: MomentsSource, target: MomentTarget): MomentFac
     case 'welcome': {
       const a = moments.arrivals.chains.find((c) => c.selector === target.selector);
       return a ? { kind: 'welcome', selector: a.selector, chain: tags.chain(a.selector), number: a.number, day: a.day, messages: a.messages, usd: a.usd, partners: a.partners.map((p) => tags.chain(p)) } : null;
+    }
+    case 'newcomer': {
+      const a = (moments.arrivals.senders ?? []).find((s) => s.key === target.key);
+      return a ? newcomerFacts(tags, a) : null;
     }
     case 'countdown': {
       const countdown = moments.countdowns.find((c) => c.metric === target.metric && c.threshold === target.threshold);

@@ -251,3 +251,11 @@ export function newcomerSpan(firstDay: string, day: string): 'first-day' | 'firs
   if (firstDay === day) return 'first-day';
   return firstDay >= addDays(day, -6) ? 'first-week' : 'since';
 }
+
+const SPAN_WORDS = { 'first-day': 'on its first day', 'first-week': 'in its first week' } as const;
+
+/** The words a post or card puts after a newcomer's message count; `formatDay` words the date of the "since" form. */
+export function newcomerSpanWords(firstDay: string, day: string, formatDay: (day: string) => string): string {
+  const span = newcomerSpan(firstDay, day);
+  return span === 'since' ? `since ${formatDay(firstDay)}` : SPAN_WORDS[span];
+}

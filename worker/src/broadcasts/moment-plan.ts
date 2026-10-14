@@ -1,5 +1,5 @@
 import { addDays, weekStart } from '@ccip-dev/core';
-import { broadcastKey, BUDGETED_MOMENTS, type BudgetedMoment, type MomentTarget } from '@ccip-dev/core/broadcasts';
+import { broadcastKey, BUDGETED_MOMENTS, newcomerPathOk, type BudgetedMoment, type MomentTarget } from '@ccip-dev/core/broadcasts';
 import { moversOf, roundupOf, type MomentsBody } from '@ccip-dev/core/moments';
 
 export const MOMENTS_PER_DAY = 2;
@@ -25,6 +25,10 @@ export function dueMoments(m: MomentsBody, today: string): DueMoment[] {
     const due = addDays(c.day, 1);
     if (inWindow(due)) out.push({ target: { kind: 'welcome', selector: c.selector }, due });
   }
+  for (const s of m.arrivals.senders ?? []) {
+    const due = addDays(s.day, 1);
+    if (inWindow(due) && newcomerPathOk(s.key)) out.push({ target: { kind: 'newcomer', key: s.key }, due });
+  }
   for (const c of m.countdowns) {
     if (c.days_left >= COUNTDOWN_DAYS.min && c.days_left <= COUNTDOWN_DAYS.max) out.push({ target: { kind: 'countdown', metric: c.metric, threshold: c.threshold }, due: today });
   }
@@ -42,8 +46,8 @@ export function dueMoments(m: MomentsBody, today: string): DueMoment[] {
 }
 
 /**
- * The moments to post now: those not already sent or seeded, welcome first, then countdown, movers, spotlight and New
- * on CCIP (an older one first within a kind), as many as today's budget still allows.
+ * The moments to post now: those not already sent or seeded, welcome first, then a new sender, countdown, movers, spotlight and the
+ * weekly New on CCIP (an older one first within a kind), as many as today's budget still allows.
  */
 export function pickMoments(due: readonly DueMoment[], o: { done: ReadonlySet<string>; sentToday: number }): DueMoment[] {
   return due

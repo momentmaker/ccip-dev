@@ -16,6 +16,7 @@ import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph, withArrows } from './glyphs';
 import { countdownTree, welcomeTree } from './moment-cards';
 import { skyNodes } from './orbit-sky';
+import { newcomerTree } from './project-cards';
 import { reserveTree } from './reserve-card';
 import { pollTree, roundupTree } from './week-cards';
 
@@ -242,6 +243,8 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return reserveTree(target.tx, inputs.load);
     case 'welcome':
       return welcomeTree(target.selector, inputs);
+    case 'newcomer':
+      return newcomerTree(target.key, inputs);
     case 'countdown':
       return countdownTree(target.metric, target.threshold, inputs);
     case 'movers':

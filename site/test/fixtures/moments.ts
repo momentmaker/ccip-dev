@@ -41,6 +41,9 @@ export const MOMENTS: MomentsFile = {
       { key: 'usdat', symbol: 'USDat', day: '2026-10-07', chains: [ETH], usd: 5_000 },
       { key: `${BASE}:0xp`, symbol: 'PST', day: '2026-10-09', chains: [BASE], usd: 700 },
     ],
+    senders: [
+      { key: 'project:xstocks', label: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false, day: '2026-10-11', first_day: '2026-10-09', rank: 1, messages: 319, total_messages: 520, chains: [ETH, BASE] },
+    ],
   },
   weeks: [
     {

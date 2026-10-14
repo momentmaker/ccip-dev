@@ -100,6 +100,23 @@ describe('momentFacts', () => {
     expect(facts?.kind === 'poll' ? [facts.poll.question_kind, facts.last?.answer, facts.last?.votes] : null).toEqual(['fees_change', '2', [38, 62]]);
   });
 
+  it('describes a new sender, tagging a verified project and never one credited through a spread label', () => {
+    // #given xStocks, and a project known only through a spread label
+    const arrival = { key: 'project:xstocks', label: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false, day: '2026-10-13', first_day: '2026-10-09', rank: 1, messages: 319, total_messages: 520, chains: ['2', '1'] };
+    const src = { ...SRC, moments: { ...MOMENTS, arrivals: { ...MOMENTS.arrivals, senders: [arrival, { ...arrival, key: 'project:spread', label: 'Spread', x: 'spread', inferred: true }] } } };
+    // #when
+    const xstocks = momentFacts(src, { kind: 'newcomer', key: 'project:xstocks' });
+    const spread = momentFacts(src, { kind: 'newcomer', key: 'project:spread' });
+    // #then
+    expect({ xstocks, spread: spread?.kind === 'newcomer' ? spread.sender : null }).toEqual({
+      xstocks: {
+        kind: 'newcomer', key: 'project:xstocks', sender: { name: 'xStocks', x: 'xStocksFi' }, slug: 'xstocks', day: '2026-10-13', firstDay: '2026-10-09',
+        rank: 1, messages: 319, total: 520, chains: [{ name: 'Base', x: 'base' }, { name: 'Ethereum', x: 'ethereum' }],
+      },
+      spread: { name: 'Spread', x: null },
+    });
+  });
+
   it('has no facts for a moment the data does not hold', () => {
     expect([
       momentFacts(SRC, { kind: 'welcome', selector: '1' }),
@@ -108,7 +125,8 @@ describe('momentFacts', () => {
       momentFacts(SRC, { kind: 'spotlight', monday: '2026-09-28' }),
       momentFacts(SRC, { kind: 'roundup', monday: '2026-09-28' }),
       momentFacts(SRC, { kind: 'poll', monday: '2026-10-19' }),
-    ]).toEqual([null, null, null, null, null, null]);
+      momentFacts(SRC, { kind: 'newcomer', key: 'project:nobody' }),
+    ]).toEqual([null, null, null, null, null, null, null]);
   });
 });
 

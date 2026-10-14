@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Label, LabelIndex } from '../src/labels';
-import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, newcomerSpan, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
+import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, newcomerSpan, newcomerSpanWords, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
 import {
   BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_LABEL, XSTOCKS_LABELS, XSTOCKS_SENDER_ROWS, XSTOCKS_TOTALS,
 } from '../src/testing';
@@ -239,5 +239,16 @@ describe('new on CCIP', () => {
   ] as const)('says a first message on %s came %s', (firstDay, span) => {
     // #then
     expect(newcomerSpan(firstDay, DAY)).toBe(span);
+  });
+});
+
+describe('newcomerSpanWords', () => {
+  it.each([
+    ['2026-10-13', 'on its first day'],
+    ['2026-10-07', 'in its first week'],
+    ['2026-09-20', 'since Sep 20'],
+  ] as const)('words a first message on %s as "%s"', (firstDay, words) => {
+    // #then
+    expect(newcomerSpanWords(firstDay, '2026-10-13', (d) => `Sep ${d.slice(8)}`.replace(/^Sep 0/, 'Sep '))).toBe(words);
   });
 });

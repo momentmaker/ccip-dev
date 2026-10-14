@@ -2,7 +2,7 @@ import type { Poll } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { TELEGRAM_CAPTION_MAX, X_MAX } from '../src/broadcasts/copy';
 import { composeMomentCopy } from '../src/broadcasts/moment-copy';
-import type { CountdownFacts, MoversFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from '../src/broadcasts/moment-facts';
+import type { CountdownFacts, MoversFacts, NewcomerFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from '../src/broadcasts/moment-facts';
 import { xLength } from '../src/broadcasts/x-length';
 
 const p = (name: string, x: string | null = null) => ({ name, x });
@@ -51,6 +51,10 @@ const ROUNDUP: RoundupFacts = {
   ],
   network: { chains: 93, lanes: 933 },
   lastWeek: false,
+};
+const NEWCOMER: NewcomerFacts = {
+  kind: 'newcomer', key: 'project:xstocks', sender: p('xStocks', 'xStocksFi'), slug: 'xstocks', day: '2026-10-13', firstDay: '2026-10-13', rank: 1, messages: 319, total: 319,
+  chains: [p('Solana', 'solana'), p('Ink', 'inkonchain'), p('X Layer', 'XLayerOfficial'), p('BNB Chain', 'BNBCHAIN'), p('Ethereum', 'ethereum'), p('HyperEVM')],
 };
 const LAST: Poll = {
   week: '2026-10-05', question_kind: 'fee_chain', question: 'Which chain will pay the most CCIP fees this week?',
@@ -328,5 +332,45 @@ describe('moment links', () => {
       mention: texts.some((t) => /@scam/.test(t)),
       neutralized: texts.some((t) => t.includes('AIRDROP@\u200bscam')) && texts.some((t) => t.includes('pump\u2024fun')),
     }).toEqual({ links: [], mention: false, neutralized: true });
+  });
+});
+
+describe('the new sender moment', () => {
+  it('writes the X post with the subject tagged, its first day, its rank and its chains', () => {
+    // #then
+    expect(composeMomentCopy(NEWCOMER).xText).toBe(
+      ['🆕 New on #CCIP: @xStocksFi sent 319 messages on its first day', '#1 sender on Tue, Oct 13 · 6 chains', 'Chains: Solana · Ink · X Layer · +3 more', '#Chainlink $LINK'].join('\n'),
+    );
+  });
+
+  it('says the same on Telegram with names and a bold count', () => {
+    // #then
+    expect(composeMomentCopy(NEWCOMER).telegramHtml).toBe(
+      [
+        '<b>New on CCIP: xStocks</b>',
+        'xStocks sent <b>319</b> messages on its first day, and was the #1 sender on Tue, Oct 13, 2026.',
+        'Chains: Solana · Ink · X Layer · +3 more',
+        '',
+        '#CCIP #Chainlink $LINK',
+      ].join('\n'),
+    );
+  });
+
+  it('tags only the subject, and no one for an unlabeled address, which it names by its short form', () => {
+    // #given
+    const address: NewcomerFacts = { ...NEWCOMER, key: 'address:0x671be08d6d3c826c2f6d76915f1b54af484d4077', sender: p('0x671b…4077'), slug: null, total: 76, firstDay: '2026-10-08', chains: [p('Base', 'base')] };
+    // #when
+    const [project, unlabeled] = [NEWCOMER, address].map((f) => composeMomentCopy(f).xText);
+    // #then
+    expect([project!.match(/@\w+/g), unlabeled!.match(/@\w+/g), unlabeled!.split('\n').slice(0, 2)]).toEqual([
+      ['@xStocksFi'],
+      null,
+      ['🆕 New on #CCIP: 0x671b…4077 sent 76 messages in its first week', '#1 sender on Tue, Oct 13'],
+    ]);
+  });
+
+  it('counts from the first message when it came over a week before', () => {
+    // #then
+    expect(composeMomentCopy({ ...NEWCOMER, firstDay: '2026-09-20', total: 2_400 }).xText.split('\n')[0]).toBe('🆕 New on #CCIP: @xStocksFi sent 2,400 messages since Sep 20');
   });
 });

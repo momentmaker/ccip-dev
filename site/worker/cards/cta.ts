@@ -18,6 +18,7 @@ export const RESERVE_CTA: Cta = { lead: 'Track it:', path: 'ccip.dev/reserve' };
 export const CHAINS_CTA: Cta = { lead: 'Every chain:', path: 'ccip.dev/chains' };
 export const BOARDS_CTA: Cta = { lead: 'Every board:', path: 'ccip.dev/top/chain/7d/fees' };
 export const REPLAY_CTA: Cta = { lead: 'Watch every lane:', path: 'ccip.dev/replay' };
+export const SENDERS_CTA: Cta = { lead: 'Every sender:', path: 'ccip.dev/top/sender/7d' };
 export const HISTORY_CTA: Cta = { lead: 'Every week:', path: 'ccip.dev/history' };
 
 /** Be The Oracle joins the rotation at its launch, set here with its call to action; until then it stays out. */

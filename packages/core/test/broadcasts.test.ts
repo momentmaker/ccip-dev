@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  allTimeTotal, broadcastCardPath, broadcastKey, dayTotalsFacts, parseBroadcastPath, recordDriver, recordValueText, reserveDepositFacts, weekTotalsFacts, type BroadcastTarget,
+  allTimeTotal, broadcastCardPath, broadcastKey, dayTotalsFacts, newcomerPathOk, parseBroadcastPath, recordDriver, recordValueText, reserveDepositFacts, weekTotalsFacts, type BroadcastTarget,
 } from '../src/broadcasts';
 import type { DayTotals, TransferView } from '../src/public';
 import type { RecordSet } from '../src/records';
@@ -23,6 +23,12 @@ describe('broadcast keys and card paths', () => {
     [{ kind: 'movers', monday: '2026-10-05' }, 'broadcast:movers:2026-10-05', 'broadcast/movers/2026-10-05'],
     [{ kind: 'spotlight', monday: '2026-10-05' }, 'broadcast:spotlight:2026-10-05', 'broadcast/spotlight/2026-10-05'],
     [{ kind: 'roundup', monday: '2026-10-05' }, 'broadcast:roundup:2026-10-05', 'broadcast/roundup/2026-10-05'],
+    [{ kind: 'newcomer', key: 'project:xstocks' }, 'broadcast:newcomer:project:xstocks', 'broadcast/newcomer/project/xstocks'],
+    [
+      { kind: 'newcomer', key: 'address:0x671be08d6d3c826c2f6d76915f1b54af484d4077' },
+      'broadcast:newcomer:address:0x671be08d6d3c826c2f6d76915f1b54af484d4077',
+      'broadcast/newcomer/address/0x671be08d6d3c826c2f6d76915f1b54af484d4077',
+    ],
   ];
 
   it.each(targets)('keys, prints and parses back %o', (target, key, path) => {
@@ -37,8 +43,14 @@ describe('broadcast keys and card paths', () => {
     'broadcast/record/fees/2026-07-09/x', 'broadcast/milestone/fees/0', 'broadcast/milestone/fees/1e6', 'broadcast/reserve/0xABC', 'daily/2026-10-10',
     'broadcast/welcome/0123', 'broadcast/welcome/base', 'broadcast/countdown/link_share/100', 'broadcast/countdown/fees/0', 'broadcast/movers/2026-10-06',
     'broadcast/poll/2026-10-12/x', 'broadcast/roundup/2026-02-30',
+    'broadcast/newcomer/project/XStocks', 'broadcast/newcomer/robot/x', 'broadcast/newcomer/address/a_b', 'broadcast/newcomer/project',
   ])('rejects %s', (path) => {
     expect(parseBroadcastPath(path.split('/'))).toBeNull();
+  });
+
+  it('plans a newcomer only when its key can be a card path', () => {
+    // #then
+    expect(['project:xstocks', 'address:A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u', 'address:a:b', 'address:a/b', 'address:a_b'].map(newcomerPathOk)).toEqual([true, true, false, false, false]);
   });
 
   it('keys the monthly video, which has no card path', () => {

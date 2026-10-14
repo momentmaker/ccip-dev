@@ -46,7 +46,7 @@ const MOMENTS: MomentsBody = {
   ],
   polls: [],
 };
-const due = (today: string) => dueMoments(MOMENTS, today).map((d) => `${d.target.kind}:${'selector' in d.target ? d.target.selector : 'monday' in d.target ? d.target.monday : d.target.metric}@${d.due}`);
+const due = (today: string) => dueMoments(MOMENTS, today).map((d) => `${d.target.kind}:${'selector' in d.target ? d.target.selector : 'monday' in d.target ? d.target.monday : 'key' in d.target ? d.target.key : d.target.metric}@${d.due}`);
 
 describe('dueMoments', () => {
   it('plans each moment on its day: a welcome the day after the first message, movers on Tuesday, the spotlight on Thursday and New on CCIP on Saturday', () => {
@@ -70,6 +70,21 @@ describe('dueMoments', () => {
     const tuesday = dueMoments(MOMENTS, '2026-10-06').map((d) => d.target.kind);
     // #then of the countdowns 1, 7 and 8 days out, only the one 7 days out is planned
     expect(tuesday).toEqual(['countdown']);
+  });
+
+  it('plans a new sender the day after its day, and never one whose key cannot be a card path', () => {
+    // #given
+    const arrival = (key: string) => ({ key, label: null, x: null, kind: null, inferred: false, day: '2026-10-13', first_day: '2026-10-13', rank: 1, messages: 30, total_messages: 30, chains: [] });
+    const m: MomentsBody = { ...MOMENTS, arrivals: { ...MOMENTS.arrivals, chains: [], senders: [arrival('project:xstocks'), arrival('address:a:b')] } };
+    // #when
+    const due = dueMoments(m, '2026-10-14').flatMap((d) => (d.target.kind === 'newcomer' ? [[d.target.key, d.due]] : []));
+    // #then
+    expect(due).toEqual([['project:xstocks', '2026-10-14']]);
+  });
+
+  it('plans no new sender from a moments.json published before senders', () => {
+    // #then MOMENTS has no arrivals.senders
+    expect(dueMoments(MOMENTS, '2026-10-14').some((d) => d.target.kind === 'newcomer')).toBe(false);
   });
 });
 
@@ -96,6 +111,13 @@ describe('pickMoments', () => {
     const picked = pickMoments(ALL, { done: new Set(['broadcast:welcome:a', 'broadcast:welcome:b', 'broadcast:countdown:fees:1000000']), sentToday: 0 });
     // #then
     expect(keys(picked)).toEqual(['movers', 'spotlight']);
+  });
+
+  it('takes a new sender right after a welcome and before a countdown', () => {
+    // #when
+    const picked = pickMoments([d({ kind: 'countdown', metric: 'fees', threshold: 1e6 }, '2026-10-15'), d({ kind: 'newcomer', key: 'project:xstocks' }, '2026-10-15'), d({ kind: 'welcome', selector: 'a' }, '2026-10-15')], { done: new Set(), sentToday: 0 });
+    // #then
+    expect(keys(picked)).toEqual(['welcome:a', 'newcomer']);
   });
 });
 

@@ -11,6 +11,7 @@ export type BroadcastTarget =
   | { kind: 'milestone'; metric: MilestoneMetric; threshold: number }
   | { kind: 'reserve'; tx: string }
   | { kind: 'welcome'; selector: string }
+  | { kind: 'newcomer'; key: string }
   | { kind: 'countdown'; metric: MilestoneMetric; threshold: number }
   | { kind: 'poll'; monday: string }
   | { kind: 'movers'; monday: string }
@@ -18,7 +19,7 @@ export type BroadcastTarget =
   | { kind: 'roundup'; monday: string };
 
 /** The moments the daily budget counts, in the order they take its places. The poll is not among them: it always posts. */
-export const BUDGETED_MOMENTS = ['welcome', 'countdown', 'movers', 'spotlight', 'roundup'] as const;
+export const BUDGETED_MOMENTS = ['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'roundup'] as const;
 export type BudgetedMoment = (typeof BUDGETED_MOMENTS)[number];
 export type MomentTarget = Extract<BroadcastTarget, { kind: BudgetedMoment | 'poll' }>;
 
@@ -47,6 +48,8 @@ export function broadcastKey(t: PostTarget): string {
       return `broadcast:reserve:${t.tx}`;
     case 'welcome':
       return `broadcast:welcome:${t.selector}`;
+    case 'newcomer':
+      return `broadcast:newcomer:${t.key}`;
     case 'countdown':
       return `broadcast:countdown:${t.metric}:${t.threshold}`;
     case 'poll':
@@ -72,6 +75,8 @@ export function broadcastCardPath(t: BroadcastTarget): string {
       return `broadcast/reserve/${t.tx}`;
     case 'welcome':
       return `broadcast/welcome/${t.selector}`;
+    case 'newcomer':
+      return `broadcast/newcomer/${t.key.replace(':', '/')}`;
     case 'countdown':
       return `broadcast/countdown/${t.metric}/${t.threshold}`;
     case 'poll':
@@ -85,6 +90,9 @@ export function broadcastCardPath(t: BroadcastTarget): string {
 const TX_RE = /^0x[0-9a-f]{64}$/;
 const THRESHOLD_RE = /^[1-9]\d{0,15}$/;
 const SELECTOR_RE = /^[1-9]\d{0,19}$/;
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** EVM and base58 addresses; an address of another shape gets no newcomer card. */
+const NEWCOMER_ADDRESS_RE = /^[0-9A-Za-z]{1,128}$/;
 const WEEKLY_MOMENTS = ['poll', 'movers', 'spotlight', 'roundup'] as const;
 const oneOf = <T extends string>(list: readonly T[], value: string | undefined): value is T => value !== undefined && (list as readonly string[]).includes(value);
 
@@ -99,8 +107,14 @@ export function parseBroadcastPath(parts: readonly string[]): BroadcastTarget | 
   if (kind === 'reserve' && b === undefined && TX_RE.test(a)) return { kind: 'reserve', tx: a };
   if (kind === 'welcome' && b === undefined && SELECTOR_RE.test(a)) return { kind: 'welcome', selector: a };
   if (kind === 'countdown' && oneOf(MILESTONE_METRICS, a) && b !== undefined && THRESHOLD_RE.test(b)) return { kind: 'countdown', metric: a, threshold: Number(b) };
+  if (kind === 'newcomer' && b !== undefined && ((a === 'project' && SLUG_RE.test(b)) || (a === 'address' && NEWCOMER_ADDRESS_RE.test(b)))) return { kind: 'newcomer', key: `${a}:${b}` };
   if (oneOf(WEEKLY_MOMENTS, kind) && b === undefined && isDay(a) && weekStart(a) === a) return { kind, monday: a };
   return null;
+}
+
+/** A newcomer can post only when its card path parses back to it. */
+export function newcomerPathOk(key: string): boolean {
+  return parseBroadcastPath(broadcastCardPath({ kind: 'newcomer', key }).split('/')) !== null;
 }
 
 export interface Delta {
