@@ -8,7 +8,7 @@ import { parse } from 'smol-toml';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BUSY_WALLET_MESSAGES, candidateHints, chainGapQuery, classify, classifySolana, contractName, coverageMarkdown, coverageWindows, detailsQuery, draftFileName, draftToml, escapeMarkdownCell, groupCandidates,
-  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, solanaSendProgram, CCIP_ROUTER_SOLANA, spreadMarkdown,
+  handleGaps, handleGapsMarkdown, handleGroupQuery, identityCandidateQuery, keepCandidate, loadEndpointMaps, messageStatsQuery, newcomerQuery, newcomerRowsQuery, pairHints, prBody, receiversQuery, registryGroupsQuery, tokensToClaimMarkdown, tokensToClaimQuery, viaTokenCreditsQuery, solanaSendProgram, CCIP_ROUTER_SOLANA, spreadMarkdown,
   spreadReport, summarizeDetails, tokenGapQuery, unlabeledRows, withNewcomerRows, type Candidate, type CandidateReportRow, type CandidateRow,
 } from '../label-candidates';
 
@@ -121,7 +121,7 @@ describe('handle gaps', () => {
     const db = new DatabaseSync(':memory:');
     db.exec(`
       CREATE TABLE daily_breakdown (day TEXT, dim TEXT, key TEXT, messages INTEGER, usd_value REAL, fee_usd REAL);
-      CREATE TABLE tokens (chain TEXT, address TEXT, symbol TEXT, group_id TEXT);
+      CREATE TABLE tokens (chain TEXT, address TEXT, symbol TEXT, name TEXT, group_id TEXT);
       CREATE TABLE chains (selector TEXT, name TEXT);
     `);
     const breakdown = db.prepare('INSERT INTO daily_breakdown VALUES (?, ?, ?, 1, ?, ?)');
@@ -132,7 +132,7 @@ describe('handle gaps', () => {
     // #given two tokens this week and a bigger one before the window
     const { db, breakdown } = tables();
     db.prepare('INSERT INTO chains VALUES (?, ?)').run('1', 'ethereum-mainnet');
-    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?)').run('1', '0xAbC', 'syrupUSDC', 'syrup');
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)').run('1', '0xAbC', 'syrupUSDC', 'Syrup USDC', 'syrup');
     breakdown.run('2026-10-01', 'token', '1:0xabc', 600, null);
     breakdown.run('2026-10-02', 'token', '1:0xabc', 400, null);
     breakdown.run('2026-10-02', 'token', '1:0xdef', 900, null);
@@ -142,8 +142,8 @@ describe('handle gaps', () => {
     const rows = db.prepare(q.sql).all(...q.params) as any[];
     // #then
     expect(rows.map((r) => ({ ...r }))).toEqual([
-      { key: '1:0xabc', usd: 1000, symbol: 'syrupUSDC', group_id: 'syrup', chain_name: 'ethereum-mainnet' },
-      { key: '1:0xdef', usd: 900, symbol: null, group_id: null, chain_name: 'ethereum-mainnet' },
+      { key: '1:0xabc', usd: 1000, symbol: 'syrupUSDC', name: 'Syrup USDC', group_id: 'syrup', chain_name: 'ethereum-mainnet' },
+      { key: '1:0xdef', usd: 900, symbol: null, name: null, group_id: null, chain_name: 'ethereum-mainnet' },
     ]);
   });
 
@@ -167,7 +167,7 @@ describe('handle gaps', () => {
     // #given
     const { db } = tables();
     db.prepare('INSERT INTO chains VALUES (?, ?)').run('1', 'ethereum-mainnet');
-    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?)').run('1', '0xAbC', 'syrupUSDC', 'syrup');
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)').run('1', '0xAbC', 'syrupUSDC', 'Syrup USDC', 'syrup');
     // #when
     const q = handleGroupQuery([{ chain: 'ethereum-mainnet', address: '0xABC' }]);
     const rows = db.prepare(q.sql).all(...q.params) as any[];
@@ -177,7 +177,7 @@ describe('handle gaps', () => {
 
   it('keeps only the tokens no entry covers, by group or by address, and the chains with no handle', () => {
     // #given
-    const token = (key: string, group: string | null) => ({ key, usd: 1, symbol: 'T', group_id: group, chain_name: 'ethereum-mainnet' });
+    const token = (key: string, group: string | null) => ({ key, usd: 1, symbol: 'T', name: 'Token', group_id: group, chain_name: 'ethereum-mainnet' });
     const handles = { chains: { 'ethereum-mainnet': 'ethereum' }, tokens: [{ chain: 'ethereum-mainnet', address: '0xbbb', project: 'B', x: 'b' }] };
     // #when
     const gaps = handleGaps(
@@ -190,20 +190,91 @@ describe('handle gaps', () => {
     expect({ tokens: gaps.tokens.map((t) => t.key), chains: gaps.chains.map((c) => c.selector) }).toEqual({ tokens: ['1:0xccc'], chains: ['2', '9'] });
   });
 
-  it('writes the gaps for the pull request with escaped cells, and says when there are none', () => {
+  it('writes the chains with no handle for the pull request, and says when there are none', () => {
     // #when
-    const some = handleGapsMarkdown(
-      { tokens: [{ key: '1:0xccc', usd: 1234.5, symbol: 'T|X', group_id: null, chain_name: 'ethereum-mainnet' }], chains: [{ selector: '2', chain_name: 'ethereum-mainnet-base-1' }] },
-    );
-    const none = handleGapsMarkdown({ tokens: [], chains: [] });
+    const some = handleGapsMarkdown({ chains: [{ selector: '2', chain_name: 'ethereum-mainnet-base-1' }] });
+    const none = handleGapsMarkdown({ chains: [] });
     // #then
     expect({
       heading: some.startsWith('## Handles to research'),
-      token: some.includes('| T\\|X | ethereum-mainnet | 0xccc | - | 1,235 |'),
       chain: some.includes('| ethereum-mainnet-base-1 | 2 |'),
+      tokens: some.includes('Token'),
       none: none.includes('Nothing to research this week.'),
-      dated: /\d{4}-\d{2}-\d{2}/.test(some + none),
-    }).toEqual({ heading: true, token: true, chain: true, none: true, dated: false });
+    }).toEqual({ heading: true, chain: true, tokens: false, none: true });
+  });
+
+  it("reads the week's via-token credits with the Worker's own query", () => {
+    // #given two wallets and a labeled one bridged elizaOS's group, and one bridged USDC
+    const { db } = tables();
+    const via = db.prepare("INSERT INTO daily_breakdown VALUES ('2026-10-08', 'via_token', ?, ?, ?, NULL)");
+    via.run('2:0xw1|g-eliza', 5, 50);
+    via.run('2:0xw2|g-eliza', 3, 30);
+    via.run('2:0xlabeled|g-eliza', 7, 70);
+    via.run('2:0xw3|g-usdc', 9, 90);
+    // #when
+    const q = viaTokenCreditsQuery('2026-10-07', '2026-10-13', ['g-eliza'], ['0xlabeled']);
+    const rows = db.prepare(q.sql).all(...(q.params as string[])) as any[];
+    // #then
+    expect(rows.map((r) => ({ ...r }))).toEqual([{ key: '2|g-eliza', messages: 8, usd_value: 80, fee_usd: null }]);
+  });
+
+  it('reads the registry group of each claimed token by selector and address', () => {
+    // #given
+    const { db } = tables();
+    db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)').run('1', '0xe1', 'ELIZA', 'elizaOS', 'g-eliza');
+    // #when
+    const q = registryGroupsQuery(['1:0xe1', '1:0xnone']);
+    const rows = db.prepare(q.sql).all(...(q.params as string[])) as any[];
+    // #then
+    expect(rows.map((r) => ({ ...r }))).toEqual([{ key: '1:0xe1', group_id: 'g-eliza' }]);
+  });
+
+  it('lists the busiest unclaimed token groups by direct sends, each with the token on its busiest chain', () => {
+    // #given elizaOS on two chains (17, mostly Base), USDC 8, a token outside the registry 4, syrup 20 but claimed, and an older USDC week
+    const { db } = tables();
+    for (const [selector, name] of [['1', 'ethereum-mainnet'], ['2', 'ethereum-mainnet-base-1']]) db.prepare('INSERT INTO chains VALUES (?, ?)').run(selector, name);
+    const token = db.prepare('INSERT INTO tokens VALUES (?, ?, ?, ?, ?)');
+    token.run('1', '0xe1', 'ELIZA', 'elizaOS', 'g-eliza');
+    token.run('2', '0xe2', 'ELIZA', 'elizaOS', 'g-eliza');
+    token.run('1', '0xusdc', 'USDC', 'USD Coin', 'g-usdc');
+    token.run('2', '0xsyrup', 'syrupUSDC', 'Syrup USDC', 'g-syrup');
+    const via = db.prepare("INSERT INTO daily_breakdown VALUES (?, 'via_token', ?, ?, ?, NULL)");
+    via.run('2026-10-08', '1:0xw1|g-eliza', 5, 50);
+    via.run('2026-10-08', '2:0xw2|g-eliza', 9, 90);
+    via.run('2026-10-08', '2:0xw3|g-eliza', 3, 30);
+    via.run('2026-10-08', '1:0xw4|g-usdc', 8, 80);
+    via.run('2026-10-08', '2:0xw5|g-syrup', 20, 200);
+    via.run('2026-10-08', '1:0xw6|1:0xloose', 4, 40);
+    via.run('2026-09-01', '1:0xw7|g-usdc', 100, 1000);
+    // #when
+    const q = tokensToClaimQuery('2026-10-07', '2026-10-13', ['g-syrup']);
+    const rows = db.prepare(q.sql).all(...(q.params as (string | number)[])) as any[];
+    // #then
+    expect(rows.map((r) => ({ ...r }))).toEqual([
+      { group_key: 'g-eliza', messages: 17, usd: 170, selector: '2', chain_name: 'ethereum-mainnet-base-1', address: '0xe2', symbol: 'ELIZA', name: 'elizaOS', group_id: 'g-eliza' },
+      { group_key: 'g-usdc', messages: 8, usd: 80, selector: '1', chain_name: 'ethereum-mainnet', address: '0xusdc', symbol: 'USDC', name: 'USD Coin', group_id: 'g-usdc' },
+      { group_key: '1:0xloose', messages: 4, usd: 40, selector: '1', chain_name: 'ethereum-mainnet', address: '0xloose', symbol: null, name: null, group_id: null },
+    ]);
+  });
+
+  it('writes the tokens to claim with explorer links, then the busiest tokens with no handle, and says when there are none', () => {
+    // #given
+    const explorers = { 'ethereum-mainnet-base-1': 'https://base.blockscout.com/' };
+    const eliza = { group_key: 'g-eliza', messages: 17, usd: 170.4, selector: '2', chain_name: 'ethereum-mainnet-base-1', address: '0xe2', symbol: 'EL|ZA', name: 'elizaOS', group_id: 'g-eliza' };
+    const loose = { group_key: '1:0xloose', messages: 4, usd: 40, selector: '1', chain_name: 'ethereum-mainnet', address: '0xloose', symbol: null, name: null, group_id: null };
+    const gap = { key: '1:0xccc', usd: 1234.5, symbol: 'T', name: 'Token', group_id: null, chain_name: 'ethereum-mainnet' };
+    // #when
+    const some = tokensToClaimMarkdown([eliza, loose], [gap], explorers);
+    const none = tokensToClaimMarkdown([], [], explorers);
+    // #then
+    expect({
+      heading: some.startsWith('## Tokens to claim'),
+      claim: some.includes('| EL\\|ZA | elizaOS | ethereum-mainnet-base-1 | 0xe2 | g-eliza | 17 | 170 | [link](https://base.blockscout.com/token/0xe2) |'),
+      loose: some.includes('| - | - | ethereum-mainnet | 0xloose | - | 4 | 40 | - |'),
+      gap: some.includes('| T | Token | ethereum-mainnet | 0xccc | - | 1,235 | - |'),
+      rule: some.includes('USDC, LINK, cbBTC'),
+      none: none.includes('No unclaimed direct sends this week.') && none.includes('Every busy token has a handle.'),
+    }).toEqual({ heading: true, claim: true, loose: true, gap: true, rule: true, none: true });
   });
 });
 
@@ -394,15 +465,15 @@ describe('candidates by identity', () => {
 });
 
 describe('the candidates pull request', () => {
-  it('leads with label coverage and its change in points from last week', () => {
+  it("leads with the status page's coverage line, then each share's change in points from last week", () => {
     // #given
-    const now = { messages_pct: 81.2, usd_pct: 94.4, fees_pct: 90, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d' as const };
-    const before = { messages_pct: 78.2, usd_pct: 95.4, fees_pct: 90, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d' as const };
+    const now = { messages_pct: 81.2, usd_pct: 94.4, fees_pct: 90, via_token_messages_pct: 45.1, via_token_usd_pct: 20, via_token_fees_pct: 30, window: '7d' as const };
+    const before = { messages_pct: 78.2, usd_pct: 95.4, fees_pct: 90, via_token_messages_pct: 40, via_token_usd_pct: 20, via_token_fees_pct: 30, window: '7d' as const };
     const none = { messages_pct: null, usd_pct: null, fees_pct: null, via_token_messages_pct: null, via_token_usd_pct: null, via_token_fees_pct: null, window: '7d' as const };
     // #then
     expect([coverageMarkdown(now, before), coverageMarkdown(now, none), coverageMarkdown(none, before)]).toEqual([
-      'Labeled senders: 81% of messages (+3 points), 94% of value (−1 point), 90% of fees (±0 points) over the last 7 days.',
-      'Labeled senders: 81% of messages, 94% of value, 90% of fees over the last 7 days.',
+      'Labeled: 81% of messages (36% sent by a labeled project, 45% via its token), 94% of value (last 7 days). Since last week: +3 points of messages, −1 point of value, ±0 points of fees.',
+      'Labeled: 81% of messages (36% sent by a labeled project, 45% via its token), 94% of value (last 7 days).',
       'Labeled senders: no messages in the last 7 days.',
     ]);
   });

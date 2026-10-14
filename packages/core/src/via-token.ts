@@ -142,7 +142,7 @@ export function splitViaToken(
 export const VIA_SENDER_KEY = "substr(key, 1, instr(key, '|') - 1)";
 export const VIA_ADDRESS = "substr(key, instr(key, ':') + 1, instr(key, '|') - instr(key, ':') - 1)";
 export const VIA_GROUP = "substr(key, instr(key, '|') + 1)";
-const VIA_SELECTOR = "substr(key, 1, instr(key, ':') - 1)";
+export const VIA_SELECTOR = "substr(key, 1, instr(key, ':') - 1)";
 
 const viaTokenCreditsSql = (withDay: boolean) => {
   const day = withDay ? 'day, ' : '';
@@ -159,6 +159,10 @@ const viaTokenCreditsSql = (withDay: boolean) => {
  */
 export const VIA_TOKEN_CREDITS_SQL = viaTokenCreditsSql(false);
 export const VIA_TOKEN_CREDIT_DAYS_SQL = viaTokenCreditsSql(true);
+
+/** Registry groups, as `<selector>:<address>` keys, for the JSON list of keys ?1: what `tokenClaims` needs to claim by group. */
+export const REGISTRY_GROUPS_SQL = `SELECT chain || ':' || lower(address) AS key, group_id FROM tokens
+  WHERE chain || ':' || lower(address) IN (SELECT value FROM json_each(?1))`;
 
 const VIA_TOKEN_GROUP_OF_FIRST = "COALESCE(t.group_id, mt.chain || ':' || mt.token)";
 
