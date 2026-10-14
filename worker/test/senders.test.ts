@@ -45,6 +45,15 @@ describe('recording new senders', () => {
     expect({ again, rows: (await senderRows()).length }).toEqual({ again: [], rows: 1 });
   });
 
+  it('does not record a project again when one of its addresses was recorded before it was labeled', async () => {
+    // #given the xBridge's EVM address was posted as a bare address in an earlier week
+    await store.insertArrivals(env.DB, 'sender', [`address:${XBRIDGE_EVM}`], '2026-10-09T00:00:00.000Z', null);
+    // #when
+    const keys = await recordSenderArrivals(context(), XSTOCKS_DAY, xstocksBreakdown());
+    // #then
+    expect({ keys, rows: (await senderRows()).map((r) => r.key) }).toEqual({ keys: [], rows: [`address:${XBRIDGE_EVM}`] });
+  });
+
   it('does not count a project new when any of its addresses sent before the last 30 days', async () => {
     // #given the xBridge sent from Ethereum in August
     await store.upsertListRows(env.DB, [firstMessage('x-old', '2026-08-01', NETWORKS.ethereum, XBRIDGE_EVM)], []);

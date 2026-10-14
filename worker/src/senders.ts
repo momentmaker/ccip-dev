@@ -1,5 +1,5 @@
 import {
-  dayStartIso, identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, NEWCOMER_MIN_MESSAGES, NEWCOMER_TOP, projectAddresses,
+  addressKey, dayStartIso, identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, NEWCOMER_MIN_MESSAGES, NEWCOMER_TOP, projectAddresses,
   rankIdentities, senderKeyAddress, type DailyBreakdown, type IdentityOrder, type IdentityResolver, type IdentityTotals, type LabelCoverage, type LabelIndex,
 } from '@ccip-dev/core';
 import type { SenderArrival } from '@ccip-dev/core/public';
@@ -71,6 +71,13 @@ export async function identityFirstDays(c: RunContext, identities: readonly Iden
   return out;
 }
 
+/** The identities already recorded, by their own key or, once labeled, by an `address:` key of any address they hold. */
+async function recordedIdentities(c: RunContext, identities: readonly IdentityTotals[]): Promise<Set<string>> {
+  const keysOf = new Map(identities.map((i) => [i.key, [i.key, ...identityAddresses(c.labels, i).map(addressKey)]]));
+  const existing = await store.existingArrivals(c.env.DB, 'sender', [...new Set([...keysOf.values()].flat())]);
+  return new Set([...keysOf].filter(([, keys]) => keys.some((k) => existing.has(k))).map(([key]) => key));
+}
+
 /** Records the day's new identities (see newcomerPicks) in arrivals, once each, and returns their keys. */
 export async function recordSenderArrivals(c: RunContext, day: string, breakdown: readonly DailyBreakdown[]): Promise<string[]> {
   const db = c.env.DB;
@@ -78,7 +85,7 @@ export async function recordSenderArrivals(c: RunContext, day: string, breakdown
   const identities = mergeIdentities(breakdown.filter((b) => b.dim === 'sender'), book.resolve);
   const top = rankIdentities(identities, 'messages', NEWCOMER_TOP).filter((i) => i.messages >= NEWCOMER_MIN_MESSAGES);
   if (top.length === 0) return [];
-  const recorded = await store.existingArrivals(db, 'sender', top.map((i) => i.key));
+  const recorded = await recordedIdentities(c, top);
   const fresh = top.filter((i) => !recorded.has(i.key));
   if (fresh.length === 0) return [];
   const keys = newcomerPicks(identities, await identityFirstDays(c, fresh), day, recorded).map((p) => p.identity.key);
