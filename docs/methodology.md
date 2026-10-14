@@ -102,7 +102,7 @@
 - **What is posted:** a daily report after each day is finalized, a weekly report on Mondays (Monday–Sunday, UTC), a post for each record or milestone a newly finalized day sets, and one for each Reserve deposit. They go to the Telegram channel @ccipdev and to X.
 - **Same numbers as the site:** posts and their cards use the site's data and number formats. A daily change is against the mean of the 7 days before; a weekly change is against the week before.
 - **Records** follow the Records page's rules: a tie keeps the earlier day, and the LINK share counts days with 100 or more messages. Milestones are the all-time message, value and fee thresholds the Records page lists.
-- **Tags:** an X post tags only the player it is about, and only with an X handle its own website or docs link to; everyone else, and any player without a verified handle, is named. Reserve deposits tag @chainlink.
+- **Tags:** an X post tags only the player it is about, and only with an X handle its own website or docs link to; everyone else, and any player without a verified handle, is named. The daily and weekly top sender is never tagged. Reserve deposits tag @chainlink.
 
 ## Moments
 
@@ -114,7 +114,7 @@ Besides the daily and weekly reports, @ccipdev posts moments: short posts about 
 - **The spotlight** is the chain whose messages (sent and received) grew the most against the week before, among chains with at least 100 messages last week and 50 the week before, and whose first message came no later than the first day of the week before, so a partial first week cannot inflate its rise. A chain is not spotlighted again within 4 weeks.
 - **New on CCIP** lists the lanes and tokens whose first message came Monday to Friday. A token is counted by its registry group, so a token's new chain is not a new token. A lane of a newly welcomed chain is left out.
 - **A new sender** is posted the day after it enters the day's top 10 senders by messages, with 20 or more that day, when its first message on any chain came within the 30 days ending that day. Each sender is posted once. Its count is of its messages since its first day.
-- **The project spotlight** is the labeled project that gained the most messages on the week before, with at least 50 that week; it is posted on the Wednesday after the week. A project with no messages the week before is shown as "none the week before", with no claim that it is its first week.
+- **The project spotlight** is the labeled project that gained the most messages on the week before, with at least 50 that week; it is posted on the Wednesday after the week. The spotlight card shows a project with no messages the week before as "none the week before", with no claim that it is its first week; the post leaves out the growth figure.
 - **The poll** asks, in turn by week, which chain will pay the most fees, whether fees will beat last week's total (by more than 10%, within 10%, or less), or which lane will move the most value. The answer is taken from our data once the week is complete.
 - **Tags:** an X post tags only what it is about (the welcomed chain, the spotlighted chain, the headline chain of the movers when the headline is a chain, the new sender or the spotlighted project), and only with a verified handle. A project credited only through label spread, and any address, is never tagged. Everyone else is named in plain text, and the daily and weekly reports tag no one.
 
