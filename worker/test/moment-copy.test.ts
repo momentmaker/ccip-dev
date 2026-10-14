@@ -2,7 +2,7 @@ import type { Poll } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { TELEGRAM_CAPTION_MAX, X_MAX } from '../src/broadcasts/copy';
 import { composeMomentCopy } from '../src/broadcasts/moment-copy';
-import type { CountdownFacts, MoversFacts, NewcomerFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from '../src/broadcasts/moment-facts';
+import type { CountdownFacts, MoversFacts, NewcomerFacts, PollFacts, ProjectSpotlightFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from '../src/broadcasts/moment-facts';
 import { xLength } from '../src/broadcasts/x-length';
 
 const p = (name: string, x: string | null = null) => ({ name, x });
@@ -55,6 +55,10 @@ const ROUNDUP: RoundupFacts = {
 const NEWCOMER: NewcomerFacts = {
   kind: 'newcomer', key: 'project:xstocks', sender: p('xStocks', 'xStocksFi'), slug: 'xstocks', day: '2026-10-13', firstDay: '2026-10-13', rank: 1, messages: 319, total: 319,
   chains: [p('Solana', 'solana'), p('Ink', 'inkonchain'), p('X Layer', 'XLayerOfficial'), p('BNB Chain', 'BNBCHAIN'), p('Ethereum', 'ethereum'), p('HyperEVM')],
+};
+const PROJECT: ProjectSpotlightFacts = {
+  kind: 'project', monday: '2026-10-05', project: p('xStocks', 'xStocksFi'), slug: 'xstocks', projectKind: 'protocol',
+  messages: 2_100, previous: 1_400, usd: 0, feeUsd: 525, chains: [p('Ethereum', 'ethereum'), p('Base', 'base')],
 };
 const LAST: Poll = {
   week: '2026-10-05', question_kind: 'fee_chain', question: 'Which chain will pay the most CCIP fees this week?',
@@ -195,11 +199,11 @@ describe('moment tags', () => {
 
   it("tags only each post's subject on X: the welcomed chain, the new #1 and the spotlighted chain, and nothing in a countdown or New on CCIP", () => {
     // #given every moment, each naming several players with verified handles
-    const facts = [WELCOME, COUNTDOWN, MOVERS, SPOTLIGHT, ROUNDUP, POLL];
+    const facts = [WELCOME, COUNTDOWN, MOVERS, SPOTLIGHT, ROUNDUP, POLL, PROJECT];
     // #when
     const tagged = facts.map(tags);
     // #then
-    expect(tagged).toEqual([['@tempo'], [], ['@base'], ['@base'], [], []]);
+    expect(tagged).toEqual([['@tempo'], [], ['@base'], ['@base'], [], [], ['@xStocksFi']]);
   });
 
   it('tags the top climber when no board has a new #1, if it is a chain with a verified handle', () => {
@@ -372,5 +376,40 @@ describe('the new sender moment', () => {
   it('counts from the first message when it came over a week before', () => {
     // #then
     expect(composeMomentCopy({ ...NEWCOMER, firstDay: '2026-09-20', total: 2_400 }).xText.split('\n')[0]).toBe('🆕 New on #CCIP: @xStocksFi sent 2,400 messages since Sep 20');
+  });
+});
+
+describe('the project spotlight', () => {
+  it('writes the X post with the project tagged, what it is, its growth and its chains', () => {
+    // #then
+    expect(composeMomentCopy(PROJECT).xText).toBe(
+      [
+        'Project spotlight: @xStocksFi, a protocol, grew the most on #CCIP last week',
+        '2,100 messages (▲ 50% vs the week before) · $525 in fees',
+        'Chains: Ethereum · Base',
+        '#Chainlink $LINK',
+      ].join('\n'),
+    );
+  });
+
+  it('says the same on Telegram', () => {
+    // #then
+    expect(composeMomentCopy(PROJECT).telegramHtml).toBe(
+      [
+        '<b>Project spotlight: xStocks</b>',
+        'xStocks, a protocol, grew the most on CCIP last week: <b>2,100</b> messages (▲ 50% vs the week before).',
+        '<b>$525</b> in fees',
+        'Chains: Ethereum · Base',
+        '',
+        '#CCIP #Chainlink $LINK',
+      ].join('\n'),
+    );
+  });
+
+  it('leaves out the kind it does not know, the change from a week with none, and a value of $0', () => {
+    // #when
+    const [title, figures] = composeMomentCopy({ ...PROJECT, project: p('Newco'), projectKind: 'unknown', previous: 0, feeUsd: null }).xText.split('\n');
+    // #then
+    expect([title, figures]).toEqual(['Project spotlight: Newco grew the most on #CCIP last week', '2,100 messages']);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  calledShare, clip, countdownsOf, isoWeek, moversOf, parsePollRecord, pollAnswer, pollKindFor, pollQuestion, pollRecordKey, rankBoard, roundupOf, spotlightPick,
+  calledShare, clip, countdownsOf, isoWeek, moversOf, parsePollRecord, pollAnswer, pollKindFor, pollQuestion, pollRecordKey, projectSpotlightPick, rankBoard, roundupOf, spotlightPick,
   spotlightPicks, voteShares, type ChainCount, type MomentsBody, type PollData,
 } from '../src/moments';
 import type { BoardEntry, DayTotals, MomentsWeek } from '../src/public';
@@ -296,5 +296,25 @@ describe('parsePollRecord', () => {
     const record = { chat_id: '@ccipdev', message_id: 7, question_kind: 'lane', question: 'Which lane will move the most value this week?', options: [{ key: 'other', label: 'Another lane' }], closed: 'unavailable' };
     // #then
     expect(parsePollRecord(JSON.stringify(record))?.closed).toBe('unavailable');
+  });
+});
+
+describe('projectSpotlightPick', () => {
+  it('picks the project that gained the most messages on the week before, with 50 or more this week', () => {
+    // #then b grew more in percent, a in messages; c is under 50
+    expect(projectSpotlightPick([{ key: 'a', messages: 300, previous: 100 }, { key: 'b', messages: 120, previous: 10 }, { key: 'c', messages: 49, previous: 0 }])).toBe('a');
+  });
+
+  it('picks no project that shrank or stayed flat, and none from an empty week', () => {
+    // #then
+    expect([projectSpotlightPick([{ key: 'a', messages: 300, previous: 300 }, { key: 'b', messages: 60, previous: 90 }]), projectSpotlightPick([])]).toEqual([null, null]);
+  });
+
+  it('breaks a tie in gain by more messages, then by key', () => {
+    // #then
+    expect([
+      projectSpotlightPick([{ key: 'a', messages: 150, previous: 50 }, { key: 'b', messages: 300, previous: 200 }]),
+      projectSpotlightPick([{ key: 'b', messages: 100, previous: 0 }, { key: 'a', messages: 100, previous: 0 }]),
+    ]).toEqual(['b', 'a']);
   });
 });

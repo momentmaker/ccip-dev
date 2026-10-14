@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Label, LabelIndex } from '../src/labels';
-import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, newcomerSpan, newcomerSpanWords, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
+import { identityResolver, kindPhrase, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, newcomerSpan, newcomerSpanWords, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
 import {
   BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_LABEL, XSTOCKS_LABELS, XSTOCKS_SENDER_ROWS, XSTOCKS_TOTALS,
 } from '../src/testing';
@@ -250,5 +250,12 @@ describe('newcomerSpanWords', () => {
   ] as const)('words a first message on %s as "%s"', (firstDay, words) => {
     // #then
     expect(newcomerSpanWords(firstDay, '2026-10-13', (d) => `Sep ${d.slice(8)}`.replace(/^Sep 0/, 'Sep '))).toBe(words);
+  });
+});
+
+describe('kindPhrase', () => {
+  it('words each label kind for a post, and leaves an unknown one out', () => {
+    // #then
+    expect(['protocol', 'app', 'institution', 'exchange', 'issuer', 'unknown', null].map(kindPhrase)).toEqual(['a protocol', 'an app', 'an institution', 'an exchange', 'a token issuer', null, null]);
   });
 });

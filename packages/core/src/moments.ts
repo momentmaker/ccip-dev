@@ -327,3 +327,18 @@ export function parsePollRecord(raw: string | null): PollRecord | null {
     return null;
   }
 }
+
+export const PROJECT_SPOTLIGHT_MIN_MESSAGES = 50;
+
+export interface ProjectWeekCount {
+  key: string;
+  messages: number;
+  previous: number;
+}
+
+/** The project that gained the most messages on the week before, with 50 or more this week; ties go to more messages, then the key. */
+export function projectSpotlightPick(projects: readonly ProjectWeekCount[]): string | null {
+  const grown = projects.filter((p) => p.messages >= PROJECT_SPOTLIGHT_MIN_MESSAGES && p.messages > p.previous);
+  grown.sort((a, b) => b.messages - b.previous - (a.messages - a.previous) || b.messages - a.messages || compare(a.key, b.key));
+  return grown[0]?.key ?? null;
+}

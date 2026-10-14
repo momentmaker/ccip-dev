@@ -35,3 +35,20 @@ describe('new sender card', () => {
     expect({ missing, glyphs: all.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({ missing: null, glyphs: [] });
   });
 });
+
+describe('project spotlight card', () => {
+  it('names the project big with its growth, its chains, its fees and its page', async () => {
+    // #then
+    expect(await words({ kind: 'project', monday: '2026-10-05' })).toEqual(
+      expect.arrayContaining([
+        'PROJECT SPOTLIGHT', 'Fastest-growing project', 'xStocks', '2,100 messages ', '50% vs the week before',
+        'On ', 'Ethereum', ' · ', 'Base', 'Paid ', '$525', ' in fees last week', 'Its page: ', 'ccip.dev/projects/xstocks',
+      ]),
+    );
+  });
+
+  it('has no card for a week without a spotlighted project', async () => {
+    // #then
+    expect(await broadcastTree({ kind: 'project', monday: '2026-09-28' }, inputs)).toBeNull();
+  });
+});

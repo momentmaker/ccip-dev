@@ -173,10 +173,25 @@ export const SpotlightSchema = z.object({
   token: z.object({ key: z.string(), label: z.string().nullable(), usd: z.number() }).nullable(),
 });
 
+export const ProjectSpotlightSchema = z.object({
+  key: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  x: z.string().nullable(),
+  kind: z.string(),
+  inferred: z.boolean(),
+  messages: z.number(),
+  previous_messages: z.number(),
+  usd: z.number(),
+  fee_usd: z.number().nullable(),
+  chains: z.array(z.string()),
+});
+
 export const MomentsWeekSchema = z.object({
   week: z.string(),
   boards: z.object({ fee_chains: z.array(BoardEntrySchema), tokens: z.array(BoardEntrySchema), lanes: z.array(BoardEntrySchema) }),
   spotlight: SpotlightSchema.nullable(),
+  project: ProjectSpotlightSchema.nullable().optional(),
 });
 
 const PollOptionSchema = z.object({ key: z.string(), label: z.string() });
@@ -391,6 +406,7 @@ export type WeekLeaders = z.infer<typeof WeekLeadersSchema>;
 export type DayLeadersFile = z.infer<typeof DayLeadersFileSchema>;
 export type BoardEntry = z.infer<typeof BoardEntrySchema>;
 export type Spotlight = z.infer<typeof SpotlightSchema>;
+export type ProjectSpotlight = z.infer<typeof ProjectSpotlightSchema>;
 export type MomentsWeek = z.infer<typeof MomentsWeekSchema>;
 export type Poll = z.infer<typeof PollSchema>;
 export type MomentsFile = z.infer<typeof MomentsFileSchema>;

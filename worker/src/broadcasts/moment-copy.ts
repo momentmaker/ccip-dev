@@ -1,10 +1,10 @@
-import { addDays, newcomerSpanWords } from '@ccip-dev/core';
+import { addDays, kindPhrase, newcomerSpanWords } from '@ccip-dev/core';
 import { formatCount, formatFeeTotal, formatShare, formatUsd } from '@ccip-dev/core/format';
 import { calledShare, type BoardName, type Countdown } from '@ccip-dev/core/moments';
 import { formatProgressUsd, formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
 import type { Poll } from '@ccip-dev/core/public';
 import { arrow, bold, fitLines, longDay, noLinks, plural, postDay, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
-import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, NewcomerFacts, PollFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
+import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, NewcomerFacts, PollFacts, ProjectSpotlightFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -202,6 +202,43 @@ function spotlightTg(f: SpotlightFacts): Line[] {
   ];
 }
 
+/** "$1.2M moved · $525 in fees", leaving out a zero value and missing fees. */
+function projectFigures(f: ProjectSpotlightFacts, strong: (s: string) => string): string[] {
+  return [...(f.usd > 0 ? [`${strong(formatUsd(f.usd))} moved`] : []), ...(f.feeUsd === null ? [] : [`${strong(formatFeeTotal(f.feeUsd))} in fees`])];
+}
+
+const kindClause = (f: ProjectSpotlightFacts) => {
+  const phrase = kindPhrase(f.projectKind);
+  return phrase === null ? '' : `, ${phrase},`;
+};
+
+const growth = (f: ProjectSpotlightFacts) => {
+  const change = arrow(pctOf(f.messages, f.previous));
+  return change === null ? '' : ` (${change} vs the week before)`;
+};
+
+function projectX(f: ProjectSpotlightFacts): Line[] {
+  return [
+    { text: `Project spotlight: ${subject(f.project)}${kindClause(f)} grew the most on #CCIP last week` },
+    { text: [`${plural(f.messages, 'message')}${growth(f)}`, ...projectFigures(f, (s) => s)].join(' · ') },
+    ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, plain)}`, drop: MOMENT_DROP.detail }] : []),
+    { text: '#Chainlink $LINK', drop: MOMENT_DROP.closing },
+  ];
+}
+
+function projectTg(f: ProjectSpotlightFacts): Line[] {
+  const name = tgName(f.project);
+  const figures = projectFigures(f, bold);
+  return [
+    { text: bold(`Project spotlight: ${name}`) },
+    { text: `${name}${kindClause(f)} grew the most on CCIP last week: ${bold(formatCount(f.messages))} message${f.messages === 1 ? '' : 's'}${growth(f)}.` },
+    ...(figures.length > 0 ? [{ text: figures.join(' · ') }] : []),
+    ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, tgName)}`, drop: MOMENT_DROP.detail }] : []),
+    { text: '' },
+    { text: CLOSING_TG, drop: MOMENT_DROP.closing },
+  ];
+}
+
 function roundupX(f: RoundupFacts, shown: number): Line[] {
   const lanes = shownList(f.lanes, shown, (l) => `${plain(l.src)} → ${plain(l.dst)}`);
   const tokens = shownList(f.tokens, shown, (t) => `${noLinks(t.symbol)} on ${plain(t.chain)}${t.project ? ` (${plain(t.project)})` : ''}`);
@@ -282,6 +319,8 @@ function momentX(f: Exclude<MomentFacts, PollFacts | RoundupFacts>): Line[] {
       return moversLines(f, subject, plain, noLinks, false);
     case 'spotlight':
       return spotlightX(f);
+    case 'project':
+      return projectX(f);
   }
 }
 
@@ -297,6 +336,8 @@ function momentTelegram(f: MomentFacts): Line[] {
       return moversLines(f, tgName, tgName, tgText, true);
     case 'spotlight':
       return spotlightTg(f);
+    case 'project':
+      return projectTg(f);
     case 'roundup':
       return [{ text: roundupTelegram(f) }];
     case 'poll':

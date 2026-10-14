@@ -126,7 +126,25 @@ describe('momentFacts', () => {
       momentFacts(SRC, { kind: 'roundup', monday: '2026-09-28' }),
       momentFacts(SRC, { kind: 'poll', monday: '2026-10-19' }),
       momentFacts(SRC, { kind: 'newcomer', key: 'project:nobody' }),
-    ]).toEqual([null, null, null, null, null, null, null]);
+      momentFacts(SRC, { kind: 'project', monday: '2026-09-28' }),
+    ]).toEqual([null, null, null, null, null, null, null, null]);
+  });
+
+  it('describes the project spotlight, untagged when the project is credited only through a spread label', () => {
+    // #given
+    const project = { key: 'project:xstocks', slug: 'xstocks', name: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false, messages: 2_100, previous_messages: 1_400, usd: 0, fee_usd: 525, chains: ['1', '2'] };
+    const withProject = (p: typeof project) => ({ ...SRC, moments: { ...MOMENTS, weeks: MOMENTS.weeks.map((w) => (w.week === '2026-10-05' ? { ...w, project: p } : w)) } });
+    // #when
+    const facts = momentFacts(withProject(project), { kind: 'project', monday: '2026-10-05' });
+    const inferred = momentFacts(withProject({ ...project, inferred: true }), { kind: 'project', monday: '2026-10-05' });
+    // #then
+    expect({ facts, inferred: inferred?.kind === 'project' ? inferred.project : null }).toEqual({
+      facts: {
+        kind: 'project', monday: '2026-10-05', project: { name: 'xStocks', x: 'xStocksFi' }, slug: 'xstocks', projectKind: 'protocol',
+        messages: 2_100, previous: 1_400, usd: 0, feeUsd: 525, chains: [{ name: 'Ethereum', x: 'ethereum' }, { name: 'Base', x: 'base' }],
+      },
+      inferred: { name: 'xStocks', x: null },
+    });
   });
 });
 

@@ -74,6 +74,20 @@ export interface SpotlightFacts {
   token: { symbol: string; usd: number } | null;
 }
 
+export interface ProjectSpotlightFacts {
+  kind: 'project';
+  monday: string;
+  /** The post's subject: tagged by its handle unless it is credited only through a spread label. */
+  project: Player;
+  slug: string;
+  projectKind: string;
+  messages: number;
+  previous: number;
+  usd: number;
+  feeUsd: number | null;
+  chains: Player[];
+}
+
 export interface RoundupFacts {
   kind: 'roundup';
   monday: string;
@@ -93,9 +107,9 @@ export interface PollFacts {
   last: Poll | null;
 }
 
-export type MomentFacts = WelcomeFacts | NewcomerFacts | CountdownFacts | MoversFacts | SpotlightFacts | RoundupFacts | PollFacts;
+export type MomentFacts = WelcomeFacts | NewcomerFacts | CountdownFacts | MoversFacts | SpotlightFacts | ProjectSpotlightFacts | RoundupFacts | PollFacts;
 
-const MOMENT_FACT_KINDS: ReadonlySet<string> = new Set<MomentFacts['kind']>(['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'roundup', 'poll']);
+const MOMENT_FACT_KINDS: ReadonlySet<string> = new Set<MomentFacts['kind']>(['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'project', 'roundup', 'poll']);
 
 export function isMomentFacts(facts: { kind: string }): facts is MomentFacts {
   return MOMENT_FACT_KINDS.has(facts.kind);
@@ -204,6 +218,22 @@ export function momentFacts(src: MomentsSource, target: MomentTarget): MomentFac
       if (!s) return null;
       const token = s.token ? { symbol: s.token.label ?? shortAddress(addressOf(s.token.key)), usd: s.token.usd } : null;
       return { kind: 'spotlight', monday: target.monday, chain: tags.chain(s.selector), spotlight: s, partners: s.partners.map((p) => tags.chain(p)), token };
+    }
+    case 'project': {
+      const p = moments.weeks.find((w) => w.week === target.monday)?.project;
+      if (!p) return null;
+      return {
+        kind: 'project',
+        monday: target.monday,
+        project: { name: p.name, x: p.inferred ? null : p.x },
+        slug: p.slug,
+        projectKind: p.kind,
+        messages: p.messages,
+        previous: p.previous_messages,
+        usd: p.usd,
+        feeUsd: p.fee_usd,
+        chains: p.chains.map((s) => tags.chain(s)),
+      };
     }
     case 'roundup':
       return roundupFacts(src, target.monday);

@@ -6,8 +6,8 @@ export const MOMENTS_PER_DAY = 2;
 /** A moment that misses its day is planned again on each of the next 2 days, then dropped. */
 export const CARRY_DAYS = 2;
 export const COUNTDOWN_DAYS = { min: 2, max: 7 } as const;
-/** Days from a week's Monday to the day its moment is planned: movers on the Tuesday and the spotlight on the Thursday after it, New on CCIP on its own Saturday. */
-export const WEEKLY_DUE = { movers: 8, spotlight: 10, roundup: 5 } as const;
+/** Days from a week's Monday to the day its moment is planned: movers on the Tuesday, the project spotlight on the Wednesday and the spotlight on the Thursday after it, New on CCIP on its own Saturday. */
+export const WEEKLY_DUE = { movers: 8, spotlight: 10, project: 9, roundup: 5 } as const;
 
 export interface DueMoment {
   target: Extract<MomentTarget, { kind: BudgetedMoment }>;
@@ -37,6 +37,8 @@ export function dueMoments(m: MomentsBody, today: string): DueMoment[] {
     if (inWindow(movers) && moversOf(m.weeks, w.week) !== null) out.push({ target: { kind: 'movers', monday: w.week }, due: movers });
     const spotlight = addDays(w.week, WEEKLY_DUE.spotlight);
     if (inWindow(spotlight) && w.spotlight !== null) out.push({ target: { kind: 'spotlight', monday: w.week }, due: spotlight });
+    const project = addDays(w.week, WEEKLY_DUE.project);
+    if (inWindow(project) && (w.project ?? null) !== null) out.push({ target: { kind: 'project', monday: w.week }, due: project });
   }
   for (const monday of [weekStart(today), addDays(weekStart(today), -7)]) {
     const due = addDays(monday, WEEKLY_DUE.roundup);

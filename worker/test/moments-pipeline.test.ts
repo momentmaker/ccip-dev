@@ -86,6 +86,16 @@ describe('dueMoments', () => {
     // #then MOMENTS has no arrivals.senders
     expect(dueMoments(MOMENTS, '2026-10-14').some((d) => d.target.kind === 'newcomer')).toBe(false);
   });
+
+  it('plans the project spotlight on the Wednesday after its week', () => {
+    // #given
+    const project = { key: 'project:xstocks', slug: 'xstocks', name: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false, messages: 2_100, previous_messages: 1_400, usd: 0, fee_usd: 525, chains: [] };
+    const m: MomentsBody = { ...MOMENTS, weeks: MOMENTS.weeks.map((w) => (w.week === '2026-10-05' ? { ...w, project } : w)) };
+    // #when
+    const due = dueMoments(m, '2026-10-14').flatMap((d) => (d.target.kind === 'project' ? [[d.target.monday, d.due]] : []));
+    // #then
+    expect(due).toEqual([['2026-10-05', '2026-10-14']]);
+  });
 });
 
 describe('pickMoments', () => {

@@ -1,12 +1,12 @@
-import { addDays, lastCompleteMonday, normalizeAddress, weekStart, type Dim } from '@ccip-dev/core';
+import { addDays, lastCompleteMonday, mergeIdentities, normalizeAddress, weekStart, type Dim, type IdentityTotals } from '@ccip-dev/core';
 import {
-  BOARD_SIZE, countdownsOf, parsePollRecord, pollAnswer, pollQuestion, pollRecordKey, rankBoard, SPOTLIGHT_SINCE, spotlightPicks, voteShares,
+  BOARD_SIZE, countdownsOf, parsePollRecord, pollAnswer, pollQuestion, pollRecordKey, projectSpotlightPick, rankBoard, SPOTLIGHT_SINCE, spotlightPicks, voteShares,
   type ChainArrival, type LaneArrival, type MomentsBody, type PollData, type PollResult, type TokenArrival,
 } from '@ccip-dev/core/moments';
 import { chainName, chainNameMap, laneLabel, type ChainNames } from '@ccip-dev/core/names';
-import type { BoardEntry, DayTotals, MomentsWeek, Poll, Spotlight } from '@ccip-dev/core/public';
+import type { BoardEntry, DayTotals, MomentsWeek, Poll, ProjectSpotlight, Spotlight } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
-import { senderArrivals } from './senders';
+import { senderArrivals, senderBook, type SenderBook } from './senders';
 import * as store from './store';
 
 export const ARRIVAL_DAYS = 30;
@@ -183,6 +183,7 @@ async function momentWeeks(c: RunContext, lastDay: string, chainFirst: ReadonlyM
       await top(dim, order, addDays(monday, -7), BOARD_SIZE),
     );
   const picks = await spotlightPicksFor(db, mondays, latest, chainFirst);
+  const projects = projectWeeks(c, await senderBook(c));
   const weeks: MomentsWeek[] = [];
   for (const monday of mondays) {
     const pick = picks.get(monday) ?? null;
@@ -194,9 +195,48 @@ async function momentWeeks(c: RunContext, lastDay: string, chainFirst: ReadonlyM
         lanes: await board('lane', 'value', monday, (r) => cents(r.usd_value), () => null),
       },
       spotlight: pick === null ? null : await spotlightOf(c, top, monday, pick),
+      project: await projectSpotlightOf(projects, monday),
     });
   }
   return weeks;
+}
+
+type ProjectWeeks = (monday: string) => Promise<IdentityTotals[]>;
+
+/** Each Monday–Sunday week's labeled projects, merged from every labeled row, each week read once per build. */
+function projectWeeks(c: RunContext, book: SenderBook): ProjectWeeks {
+  const cache = new Map<string, Promise<IdentityTotals[]>>();
+  return (monday) => {
+    let found = cache.get(monday);
+    if (found === undefined) {
+      found = store
+        .senderTotalsOf(c.env.DB, monday, addDays(monday, 6), book.labeled)
+        .then((rows) => mergeIdentities(rows, book.resolve).filter((i) => i.slug !== null));
+      cache.set(monday, found);
+    }
+    return found;
+  };
+}
+
+async function projectSpotlightOf(weeks: ProjectWeeks, monday: string): Promise<ProjectSpotlight | null> {
+  const now = await weeks(monday);
+  const before = new Map((await weeks(addDays(monday, -7))).map((p) => [p.key, p.messages]));
+  const key = projectSpotlightPick(now.map((p) => ({ key: p.key, messages: p.messages, previous: before.get(p.key) ?? 0 })));
+  const p = now.find((x) => x.key === key);
+  if (p === undefined || p.slug === null || p.label === null || p.kind === null) return null;
+  return {
+    key: p.key,
+    slug: p.slug,
+    name: p.label,
+    x: p.x,
+    kind: p.kind,
+    inferred: p.inferred,
+    messages: p.messages,
+    previous_messages: before.get(p.key) ?? 0,
+    usd: cents(p.usd_value),
+    fee_usd: centsOrNull(p.fee_usd),
+    chains: p.chains,
+  };
 }
 
 /** Picks run from the earlier of SPOTLIGHT_SINCE and the oldest published week, so the 4-week skip sees every posted pick. */

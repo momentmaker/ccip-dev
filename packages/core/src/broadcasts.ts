@@ -16,10 +16,11 @@ export type BroadcastTarget =
   | { kind: 'poll'; monday: string }
   | { kind: 'movers'; monday: string }
   | { kind: 'spotlight'; monday: string }
+  | { kind: 'project'; monday: string }
   | { kind: 'roundup'; monday: string };
 
 /** The moments the daily budget counts, in the order they take its places. The poll is not among them: it always posts. */
-export const BUDGETED_MOMENTS = ['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'roundup'] as const;
+export const BUDGETED_MOMENTS = ['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'project', 'roundup'] as const;
 export type BudgetedMoment = (typeof BUDGETED_MOMENTS)[number];
 export type MomentTarget = Extract<BroadcastTarget, { kind: BudgetedMoment | 'poll' }>;
 
@@ -55,6 +56,7 @@ export function broadcastKey(t: PostTarget): string {
     case 'poll':
     case 'movers':
     case 'spotlight':
+    case 'project':
     case 'roundup':
       return `broadcast:${t.kind}:${t.monday}`;
   }
@@ -82,6 +84,7 @@ export function broadcastCardPath(t: BroadcastTarget): string {
     case 'poll':
     case 'movers':
     case 'spotlight':
+    case 'project':
     case 'roundup':
       return `broadcast/${t.kind}/${t.monday}`;
   }
@@ -93,7 +96,7 @@ const SELECTOR_RE = /^[1-9]\d{0,19}$/;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** EVM and base58 addresses; an address of another shape gets no newcomer card. */
 const NEWCOMER_ADDRESS_RE = /^[0-9A-Za-z]{1,128}$/;
-const WEEKLY_MOMENTS = ['poll', 'movers', 'spotlight', 'roundup'] as const;
+const WEEKLY_MOMENTS = ['poll', 'movers', 'spotlight', 'project', 'roundup'] as const;
 const oneOf = <T extends string>(list: readonly T[], value: string | undefined): value is T => value !== undefined && (list as readonly string[]).includes(value);
 
 /** `parts` is a card path split on "/", starting with "broadcast". */

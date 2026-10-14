@@ -62,6 +62,7 @@ export const MOMENTS: MomentsFile = {
         selector: BASE, rank: 2, messages: 3_412, previous_messages: 1_844, usd: 96.4e6, previous_usd: 68.4e6, fee_usd: 1_800, previous_fee_usd: 1_417,
         partners: [ETH, ARB], token: { key: `${BASE}:0xtok`, label: 'USDC', usd: 41.2e6 },
       },
+      project: { key: 'project:xstocks', slug: 'xstocks', name: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false, messages: 2_100, previous_messages: 1_400, usd: 0, fee_usd: 525, chains: [ETH, BASE] },
     },
   ],
   countdowns: [{ metric: 'fees', threshold: 2.5e6, total: 2.43e6, per_day: 11_600, days_left: 7, previous: { threshold: 2e6, day: '2026-07-20' } }],

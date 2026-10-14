@@ -259,3 +259,16 @@ export function newcomerSpanWords(firstDay: string, day: string, formatDay: (day
   const span = newcomerSpan(firstDay, day);
   return span === 'since' ? `since ${formatDay(firstDay)}` : SPAN_WORDS[span];
 }
+
+const KIND_PHRASES: Readonly<Record<string, string>> = {
+  protocol: 'a protocol',
+  app: 'an app',
+  institution: 'an institution',
+  exchange: 'an exchange',
+  issuer: 'a token issuer',
+};
+
+/** "a protocol", for a post's clause; null for an unknown kind, which the post leaves out. */
+export function kindPhrase(kind: string | null): string | null {
+  return kind === null ? null : (KIND_PHRASES[kind] ?? null);
+}

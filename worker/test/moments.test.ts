@@ -253,3 +253,36 @@ describe('moments.json publish', () => {
     expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX daily_breakdown_dim');
   });
 });
+
+describe('moments.json project spotlight', () => {
+  const ALPHA = '0x00000000000000000000000000000000000000a1';
+  const BETA = '0x00000000000000000000000000000000000000b2';
+  const labels = {
+    [`ethereum-mainnet-base-1:${ALPHA}`]: { name: 'Alpha', x: 'alpha', kind: 'app' as const, slug: 'alpha' },
+    [`ethereum-mainnet-base-1:${BETA}`]: { name: 'Beta', kind: 'protocol' as const, slug: 'beta' },
+  };
+  const sender = (day: string, address: string, messages: number) => row(day, 'sender', `${BASE}:${address}`, messages, 0, messages / 4);
+
+  beforeEach(async () => {
+    // #given the week of Sep 28: Alpha 100, Beta 400; the week of Oct 5: Alpha 300, Beta 500
+    await seedRegistryChains();
+    await seedRows([sender('2026-09-29', ALPHA, 100), sender('2026-09-29', BETA, 400), sender('2026-10-06', ALPHA, 300), sender('2026-10-06', BETA, 500)]);
+  });
+
+  it('spotlights the labeled project that gained the most messages each week', async () => {
+    // #when
+    const { weeks } = await buildMoments(harness({ now: NOW, labels }).c, { lastDay: LAST_DAY, days: [] });
+    // #then Beta gained 400 from nothing in the week of Sep 28; Alpha gained 200 the week after, against Beta's 100
+    expect({ before: weeks.at(-2)!.project?.key, latest: weeks.at(-1)!.project }).toEqual({
+      before: 'project:beta',
+      latest: { key: 'project:alpha', slug: 'alpha', name: 'Alpha', x: 'alpha', kind: 'app', inferred: false, messages: 300, previous_messages: 100, usd: 0, fee_usd: 75, chains: [BASE] },
+    });
+  });
+
+  it('spotlights no project in a week without labeled senders', async () => {
+    // #when
+    const { weeks } = await buildMoments(harness({ now: NOW }).c, { lastDay: LAST_DAY, days: [] });
+    // #then
+    expect(weeks.at(-1)!.project).toBeNull();
+  });
+});
