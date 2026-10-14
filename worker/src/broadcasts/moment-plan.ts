@@ -5,6 +5,8 @@ import { moversOf, roundupOf, type MomentsBody } from '@ccip-dev/core/moments';
 export const MOMENTS_PER_DAY = 2;
 /** A moment that misses its day is planned again on each of the next 2 days, then dropped. */
 export const CARRY_DAYS = 2;
+/** New senders can arrive many at once, so one a day keeps them from crowding out the weekly moments. */
+export const NEWCOMERS_PER_DAY = 1;
 export const COUNTDOWN_DAYS = { min: 2, max: 7 } as const;
 /** Days from a week's Monday to the day its moment is planned: movers on the Tuesday, the project spotlight on the Wednesday and the spotlight on the Thursday after it, New on CCIP on its own Saturday. */
 export const WEEKLY_DUE = { movers: 8, spotlight: 10, project: 9, roundup: 5 } as const;
@@ -49,9 +51,10 @@ export function dueMoments(m: MomentsBody, today: string): DueMoment[] {
 
 /**
  * The moments to post now: those not already sent or seeded, welcome first, then a new sender, countdown, movers, spotlight and the
- * weekly New on CCIP (an older one first within a kind), as many as today's budget still allows.
+ * weekly New on CCIP (an older one first within a kind), as many as today's budget still allows, with at most NEWCOMERS_PER_DAY new senders.
  */
 export function pickMoments(due: readonly DueMoment[], o: { done: ReadonlySet<string>; sentToday: number }): DueMoment[] {
+  let newcomers = 0;
   return due
     .filter((d) => !o.done.has(broadcastKey(d.target)))
     .sort(
@@ -60,5 +63,6 @@ export function pickMoments(due: readonly DueMoment[], o: { done: ReadonlySet<st
         compare(a.due, b.due) ||
         compare(broadcastKey(a.target), broadcastKey(b.target)),
     )
+    .filter((d) => d.target.kind !== 'newcomer' || ++newcomers <= NEWCOMERS_PER_DAY)
     .slice(0, Math.max(0, MOMENTS_PER_DAY - o.sentToday));
 }

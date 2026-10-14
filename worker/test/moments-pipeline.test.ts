@@ -116,7 +116,7 @@ describe('pickMoments', () => {
     ]);
   });
 
-  it('places the project spotlight after the spotlight and before New on CCIP', () => {
+  it('places the project spotlight after the spotlight and drops New on CCIP when the budget is spent', () => {
     // #given
     const due = [d({ kind: 'roundup', monday: '2026-10-05' }, '2026-10-14'), d({ kind: 'project', monday: '2026-10-05' }, '2026-10-14'), d({ kind: 'spotlight', monday: '2026-10-05' }, '2026-10-14')];
     // #then
@@ -135,6 +135,26 @@ describe('pickMoments', () => {
     const picked = pickMoments([d({ kind: 'countdown', metric: 'fees', threshold: 1e6 }, '2026-10-15'), d({ kind: 'newcomer', key: 'project:xstocks' }, '2026-10-15'), d({ kind: 'welcome', selector: 'a' }, '2026-10-15')], { done: new Set(), sentToday: 0 });
     // #then
     expect(keys(picked)).toEqual(['welcome:a', 'newcomer']);
+  });
+});
+
+describe('pickMoments newcomer cap', () => {
+  const d = (target: DueMoment['target'], day: string): DueMoment => ({ target, due: day });
+  const kinds = (list: DueMoment[]) => list.map((m) => m.target.kind);
+
+  it('takes one new sender a day, so the weekly moments still fit the budget', () => {
+    // #given three new senders due on the same day as the movers and spotlight
+    const due = [
+      d({ kind: 'newcomer', key: 'project:a' }, '2026-10-15'),
+      d({ kind: 'newcomer', key: 'project:b' }, '2026-10-15'),
+      d({ kind: 'newcomer', key: 'project:c' }, '2026-10-15'),
+      d({ kind: 'movers', monday: '2026-10-05' }, '2026-10-15'),
+      d({ kind: 'spotlight', monday: '2026-10-05' }, '2026-10-15'),
+    ];
+    // #when
+    const picked = pickMoments(due, { done: new Set(), sentToday: 0 });
+    // #then the other two carry or expire as usual
+    expect(kinds(picked)).toEqual(['newcomer', 'movers']);
   });
 });
 
