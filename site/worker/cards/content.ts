@@ -1,8 +1,8 @@
-import type { HistoryFile, ReserveFile, TodayFile, TopEntry, TopFile } from '@ccip-dev/core/public';
+import type { HistoryFile, ProjectsFile, ReserveFile, TodayFile, TopEntry, TopFile } from '@ccip-dev/core/public';
 import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-paths';
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
-import { formatCount, formatFeeTotal, formatLink, formatPct, formatUsd, formatUtcDay } from '../../src/lib/format';
+import { formatCount, formatFeeTotal, formatLink, formatPct, formatShare, formatUsd, formatUtcDay } from '../../src/lib/format';
 import { chainName, laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
 import { topEntries } from '../../src/lib/top';
 import { computeRecords } from '../../src/lib/records';
@@ -171,5 +171,21 @@ export function recordsCard(history: HistoryFile): CardSpec {
     date: '',
     extra: biggest ? [`Biggest day: ${biggest.display} · ${formatUtcDay(biggest.day)}`] : [],
     spark: null,
+  };
+}
+
+export function projectCard(file: ProjectsFile, slug: string): CardSpec | null {
+  const p = file.projects.find((x) => x.slug === slug);
+  if (!p) return null;
+  const week = p.totals['7d'];
+  const month = p.totals['30d'];
+  return {
+    eyebrow: `${p.name.toUpperCase()} ON CHAINLINK CCIP`,
+    big: formatCount(week.messages),
+    label: `messages in the last 7 days${week.share_pct === null ? '' : ` · ${formatShare(week.share_pct)} of all`}`,
+    date: `to ${formatUtcDay(file.to)}`,
+    extra: [month.usd > 0 ? `${formatUsd(month.usd)} moved in 30 days` : `${formatCount(month.messages)} messages in 30 days`, `ccip.dev/projects/${slug}`],
+    spark: sparkPoints(p.series.map((s) => s.messages)),
+    badge: null,
   };
 }

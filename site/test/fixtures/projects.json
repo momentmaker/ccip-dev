@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-14T00:07:00.000Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "from": "2026-09-14",
+  "to": "2026-10-13",
+  "projects": [
+    {
+      "slug": "xstocks",
+      "name": "xStocks",
+      "x": "xStocksFi",
+      "url": "https://xstocks.fi",
+      "kind": "protocol",
+      "source": "https://api.xstocks.fi/api/v2/public/bridges",
+      "totals": {
+        "7d": { "messages": 319, "usd": 0, "fee_usd": 79.75, "share_pct": 20.3 },
+        "30d": { "messages": 419, "usd": 0, "fee_usd": 104.75, "share_pct": 21.3 },
+        "all": { "messages": 419, "usd": 0, "fee_usd": 104.75, "share_pct": 21.3 }
+      },
+      "series": [{ "day": "2026-10-11", "messages": 0 }, { "day": "2026-10-12", "messages": 100 }, { "day": "2026-10-13", "messages": 319 }],
+      "chains": ["3461204551265785888", "124615329519749607", "3016212468291539606", "11344663589394136015", "5009297550715157269", "2442541497099098535"],
+      "lanes": [
+        { "src": "3461204551265785888", "dst": "15971525489660198786", "messages": 2, "usd": 0 },
+        { "src": "124615329519749607", "dst": "5009297550715157269", "messages": 1, "usd": 500 }
+      ],
+      "split": { "data_messages": 2, "token_messages": 1 },
+      "addresses": [
+        { "chain": "3461204551265785888", "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b", "note": "xBridge (Ink)", "inferred": false },
+        { "chain": "124615329519749607", "address": "A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u", "note": "xBridge sender", "inferred": false },
+        { "chain": "3016212468291539606", "address": "0x9ec0e4a4c411493773e01e2abf4d42395788846b", "note": null, "inferred": true }
+      ]
+    },
+    {
+      "slug": "idle",
+      "name": "Idle",
+      "x": null,
+      "url": null,
+      "kind": "app",
+      "source": null,
+      "totals": {
+        "7d": { "messages": 0, "usd": 0, "fee_usd": null, "share_pct": 0 },
+        "30d": { "messages": 0, "usd": 0, "fee_usd": null, "share_pct": 0 },
+        "all": { "messages": 0, "usd": 0, "fee_usd": null, "share_pct": 0 }
+      },
+      "series": [{ "day": "2026-10-13", "messages": 0 }],
+      "chains": [],
+      "lanes": [],
+      "split": { "data_messages": 0, "token_messages": 0 },
+      "addresses": [{ "chain": "5009297550715157269", "address": "0x00000000000000000000000000000000000000aa", "note": null, "inferred": false }]
+    }
+  ]
+}

@@ -1,9 +1,11 @@
+import { PUBLIC_SCHEMAS } from '@ccip-dev/core/public';
 import type { HistoryFile, ReserveFile, TodayFile, TopFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { cardMaxAge } from '../worker/cache';
-import { cardText, dayCard, flowCard, historyCard, homeCard, recordsCard, replayChainCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
+import { cardText, dayCard, flowCard, historyCard, homeCard, projectCard, recordsCard, replayChainCard, reserveCard, sparkPoints, topCard } from '../worker/cards/content';
 import { bigFontSize, CARD_H, CARD_W, cardTree, coinsClearOfBadge, SKY_W, SPARK_H, SPARK_W, SPARK_X, sparkSvg } from '../worker/cards/frame';
 import { chainNameMap } from '../src/lib/names';
+import projects from './fixtures/projects.json';
 
 const envelope = { schema_version: 1 as const, updated_at: '2026-10-07T00:00:00.000Z', attribution: 'Data: Chainlink CCIP API, DefiLlama' };
 const totals = (day: string, messages: number, usd: number) => ({
@@ -176,5 +178,27 @@ describe('cardMaxAge', () => {
     [{ kind: 'top', dim: 'token', window: '7d', order: 'value' }, null, 1800],
   ] as const)('%j → %s s', (route, last, seconds) => {
     expect(cardMaxAge(route, last)).toBe(seconds);
+  });
+});
+
+describe('project card', () => {
+  const file = PUBLIC_SCHEMAS['projects.json'].parse(projects);
+
+  it("shows a project's week, its share, and its 30 days", () => {
+    // #then
+    expect(projectCard(file, 'xstocks')).toEqual({
+      eyebrow: 'XSTOCKS ON CHAINLINK CCIP',
+      big: '319',
+      label: 'messages in the last 7 days · 20% of all',
+      date: 'to Oct 13, 2026',
+      extra: ['419 messages in 30 days', 'ccip.dev/projects/xstocks'],
+      spark: [0, 100, 319],
+      badge: null,
+    });
+  });
+
+  it('has no card for a project the file does not list', () => {
+    // #then
+    expect(projectCard(file, 'nobody')).toBeNull();
   });
 });

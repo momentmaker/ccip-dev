@@ -11,7 +11,7 @@ import { cardMaxAge } from './cache';
 import { broadcastTree } from './cards/broadcast-cards';
 import { BROADCAST_SIZE } from './cards/broadcast-frame';
 import { coinIcon } from './cards/coin-icons';
-import { dayCard, flowCard, historyCard, homeCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
+import { dayCard, flowCard, historyCard, homeCard, projectCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
 import { CARD_SIZE, cardTree, SPARK_H, SPARK_W, sparkSvg, type CardSize } from './cards/frame';
 import type { VNode } from './h';
 
@@ -123,6 +123,10 @@ async function build(route: Exclude<CardRoute, { kind: 'broadcast' }>, deps: OgD
       return { spec: reserveCard(await load('reserve.json')), maxAge: cardMaxAge(route, null) };
     case 'replay':
       return { spec: replayCard(await load('history.json')), maxAge: cardMaxAge(route, null) };
+    case 'project': {
+      const spec = projectCard(await load('projects.json'), route.slug);
+      return spec ? { spec, maxAge: cardMaxAge(route, null) } : null;
+    }
     case 'replay-chain': {
       const entries = await replayCardEntries(env, origin);
       const entry = Object.hasOwn(entries, route.slug) ? entries[route.slug] : undefined;

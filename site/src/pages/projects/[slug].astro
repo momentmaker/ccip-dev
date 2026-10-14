@@ -1,0 +1,98 @@
+---
+import type { Project } from '@ccip-dev/core/public';
+import ChainIcons from '../../components/ChainIcons.astro';
+import ShareButton from '../../components/ShareButton';
+import Base from '../../layouts/Base.astro';
+import { buildData, buildDataIfPublished } from '../../lib/build-data';
+import { CHART_H, CHART_W, chartGeometry, chartSummary } from '../../lib/charts';
+import { formatCount, formatFeeTotal, formatShare, formatUsd } from '../../lib/format';
+import { chainName, chainNameMap, laneLabel } from '../../lib/names';
+import { addressExplorerUrl, kindLabel, labelFileUrl, projectPaths, seriesPoints, splitText, xProfileUrl } from '../../lib/projects';
+import '../../styles/history.css';
+
+export async function getStaticPaths() {
+  return projectPaths(await buildDataIfPublished('projects.json'));
+}
+
+const { project } = Astro.props as { project: Project };
+const chains = await buildData('chains.json');
+const names = chainNameMap(chains.chains);
+const points = seriesPoints(project.series);
+const geo = chartGeometry(points, CHART_W, CHART_H);
+const split = splitText(project.split);
+const WINDOWS = [['7d', 'last 7 days'], ['30d', 'last 30 days']] as const;
+const cardPath = `project/${project.slug}`;
+const week = project.totals['7d'];
+---
+<Base title={`${project.name} on CCIP`} description={`${project.name} on Chainlink CCIP: ${formatCount(week.messages)} messages in the last 7 days, with its chains, lanes and addresses.`} cardPath={cardPath}>
+  <div class="page-head">
+    <div>
+      <p class="label">{kindLabel(project.kind)} · <a href="/projects/">Projects</a></p>
+      <h1>{project.name}<span class="verified" title="Verified label" aria-label="verified">✓</span></h1>
+      <p class="muted">
+        {project.url && <a href={project.url} rel="noopener">{project.url.replace(/^https?:\/\//, '')}</a>}
+        {project.url && project.x && ' · '}
+        {project.x && <a href={xProfileUrl(project.x)} rel="noopener">@{project.x}</a>}
+      </p>
+    </div>
+    <ShareButton client:load view={cardPath} headline={`${project.name} on CCIP: ${formatCount(week.messages)} messages in the last 7 days`} url={`https://ccip.dev/projects/${project.slug}/`} cardUrl={`/og/${cardPath}.png`} />
+  </div>
+  {WINDOWS.map(([w, label]) => {
+    const t = project.totals[w];
+    return (
+      <section class="tiles wrap-labels project-window" aria-label={label}>
+        <div class="tile"><span class="label">Messages, {label}</span><p class="value">{formatCount(t.messages)}</p></div>
+        <div class="tile"><span class="label">Value, {label}</span><p class="value">{formatUsd(t.usd)}</p></div>
+        <div class="tile"><span class="label">Fees, {label}</span><p class="value">{formatFeeTotal(t.fee_usd)}</p></div>
+        <div class="tile"><span class="label">Share of messages, {label}</span><p class="value">{formatShare(t.share_pct)}</p></div>
+      </section>
+    );
+  })}
+  <figure class="card chart">
+    <figcaption><span class="label">Messages per day, last 30 days</span></figcaption>
+    <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={chartSummary('Messages', points, formatCount, false)}>
+      <path d={geo.area} class="chart-area" />
+      <path d={geo.line} class="chart-line" vector-effect="non-scaling-stroke" />
+    </svg>
+  </figure>
+  <h2>Chains and lanes</h2>
+  {project.chains.length === 0 ? (
+    <p class="muted">No messages in the last 30 days.</p>
+  ) : (
+    <>
+      <p>Sends from {project.chains.map((s, i) => <>{i > 0 && ' · '}<ChainIcons selectors={[s]} />{chainName(names, s)}</>)}</p>
+      <div class="table-wrap card">
+        <table class="data">
+          <thead><tr><th>Top lanes, last 30 days</th><th class="num">Messages</th><th class="num">Value</th></tr></thead>
+          <tbody>
+            {project.lanes.map((l) => (
+              <tr><td><ChainIcons selectors={[l.src, l.dst]} />{laneLabel(names, `${l.src}>${l.dst}`)}</td><td class="num">{formatCount(l.messages)}</td><td class="num">{formatUsd(l.usd)}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {split && <p class="muted">{split}, last 30 days.</p>}
+    </>
+  )}
+  <h2>Addresses</h2>
+  <div class="table-wrap card">
+    <table class="data">
+      <thead><tr><th>Chain</th><th>Address</th><th>Note</th></tr></thead>
+      <tbody>
+        {project.addresses.map((a) => (
+          <tr>
+            <td><ChainIcons selectors={[a.chain]} />{chainName(names, a.chain)}</td>
+            <td class="mono"><a href={addressExplorerUrl(a.address)} rel="noopener">{a.address}</a>{a.inferred && <span class="inferred" title="The same address is labeled on another chain">inferred</span>}</td>
+            <td class="muted">{a.note ?? ''}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Source: {project.source ?? 'see the label file'} · Label: <a href={labelFileUrl(project.slug)}>labels/projects/{project.slug}.toml</a>. "inferred" marks the same address on another chain, credited to the project through its label.</p>
+</Base>
+
+<style>
+  .project-window { margin-top: 12px; }
+  .mono { font-family: var(--font-mono); overflow-wrap: anywhere; }
+</style>

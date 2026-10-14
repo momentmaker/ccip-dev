@@ -73,6 +73,7 @@ table.data td { padding: 9px 10px; border-bottom: 1px solid var(--border-soft); 
 table.data .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .secondary { display: block; color: var(--muted); font-size: 12px; }
 .verified { color: var(--blue-2); margin-left: 4px; }
+.inferred { margin-left: 6px; padding: 0 6px; border: 1px dashed var(--border); border-radius: 999px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; margin: 12px 0; padding: 3px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); }
 .tabs a { padding: 6px 12px; border-radius: 999px; color: var(--muted); font: 600 13px var(--font-sans); border: 0; }
 .tabs a:hover { text-decoration: none; color: var(--fg); }

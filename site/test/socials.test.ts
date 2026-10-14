@@ -74,6 +74,14 @@ describe('the menus', () => {
     expect(source('../src/pages/about.astro')).toContain('ccip.dev on Discord');
   });
 
+  it('lists the projects in the header menu and the footer links', () => {
+    // #then
+    expect([
+      source('../src/components/Header.astro').includes("{ href: '/projects/', label: 'Projects' }"),
+      source('../src/components/Footer.astro').includes('<a href="/projects/">Projects</a>'),
+    ]).toEqual([true, true]);
+  });
+
   it('lists the roster in the header menu, the footer links and the about page', () => {
     expect([
       source('../src/components/Header.astro').includes("{ href: '/marines/', label: 'LinkMarines' }"),

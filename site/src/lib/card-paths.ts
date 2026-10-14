@@ -21,6 +21,7 @@ export type CardRoute =
   | { kind: 'top'; dim: TopDim; window: Window; order: TopOrder }
   | { kind: 'flow'; window: Window }
   | { kind: 'replay-chain'; slug: string }
+  | { kind: 'project'; slug: string }
   | { kind: 'broadcast'; target: BroadcastTarget };
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -45,6 +46,7 @@ export function parseCardPath(path: string): CardRoute | null {
   const parts = path.split('/');
   const [head, a] = parts;
   if (head === 'replay' && parts.length === 2) return a !== undefined && SLUG.test(a) ? { kind: 'replay-chain', slug: a } : null;
+  if (head === 'project' && parts.length === 2) return a !== undefined && SLUG.test(a) ? { kind: 'project', slug: a } : null;
   if (oneOf(SIMPLE, head)) return parts.length === 1 ? { kind: head } : null;
   if (head === 'day') return parts.length === 2 && a !== undefined && isDay(a) ? { kind: 'day', day: a } : null;
   if (head === 'history') return parts.length === 2 && oneOf(HISTORY_RANGES, a) ? { kind: 'history', range: a } : null;
@@ -69,6 +71,8 @@ export function cardPathOf(route: CardRoute): string {
       return `flow/${route.window}`;
     case 'replay-chain':
       return `replay/${route.slug}`;
+    case 'project':
+      return `project/${route.slug}`;
     case 'broadcast':
       return broadcastCardPath(route.target);
     default:

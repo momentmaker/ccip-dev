@@ -1,0 +1,37 @@
+---
+import ChainIcons from '../../components/ChainIcons.astro';
+import Base from '../../layouts/Base.astro';
+import { buildDataIfPublished } from '../../lib/build-data';
+import { formatCount, formatShare, formatUsd } from '../../lib/format';
+import { projectIndexRows, xProfileUrl } from '../../lib/projects';
+
+const file = await buildDataIfPublished('projects.json');
+const rows = file ? projectIndexRows(file.projects) : [];
+---
+<Base title="Projects" description="Every project with a verified label on its CCIP senders: messages, value and chains.">
+  <h1>Projects</h1>
+  <p class="muted">Projects with a verified label on their CCIP senders, busiest over the last 7 days first. A project counts every address its label names, on every chain. <a href="/top/sender/7d/">Top senders</a> ranks every sender.</p>
+  {rows.length === 0 ? (
+    <p class="card muted">Project pages appear after the next daily update.</p>
+  ) : (
+    <div class="table-wrap card">
+      <table class="data">
+        <thead><tr><th>Project</th><th class="num">Messages (7d)</th><th class="num">Share (7d)</th><th class="num">Value (30d)</th><th>Chains</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr>
+              <td>
+                <a href={r.href}>{r.name}</a><span class="verified" title="Verified label" aria-label="verified">✓</span>
+                <span class="secondary">{r.kind}{r.x && <> · <a href={xProfileUrl(r.x)} rel="noopener">@{r.x}</a></>}</span>
+              </td>
+              <td class="num">{formatCount(r.messages7d)}</td>
+              <td class="num muted">{formatShare(r.share7d)}</td>
+              <td class="num">{formatUsd(r.usd30d)}</td>
+              <td><ChainIcons selectors={r.chains} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</Base>
