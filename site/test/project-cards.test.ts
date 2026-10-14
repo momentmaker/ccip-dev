@@ -47,6 +47,36 @@ describe('project spotlight card', () => {
     );
   });
 
+  const withProject = (patch: Partial<NonNullable<(typeof MOMENTS.weeks)[number]['project']>>) =>
+    withMoments({ weeks: MOMENTS.weeks.map((w) => (w.week === '2026-10-05' ? { ...w, project: { ...w.project!, ...patch } } : w)) });
+  const downGlyph = btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M3 5h18l-9 15z" fill="#e58a8a"/></svg>`);
+
+  it('says none the week before, never a first week, when the week before had no messages', async () => {
+    // #when
+    const found = await words({ kind: 'project', monday: '2026-10-05' }, withProject({ previous_messages: 0 }));
+    // #then
+    expect({ neutral: found.includes('none the week before'), first: found.some((t) => t.includes('first week')) }).toEqual({ neutral: true, first: false });
+  });
+
+  it('shows the value moved before the fees when the project moved value', async () => {
+    // #then
+    expect(await words({ kind: 'project', monday: '2026-10-05' }, withProject({ usd: 1_200_000 }))).toEqual(expect.arrayContaining(['Moved ', '$1.2M', ' last week']));
+  });
+
+  it('has no insight line when the project has neither value nor fees', async () => {
+    // #when
+    const found = await words({ kind: 'project', monday: '2026-10-05' }, withProject({ fee_usd: null }));
+    // #then
+    expect(found.some((t) => t.includes('last week'))).toBe(false);
+  });
+
+  it('draws a down triangle when the project shrank', async () => {
+    // #when
+    const tree = await broadcastTree({ kind: 'project', monday: '2026-10-05' }, { ...inputs, load: withProject({ messages: 700, previous_messages: 1_400 }) });
+    // #then
+    expect(JSON.stringify(tree)).toContain(downGlyph);
+  });
+
   it('has no card for a week without a spotlighted project', async () => {
     // #then
     expect(await broadcastTree({ kind: 'project', monday: '2026-09-28' }, inputs)).toBeNull();

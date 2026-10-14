@@ -1,7 +1,7 @@
 import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
-import { addDays } from '@ccip-dev/core/time';
 import { chainName, shortAddress } from '@ccip-dev/core/names';
 import { newcomerSpanWords, parseSenderKey, senderKeyAddress } from '@ccip-dev/core/senders';
+import { addDays } from '@ccip-dev/core/time';
 import type { Child, VNode } from '../h';
 import {
   bigText, bold, broadcastFrame, cardDay, cardWeek, COLORS, columnLine, eyebrow, hasReplayDay, iconsFor, loadMomentFiles, momentColumn, nameSize, namesOf, pill, PILLS, skyFor,
@@ -54,7 +54,7 @@ export async function projectSpotlightTree(monday: string, inputs: BroadcastInpu
   const pct = project.previous_messages === 0 ? null : ((project.messages - project.previous_messages) / project.previous_messages) * 100;
   const change: Child[] =
     pct === null
-      ? ['its first week on CCIP']
+      ? ['none the week before']
       : [glyph(pct >= 0 ? 'up' : 'down', 18, pct >= 0 ? COLORS.up : COLORS.down, { right: 6 }), `${formatShare(Math.abs(pct))} vs the week before`];
   const insight: Child[] =
     project.usd > 0

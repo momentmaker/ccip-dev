@@ -309,6 +309,7 @@ describe('moment fitting', () => {
       { ...WELCOME, chain: n('tempo'), partners: [n(), n(), n()] },
       { ...SPOTLIGHT, chain: n('base'), partners: [n(), n(), n()], token: { symbol: long(40), usd: 1 } },
       { ...ROUNDUP, lanes: ROUNDUP.lanes.map((l) => ({ ...l, src: n(), dst: n() })), tokens: ROUNDUP.tokens.map((t) => ({ ...t, symbol: long(40), chain: n() })) },
+      { ...PROJECT, project: p(long(200), 'xStocksFi'), chains: [n(), n(), n()] },
       { ...POLL, poll: { ...POLL.poll, question: long(300, 'Q') }, last: { ...LAST, outcome: { ...LAST.outcome!, label: long(100) } } },
     ];
     // #when

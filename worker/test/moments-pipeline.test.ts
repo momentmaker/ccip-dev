@@ -116,6 +116,13 @@ describe('pickMoments', () => {
     ]);
   });
 
+  it('places the project spotlight after the spotlight and before New on CCIP', () => {
+    // #given
+    const due = [d({ kind: 'roundup', monday: '2026-10-05' }, '2026-10-14'), d({ kind: 'project', monday: '2026-10-05' }, '2026-10-14'), d({ kind: 'spotlight', monday: '2026-10-05' }, '2026-10-14')];
+    // #then
+    expect(keys(pickMoments(due, { done: new Set(), sentToday: 0 }))).toEqual(['spotlight', 'project']);
+  });
+
   it('skips the moments already sent or seeded', () => {
     // #when
     const picked = pickMoments(ALL, { done: new Set(['broadcast:welcome:a', 'broadcast:welcome:b', 'broadcast:countdown:fees:1000000']), sentToday: 0 });
