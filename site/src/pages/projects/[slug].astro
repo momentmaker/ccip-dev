@@ -79,7 +79,7 @@ const tokens = projectTokenRows(project);
         </div>
       )}
       {split && <p class="muted">{split}, last 30 days.</p>}
-      {(project.totals['30d'].via_token_messages ?? 0) > 0 && <p class="muted">Top lanes and the data split count the messages its own addresses sent; messages via its token are in the totals and the chart.</p>}
+      {(project.totals['30d'].via_token_messages ?? 0) > 0 && (project.lanes.length > 0 || split) && <p class="muted">Top lanes and the data split count the messages its own addresses sent; messages via its token are in the totals and the chart.</p>}
     </>
   )}
   <h2>Addresses</h2>
