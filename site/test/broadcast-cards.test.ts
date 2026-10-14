@@ -82,7 +82,7 @@ describe('daily broadcast card', () => {
     // #when
     const words = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: old }));
     // #then
-    expect(words.some((w) => w.endsWith('% data'))).toBe(false);
+    expect(words.filter((w) => w.includes('data'))).toEqual([]);
   });
 });
 

@@ -84,7 +84,7 @@ async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | 
   const [history, leaders, replay, chains] = await Promise.all([inputs.load('history.json'), inputs.load('day-leaders.json'), inputs.load('replay.json'), inputs.load('chains.json')]);
   const totals = dayTotalsFacts(history.days, day);
   const lead = leaders.days.find((d) => d.day === day);
-  const row = history.days.find((d) => d.day === day);
+  const dayRow = history.days.find((d) => d.day === day);
   if (totals === null || lead === undefined || !hasReplayDay(replay, day)) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, day, day);
@@ -100,7 +100,7 @@ async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | 
         deltaStat('Fees', formatFeeTotal(totals.fees.value), totals.fees.pct, ''),
         mutedStat('Paid in LINK', formatShare(totals.linkSharePct), formatLinkAmount(totals.linkAmount)),
       ],
-      dayFooter(row ? dataSharePct(row.messages, row.data_messages) : null, leadersRow(lead, names)),
+      dayFooter(dayRow ? dataSharePct(dayRow.messages, dayRow.data_messages) : null, leadersRow(lead, names)),
     ),
     insight: record ? recordInsight(record) : laneInsight(lead.lane, names),
     cta: ctaFor(day),
