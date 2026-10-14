@@ -107,6 +107,8 @@ table.data .num { text-align: right; font-family: var(--font-mono); font-variant
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
 .status-big { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; margin: 0; }
+.coverage { margin: 16px 0 0; color: var(--muted); }
+.coverage a { text-decoration: underline; text-underline-offset: 3px; }
 
 .site-footer { text-align: center; color: var(--muted); font-size: 13px; padding: 32px 20px 48px; border-top: 1px solid var(--border-soft); }
 .footer-links a { color: var(--fg); }

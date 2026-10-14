@@ -1,4 +1,4 @@
-import { identityResolver, labeledAddresses, mergeIdentities, rankIdentities, type IdentityOrder, type IdentityResolver, type IdentityTotals } from '@ccip-dev/core';
+import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, rankIdentities, type IdentityOrder, type IdentityResolver, type IdentityTotals, type LabelCoverage } from '@ccip-dev/core';
 import type { RunContext } from './context';
 import * as store from './store';
 
@@ -40,4 +40,12 @@ export function topIdentityByDay(rows: readonly store.LeaderRow[], resolve: Iden
     if (first) top.set(day, first);
   }
   return top;
+}
+
+export const LABEL_COVERAGE_KEY = 'label_coverage';
+
+/** The labeled identities' share of [fromDay, toDay]: every labeled row merged, against daily_totals. */
+export async function labelCoverageOf(c: RunContext, book: SenderBook, fromDay: string, toDay: string): Promise<LabelCoverage> {
+  const rows = await store.senderTotalsOf(c.env.DB, fromDay, toDay, book.labeled);
+  return labelCoverage(mergeIdentities(rows, book.resolve), await store.totalsBetween(c.env.DB, fromDay, toDay));
 }

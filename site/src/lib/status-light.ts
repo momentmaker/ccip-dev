@@ -1,5 +1,5 @@
 import type { StatusFile } from '@ccip-dev/core/public';
-import { formatDuration } from './format';
+import { formatDuration, formatShare } from './format';
 
 export type StatusLevel = 'green' | 'amber' | 'red';
 
@@ -29,4 +29,10 @@ export function statusWord(level: StatusLevel | null, failures: number): string 
   if (failures > 0 && failures < RED_AFTER_FAILURES) return 'Paused';
   if (level === null) return 'Checking';
   return level === 'green' ? 'Live' : level === 'amber' ? 'Delayed' : 'Stalled';
+}
+
+export function coverageLine(c: StatusFile['label_coverage']): string | null {
+  if (!c || c.messages_pct === null) return null;
+  const value = c.usd_pct === null ? '' : `, ${formatShare(c.usd_pct)} of value`;
+  return `Labeled senders: ${formatShare(c.messages_pct)} of messages${value} (last 7 days)`;
 }

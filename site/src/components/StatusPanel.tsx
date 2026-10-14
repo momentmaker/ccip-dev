@@ -1,5 +1,6 @@
 import { DASH, formatUtcDay, formatUtcTime } from '../lib/format';
 import { ingestLagSeconds, statusLevel, statusText } from '../lib/status-light';
+import CoverageNote from './CoverageNote';
 import FreshnessNote from './FreshnessNote';
 import { useNow } from './hooks';
 import { useStatus } from './use-status';
@@ -23,6 +24,7 @@ export default function StatusPanel() {
         <dt>History since</dt>
         <dd className="mono">{status?.coverage_from ?? DASH}</dd>
       </dl>
+      <CoverageNote coverage={status?.label_coverage} />
       <FreshnessNote updatedAt={status?.updated_at ?? null} paused={failures > 0} />
     </section>
   );

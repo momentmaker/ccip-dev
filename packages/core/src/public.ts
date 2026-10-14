@@ -10,12 +10,20 @@ const envelope = {
 export const TOP_WINDOWS = ['7d', '30d', 'all'] as const;
 export type TopWindow = (typeof TOP_WINDOWS)[number];
 
+export const LabelCoverageSchema = z.object({
+  messages_pct: z.number().nullable(),
+  usd_pct: z.number().nullable(),
+  fees_pct: z.number().nullable(),
+  window: z.literal('7d'),
+});
+
 export const StatusFileSchema = z.object({
   ...envelope,
   last_ingest_ok_at: z.string().nullable(),
   lag_seconds: z.number().nullable(),
   last_finalize_day: z.string().nullable(),
   coverage_from: z.string().nullable(),
+  label_coverage: LabelCoverageSchema.nullable().optional(),
 });
 
 export const LiveMessageSchema = z.object({

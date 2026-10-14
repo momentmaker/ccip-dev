@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Label, LabelIndex } from '../src/labels';
-import { identityResolver, labeledAddresses, mergeIdentities, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
+import { identityResolver, labelCoverage, labeledAddresses, mergeIdentities, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
 import {
   BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_LABEL, XSTOCKS_LABELS, XSTOCKS_SENDER_ROWS, XSTOCKS_TOTALS,
 } from '../src/testing';
@@ -174,5 +174,28 @@ describe('sender keys', () => {
       [XBRIDGE_EVM, XBRIDGE_SOLANA],
       [XBRIDGE_EVM, XBRIDGE_SOLANA],
     ]);
+  });
+});
+
+describe('label coverage', () => {
+  it("is the labeled identities' share of the window's messages, value and fees", () => {
+    // #given 2026-10-13: xStocks is the only labeled identity
+    const identities = mergeIdentities(XSTOCKS_SENDER_ROWS, identityResolver(XSTOCKS_LABELS, XSTOCKS_CHAINS));
+    // #when
+    const coverage = labelCoverage(identities, XSTOCKS_TOTALS);
+    // #then
+    expect(coverage).toEqual({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, window: '7d' });
+  });
+
+  it('counts a project credited through a spread label as labeled', () => {
+    // #given Maple's only row came through its Ethereum label
+    const identities = mergeIdentities([row(BASE, ADDR, 3, 30, 1), row(BASE, '0xb', 1, 10, 1)], identityResolver(ON_ETHEREUM, CHAINS));
+    // #then
+    expect(labelCoverage(identities, { messages: 4, usd_value: 40, fee_usd: 2 })).toEqual({ messages_pct: 75, usd_pct: 75, fees_pct: 50, window: '7d' });
+  });
+
+  it('has no shares for an empty window, never NaN', () => {
+    // #then
+    expect(labelCoverage([], { messages: 0, usd_value: 0, fee_usd: null })).toEqual({ messages_pct: null, usd_pct: null, fees_pct: null, window: '7d' });
   });
 });

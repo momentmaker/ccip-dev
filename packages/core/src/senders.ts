@@ -199,3 +199,22 @@ export function rankIdentities(identities: readonly IdentityTotals[], order: Ide
 export function sharePct(part: number, total: number | null): number | null {
   return total === null || total <= 0 ? null : Math.round((part / total) * 1000) / 10;
 }
+
+export interface LabelCoverage {
+  messages_pct: number | null;
+  usd_pct: number | null;
+  fees_pct: number | null;
+  window: '7d';
+}
+
+/** How much of a window the labeled identities (verified or inferred) account for. */
+export function labelCoverage(identities: readonly IdentityTotals[], totals: { messages: number; usd_value: number; fee_usd: number | null }): LabelCoverage {
+  const labeled = identities.filter((i) => i.slug !== null);
+  const sum = (pick: (i: IdentityTotals) => number) => labeled.reduce((s, i) => s + pick(i), 0);
+  return {
+    messages_pct: sharePct(sum((i) => i.messages), totals.messages),
+    usd_pct: sharePct(sum((i) => i.usd_value), totals.usd_value),
+    fees_pct: sharePct(sum((i) => i.fee_usd ?? 0), totals.fee_usd),
+    window: '7d',
+  };
+}

@@ -1,10 +1,10 @@
 import { addDays, dayOf, feeClassifier, lastCompleteMonday, mergeIdentities, normalizeAddress, rankIdentities, sharePct, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type PricedTransfer } from '@ccip-dev/core';
-import { TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
+import { LabelCoverageSchema, TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
 import { buildProjects } from './projects';
-import { rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
+import { LABEL_COVERAGE_KEY, labelCoverageOf, rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
 import * as store from './store';
 
 export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'attribution'>;
@@ -275,12 +275,24 @@ async function publishToday(
   );
 }
 
+/** A missing or unreadable coverage row reads as none, so status.json always publishes. */
+function storedCoverage(raw: string | null) {
+  if (raw === null) return null;
+  try {
+    const parsed = LabelCoverageSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function publishStatus(c: RunContext, now: Date): Promise<void> {
   const db = c.env.DB;
-  const [lastIngest, lastFinalize, coverageFrom] = await Promise.all([
+  const [lastIngest, lastFinalize, coverageFrom, coverage] = await Promise.all([
     store.getMeta(db, 'last_ingest_ok_at'),
     store.getMeta(db, 'last_finalize_day'),
     store.getMeta(db, 'coverage_from'),
+    store.getMeta(db, LABEL_COVERAGE_KEY),
   ]);
   await putJson(
     c.env.PUBLIC,
@@ -290,6 +302,7 @@ export async function publishStatus(c: RunContext, now: Date): Promise<void> {
       lag_seconds: lastIngest ? Math.round((now.getTime() - Date.parse(lastIngest)) / 1000) : null,
       last_finalize_day: lastFinalize,
       coverage_from: coverageFrom,
+      label_coverage: storedCoverage(coverage),
     },
     TTL.status,
     now,
@@ -458,6 +471,11 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const lastDay = addDays(today, -1);
   const names = await store.chainNames(db);
   const book = await senderBook(c);
+  try {
+    await store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay)));
+  } catch (err) {
+    await c.alert('label-coverage', `Label coverage was not computed: ${err instanceof Error ? err.message : String(err)}`);
+  }
   for (const dim of DIMS) {
     const ranked = async (order: store.TopOrder) => ({
       '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),

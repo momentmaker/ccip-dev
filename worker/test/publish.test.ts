@@ -123,6 +123,15 @@ describe('publishLiveFiles', () => {
       coverage_from: null,
     });
   });
+
+  it('publishes no label coverage before the first finalize has written it', async () => {
+    // #given
+    await seed();
+    // #when
+    await publishLiveFiles(harness({ now: '2026-10-08T12:00:00.000Z' }).c);
+    // #then
+    expect((await readPublic('status.json')).label_coverage).toBeNull();
+  });
 });
 
 describe('a mixed-case (EIP-55) sender', () => {
@@ -727,6 +736,16 @@ describe('senders by identity', () => {
     const week = await weekLeaderRows(harness({ now: NOW, labels: XSTOCKS_LABELS }).c, '2026-10-12');
     // #then
     expect([week.sender?.key, week.sender?.messages, week.sender?.share_pct]).toEqual(['project:xstocks', 319, 20.3]);
+  });
+
+  it('writes the last 7 days’ label coverage at finalize, and status.json carries it every minute', async () => {
+    // #given
+    const { c } = harness({ now: NOW, labels: XSTOCKS_LABELS });
+    // #when
+    await publishHistoryFiles(c);
+    await publishLiveFiles(c);
+    // #then
+    expect((await readPublic('status.json')).label_coverage).toEqual({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, window: '7d' });
   });
 });
 
