@@ -211,10 +211,10 @@ describe('momentsSentOn', () => {
 const NOW = '2026-10-13T00:07:00.000Z';
 const DAY = '2026-10-12';
 const PNG = [137, 80, 78, 71];
-const card = (failing: string | null = null) =>
+const card = (failing: string | null = null, status = 500) =>
   fakeFetch((url) => {
     if (!url.startsWith('https://ccip.dev/og/')) return undefined;
-    return failing !== null && url.includes(failing) ? new Response('down', { status: 500 }) : new Response(new Uint8Array(PNG), { headers: { 'content-type': 'image/png' } });
+    return failing !== null && url.includes(failing) ? new Response('down', { status }) : new Response(new Uint8Array(PNG), { headers: { 'content-type': 'image/png' } });
   });
 
 function recorder(name: string, fails: (b: Broadcast) => boolean = () => false) {
@@ -287,6 +287,22 @@ describe('moments after finalize', () => {
     const { reports, channel, alerts } = await momentRun({ fetch: card(`welcome/${NEW[0]}`) });
     // #then its place is not given away within the run; the next run retries it
     expect({ reports, channel, alerts }).toEqual({ reports: ['broadcast:daily:2026-10-12'], channel: [welcome(NEW[1]!)], alerts: [`broadcast-image:${welcome(NEW[0]!)}`] });
+  });
+
+  it('retries a moment whose card is not published yet without alerting, while later days remain in its window', async () => {
+    // #given the first welcome's card answers 404 on its first day
+    const first = await momentRun({ fetch: card(`welcome/${NEW[0]}`, 404) });
+    // #when the next hourly run finds the card
+    const retry = await momentRun({ now: '2026-10-13T01:00:00.000Z' });
+    // #then nothing alerted, and the retry posts it
+    expect({ alerts: first.alerts, first: first.channel, retry: retry.channel }).toEqual({ alerts: [], first: [welcome(NEW[1]!)], retry: [welcome(NEW[0]!)] });
+  });
+
+  it("alerts a moment's missing card on the last day of its window", async () => {
+    // #when the first welcome, due Oct 13, still has no card on Oct 15
+    const { alerts } = await momentRun({ now: '2026-10-15T00:07:00.000Z', day: '2026-10-14', fetch: card(`welcome/${NEW[0]}`, 404) });
+    // #then
+    expect(alerts).toContain(`broadcast-image:${welcome(NEW[0]!)}`);
   });
 
   it("alerts a moment that throws under its own broadcast-run:<key>, apart from the finalize's broadcast-run, and posts the next", async () => {

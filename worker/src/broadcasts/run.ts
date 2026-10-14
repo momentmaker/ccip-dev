@@ -10,7 +10,7 @@ import { composeCopy, type Copy } from './copy';
 import { dailyFacts, loadFactsSource, milestoneFacts, recordFacts, reserveFacts, weeklyFacts, type BroadcastFacts, type FactsSource } from './facts';
 import { composeMomentCopy } from './moment-copy';
 import { isMomentFacts, loadMomentsSource, momentFacts, type MomentFacts, type MomentsSource } from './moment-facts';
-import { dueMoments, pickMoments, type DueMoment } from './moment-plan';
+import { CARRY_DAYS, dueMoments, pickMoments, type DueMoment } from './moment-plan';
 import { loadMonthlyFacts, type MonthlyFacts } from './monthly';
 import { composeMonthlyCopy } from './monthly-copy';
 import {
@@ -35,6 +35,8 @@ export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | {
 interface Planned {
   target: PostTarget;
   facts: BroadcastFacts | MomentFacts | MonthlyFacts;
+  /** A moment that a later day can still post: its card may not be published yet (moments.json is written at finalize), so a 404 is retried quietly. */
+  retriesLater?: boolean;
 }
 
 export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = broadcastOutputs(c)): Promise<void> {
@@ -120,7 +122,8 @@ async function planMoments(c: RunContext, src: MomentsSource): Promise<Planned[]
     newcomersSentToday: await store.momentsSentOn(db, today, ['newcomer']),
   }).flatMap((d) => {
     const facts = momentFacts(src, d.target);
-    return facts === null ? [] : [{ target: d.target, facts }];
+    const retriesLater = d.target.kind !== 'countdown' && d.due > addDays(today, -CARRY_DAYS);
+    return facts === null ? [] : [{ target: d.target, facts, retriesLater }];
   });
   return [...poll, ...picked];
 }
@@ -225,12 +228,14 @@ async function planReserve(c: RunContext, reserve: ReserveBody): Promise<Planned
     });
 }
 
-type Media = { media: BroadcastMedia } | { alert: string; problem: string };
+type Media = { media: BroadcastMedia } | { alert: string; problem: string; missing?: boolean };
 
 async function cardMedia(c: RunContext, target: BroadcastTarget): Promise<Media> {
   const cardUrl = `${SITE_ORIGIN}/og/${broadcastCardPath(target)}.png`;
   const checked = await checkImage(c, cardUrl);
-  return 'problem' in checked ? { alert: 'broadcast-image', problem: `its card ${cardUrl} ${checked.problem}` } : { media: { kind: 'image', png: checked.png } };
+  return 'problem' in checked
+    ? { alert: 'broadcast-image', problem: `its card ${cardUrl} ${checked.problem}`, missing: checked.status === 404 }
+    : { media: { kind: 'image', png: checked.png } };
 }
 
 /** The video the workflow put in the archive bucket, posted under the month's name. */
@@ -247,10 +252,10 @@ async function videoMedia(c: RunContext, month: string): Promise<Media> {
   }
 }
 
-async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array } | { problem: string }> {
+async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array } | { problem: string; status?: number }> {
   try {
     const res = await c.deps.fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
-    if (!res.ok) return { problem: `answered HTTP ${res.status}` };
+    if (!res.ok) return { problem: `answered HTTP ${res.status}`, status: res.status };
     if (!(res.headers.get('content-type') ?? '').startsWith('image/png')) return { problem: 'did not answer with a PNG' };
     const png = new Uint8Array(await res.arrayBuffer());
     return png.byteLength === 0 ? { problem: 'answered an empty PNG' } : { png };
@@ -289,6 +294,10 @@ async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOut
   const loaded = p.target.kind === 'monthly' ? await videoMedia(c, p.target.month) : await cardMedia(c, p.target);
   if ('problem' in loaded) {
     await store.releaseMeta(db, key, claim);
+    if (loaded.missing && p.retriesLater) {
+      console.warn(`[broadcast] ${key} waits for its card: ${loaded.problem}`);
+      return;
+    }
     await c.alert(`${loaded.alert}:${key}`, `${key} was not posted: ${loaded.problem}`);
     return;
   }

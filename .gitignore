@@ -14,3 +14,4 @@ site/linkmarine-cards/
 # brand re-render artifacts (see brand/README.md)
 brand/src/render.js
 brand/src/*.json
+.worktrees/
