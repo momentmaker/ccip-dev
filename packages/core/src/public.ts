@@ -35,6 +35,7 @@ export const DayTotalsSchema = z.object({
   day: z.string(),
   messages: z.number(),
   token_messages: z.number(),
+  data_messages: z.number().nullable().optional(),
   usd_value: z.number(),
   fee_usd: z.number().nullable(),
   unique_senders: z.number(),

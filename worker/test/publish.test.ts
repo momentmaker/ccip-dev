@@ -760,3 +760,21 @@ describe("today's and the live feed's senders by identity", () => {
     expect((await readPublic('live.json')).messages[0].sender_label).toBe('Maple Finance');
   });
 });
+
+describe('data messages', () => {
+  it("publishes each day's data messages in history.json, and today's in today.json", async () => {
+    // #given yesterday rolled up with 3 data messages of 5, and today one message without tokens and one with
+    const yesterday = { day: '2026-10-07', messages: 5, token_messages: 2, data_messages: 3, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 };
+    await store.replaceDaily(env.DB, yesterday, [], '2026-10-08T00:07:00.000Z');
+    await store.upsertListRows(env.DB, [
+      liveRow({ id: 'data', sendTs: '2026-10-08T11:00:00.000Z' }),
+      liveRow({ id: 'token', sendTs: '2026-10-08T11:01:00.000Z' }, { token_count: 1 }),
+    ], []);
+    const { c } = harness({ now: '2026-10-08T12:00:00.000Z' });
+    // #when
+    await publishHistoryFiles(c);
+    await publishLiveFiles(c);
+    // #then
+    expect([(await readPublic('history.json')).days[0].data_messages, (await readPublic('today.json')).totals.data_messages]).toEqual([3, 1]);
+  });
+});

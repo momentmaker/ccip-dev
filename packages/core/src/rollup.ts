@@ -28,6 +28,7 @@ export function rollupDay(day: string, messages: MessageRow[], tokens: TokenRow[
     day,
     messages: rows.length,
     token_messages: rows.filter((r) => r.token_count > 0).length,
+    data_messages: rows.filter((r) => r.token_count === 0).length,
     usd_value: sum(rows.map((r) => r.usd_value)),
     fee_usd: rows.some((r) => r.fee_usd !== null) ? sum(rows.map((r) => r.fee_usd ?? 0)) : null,
     unique_senders: new Set(rows.map(senderKey)).size,

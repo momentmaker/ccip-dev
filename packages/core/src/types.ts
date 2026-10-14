@@ -83,6 +83,8 @@ export interface DailyTotals {
   day: string;
   messages: number;
   token_messages: number;
+  /** Messages with no tokens. Optional so rows written before it was counted still type; the rollup always sets it. */
+  data_messages?: number | null;
   usd_value: number;
   fee_usd: number | null;
   unique_senders: number;

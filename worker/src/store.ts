@@ -579,11 +579,11 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
   await runBatch(db, [
     db
       .prepare(
-        `INSERT INTO daily_totals (day, messages, token_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, computed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
+        `INSERT INTO daily_totals (day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, computed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
       )
       .bind(
-        totals.day, totals.messages, totals.token_messages, totals.usd_value, totals.fee_usd, totals.unique_senders,
+        totals.day, totals.messages, totals.token_messages, totals.data_messages ?? null, totals.usd_value, totals.fee_usd, totals.unique_senders,
         totals.median_delivery_s, totals.unpriced_messages, computedAt,
       ),
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
@@ -594,7 +594,7 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
   const { results } = await db
     .prepare(
-      `SELECT day, messages, token_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages
+      `SELECT day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages
        FROM daily_totals ORDER BY day`,
     )
     .all<DailyTotals>();

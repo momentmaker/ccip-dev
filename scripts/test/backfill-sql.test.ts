@@ -40,15 +40,22 @@ function snapshot(db: DatabaseSync, id: string): { message: unknown; tokens: unk
   };
 }
 
+const MIGRATIONS = path.resolve(import.meta.dirname, '../../worker/migrations');
+
+async function schema(): Promise<string> {
+  const files = (await readdir(MIGRATIONS)).filter((f) => f.endsWith('.sql')).sort();
+  return (await Promise.all(files.map((f) => readFile(path.join(MIGRATIONS, f), 'utf8')))).join('\n');
+}
+
 describe('backfill SQL against a real database', () => {
   it('updates backfill rows and leaves live rows untouched across a rebuild', async () => {
     const db = new DatabaseSync(':memory:');
-    db.exec(await readFile(path.resolve(import.meta.dirname, '../../worker/migrations/0001_init.sql'), 'utf8'));
+    db.exec(await schema());
 
     const dir = await crawlDir();
     await build({ dir, liveStartDay: '2026-10-08', prices: pricesAt(2), ...emptyRegistries(), now: () => NOW });
     const scratch = new DatabaseSync(':memory:');
-    scratch.exec(await readFile(path.resolve(import.meta.dirname, '../../worker/migrations/0001_init.sql'), 'utf8'));
+    scratch.exec(await schema());
     await applyAll(scratch, dir);
     const columns = scratch.prepare('SELECT * FROM messages WHERE message_id = ?').get('a2') as Record<string, unknown>;
     const tokenColumns = scratch.prepare('SELECT * FROM message_tokens WHERE message_id = ?').get('a2') as Record<string, unknown>;

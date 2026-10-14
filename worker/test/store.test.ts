@@ -1,4 +1,4 @@
-import { chainRef, siblingKeys } from '@ccip-dev/core';
+import { chainRef, rollupDay, siblingKeys } from '@ccip-dev/core';
 import { BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -436,5 +436,36 @@ describe('senderChains', () => {
         [NETWORKS.solana.chainSelector, { name: 'solana-mainnet', family: 'SVM' }],
       ]),
     );
+  });
+});
+
+describe('migration 0006', () => {
+  const DAY = '2026-10-07';
+  const NOW = '2026-10-08T00:07:00.000Z';
+
+  async function rollUpFiveMessages(): Promise<ReturnType<typeof rollupDay>> {
+    // 3 messages without tokens and 2 with one
+    await store.upsertListRows(env.DB, [0, 0, 0, 1, 1].map((tokens, i) => liveRow({ id: `m${i}`, sendTs: `${DAY}T10:0${i}:00.000Z` }, { token_count: tokens })), []);
+    return rollupDay(DAY, await store.messagesForDay(env.DB, DAY), []);
+  }
+
+  it("backfills each day's data messages as its messages without tokens", async () => {
+    // #given a day rolled up before the column existed
+    const { totals, breakdown } = await rollUpFiveMessages();
+    await store.replaceDaily(env.DB, { ...totals, data_messages: null }, breakdown, NOW);
+    const backfill = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0006'))!.queries.find((q) => q.includes('UPDATE daily_totals'))!;
+    // #when
+    await env.DB.prepare(backfill).run();
+    // #then
+    expect((await store.dailyHistory(env.DB))[0]?.data_messages).toBe(3);
+  });
+
+  it('stores the rollup’s data messages and reads them back with the history', async () => {
+    // #given
+    const { totals, breakdown } = await rollUpFiveMessages();
+    // #when
+    await store.replaceDaily(env.DB, totals, breakdown, NOW);
+    // #then
+    expect((await store.dailyHistory(env.DB)).map((d) => [d.day, d.messages, d.token_messages, d.data_messages])).toEqual([[DAY, 5, 2, 3]]);
   });
 });

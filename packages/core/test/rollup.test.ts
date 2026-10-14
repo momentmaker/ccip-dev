@@ -33,6 +33,7 @@ describe('rollupDay', () => {
       day: '2026-10-05',
       messages: 3,
       token_messages: 2,
+      data_messages: 1,
       usd_value: 150,
       fee_usd: 3,
       unique_senders: 2,
