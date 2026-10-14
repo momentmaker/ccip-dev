@@ -1,0 +1,40 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0x49719d25"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 38 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 26 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 19 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+
+[[addresses]]
+chain = "0g-mainnet"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 8 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 6 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+
+[[addresses]]
+chain = "gnosis_chain-mainnet"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 2 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x49719d256a5ea16bfa579ea16e95bea9fa41a452"
+note = "candidate: 2 of 101 messages in the last 7 days, $21522 in all, first seen 2026-01-15"
+

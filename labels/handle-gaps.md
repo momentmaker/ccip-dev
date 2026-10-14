@@ -8,9 +8,8 @@ Add a handle only with a source: the project's or chain's own website or docs, o
 
 | Token | Chain | Address | Group | USD (7d) |
 |---|---|---|---|---|
-| USDC | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 13,166,343 |
-| - | arc-mainnet | 0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39 | - | 12,136,810 |
-| - | solana-mainnet | 3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7 | - | 8,447,068 |
+| USDC | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 14,252,815 |
+| - | arc-mainnet | 0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39 | - | 12,240,046 |
 
 ### Chains without an X handle
 
