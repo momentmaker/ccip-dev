@@ -2,7 +2,8 @@ import { isAddressShape } from './chain-map';
 import type { Label, LabelIndex, LabelProject } from './labels';
 import { byName } from './roster';
 import { addDays } from './time';
-import { addRowSums, emptyRowSums, type RowSums, type ViaTokenCredit } from './via-token';
+import { addRowSums, emptyRowSums, type RowSums } from './row-sums';
+import type { ViaTokenCredit } from './via-token';
 
 export type LabelKind = LabelProject['kind'];
 

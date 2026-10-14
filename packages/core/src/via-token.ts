@@ -1,4 +1,5 @@
 import type { Label, ProjectRegistry, TokenLabels } from './labels';
+import { addRowSums, emptyRowSums, type RowSums } from './row-sums';
 import { senderKeyAddress, type SenderChains, type SenderRow } from './senders';
 
 /** A token's registry group id by its chain selector and address as message_tokens stores them; null for none. */
@@ -98,24 +99,6 @@ export function viaTokenCredits(rows: readonly SenderRow[], claims: TokenClaims)
     const project = claims.get(r.key.slice(bar + 1));
     return project === undefined ? [] : [{ selector: r.key.slice(0, bar), project, messages: r.messages, usd_value: r.usd_value, fee_usd: r.fee_usd }];
   });
-}
-
-export interface RowSums {
-  messages: number;
-  usd: number;
-  fee: number;
-  anyFee: boolean;
-}
-
-export const emptyRowSums = (): RowSums => ({ messages: 0, usd: 0, fee: 0, anyFee: false });
-
-export function addRowSums(sums: RowSums, row: { messages: number; usd_value: number; fee_usd: number | null }): void {
-  sums.messages += row.messages;
-  sums.usd += row.usd_value;
-  if (row.fee_usd !== null) {
-    sums.fee += row.fee_usd;
-    sums.anyFee = true;
-  }
 }
 
 /**
