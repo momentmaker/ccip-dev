@@ -82,6 +82,21 @@
   fee per message reads low on routes like Ronin.
 - **Delivery time:** receipt minus send, for `SUCCESS` messages. The median is reported per day.
 
+## Senders and projects
+
+- **Sender identity:** a message is credited to a project when its source chain and sender address have a verified label in `labels/projects/`, and otherwise to the address itself, across every chain it sends from. On 2026-10-13, xStocks's xBridge (one address on five EVM chains) and its Solana sender add up to 319 of the day's 1,569 messages (20.3%).
+- **Label spread:** an EVM address with no label on its chain takes the label the same address has on another EVM chain, marked "inferred". A label never spreads across chain families, never from or to Solana or another non-EVM chain, never to an address two projects label, and never for a project whose label file sets `spread = false`. The weekly label candidates pull request lists every address a label spread to, so each is confirmed or blocked.
+- **Rankings:** Top › Senders, the daily and weekly top sender and today's top senders rank identities, not chain-and-address pairs. The daily and weekly top sender is the identity with the most messages; Top › Senders ranks by value or by fees, as its other tabs do. A top sender's share is of all the period's messages.
+- **Unique senders** still counts chain-and-address pairs: the same address on two chains counts twice, and an identity that sends from several addresses counts once per pair.
+- **Data messages:** messages that carry no tokens. Every day in history counts them; the daily card and History show their share.
+- **Label coverage:** the share of the last 7 days' messages, value and fees sent by labeled identities (verified or inferred), computed at each finalize and shown on the status page.
+- **Project pages** (`/projects/`) list every verified project: its totals over 7 days, 30 days and all time, its last 30 days, its chains and top lanes, its addresses (inferred ones marked) and its label's source.
+- **Public files:** from 2026-10-14 the files carry sender identities in additive fields, so `schema_version` stays 1 and older readers keep working.
+  - `top/sender.json` adds `identities` and `identities_by_fees`; its `windows` and `by_fees` keep the older `<selector>:<address>` keys.
+  - `day-leaders.json` and `today.json` name senders `project:<slug>` or `address:<address>`, with `chains`, `addresses` (the number of addresses), `inferred`, `x`, `kind` and `share_pct`.
+  - `history.json` and `today.json` add `data_messages`; `status.json` adds `label_coverage` (`messages_pct`, `usd_pct`, `fees_pct`, `window`); `moments.json` adds `arrivals.senders` and each week's `project`.
+  - `projects.json` is new.
+
 ## Broadcasts
 
 - **What is posted:** a daily report after each day is finalized, a weekly report on Mondays (Monday–Sunday, UTC), a post for each record or milestone a newly finalized day sets, and one for each Reserve deposit. They go to the Telegram channel @ccipdev and to X.
@@ -98,8 +113,10 @@ Besides the daily and weekly reports, @ccipdev posts moments: short posts about 
 - **Movers** compare last week's top 10 (Monday to Sunday) with the week before's, on three boards: chains by fees paid, tokens by value and lanes by value. A new #1 leads (fees first, then tokens, then lanes); otherwise the biggest climb does. Climbers gained 3 places or more, or entered the top 10.
 - **The spotlight** is the chain whose messages (sent and received) grew the most against the week before, among chains with at least 100 messages last week and 50 the week before, and whose first message came no later than the first day of the week before, so a partial first week cannot inflate its rise. A chain is not spotlighted again within 4 weeks.
 - **New on CCIP** lists the lanes and tokens whose first message came Monday to Friday. A token is counted by its registry group, so a token's new chain is not a new token. A lane of a newly welcomed chain is left out.
+- **A new sender** is posted the day after it enters the day's top 10 senders by messages, with 20 or more that day, when its first message on any chain came within the 30 days ending that day. Each sender is posted once. Its count is of its messages since its first day.
+- **The project spotlight** is the labeled project that gained the most messages on the week before, with at least 50 that week; it is posted on the Wednesday after the week. A project with no messages the week before is shown as "none the week before", with no claim that it is its first week.
 - **The poll** asks, in turn by week, which chain will pay the most fees, whether fees will beat last week's total (by more than 10%, within 10%, or less), or which lane will move the most value. The answer is taken from our data once the week is complete.
-- **Tags:** an X post tags only the chain it is about (the welcomed chain, the spotlighted chain, or the headline chain of the movers, when the headline is a chain; a token or lane headline tags no one), and only with a verified handle. Everyone else is named in plain text.
+- **Tags:** an X post tags only what it is about (the welcomed chain, the spotlighted chain, the headline chain of the movers when the headline is a chain, the new sender or the spotlighted project), and only with a verified handle. A project credited only through label spread, and any address, is never tagged. Everyone else is named in plain text, and the daily and weekly reports tag no one.
 
 ## Monthly video
 
