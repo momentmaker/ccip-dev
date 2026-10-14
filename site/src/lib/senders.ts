@@ -11,7 +11,7 @@ export type RegistryNames = ReadonlyMap<string, string>;
 
 export const registryNames = (chains: ChainsFile['chains']): RegistryNames => new Map(chains.map((c) => [c.selector, c.name]));
 
-/** The ranking by identity when the file has it; a file published before identities has only its per-chain entries. */
+/** The ranking by identity when the file has it, already ordered by the Worker; a file published before identities has only its per-chain entries. */
 export function senderEntries(top: TopFile, window: Window, order: TopOrder): TopEntry[] {
   const identities = order === 'fees' ? top.identities_by_fees : top.identities;
   return identities ? identities[window] : topEntries(top, window, order);

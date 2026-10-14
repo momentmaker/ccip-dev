@@ -82,7 +82,7 @@ const tiles = [
   </section>
   {sender && (
     <p class="top-sender">
-      Top sender: <ChainIcons selectors={sender.chains} />{sender.href ? <a href={sender.href} rel={sender.href.startsWith('http') ? 'noopener' : undefined}>{sender.primary}</a> : sender.primary}{sender.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{sender.inferred && <span class="inferred">inferred</span>}
+      Top sender: <ChainIcons selectors={sender.chains} />{sender.href ? <a href={sender.href} rel={sender.href.startsWith('http') ? 'noopener' : undefined}>{sender.primary}</a> : sender.primary}{sender.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{sender.inferred && <span class="inferred" title="Credited through the same address labeled on another chain">inferred</span>}
       {` · ${formatCount(sender.messages)} messages`}{sender.sharePct !== null && ` (${formatShare(sender.sharePct)})`}
       {sender.suggestUrl && <>{' · '}<a href={sender.suggestUrl} rel="noopener">Suggest a label</a></>}
     </p>
