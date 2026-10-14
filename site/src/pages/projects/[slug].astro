@@ -48,7 +48,7 @@ const week = project.totals['7d'];
       </section>
     );
   })}
-  <figure class="card chart">
+  <figure class="card chart project-chart">
     <figcaption><span class="label">Messages per day, last 30 days</span></figcaption>
     <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={chartSummary('Messages', points, formatCount, false)}>
       <path d={geo.area} class="chart-area" />
@@ -89,10 +89,11 @@ const week = project.totals['7d'];
       </tbody>
     </table>
   </div>
-  <p class="muted">Source: {project.source ?? 'see the label file'} · Label: <a href={labelFileUrl(project.slug)}>labels/projects/{project.slug}.toml</a>. "inferred" marks the same address on another chain, credited to the project through its label.</p>
+  <p class="muted">Source: {project.source?.startsWith('http') ? <a href={project.source} rel="noopener">{project.source}</a> : (project.source ?? 'see the label file')} · Label: <a href={labelFileUrl(project.slug)}>labels/projects/{project.slug}.toml</a>. "inferred" marks the same address on another chain, credited to the project through its label.</p>
 </Base>
 
 <style>
   .project-window { margin-top: 12px; }
+  .project-chart { margin-top: 12px; }
   .mono { font-family: var(--font-mono); overflow-wrap: anywhere; }
 </style>
