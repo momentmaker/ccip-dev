@@ -18,6 +18,11 @@ export interface TopRow {
   secondary: string | null;
   verified: boolean;
   chains: string[];
+  /** Sender rows only: the project page or the address's explorer page. */
+  href?: string | null;
+  inferred?: boolean;
+  /** Sender rows only: the label issue form, for an address with no label. */
+  suggestUrl?: string | null;
   messages: number;
   usd: number | null;
   fee: number | null;

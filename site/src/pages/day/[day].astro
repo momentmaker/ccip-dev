@@ -1,4 +1,5 @@
 ---
+import ChainIcons from '../../components/ChainIcons.astro';
 import InfoLink from '../../components/InfoLink';
 import ShareButton from '../../components/ShareButton';
 import Base from '../../layouts/Base.astro';
@@ -10,6 +11,7 @@ import { takeRateBps } from '../../lib/charts';
 import { dayFeeMix } from '../../lib/fee-mix';
 import '../../styles/history.css';
 import { chainNameMap } from '../../lib/names';
+import { daySender, registryNames } from '../../lib/senders';
 import { computeMilestones, computeRecords } from '../../lib/records';
 import { COINS_WIDE } from '../../sky/coins';
 import { changeTone } from '../../lib/tone';
@@ -23,7 +25,7 @@ export async function getStaticPaths() {
 }
 
 const day = Astro.params.day as string;
-const [history, replay, chains] = await Promise.all([buildData('history.json'), buildData('replay.json'), buildData('chains.json')]);
+const [history, replay, chains, leaders] = await Promise.all([buildData('history.json'), buildData('replay.json'), buildData('chains.json'), buildData('day-leaders.json')]);
 const view = dayView(history.days, day)!;
 const highlights = dayHighlights(day, computeRecords(history.days), computeMilestones(history.days, replay.chains));
 const weights = windowWeights(replay, day, day);
@@ -39,6 +41,7 @@ const svg = skySvg({
   title: `CCIP lanes active on ${day}`,
 });
 const label = formatUtcDay(day);
+const sender = daySender(leaders.days.find((d) => d.day === day), chainNameMap(chains.chains), registryNames(chains.chains));
 const delta = (d: DayDelta) => [
   { text: d.vsPrevious === null ? null : `${formatPct(d.vsPrevious)} vs day before`, tone: changeTone(d.vsPrevious) },
   { text: d.vsAvg7 === null ? null : `${formatPct(d.vsAvg7)} vs 7-day avg`, tone: changeTone(d.vsAvg7) },
@@ -77,6 +80,13 @@ const tiles = [
       </div>
     ))}
   </section>
+  {sender && (
+    <p class="top-sender">
+      Top sender: <ChainIcons selectors={sender.chains} />{sender.href ? <a href={sender.href} rel={sender.href.startsWith('http') ? 'noopener' : undefined}>{sender.primary}</a> : sender.primary}{sender.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{sender.inferred && <span class="inferred">inferred</span>}
+      {` · ${formatCount(sender.messages)} messages`}{sender.sharePct !== null && ` (${formatShare(sender.sharePct)})`}
+      {sender.suggestUrl && <>{' · '}<a href={sender.suggestUrl} rel="noopener">Suggest a label</a></>}
+    </p>
+  )}
   {mix && (
     <figure class="card fee-mix">
       <figcaption class="label">Fee mix</figcaption>
@@ -99,6 +109,7 @@ const tiles = [
 </Base>
 
 <style>
+  .top-sender { margin: 12px 0 0; }
   .fee-mix { margin: 12px 0 0; }
   .mix-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--card-2); margin-top: 8px; }
   .mix-bar span { display: block; height: 100%; background: currentColor; }

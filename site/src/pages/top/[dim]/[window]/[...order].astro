@@ -7,6 +7,7 @@ import { buildData, buildDataIfPublished } from '../../../../lib/build-data';
 import { TOP_DIMS, TOP_ORDERS, WINDOWS, topOrders, type TopDim, type TopOrder, type Window } from '../../../../lib/card-paths';
 import { formatCount, formatFee, formatFeeTotal, formatPct, formatUsd } from '../../../../lib/format';
 import { chainNameMap } from '../../../../lib/names';
+import { registryNames, senderEntries, senderRows } from '../../../../lib/senders';
 import { TOP_FILE, topEntries, topHref, topRows, typicalFeeMap } from '../../../../lib/top';
 
 export function getStaticPaths() {
@@ -27,7 +28,10 @@ const byFees = order === 'fees';
 const [top, chains] = await Promise.all([buildData(TOP_FILE[dim]), buildData('chains.json')]);
 const names = chainNameMap(chains.chains);
 const cost = dim === 'lane' ? await buildDataIfPublished('cost.json') : null;
-const rows = topRows(topEntries(top, window, order), dim, names, { order, typicalFees: typicalFeeMap(cost) });
+const rows =
+  dim === 'sender'
+    ? senderRows(senderEntries(top, window, order), names, registryNames(chains.chains), order)
+    : topRows(topEntries(top, window, order), dim, names, { order, typicalFees: typicalFeeMap(cost) });
 const scope = window === 'all' ? `since ${top.since}` : `last ${WINDOW_LABEL[window]}`;
 const heading = `${TITLE[dim]}${byFees ? ' by fees' : ''}`;
 const description = byFees ? `Up to 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.` : `Up to 100 of the busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
@@ -77,8 +81,9 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
             <tr>
               <td class="num muted">{r.rank}</td>
               <td>
-                <ChainIcons selectors={r.chains} />{r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}
+                <ChainIcons selectors={r.chains} />{r.href ? <a href={r.href} rel={r.href.startsWith('http') ? 'noopener' : undefined}>{r.primary}</a> : r.primary}{r.verified && <span class="verified" title="Verified label" aria-label="verified">✓</span>}{r.inferred && <span class="inferred" title="Credited through the same address labeled on another chain">inferred</span>}
                 {r.secondary && <span class="secondary">{r.secondary}</span>}
+                {r.suggestUrl && <a class="suggest" href={r.suggestUrl} rel="noopener">Suggest a label</a>}
               </td>
               {byFees && <td class="num">{formatFeeTotal(r.fee)}</td>}
               <td class="num">{formatCount(r.messages)}</td>
@@ -92,5 +97,5 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
       </table>
     </div>
   )}
-  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. {dim === 'sender' && 'Labels appear only for verified senders.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
+  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. {dim === 'sender' && 'A project counts every address its label names, on every chain; "inferred" marks one credited through the same address labeled on another chain.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
 </Base>

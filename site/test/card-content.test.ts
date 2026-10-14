@@ -202,3 +202,16 @@ describe('project card', () => {
     expect(projectCard(file, 'nobody')).toBeNull();
   });
 });
+
+describe('top senders card', () => {
+  it('names the identity at the top when the file has identities', () => {
+    // #given
+    const file = {
+      ...envelope, dim: 'sender' as const, since: '2023-07-06',
+      windows: { '7d': [{ key: `${BASE}:0xabc`, messages: 1, usd: 9, label: null }], '30d': [], all: [] },
+      identities: { '7d': [{ key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 10 }], '30d': [], all: [] },
+    };
+    // #then
+    expect(topCard(file, 'sender', '7d', 'value', names).big).toBe('xStocks');
+  });
+});

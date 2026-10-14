@@ -3,6 +3,7 @@ import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
 import { formatCount, formatFeeTotal, formatLink, formatPct, formatShare, formatUsd, formatUtcDay } from '../../src/lib/format';
+import { senderEntries } from '../../src/lib/senders';
 import { chainName, laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
 import { topEntries } from '../../src/lib/top';
 import { computeRecords } from '../../src/lib/records';
@@ -109,7 +110,7 @@ function entryLabel(e: TopEntry, dim: TopDim, names: ChainNames): string {
 }
 
 export function topCard(top: TopFile, dim: TopDim, window: Window, order: TopOrder, names: ChainNames): CardSpec {
-  const entries = topEntries(top, window, order);
+  const entries = dim === 'sender' ? senderEntries(top, window, order) : topEntries(top, window, order);
   const first = entries[0];
   const byFees = order === 'fees';
   const amount = (e: TopEntry) => byFees ? formatFeeTotal(e.fee_usd) : formatUsd(e.usd);

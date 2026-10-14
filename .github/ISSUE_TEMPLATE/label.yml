@@ -1,0 +1,39 @@
+name: Suggest a label
+description: Name the project behind a CCIP sender address.
+title: "Label: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping name who sends on CCIP. A label needs a public source that ties the address to the project: its docs, its deployments on GitHub, or its own website. We add it as a file in `labels/projects/`; see "Labels and handles" in `docs/runbook.md`.
+  - type: input
+    id: chain
+    attributes:
+      label: Chain
+      description: The CCIP chain name, as in labels/ccip-chains.json, for example ethereum-mainnet-base-1.
+    validations:
+      required: true
+  - type: input
+    id: address
+    attributes:
+      label: Address
+    validations:
+      required: true
+  - type: input
+    id: project
+    attributes:
+      label: Project name
+    validations:
+      required: true
+  - type: input
+    id: x
+    attributes:
+      label: X handle
+      description: Without the @, and only one the project's own website or docs link to.
+  - type: input
+    id: source
+    attributes:
+      label: Source URL
+      description: An https page of the project's own that lists this address.
+    validations:
+      required: true
