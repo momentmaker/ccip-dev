@@ -1,6 +1,6 @@
 import { PUBLIC_SCHEMAS } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { addressExplorerUrl, kindLabel, labelFileUrl, projectIndexRows, projectPaths, seriesPoints, splitText } from '../src/lib/projects';
+import { addressExplorerUrl, kindLabel, labelFileUrl, projectIndexRows, projectPaths, projectTokenRows, seriesPoints, splitText, viaTokenSplitText } from '../src/lib/projects';
 import fixture from './fixtures/projects.json';
 
 const FILE = PUBLIC_SCHEMAS['projects.json'].parse(fixture);
@@ -40,5 +40,31 @@ describe('project pages', () => {
       'Token issuer',
       'Project',
     ]);
+  });
+});
+
+describe('a project credited via its token', () => {
+  const window = { messages: 2_000, usd: 10, fee_usd: 1, share_pct: 15, via_token_messages: 689, via_token_usd: 5 };
+
+  it('words a window split between its contracts and its token, and has none without via-token messages', () => {
+    // #then
+    expect([viaTokenSplitText(window), viaTokenSplitText({ ...window, via_token_messages: 0 }), viaTokenSplitText(XSTOCKS!.totals['7d'])]).toEqual([
+      '1,311 sent by its contracts · 689 via its token, by wallets bridging it',
+      null,
+      null,
+    ]);
+  });
+
+  it('lists its claimed tokens, one without a symbol by its short address, and none for a file from before tokens', () => {
+    // #given
+    const project = {
+      ...XSTOCKS!,
+      tokens: [
+        { chain: '1', address: '0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b', symbol: null, source: 'https://x.example' },
+        { chain: '2', address: '0xabc', symbol: 'TSLAx', source: 'https://y.example' },
+      ],
+    };
+    // #then
+    expect([projectTokenRows(project).map((t) => t.symbol), projectTokenRows(XSTOCKS!)]).toEqual([['0x80ac…cc0b', 'TSLAx'], []]);
   });
 });

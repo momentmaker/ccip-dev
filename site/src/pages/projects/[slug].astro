@@ -7,7 +7,7 @@ import { buildData, buildDataIfPublished } from '../../lib/build-data';
 import { CHART_H, CHART_W, chartGeometry, chartSummary } from '../../lib/charts';
 import { formatCount, formatFeeTotal, formatShare, formatUsd } from '../../lib/format';
 import { chainName, chainNameMap, laneLabel } from '../../lib/names';
-import { addressExplorerUrl, kindLabel, labelFileUrl, projectPaths, seriesPoints, splitText, xProfileUrl } from '../../lib/projects';
+import { addressExplorerUrl, kindLabel, labelFileUrl, projectPaths, projectTokenRows, seriesPoints, splitText, viaTokenSplitText, xProfileUrl } from '../../lib/projects';
 import '../../styles/history.css';
 
 export async function getStaticPaths() {
@@ -23,6 +23,7 @@ const split = splitText(project.split);
 const WINDOWS = [['7d', 'last 7 days'], ['30d', 'last 30 days']] as const;
 const cardPath = `project/${project.slug}`;
 const week = project.totals['7d'];
+const tokens = projectTokenRows(project);
 ---
 <Base title={`${project.name} on CCIP`} description={`${project.name} on Chainlink CCIP: ${formatCount(week.messages)} messages in the last 7 days, with its chains, lanes and addresses.`} cardPath={cardPath}>
   <div class="page-head">
@@ -39,13 +40,17 @@ const week = project.totals['7d'];
   </div>
   {WINDOWS.map(([w, label]) => {
     const t = project.totals[w];
+    const via = viaTokenSplitText(t);
     return (
-      <section class="tiles wrap-labels project-window" aria-label={label}>
-        <div class="tile"><span class="label">Messages, {label}</span><p class="value">{formatCount(t.messages)}</p></div>
-        <div class="tile"><span class="label">Value, {label}</span><p class="value">{formatUsd(t.usd)}</p></div>
-        <div class="tile"><span class="label">Fees, {label}</span><p class="value">{formatFeeTotal(t.fee_usd)}</p></div>
-        <div class="tile"><span class="label">Share of messages, {label}</span><p class="value">{formatShare(t.share_pct)}</p></div>
-      </section>
+      <>
+        <section class="tiles wrap-labels project-window" aria-label={label}>
+          <div class="tile"><span class="label">Messages, {label}</span><p class="value">{formatCount(t.messages)}</p></div>
+          <div class="tile"><span class="label">Value, {label}</span><p class="value">{formatUsd(t.usd)}</p></div>
+          <div class="tile"><span class="label">Fees, {label}</span><p class="value">{formatFeeTotal(t.fee_usd)}</p></div>
+          <div class="tile"><span class="label">Share of messages, {label}</span><p class="value">{formatShare(t.share_pct)}</p></div>
+        </section>
+        {via && <p class="muted">{via}, {label}.</p>}
+      </>
     );
   })}
   <figure class="card chart project-chart">
@@ -60,35 +65,63 @@ const week = project.totals['7d'];
     <p class="muted">No messages in the last 30 days.</p>
   ) : (
     <>
-      <p>Sends from {project.chains.map((s, i) => <>{i > 0 && ' · '}<ChainIcons selectors={[s]} />{chainName(names, s)}</>)}</p>
+      <p>Seen on {project.chains.map((s, i) => <>{i > 0 && ' · '}<ChainIcons selectors={[s]} />{chainName(names, s)}</>)}</p>
+      {project.lanes.length > 0 && (
+        <div class="table-wrap card">
+          <table class="data">
+            <thead><tr><th>Top lanes, last 30 days</th><th class="num">Messages</th><th class="num">Value</th></tr></thead>
+            <tbody>
+              {project.lanes.map((l) => (
+                <tr><td><ChainIcons selectors={[l.src, l.dst]} />{laneLabel(names, `${l.src}>${l.dst}`)}</td><td class="num">{formatCount(l.messages)}</td><td class="num">{formatUsd(l.usd)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {split && <p class="muted">{split}, last 30 days.</p>}
+      {(project.totals['30d'].via_token_messages ?? 0) > 0 && <p class="muted">Top lanes and the data split count the messages its own addresses sent; messages via its token are in the totals and the chart.</p>}
+    </>
+  )}
+  <h2>Addresses</h2>
+  {project.addresses.length === 0 ? (
+    <p class="muted">Its label names no sending address; its messages come via its tokens.</p>
+  ) : (
+    <div class="table-wrap card">
+      <table class="data">
+        <thead><tr><th>Chain</th><th>Address</th><th>Note</th></tr></thead>
+        <tbody>
+          {project.addresses.map((a) => (
+            <tr>
+              <td><ChainIcons selectors={[a.chain]} />{chainName(names, a.chain)}</td>
+              <td class="mono"><a href={addressExplorerUrl(a.address)} rel="noopener">{a.address}</a>{a.inferred && <span class="inferred" title="The same address is labeled on another chain">inferred</span>}</td>
+              <td class="muted">{a.note ?? ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+  {tokens.length > 0 && (
+    <>
+      <h2>Tokens</h2>
+      <p class="muted">Wallets that bridge these tokens through CCIP themselves are credited to {project.name}, "via its token". One entry covers every chain of the token's CCIP registry group.</p>
       <div class="table-wrap card">
         <table class="data">
-          <thead><tr><th>Top lanes, last 30 days</th><th class="num">Messages</th><th class="num">Value</th></tr></thead>
+          <thead><tr><th>Chain</th><th>Token</th><th>Address</th><th>Source</th></tr></thead>
           <tbody>
-            {project.lanes.map((l) => (
-              <tr><td><ChainIcons selectors={[l.src, l.dst]} />{laneLabel(names, `${l.src}>${l.dst}`)}</td><td class="num">{formatCount(l.messages)}</td><td class="num">{formatUsd(l.usd)}</td></tr>
+            {tokens.map((t) => (
+              <tr>
+                <td><ChainIcons selectors={[t.chain]} />{chainName(names, t.chain)}</td>
+                <td>{t.symbol}</td>
+                <td class="mono">{t.address}</td>
+                <td><a href={t.source} rel="noopener">Source</a></td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {split && <p class="muted">{split}, last 30 days.</p>}
     </>
   )}
-  <h2>Addresses</h2>
-  <div class="table-wrap card">
-    <table class="data">
-      <thead><tr><th>Chain</th><th>Address</th><th>Note</th></tr></thead>
-      <tbody>
-        {project.addresses.map((a) => (
-          <tr>
-            <td><ChainIcons selectors={[a.chain]} />{chainName(names, a.chain)}</td>
-            <td class="mono"><a href={addressExplorerUrl(a.address)} rel="noopener">{a.address}</a>{a.inferred && <span class="inferred" title="The same address is labeled on another chain">inferred</span>}</td>
-            <td class="muted">{a.note ?? ''}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
   <p class="muted">Source: {project.source?.startsWith('http') ? <a href={project.source} rel="noopener">{project.source}</a> : (project.source ?? 'see the label file')} · Label: <a href={labelFileUrl(project.slug)}>labels/projects/{project.slug}.toml</a>. "inferred" marks the same address on another chain, credited to the project through its label.</p>
 </Base>
 

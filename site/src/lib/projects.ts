@@ -2,7 +2,8 @@ import { dataSharePct } from '@ccip-dev/core/format';
 import type { Project, ProjectsFile } from '@ccip-dev/core/public';
 import { REPO_URL } from '../config';
 import type { ChartPoint } from './charts';
-import { formatShare } from './format';
+import { formatCount, formatShare } from './format';
+import { shortAddress } from './names';
 
 export const PROJECT_KIND_LABEL: Readonly<Record<string, string>> = {
   protocol: 'Protocol',
@@ -60,4 +61,22 @@ export function seriesPoints(series: Project['series']): ChartPoint[] {
 export function splitText(split: Project['split']): string | null {
   const data = dataSharePct(split.data_messages + split.token_messages, split.data_messages);
   return data === null ? null : `${formatShare(data)} data messages · ${formatShare(100 - data)} token transfers`;
+}
+
+/** "1,311 sent by its contracts · 689 via its token, by wallets bridging it"; null for a window with nothing via its token. */
+export function viaTokenSplitText(t: Project['totals']['7d']): string | null {
+  const via = t.via_token_messages ?? 0;
+  return via <= 0 ? null : `${formatCount(t.messages - via)} sent by its contracts · ${formatCount(via)} via its token, by wallets bridging it`;
+}
+
+export interface ProjectTokenRow {
+  chain: string;
+  symbol: string;
+  address: string;
+  source: string;
+}
+
+/** The tokens the project claims; one with no symbol is named by its short address. */
+export function projectTokenRows(project: Project): ProjectTokenRow[] {
+  return (project.tokens ?? []).map((t) => ({ chain: t.chain, symbol: t.symbol ?? shortAddress(t.address), address: t.address, source: t.source }));
 }

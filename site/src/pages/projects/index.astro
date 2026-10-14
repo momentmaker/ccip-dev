@@ -10,7 +10,7 @@ const rows = file ? projectIndexRows(file.projects) : [];
 ---
 <Base title="Projects" description="Every project with a verified label on its CCIP senders: messages, value and chains.">
   <h1>Projects</h1>
-  <p class="muted">Projects with a verified label on their CCIP senders, busiest over the last 7 days first. A project counts every address its label names, on every chain. <a href="/top/sender/7d/">Top senders</a> ranks every sender.</p>
+  <p class="muted">Projects with a verified label on their CCIP senders, busiest over the last 7 days first. A project counts every address its label names, on every chain, and the direct sends of the tokens it claims. <a href="/top/sender/7d/">Top senders</a> ranks every sender.</p>
   {rows.length === 0 ? (
     <p class="card muted">Project pages appear after the next daily update.</p>
   ) : (
