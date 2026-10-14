@@ -156,6 +156,15 @@ describe('pickMoments newcomer cap', () => {
     // #then the other two carry or expire as usual
     expect(kinds(picked)).toEqual(['newcomer', 'movers']);
   });
+
+  it('takes no new sender when one was already sent earlier today', () => {
+    // #given a new sender went out in an earlier hourly run
+    const due = [d({ kind: 'newcomer', key: 'project:b' }, '2026-10-15'), d({ kind: 'newcomer', key: 'project:c' }, '2026-10-15')];
+    // #when
+    const picked = pickMoments(due, { done: new Set(), sentToday: 1, newcomersSentToday: 1 });
+    // #then
+    expect(picked).toEqual([]);
+  });
 });
 
 describe('momentsSentOn', () => {
@@ -175,6 +184,20 @@ describe('momentsSentOn', () => {
     );
     // #then
     expect(await store.momentsSentOn(env.DB, '2026-10-12')).toBe(2);
+  });
+
+  it('counts only the new senders sent that day when asked for that kind', async () => {
+    // #given
+    await env.DB.batch(
+      [
+        ['broadcast:newcomer:project:a', 'sent:2026-10-12T01:00:00.000Z'],
+        ['broadcast:newcomer:project:a#x', 'sent:2026-10-12T01:00:00.000Z'],
+        ['broadcast:newcomer:address:0xb', 'sent:2026-10-11T01:00:00.000Z'],
+        ['broadcast:welcome:1', 'sent:2026-10-12T00:07:01.000Z'],
+      ].map(([key, value]) => env.DB.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').bind(key, value)),
+    );
+    // #then
+    expect(await store.momentsSentOn(env.DB, '2026-10-12', ['newcomer'])).toBe(1);
   });
 
   it('reads the count through the meta primary key', async () => {

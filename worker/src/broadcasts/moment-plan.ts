@@ -53,8 +53,11 @@ export function dueMoments(m: MomentsBody, today: string): DueMoment[] {
  * The moments to post now: those not already sent or seeded, welcome first, then a new sender, countdown, movers, spotlight and the
  * weekly New on CCIP (an older one first within a kind), as many as today's budget still allows, with at most NEWCOMERS_PER_DAY new senders.
  */
-export function pickMoments(due: readonly DueMoment[], o: { done: ReadonlySet<string>; sentToday: number }): DueMoment[] {
-  let newcomers = 0;
+export function pickMoments(
+  due: readonly DueMoment[],
+  o: { done: ReadonlySet<string>; sentToday: number; newcomersSentToday?: number },
+): DueMoment[] {
+  let newcomers = o.newcomersSentToday ?? 0;
   return due
     .filter((d) => !o.done.has(broadcastKey(d.target)))
     .sort(

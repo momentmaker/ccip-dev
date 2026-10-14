@@ -114,7 +114,11 @@ async function planMoments(c: RunContext, src: MomentsSource): Promise<Planned[]
   if (await seedMoments(c, due)) return poll;
   const values = await store.getMetas(db, due.map((d) => broadcastKey(d.target)));
   const done = new Set([...values].filter(([, v]) => v.startsWith('sent:') || v.startsWith('seeded:')).map(([key]) => key));
-  const picked = pickMoments(due, { done, sentToday: await store.momentsSentOn(db, today) }).flatMap((d) => {
+  const picked = pickMoments(due, {
+    done,
+    sentToday: await store.momentsSentOn(db, today),
+    newcomersSentToday: await store.momentsSentOn(db, today, ['newcomer']),
+  }).flatMap((d) => {
     const facts = momentFacts(src, d.target);
     return facts === null ? [] : [{ target: d.target, facts }];
   });
