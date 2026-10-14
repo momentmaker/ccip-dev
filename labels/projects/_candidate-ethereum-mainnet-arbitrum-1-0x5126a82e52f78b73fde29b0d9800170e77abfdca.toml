@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "FluidBridgeAggregatorProxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x5126a82e52f78b73fde29b0d9800170e77abfdca"
+note = "candidate: 1 of 1 messages in the last 7 days, $999739 in all, first seen 2026-03-09"
+

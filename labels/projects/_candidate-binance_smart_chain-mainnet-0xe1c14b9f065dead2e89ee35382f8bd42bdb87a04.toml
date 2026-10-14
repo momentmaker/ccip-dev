@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "ERC1967Proxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "candidate: 1 of 1 messages in the last 7 days, $302 in all, first seen 2024-01-28"
+

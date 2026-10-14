@@ -1,0 +1,60 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0x65a8f07b"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 59 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 27 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 10 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 3 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 2 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "megaeth-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 2 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 2 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 2 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "berachain-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 1 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "arc-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 1 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+
+[[addresses]]
+chain = "ronin-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "candidate: 1 of 110 messages in the last 7 days, $662827 in all, first seen 2024-03-06"
+

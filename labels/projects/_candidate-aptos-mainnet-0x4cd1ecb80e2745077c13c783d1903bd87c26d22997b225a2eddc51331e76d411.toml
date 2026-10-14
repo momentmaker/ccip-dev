@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0x4cd1ecb8"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "aptos-mainnet"
+address = "0x4cd1ecb80e2745077c13c783d1903bd87c26d22997b225a2eddc51331e76d411"
+note = "candidate: 8 of 8 messages in the last 7 days, $399022 in all, first seen 2026-03-10"
+
