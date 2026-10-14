@@ -20,6 +20,9 @@ export const addressExplorerUrl = (address: string): string => `https://ccip.cha
 export const xProfileUrl = (handle: string): string => `https://x.com/${handle}`;
 export const labelFileUrl = (slug: string): string => `${REPO_URL}/blob/main/labels/projects/${slug}.toml`;
 
+/** The slugs the build has pages for; a link to any other would 404. */
+export const projectSlugs = (file: ProjectsFile | null): ReadonlySet<string> => new Set((file?.projects ?? []).map((p) => p.slug));
+
 export function projectPaths(file: ProjectsFile | null): { params: { slug: string }; props: { project: Project } }[] {
   return (file?.projects ?? []).map((project) => ({ params: { slug: project.slug }, props: { project } }));
 }

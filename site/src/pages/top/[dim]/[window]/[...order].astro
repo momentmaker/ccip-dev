@@ -7,6 +7,7 @@ import { buildData, buildDataIfPublished } from '../../../../lib/build-data';
 import { TOP_DIMS, TOP_ORDERS, WINDOWS, topOrders, type TopDim, type TopOrder, type Window } from '../../../../lib/card-paths';
 import { formatCount, formatFee, formatFeeTotal, formatPct, formatUsd } from '../../../../lib/format';
 import { chainNameMap } from '../../../../lib/names';
+import { projectSlugs } from '../../../../lib/projects';
 import { registryNames, senderEntries, senderRows } from '../../../../lib/senders';
 import { TOP_FILE, topEntries, topHref, topRows, typicalFeeMap } from '../../../../lib/top';
 
@@ -30,7 +31,7 @@ const names = chainNameMap(chains.chains);
 const cost = dim === 'lane' ? await buildDataIfPublished('cost.json') : null;
 const rows =
   dim === 'sender'
-    ? senderRows(senderEntries(top, window, order), names, registryNames(chains.chains), order)
+    ? senderRows(senderEntries(top, window, order), names, registryNames(chains.chains), projectSlugs(await buildDataIfPublished('projects.json')), order)
     : topRows(topEntries(top, window, order), dim, names, { order, typicalFees: typicalFeeMap(cost) });
 const scope = window === 'all' ? `since ${top.since}` : `last ${WINDOW_LABEL[window]}`;
 const heading = `${TITLE[dim]}${byFees ? ' by fees' : ''}`;

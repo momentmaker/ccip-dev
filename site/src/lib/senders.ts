@@ -37,8 +37,8 @@ const counted = (n: number, word: string, plural: string) => `${n.toLocaleString
 
 type SenderFields = Pick<TopEntry, 'key' | 'label' | 'inferred' | 'chains' | 'addresses'>;
 
-/** How the site names a sender: a project by its label, an address by its short form, and an older per-chain key as before. */
-export function senderView(e: SenderFields, names: ChainNames, registry: RegistryNames): SenderView {
+/** How the site names a sender: a project by its label (linked only when the build has its page), an address by its short form, and an older per-chain key as before. */
+export function senderView(e: SenderFields, names: ChainNames, registry: RegistryNames, slugs: ReadonlySet<string>): SenderView {
   const parsed = parseSenderKey(e.key);
   if (parsed.kind === 'legacy') {
     const { primary, secondary, verified } = senderLabel(names, e.key, e.label);
@@ -58,7 +58,7 @@ export function senderView(e: SenderFields, names: ChainNames, registry: Registr
       verified: !inferred,
       inferred,
       chains,
-      href: projectHref(parsed.slug),
+      href: slugs.has(parsed.slug) ? projectHref(parsed.slug) : null,
       suggestUrl: null,
     };
   }
@@ -76,14 +76,14 @@ export function senderView(e: SenderFields, names: ChainNames, registry: Registr
 }
 
 /** Top › Senders rows; Share is of the listed total, as on the other tabs. */
-export function senderRows(entries: readonly TopEntry[], names: ChainNames, registry: RegistryNames, order: TopOrder = 'value'): TopRow[] {
+export function senderRows(entries: readonly TopEntry[], names: ChainNames, registry: RegistryNames, slugs: ReadonlySet<string>, order: TopOrder = 'value'): TopRow[] {
   const measure = (e: TopEntry) => (order === 'fees' ? (e.fee_usd ?? null) : e.usd);
   const total = entries.reduce((sum, e) => sum + (measure(e) ?? 0), 0);
   return entries.map((e, i) => {
     const m = measure(e);
     return {
       rank: i + 1,
-      ...senderView(e, names, registry),
+      ...senderView(e, names, registry, slugs),
       messages: e.messages,
       usd: e.usd,
       fee: e.fee_usd ?? null,
@@ -99,7 +99,7 @@ export interface DaySender extends SenderView {
 }
 
 /** A day's top sender for its page, from day-leaders.json; null for a day it does not list. */
-export function daySender(leaders: DayLeaders | undefined, names: ChainNames, registry: RegistryNames): DaySender | null {
+export function daySender(leaders: DayLeaders | undefined, names: ChainNames, registry: RegistryNames, slugs: ReadonlySet<string>): DaySender | null {
   const s = leaders?.sender;
-  return s ? { ...senderView(s, names, registry), messages: s.messages, sharePct: s.share_pct ?? null } : null;
+  return s ? { ...senderView(s, names, registry, slugs), messages: s.messages, sharePct: s.share_pct ?? null } : null;
 }

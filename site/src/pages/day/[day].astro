@@ -3,7 +3,7 @@ import ChainIcons from '../../components/ChainIcons.astro';
 import InfoLink from '../../components/InfoLink';
 import ShareButton from '../../components/ShareButton';
 import Base from '../../layouts/Base.astro';
-import { buildData } from '../../lib/build-data';
+import { buildData, buildDataIfPublished } from '../../lib/build-data';
 import { dayFeeLine, dayHighlights, dayView, type DayDelta } from '../../lib/day';
 import { formatBps, formatCount, formatDuration, formatPct, formatShare, formatUsd, formatUtcDay } from '../../lib/format';
 import { iconHref } from '../../lib/chain-icons';
@@ -11,6 +11,7 @@ import { takeRateBps } from '../../lib/charts';
 import { dayFeeMix } from '../../lib/fee-mix';
 import '../../styles/history.css';
 import { chainNameMap } from '../../lib/names';
+import { projectSlugs } from '../../lib/projects';
 import { daySender, registryNames } from '../../lib/senders';
 import { computeMilestones, computeRecords } from '../../lib/records';
 import { COINS_WIDE } from '../../sky/coins';
@@ -41,7 +42,7 @@ const svg = skySvg({
   title: `CCIP lanes active on ${day}`,
 });
 const label = formatUtcDay(day);
-const sender = daySender(leaders.days.find((d) => d.day === day), chainNameMap(chains.chains), registryNames(chains.chains));
+const sender = daySender(leaders.days.find((d) => d.day === day), chainNameMap(chains.chains), registryNames(chains.chains), projectSlugs(await buildDataIfPublished('projects.json')));
 const delta = (d: DayDelta) => [
   { text: d.vsPrevious === null ? null : `${formatPct(d.vsPrevious)} vs day before`, tone: changeTone(d.vsPrevious) },
   { text: d.vsAvg7 === null ? null : `${formatPct(d.vsAvg7)} vs 7-day avg`, tone: changeTone(d.vsAvg7) },
