@@ -62,7 +62,7 @@ describe('daily facts', () => {
       totals: { day: DAY, messages: { value: 150, pct: -25 }, value: { value: 2e6, pct: -75 }, fees: { value: 5, pct: 25 }, linkSharePct: 25, linkUsd: 1.25, linkAmount: 0.1 },
       leaders: {
         token: { key: `${BASE}:${SYRUP_BASE}`, symbol: 'syrupUSDC', project: { name: 'Maple', x: 'maplefinance' }, usd: 500_000, sharePct: 25 },
-        sender: { key: `${ETH}:${SENDER}`, player: { name: 'xStocks', x: 'xStocksFi' }, messages: 97 },
+        sender: { key: 'project:xstocks', player: { name: 'xStocks', x: 'xStocksFi' }, messages: 97 },
         lane: { key: `${ETH}>${BASE}`, src: { name: 'Ethereum', x: 'ethereum' }, dst: { name: 'Base', x: 'base' }, usd: 1_200_000, messages: 30, feeUsd: 1 },
       },
       feeChain: { key: BASE, player: { name: 'Base', x: 'base' }, feeUsd: 4 },

@@ -28,6 +28,19 @@ const envelope = { schema_version: 1, updated_at: '2026-10-07T00:00:00.000Z', at
 const emptyStatus = { ...envelope, last_ingest_ok_at: null, lag_seconds: null, last_finalize_day: null, coverage_from: null };
 
 describe('public file schemas', () => {
+  it('reads identity fields on top entries and leaders, and still reads files without them', () => {
+    // #given an identity entry, and the per-chain entry an older file holds
+    const identity = { key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 0, fee_usd: 79.75, x: 'xStocksFi', kind: 'protocol', inferred: false, chains: ['1', '2'], addresses: 2, share_pct: 20.3 };
+    const windows = { '7d': [identity], '30d': [], all: [] };
+    const file = { ...envelope, dim: 'sender', since: null, windows: { '7d': [{ key: '1:0xa', messages: 1, usd: 1, label: null }], '30d': [], all: [] }, identities: windows, identities_by_fees: windows };
+    // #when
+    const top = TopFileSchema.parse(file);
+    const old = TopFileSchema.parse({ ...file, identities: undefined, identities_by_fees: undefined });
+    const leader = DayLeadersFileSchema.parse({ ...envelope, days: [{ day: '2026-10-13', token: null, sender: identity, lane: null, fee_lane: null, fee_chain: null }], weeks: [] });
+    // #then
+    expect({ share: top.identities?.['7d'][0]?.share_pct, old: old.identities, chains: leader.days[0]?.sender?.chains }).toEqual({ share: 20.3, old: undefined, chains: ['1', '2'] });
+  });
+
   it('parses day-leaders.json and lists it among the public files', () => {
     // #given a day with every leader, a day without fees, and a week
     const leader = { key: '1>2', label: null, messages: 3, usd: 10, fee_usd: 1.5 };

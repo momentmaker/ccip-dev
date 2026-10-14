@@ -12,7 +12,6 @@ beforeEach(resetStorage);
 const NAMES: Record<string, [string, string | null]> = { '1': ['Ethereum', 'ethereum'], '2': ['Base', 'base'], '3': ['BNB Chain', 'BNBCHAIN'], '4': ['Arbitrum', 'arbitrum'], '9': ['Tempo', null] };
 const TAGS: Tagger = {
   chain: (s) => ({ name: NAMES[s]?.[0] ?? s, x: NAMES[s]?.[1] ?? null }),
-  sender: (key) => ({ name: key, x: null }),
   tokenProject: (key) => (key === '2:0xp' ? { name: 'Huma', x: 'humafinance' } : null),
   groupProject: (group) => (group === 'usdat' ? { name: 'Saturn', x: 'saturn' } : null),
 };

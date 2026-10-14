@@ -1,4 +1,4 @@
-import { feeClassifier } from '@ccip-dev/core';
+import { feeClassifier, senderKeyAddress } from '@ccip-dev/core';
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, reserveDepositFacts, weekTotalsFacts,
   type DayTotalsFacts, type RecordDriver, type ReserveDepositFacts, type WeekTotalsFacts,
@@ -130,7 +130,7 @@ function leaderFacts(tags: Tagger, token: Leader | null, sender: Leader | null, 
           sharePct: token.usd === null || !periodValue ? null : (token.usd / periodValue) * 100,
         }
       : null,
-    sender: sender ? { key: sender.key, player: tags.sender(sender.key), messages: sender.messages } : null,
+    sender: sender ? { key: sender.key, player: { name: sender.label ?? shortAddress(senderKeyAddress(sender.key)), x: sender.x ?? null }, messages: sender.messages } : null,
     lane: lane ? laneFacts(tags, lane) : null,
   };
 }

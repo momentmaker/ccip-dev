@@ -1,8 +1,9 @@
-import { addDays, dayOf, feeClassifier, lastCompleteMonday, normalizeAddress, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type PricedTransfer } from '@ccip-dev/core';
-import type { DayLeaders, DayTotals, LargestFee, Leader, ReserveFile } from '@ccip-dev/core/public';
+import { addDays, dayOf, feeClassifier, lastCompleteMonday, mergeIdentities, normalizeAddress, rankIdentities, sharePct, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type PricedTransfer } from '@ccip-dev/core';
+import { TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
+import { rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
 import * as store from './store';
 
 export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'attribution'>;
@@ -95,29 +96,50 @@ export function leader(r: store.BreakdownRow, label: string | null): Leader {
   return { key: r.key, label, messages: r.messages, usd: usd(r.usd_value), fee_usd: usd(r.fee_usd) };
 }
 
-/** Each day's leaders over [fromDay, toDay]: the top token and lane by value, the top sender by messages, and the top lane and source chain by fees. */
+/** A sender identity as every public file publishes it, with its share of the period's messages. */
+export function identityEntry(i: IdentityTotals, periodMessages: number | null): Leader {
+  return {
+    key: i.key,
+    label: i.label,
+    messages: i.messages,
+    usd: usd(i.usd_value),
+    fee_usd: usd(i.fee_usd),
+    x: i.x,
+    kind: i.kind,
+    inferred: i.inferred,
+    chains: i.chains,
+    addresses: i.addresses,
+    share_pct: sharePct(i.messages, periodMessages),
+  };
+}
+
+/** Each day's leaders over [fromDay, toDay]: the top token and lane by value, the top sender identity by messages, and the top lane and source chain by fees. */
 export async function dayLeaderEntries(c: RunContext, fromDay: string, toDay: string): Promise<DayLeaders[]> {
   const db = c.env.DB;
+  const book = await senderBook(c);
   const tokens = await store.dailyLeaders(db, 'token', 'value', fromDay, toDay);
-  const senders = await store.dailyLeaders(db, 'sender', 'messages', fromDay, toDay);
+  const senders = topIdentityByDay(
+    [...(await store.senderDaysOf(db, fromDay, toDay, book.labeled)), ...(await store.dailyTopUnlabeledSenders(db, fromDay, toDay, book.labeled))],
+    book.resolve,
+  );
+  const dayMessages = await store.messagesByDay(db, fromDay, toDay);
   const lanes = await store.dailyLeaders(db, 'lane', 'value', fromDay, toDay);
   const feeLanes = await store.dailyLeaders(db, 'lane', 'fees', fromDay, toDay);
   const feeChains = await store.dailyLeaders(db, 'src_chain', 'fees', fromDay, toDay);
   const symbols = await store.tokenSymbols(db, tokens.map((r) => splitTokenKey(r.key)));
-  const names = await store.chainNames(db);
   const byDay = (rows: store.LeaderRow[]) => new Map(rows.map((r) => [r.day, r]));
-  const [token, sender, lane, feeLane, feeChain] = [tokens, senders, lanes, feeLanes, feeChains].map(byDay);
-  const days = [...new Set([tokens, senders, lanes, feeLanes, feeChains].flat().map((r) => r.day))].sort();
+  const [token, lane, feeLane, feeChain] = [tokens, lanes, feeLanes, feeChains].map(byDay);
+  const days = [...new Set([...[tokens, lanes, feeLanes, feeChains].flat().map((r) => r.day), ...senders.keys()])].sort();
   return days.map((day) => {
     const t = token!.get(day);
-    const s = sender!.get(day);
+    const s = senders.get(day);
     const l = lane!.get(day);
     const fl = feeLane!.get(day);
     const fc = feeChain!.get(day);
     return {
       day,
       token: t ? leader(t, symbolOf(symbols, t.key)) : null,
-      sender: s ? leader(s, senderLabel(c, names, s.key)) : null,
+      sender: s ? identityEntry(s, dayMessages.get(day) ?? null) : null,
       lane: l ? leader(l, null) : null,
       fee_lane: fl ? leader(fl, null) : null,
       fee_chain: fc ? leader(fc, null) : null,
@@ -160,7 +182,7 @@ export function senderLabel(c: RunContext, names: Map<string, string>, senderKey
 
 export async function publishLiveFiles(c: RunContext): Promise<void> {
   const now = c.deps.now();
-  const names = await store.chainNames(c.env.DB);
+  const book = await senderBook(c);
   const since = new Date(now.getTime() - LIVE_WINDOW_MINUTES * 60_000).toISOString();
   const rows = await store.liveSince(c.env.DB, since);
   const today = await rollupToday(c, now);
@@ -168,8 +190,8 @@ export async function publishLiveFiles(c: RunContext): Promise<void> {
     ...rows.flatMap((r) => (r.symbol === null && r.chain !== null && r.token !== null ? [{ chain: r.chain, address: r.token }] : [])),
     ...topOf(today.breakdown, 'token', TOP_LIMIT).map((b) => splitTokenKey(b.key)),
   ]);
-  await publishLive(c, now, names, rows, symbols);
-  await publishToday(c, now, names, today, symbols);
+  await publishLive(c, now, book, rows, symbols);
+  await publishToday(c, now, book, today, symbols);
   await publishStatus(c, now);
 }
 
@@ -191,13 +213,7 @@ async function rollupToday(c: RunContext, now: Date) {
   return { day, messages, ...rollupDay(day, messages, await store.tokensForDay(c.env.DB, day)) };
 }
 
-async function publishLive(
-  c: RunContext,
-  now: Date,
-  names: Map<string, string>,
-  rows: store.LiveRow[],
-  symbols: Map<string, string>,
-): Promise<void> {
+async function publishLive(c: RunContext, now: Date, book: SenderBook, rows: store.LiveRow[], symbols: Map<string, string>): Promise<void> {
   await putJson(
     c.env.PUBLIC,
     'live.json',
@@ -211,7 +227,7 @@ async function publishLive(
         dst: r.dst_chain,
         token: r.symbol ?? (r.chain !== null && r.token !== null ? symbolOf(symbols, `${r.chain}:${r.token}`) : null),
         usd: usd(r.usd_value),
-        sender_label: senderLabel(c, names, `${r.src_chain}:${r.sender}`),
+        sender_label: book.resolve(r.src_chain, r.sender).project?.name ?? null,
       })),
     },
     TTL.live,
@@ -219,10 +235,11 @@ async function publishLive(
   );
 }
 
+/** today.json's top senders are identities ranked by value, as its lanes and tokens are. */
 async function publishToday(
   c: RunContext,
   now: Date,
-  names: Map<string, string>,
+  book: SenderBook,
   { day, messages, totals, breakdown }: Awaited<ReturnType<typeof rollupToday>>,
   symbols: Map<string, string>,
 ): Promise<void> {
@@ -233,8 +250,10 @@ async function publishToday(
       messages: b.messages,
       usd: usd(b.usd_value),
       ...(dim === 'token' ? { symbol: symbolOf(symbols, b.key) } : {}),
-      ...(dim === 'sender' ? { label: senderLabel(c, names, b.key) } : {}),
     }));
+  const senders = rankIdentities(mergeIdentities(breakdown.filter((b) => b.dim === 'sender'), book.resolve), 'value', TOP_LIMIT).map((i) =>
+    identityEntry(i, totals.messages),
+  );
   await putJson(
     c.env.PUBLIC,
     'today.json',
@@ -247,7 +266,7 @@ async function publishToday(
         fee_link_usd: usd(feeLink),
         fee_link_share_pct: feeLinkShare(feeLink, totals.fee_usd),
       },
-      top: { lane: top('lane'), token: top('token'), sender: top('sender') },
+      top: { lane: top('lane'), token: top('token'), sender: senders },
       arrivals: await store.recentArrivals(c.env.DB, 10),
     },
     TTL.today,
@@ -363,21 +382,36 @@ export interface WeekLeaderRows {
   feeChains: Leader[];
 }
 
-/** A Monday–Sunday week's top token and lane by value, top sender by messages and top 3 source chains by fees. */
+/** A Monday–Sunday week's top token and lane by value, top sender identity by messages and top 3 source chains by fees. */
 export async function weekLeaderRows(c: RunContext, monday: string): Promise<WeekLeaderRows> {
   const db = c.env.DB;
   const sunday = addDays(monday, 6);
   const [token] = await store.topBetween(db, 'token', monday, sunday, 1, 'value');
-  const [sender] = await store.topBetween(db, 'sender', monday, sunday, 1, 'messages');
+  const book = await senderBook(c);
+  const [sender] = await rankedIdentities(c, book, monday, sunday, 'messages', 1);
+  const weekMessages = (await store.totalsBetween(db, monday, sunday)).messages;
   const [lane] = await store.topBetween(db, 'lane', monday, sunday, 1, 'value');
   const symbols = token ? await store.tokenSymbols(db, [splitTokenKey(token.key)]) : new Map<string, string>();
-  const names = await store.chainNames(db);
   return {
     token: token ? leader(token, symbolOf(symbols, token.key)) : null,
-    sender: sender ? leader(sender, senderLabel(c, names, sender.key)) : null,
+    sender: sender ? identityEntry(sender, weekMessages) : null,
     lane: lane ? leader(lane, null) : null,
     feeChains: await weekFeeChains(c, monday),
   };
+}
+
+const TOP_FILE_LIMIT = 100;
+
+/** top/sender.json's identities for each window, each with its share of the window's messages. */
+async function identityWindows(c: RunContext, book: SenderBook, today: string, order: store.TopOrder): Promise<Record<TopWindow, Leader[]>> {
+  const lastDay = addDays(today, -1);
+  const from: Record<TopWindow, string | null> = { '7d': addDays(today, -7), '30d': addDays(today, -30), all: null };
+  const out: Record<TopWindow, Leader[]> = { '7d': [], '30d': [], all: [] };
+  for (const window of TOP_WINDOWS) {
+    const total = (await store.totalsBetween(c.env.DB, from[window], lastDay)).messages;
+    out[window] = (await rankedIdentities(c, book, from[window], lastDay, order, TOP_FILE_LIMIT)).map((i) => identityEntry(i, total));
+  }
+  return out;
 }
 
 export async function publishHistoryFiles(c: RunContext): Promise<void> {
@@ -416,6 +450,7 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
   const today = dayOf(now);
   const lastDay = addDays(today, -1);
   const names = await store.chainNames(db);
+  const book = await senderBook(c);
   for (const dim of DIMS) {
     const ranked = async (order: store.TopOrder) => ({
       '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
@@ -438,10 +473,12 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
         ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
       }));
     const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
+    const identities =
+      dim === 'sender' ? { identities: await identityWindows(c, book, today, 'value'), identities_by_fees: await identityWindows(c, book, today, 'fees') } : {};
     await putJson(
       c.env.PUBLIC,
       `top/${dim}.json`,
-      { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}) },
+      { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}), ...identities },
       TTL.top,
       now,
     );

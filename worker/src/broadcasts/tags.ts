@@ -1,7 +1,6 @@
 import { normalizeAddress } from '@ccip-dev/core';
-import { chainNameMap, shortAddress } from '@ccip-dev/core/names';
+import { chainNameMap } from '@ccip-dev/core/names';
 import type { RunContext } from '../context';
-import { lookupLabel } from '../labels';
 import * as store from '../store';
 
 /** A project, sender or chain a post names: tagged as @x when it has a verified handle, otherwise written as its name. */
@@ -12,7 +11,6 @@ export interface Player {
 
 export interface Tagger {
   chain(selector: string): Player;
-  sender(key: string): Player;
   tokenProject(key: string): Player | null;
   /** The project of a registry token group, through any of its tokens' entries. */
   groupProject(group: string): Player | null;
@@ -50,11 +48,6 @@ export async function createTagger(c: RunContext, tokenKeys: readonly string[]):
   };
   return {
     chain: (selector) => ({ name: shortNames.get(selector) ?? selector, x: chainHandle(selector) }),
-    sender: (key) => {
-      const { chain, address } = splitKey(key);
-      const label = lookupLabel(c.labels, display.get(chain)?.name ?? undefined, address);
-      return label ? { name: label.name, x: label.x ?? null } : { name: shortAddress(address), x: null };
-    },
     tokenProject: (key) => projects.get(key) ?? null,
     groupProject: (group) => {
       const match = entries.find((e) => groupOf(e.selector, e.address) === group);

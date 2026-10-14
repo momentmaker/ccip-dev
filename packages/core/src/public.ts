@@ -46,6 +46,16 @@ export const DayTotalsSchema = z.object({
   fee_link_amount: z.number().nullable().optional(),
 });
 
+/** A sender identity's fields, all optional so files published before identities still parse. */
+const identityFields = {
+  x: z.string().nullable().optional(),
+  kind: z.string().nullable().optional(),
+  inferred: z.boolean().optional(),
+  chains: z.array(z.string()).optional(),
+  addresses: z.number().optional(),
+  share_pct: z.number().nullable().optional(),
+};
+
 export const TopEntrySchema = z.object({
   key: z.string(),
   messages: z.number(),
@@ -53,6 +63,7 @@ export const TopEntrySchema = z.object({
   fee_usd: z.number().nullable().optional(),
   symbol: z.string().nullable().optional(),
   label: z.string().nullable().optional(),
+  ...identityFields,
 });
 
 export const TodayFileSchema = z.object({
@@ -87,6 +98,9 @@ export const TopFileSchema = z.object({
   since: z.string().nullable(),
   windows: TopWindowsSchema,
   by_fees: TopWindowsSchema.optional(),
+  /** Senders by identity; `windows` and `by_fees` keep their per-chain keys for consumers that predate identities. */
+  identities: TopWindowsSchema.optional(),
+  identities_by_fees: TopWindowsSchema.optional(),
 });
 
 const CostSplitSchema = z.object({ messages: z.number(), median_usd: z.number() });
@@ -110,6 +124,7 @@ export const LeaderSchema = z.object({
   messages: z.number(),
   usd: z.number().nullable(),
   fee_usd: z.number().nullable(),
+  ...identityFields,
 });
 
 export const DayLeadersSchema = z.object({

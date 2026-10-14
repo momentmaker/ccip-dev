@@ -1,9 +1,9 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut } from '../src/publish';
+import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
 import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
-import { fakeCcip, fakePrices, listMessage, NETWORKS } from '@ccip-dev/core/testing';
+import { BASE_SENDER_1, BASE_SENDER_2, fakeCcip, fakePrices, listMessage, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_LABELS, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
@@ -94,7 +94,7 @@ describe('publishLiveFiles', () => {
     expect(today.day).toBe('2026-10-08');
     expect(today.totals).toMatchObject({ messages: 2, usd_value: 1244.57 });
     expect(today.top.token).toEqual([{ key: `${BASE}:0xtok`, messages: 1, usd: 1234.57, symbol: 'USDC' }]);
-    expect(today.top.sender[0]).toMatchObject({ key: `${BASE}:${SENDER}`, label: null });
+    expect(today.top.sender[0]).toMatchObject({ key: `address:${SENDER}`, label: null });
   });
 
   it('lists new arrivals but not baseline rows seeded at first sight', async () => {
@@ -143,7 +143,7 @@ describe('a mixed-case (EIP-55) sender', () => {
     expect(stored!.sender).toBe(SENDER);
     const live = await readPublic('live.json');
     expect(live.messages).toMatchObject([{ id: 'whale', sender_label: 'Maple Finance' }]);
-    expect((await readPublic('today.json')).top.sender).toMatchObject([{ key: `${BASE}:${SENDER}`, label: 'Maple Finance' }]);
+    expect((await readPublic('today.json')).top.sender).toMatchObject([{ key: 'project:maple-finance', label: 'Maple Finance' }]);
   });
 });
 
@@ -525,7 +525,7 @@ describe('day-leaders.json', () => {
   const DAY = '2026-10-11';
   const ETH = NETWORKS.ethereum.chainSelector;
   const OTHER = '0x9999999999999999999999999999999999999999';
-  const totals = (day: string) => ({ day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
+  const totals = (day: string) => ({ day, messages: 20, token_messages: 0, usd_value: 1, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 });
   const row = (day: string, dim: Dim, key: string, messages: number, usd_value: number, fee_usd: number | null) => ({ day, dim, key, messages, usd_value, fee_usd });
   const labels = { [labelKey('ethereum-mainnet-base-1', SENDER)]: { name: 'Maple Finance', x: 'maplefinance', kind: 'protocol' as const, slug: 'maple-finance' } };
 
@@ -554,7 +554,7 @@ describe('day-leaders.json', () => {
     expect((await readPublic('day-leaders.json')).days).toEqual([{
       day: DAY,
       token: { key: `${BASE}:0xtok`, label: 'USDC', messages: 3, usd: 900, fee_usd: null },
-      sender: { key: `${BASE}:${SENDER}`, label: 'Maple Finance', messages: 7, usd: 10, fee_usd: 1 },
+      sender: { key: 'project:maple-finance', label: 'Maple Finance', messages: 7, usd: 10, fee_usd: 1, x: 'maplefinance', kind: 'protocol', inferred: false, chains: [BASE], addresses: 1, share_pct: 35 },
       lane: { key: `${ETH}>${BASE}`, label: null, messages: 5, usd: 800, fee_usd: 1 },
       fee_lane: { key: `${BASE}>${ETH}`, label: null, messages: 4, usd: 200, fee_usd: 6 },
       fee_chain: { key: BASE, label: null, messages: 6, usd: 999, fee_usd: 7 },
@@ -676,5 +676,87 @@ describe('replay.json failure', () => {
     }
     expect(await env.PUBLIC.get('v1/replay.json')).toBeNull();
     expect(alerts).toEqual([{ signature: 'replay-publish', text: 'replay.json was not published: D1 unavailable' }]);
+  });
+});
+
+describe('senders by identity', () => {
+  const NOW = '2026-10-14T00:07:00.000Z';
+  const INK = NETWORKS.ink.chainSelector;
+  const XLAYER = NETWORKS.xlayer.chainSelector;
+  const BSC = NETWORKS.bsc.chainSelector;
+  const ETH = NETWORKS.ethereum.chainSelector;
+  const HYPER = NETWORKS.hyperliquid.chainSelector;
+  const SOL = NETWORKS.solana.chainSelector;
+  const CHAINS = [NETWORKS.ethereum, NETWORKS.base, NETWORKS.bsc, NETWORKS.solana, NETWORKS.ink, NETWORKS.xlayer, NETWORKS.hyperliquid];
+
+  beforeEach(async () => {
+    // #given 2026-10-13: xStocks's xBridge on five EVM chains and its Solana sender, then the unlabeled Base senders
+    await seedRegistry(CHAINS, []);
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, xstocksBreakdown(), NOW);
+  });
+
+  it("names xStocks the day's top sender: 319 messages, 20.3% of the day, on six chains from two addresses", async () => {
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels: XSTOCKS_LABELS }).c);
+    // #then
+    const day = (await readPublic('day-leaders.json')).days.find((d: { day: string }) => d.day === XSTOCKS_DAY);
+    expect(day.sender).toEqual({
+      key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 0, fee_usd: 79.75, x: 'xStocksFi', kind: 'protocol', inferred: false,
+      chains: [SOL, INK, XLAYER, BSC, ETH, HYPER], addresses: 2, share_pct: 20.3,
+    });
+  });
+
+  it('publishes identities in top/sender.json beside the per-chain windows, which stay as they were', async () => {
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels: XSTOCKS_LABELS }).c);
+    // #then
+    const top = await readPublic('top/sender.json');
+    expect({
+      identities: top.identities['7d'].slice(0, 3).map((e: { key: string; messages: number; share_pct: number }) => [e.key, e.messages, e.share_pct]),
+      byFees: top.identities_by_fees['7d'][0].key,
+      perChain: [top.windows['7d'][0].key, top.windows['7d'][0].label],
+    }).toEqual({
+      identities: [[`address:${BASE_SENDER_1}`, 76, 4.8], ['project:xstocks', 319, 20.3], [`address:${BASE_SENDER_2}`, 68, 4.3]],
+      byFees: 'project:xstocks',
+      perChain: [`${NETWORKS.base.chainSelector}:${BASE_SENDER_1}`, null],
+    });
+  });
+
+  it("names the week's top sender by identity", async () => {
+    // #when
+    const week = await weekLeaderRows(harness({ now: NOW, labels: XSTOCKS_LABELS }).c, '2026-10-12');
+    // #then
+    expect([week.sender?.key, week.sender?.messages, week.sender?.share_pct]).toEqual(['project:xstocks', 319, 20.3]);
+  });
+});
+
+describe("today's and the live feed's senders by identity", () => {
+  const at = (minute: number) => `2026-10-13T19:${String(minute).padStart(2, '0')}:00.000Z`;
+
+  it("merges today's xBridge messages on Ink and Solana into xStocks, with its share of the day so far", async () => {
+    // #given 3 messages from the xBridge on Ink, 2 from its Solana sender and 4 from an unlabeled Base sender
+    await seedRegistry([NETWORKS.base, NETWORKS.solana, NETWORKS.ink], []);
+    await store.upsertListRows(env.DB, [
+      ...[1, 2, 3].map((m) => liveRow({ id: `ink${m}`, sendTs: at(m), src: NETWORKS.ink, sender: XBRIDGE_EVM })),
+      ...[4, 5].map((m) => liveRow({ id: `sol${m}`, sendTs: at(m), src: NETWORKS.solana, sender: XBRIDGE_SOLANA })),
+      ...[6, 7, 8, 9].map((m) => liveRow({ id: `base${m}`, sendTs: at(m), sender: BASE_SENDER_1 })),
+    ], []);
+    // #when
+    await publishLiveFiles(harness({ now: '2026-10-13T20:00:00.000Z', labels: XSTOCKS_LABELS }).c);
+    // #then
+    expect((await readPublic('today.json')).top.sender[0]).toMatchObject({
+      key: 'project:xstocks', messages: 5, chains: [NETWORKS.ink.chainSelector, NETWORKS.solana.chainSelector], addresses: 2, share_pct: 55.6,
+    });
+  });
+
+  it('names a live message by a label spread from the same address on another chain', async () => {
+    // #given Maple is labeled on Ethereum and the message comes from the same address on Base
+    await seedRegistry([NETWORKS.ethereum, NETWORKS.base], []);
+    await store.upsertListRows(env.DB, [liveRow({ id: 'b1', sendTs: at(55), sender: SENDER })], []);
+    const labels = { [labelKey('ethereum-mainnet', SENDER)]: { name: 'Maple Finance', kind: 'protocol' as const, slug: 'maple-finance' } };
+    // #when
+    await publishLiveFiles(harness({ now: '2026-10-13T20:00:00.000Z', labels }).c);
+    // #then
+    expect((await readPublic('live.json')).messages[0].sender_label).toBe('Maple Finance');
   });
 });
