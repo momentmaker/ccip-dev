@@ -774,10 +774,13 @@ export interface SenderLaneRow {
 }
 
 /** Messages by sender key and destination over [?1, ?2], for the keys in the JSON list ?3, with how many carried no tokens. */
-export const SENDER_LANES_SQL = `SELECT src_chain || ':' || sender AS key, dst_chain, COUNT(*) AS messages, SUM(usd_value) AS usd_value,
-    SUM(CASE WHEN token_count = 0 THEN 1 ELSE 0 END) AS data_messages
-  FROM messages WHERE day >= ?1 AND day <= ?2 AND (src_chain || ':' || sender) IN (SELECT value FROM json_each(?3))
-  GROUP BY src_chain, sender, dst_chain ORDER BY key, dst_chain`;
+export const SENDER_LANES_SQL = `WITH k AS (
+    SELECT substr(value, 1, instr(value, ':') - 1) AS chain, substr(value, instr(value, ':') + 1) AS sender FROM json_each(?3)
+  )
+  SELECT m.src_chain || ':' || m.sender AS key, m.dst_chain, COUNT(*) AS messages, SUM(m.usd_value) AS usd_value,
+    SUM(CASE WHEN m.token_count = 0 THEN 1 ELSE 0 END) AS data_messages
+  FROM k JOIN messages m ON m.src_chain = k.chain AND m.sender = k.sender AND m.day >= ?1 AND m.day <= ?2
+  GROUP BY m.src_chain, m.sender, m.dst_chain ORDER BY key, m.dst_chain`;
 
 export async function senderLanes(db: D1Database, fromDay: string, toDay: string, keys: readonly string[]): Promise<SenderLaneRow[]> {
   const { results } = await db.prepare(SENDER_LANES_SQL).bind(fromDay, toDay, JSON.stringify(keys)).all<SenderLaneRow>();

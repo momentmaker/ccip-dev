@@ -423,6 +423,15 @@ describe('sender identity queries', () => {
   });
 });
 
+describe('senderLanes', () => {
+  it('reads the labeled senders through the messages_sender index', async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.SENDER_LANES_SQL}`).bind('2026-10-07', '2026-10-13', JSON.stringify(['1:0xa'])).all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail).join(' | ')).toMatch(/SEARCH m USING (COVERING )?INDEX messages_sender/);
+  });
+});
+
 describe('senderChains', () => {
   it("maps each selector to its CCIP name and family", async () => {
     // #given

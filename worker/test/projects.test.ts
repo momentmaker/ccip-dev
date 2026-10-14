@@ -133,4 +133,18 @@ describe('projects.json', () => {
       alerts: alerts.filter((a) => a.signature === 'projects-publish'),
     }).toEqual({ projects: null, history: true, alerts: [{ signature: 'projects-publish', text: 'projects.json was not published: D1 unavailable' }] });
   });
+
+  it('does not widen a project with spread off to another chain, or mark any address inferred', async () => {
+    // #given the address sends on Base too, but its file lists Ink only and sets spread = false
+    const pinned: RegistryProject = { name: 'Pinned', kind: 'app', verified: true, spread: false, slug: 'pinned', source: null, addresses: [{ chain: 'ethereum-mainnet-ink-1', address: IDLE_ADDRESS }], tokens: [] };
+    await store.replaceDaily(env.DB, { ...XSTOCKS_TOTALS, day: '2026-10-02', messages: 50 }, [
+      { day: '2026-10-02', dim: 'sender', key: `${INK}:${IDLE_ADDRESS}`, messages: 10, usd_value: 0, fee_usd: 1 },
+      { day: '2026-10-02', dim: 'sender', key: `${BASE}:${IDLE_ADDRESS}`, messages: 5, usd_value: 0, fee_usd: 1 },
+    ], NOW);
+    const c = harness({ now: NOW, labels: buildLabelIndex([pinned]), projects: buildProjectRegistry([pinned]) }).c;
+    // #when
+    const project = (await buildProjects(c, XSTOCKS_DAY)).projects.find((p) => p.slug === 'pinned')!;
+    // #then
+    expect({ chains: project.chains, inferred: project.addresses.filter((a) => a.inferred) }).toEqual({ chains: [INK], inferred: [] });
+  });
 });
