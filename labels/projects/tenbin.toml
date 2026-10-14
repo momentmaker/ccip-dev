@@ -1,0 +1,16 @@
+# Source: https://app.tenbinlabs.xyz/ (the app's bridge config, chunk _next/static/immutable/chunks/0st0eq-h7qb25.js, sets adapter tbrl "0xC96BeeFb03458B3358462f03C1CFf00Ff0F46E47" and tgld "0x03007f5A53E9387B30721753165D2f6eEE5201f5")
+name = "Tenbin"
+x = "tenbinlabs"
+url = "https://tenbinlabs.xyz"
+kind = "issuer"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x03007f5a53e9387b30721753165d2f6eee5201f5"
+note = "TenbinCrossChainERC4626Adapter for tGLD / stGLD (app bridge config)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xc96beefb03458b3358462f03c1cff00ff0f46e47"
+note = "TenbinCrossChainERC4626Adapter for tBRL / stBRL (app bridge config)"
