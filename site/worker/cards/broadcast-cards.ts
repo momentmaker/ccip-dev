@@ -1,7 +1,7 @@
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, recordValueText, weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
 } from '@ccip-dev/core/broadcasts';
-import { formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
+import { formatCompactCount, formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
 import { chainName, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
 import type { DayLeaders, Leader } from '@ccip-dev/core/public';
 import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
@@ -35,12 +35,18 @@ function leaderCell(label: string, name: string, value: string): VNode {
     { style: { display: 'flex', flexDirection: 'column', width: 153 } },
     h('div', { style: { fontSize: 14, fontWeight: 700, letterSpacing: 2, color: COLORS.muted, textTransform: 'uppercase' } }, label),
     h('div', { style: { fontSize: 20, fontWeight: 700, marginTop: 4, maxWidth: 145, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, name),
-    h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop: 2 } }, value),
+    h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop: 2, maxWidth: 145, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, value),
   );
 }
 
-/** "319 msgs · 20%"; a leader published before identities has no share and reads "319 msgs". */
-const senderFigure = (l: Leader) => `${formatCount(l.messages)} msgs${l.share_pct === undefined || l.share_pct === null ? '' : ` · ${formatShare(l.share_pct)}`}`;
+const SENDER_FIGURE_MAX = 15;
+
+/** "319 msgs · 20%"; no share (a leader from before identities) reads "319 msgs", and a figure too wide for the cell drops to "12.3K · 4.8%". */
+function senderFigure(l: Leader): string {
+  const share = l.share_pct === undefined || l.share_pct === null ? '' : ` · ${formatShare(l.share_pct)}`;
+  const full = `${formatCount(l.messages)} msgs${share}`;
+  return full.length <= SENDER_FIGURE_MAX ? full : `${formatCompactCount(l.messages)}${share}`;
+}
 
 function leadersRow(lead: DayLeaders, names: ChainNames): VNode {
   return h(

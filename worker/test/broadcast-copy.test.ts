@@ -116,6 +116,20 @@ describe('X posts', () => {
     expect({ plain: plain.map((t) => t.includes('@')), reserve: reserve.match(/@\w+/g) }).toEqual({ plain: [false, false, false, false], reserve: ['@chainlink'] });
   });
 
+  it('still drops the busiest lane before the top sender when the sender carries a share', () => {
+    // #given a lane and a sender with a share, each long enough that only one of them fits
+    const lane = { ...DAILY.leaders.lane!, src: p(long(60)), dst: p(long(60)) };
+    const sender = { key: 's', player: p(long(100)), messages: 319, sharePct: 20.33 };
+    // #when
+    const { xText } = composeCopy(withLeaders({ lane, sender }));
+    // #then
+    expect({ lines: xText.split('\n').map((l) => l.split(':')[0]), fits: xLength(xText) <= X_MAX, share: xText.includes('(20%)') }).toEqual({
+      lines: ['#CCIP · Sat, Oct 10', '1,313 messages · $17.1M moved', '$739 in fees · 0.5% paid in $LINK', 'Top token', 'Top sender', '#Chainlink'],
+      fits: true,
+      share: true,
+    });
+  });
+
   it('drops the busiest lane, then the top sender, then the top token until the post fits 280', () => {
     // #given ever longer plain names
     const lane = { ...DAILY.leaders.lane!, src: p(long(60)), dst: p(long(60)) };

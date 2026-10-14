@@ -26,6 +26,18 @@ describe('daily broadcast card', () => {
     );
   });
 
+  it('keeps a five-digit sender figure inside its cell, compact and on one line', async () => {
+    // #given a top sender with 12,345 messages and a share
+    const sender = { key: 'project:xstocks', label: 'xStocks', messages: 12_345, usd: 0, fee_usd: 1, share_pct: 4.8 };
+    const load: typeof loadFixture = async (name) =>
+      name === 'day-leaders.json' ? ({ ...LEADERS, days: LEADERS.days.map((d) => (d.day === DAY ? { ...d, sender } : d)) } as never) : loadFixture(name);
+    // #when
+    const words = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load }));
+    const figure = words.find((t) => t.includes('4.8%'));
+    // #then the cell is 153px wide and the text 18px, so about 15 characters is the most that fits
+    expect({ figure, fits: (figure ?? '').length <= 15 }).toEqual({ figure: '12.3K · 4.8%', fits: true });
+  });
+
   it("shows an identity sender's share, and an unlabeled one by its short address", async () => {
     // #given the day's top sender as an identity with its share, then as an unlabeled address
     const withSender = (sender: object): typeof loadFixture => async (name) =>
