@@ -1,0 +1,10 @@
+# Source: https://www.ribbita.ai/ (the TIBBIR bridge app's config sets NEXT_PUBLIC_ORIGIN_CHAIN_ID "8453" and NEXT_PUBLIC_ORIGIN_GATE "0x671be08d6d3c826C2F6d76915f1B54af484D4077"; Sourcify names the contract TibbirBridgeBase)
+name = "Ribbita (TIBBIR)"
+url = "https://www.ribbita.ai"
+kind = "app"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x671be08d6d3c826c2f6d76915f1b54af484d4077"
+note = "TibbirBridgeBase, the TIBBIR Base to Robinhood Chain bridge gate (ribbita.ai ORIGIN_GATE)"

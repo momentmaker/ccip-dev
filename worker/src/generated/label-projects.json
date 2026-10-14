@@ -88,6 +88,25 @@
       }
     ]
   },
+  "centrifuge": {
+    "name": "Centrifuge",
+    "x": null,
+    "url": "https://centrifuge.io",
+    "kind": "protocol",
+    "source": "https://docs.centrifuge.io/developer/protocol/deployments/ (Mainnet table: \"Chainlink Adapter 0x39CF679Eb0Ac9075CFb5f94930A367Ba1557D955\", on a page that lists Ethereum and X Layer among the deployed chains; github.com/centrifuge/sdk src/config/deployments.ts gives the same chainlinkAdapter for chain ids 1 and 196)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x39cf679eb0ac9075cfb5f94930a367ba1557d955",
+        "note": "ChainlinkAdapter (Centrifuge docs, deployments)"
+      },
+      {
+        "chain": "ethereum-mainnet-xlayer-1",
+        "address": "0x39cf679eb0ac9075cfb5f94930a367ba1557d955",
+        "note": "ChainlinkAdapter (Centrifuge docs, deployments; centrifuge/sdk chain 196)"
+      }
+    ]
+  },
   "chainlink-ccip-tests": {
     "name": "Chainlink CCIP tests",
     "x": "chainlink",
@@ -162,6 +181,30 @@
         "chain": "ethereum-mainnet-base-1",
         "address": "0x169a99b9958386a5d91e732ed08b344946a92391",
         "note": "Derive 3-of-5 Safe (derive-bridges DERIVE_SAFE)"
+      }
+    ]
+  },
+  "eco": {
+    "name": "Eco",
+    "x": "eco",
+    "url": "https://eco.com",
+    "kind": "protocol",
+    "source": "https://www.npmjs.com/package/@eco-foundation/routes-ts (Eco's address package, v3.2.24 dist/index.js: EcoProtocolAddresses for chain ids \"1\", \"2020\" and \"8453\" each give \"CcipProver\": \"0xEC0B53A81C996da376F125E541E40082815CDcDc\")",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xec0b53a81c996da376f125e541e40082815cdcdc",
+        "note": "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 1)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xec0b53a81c996da376f125e541e40082815cdcdc",
+        "note": "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 8453)"
+      },
+      {
+        "chain": "ronin-mainnet",
+        "address": "0xec0b53a81c996da376f125e541e40082815cdcdc",
+        "note": "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 2020)"
       }
     ]
   },
@@ -378,6 +421,95 @@
     "source": null,
     "addresses": []
   },
+  "interport": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "url": "https://interport.fi",
+    "kind": "protocol",
+    "source": "https://docs.interport.fi/rocket-science/contracts/ (Interport's contracts page lists \"InterportCCIPTokenBridgeV2 0x0772C76c3e4b081E85747f248ed76CC3813d46C4\" under Ethereum, BSC, Base, Arbitrum, Avalanche, Unichain, Sonic, OP Mainnet, Linea, WorldChain, Scroll, Ink and Botanix)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Ethereum in the Interport docs)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (BSC in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Base in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Arbitrum in the Interport docs)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Avalanche in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-unichain-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Unichain in the Interport docs)"
+      },
+      {
+        "chain": "sonic-mainnet",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Sonic in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (OP Mainnet in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-linea-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Linea in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-worldchain-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (WorldChain in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-scroll-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Scroll in the Interport docs)"
+      },
+      {
+        "chain": "ethereum-mainnet-ink-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Ink in the Interport docs)"
+      },
+      {
+        "chain": "bitcoin-mainnet-botanix",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (Botanix in the Interport docs)"
+      },
+      {
+        "chain": "bitcoin-mainnet-bob-1",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (chain 60808 in the app.interport.fi bridge config)"
+      },
+      {
+        "chain": "0g-mainnet",
+        "address": "0x0772c76c3e4b081e85747f248ed76cc3813d46c4",
+        "note": "InterportCCIPTokenBridgeV2 (chain 16661 in the app.interport.fi bridge config)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x814899380bc056b843999f48e3ae520baa711895",
+        "note": "InterportCCIPTokenBridgeV3 (chain 8453 in the app.interport.fi bridge config)"
+      }
+    ]
+  },
   "kinetiq": {
     "name": "Kinetiq",
     "x": "kinetiq_xyz",
@@ -419,6 +551,20 @@
         "chain": "ethereum-mainnet",
         "address": "0xe02cf8d7b3ce12fc0626346bca160b548525d807",
         "note": "rUSDG vault subvault (mellow-finance/flexible-vaults scripts/jsons)"
+      }
+    ]
+  },
+  "ribbita": {
+    "name": "Ribbita (TIBBIR)",
+    "x": null,
+    "url": "https://www.ribbita.ai",
+    "kind": "app",
+    "source": "https://www.ribbita.ai/ (the TIBBIR bridge app's config sets NEXT_PUBLIC_ORIGIN_CHAIN_ID \"8453\" and NEXT_PUBLIC_ORIGIN_GATE \"0x671be08d6d3c826C2F6d76915f1B54af484D4077\"; Sourcify names the contract TibbirBridgeBase)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x671be08d6d3c826c2f6d76915f1b54af484d4077",
+        "note": "TibbirBridgeBase, the TIBBIR Base to Robinhood Chain bridge gate (ribbita.ai ORIGIN_GATE)"
       }
     ]
   },
@@ -520,6 +666,50 @@
         "chain": "solana-mainnet",
         "address": "A8JPtC8mYrZKvainsrr3cGhTcoBeUV2vd8SXun55in3u",
         "note": "xBridge sender for Solana program F2ZYgyh8YDG6rHo9F1T8Aw4WoTyy8eYN3GgM2LaPKcZN"
+      }
+    ]
+  },
+  "xswap": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "url": "https://xswap.link",
+    "kind": "protocol",
+    "source": "https://xswap.link (the app's contract config, /assets/index-d8322287.js, gives XSwapRouter \"0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04\" for chain ids 1, 8453, 42161, 10, 137, 43114 and 56; also github.com/xswaplink/xSwapRouter README)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 1 in the xswap.link app config)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 8453 in the xswap.link app config)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 42161 in the xswap.link app config)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 10 in the xswap.link app config)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 137 in the xswap.link app config)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 43114 in the xswap.link app config)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 56 in the xswap.link app config)"
       }
     ]
   }

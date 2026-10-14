@@ -1,36 +1,41 @@
+# Source: https://xswap.link (the app's contract config, /assets/index-d8322287.js, gives XSwapRouter "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04" for chain ids 1, 8453, 42161, 10, 137, 43114 and 56; also github.com/xswaplink/xSwapRouter README)
 name = "XSwap"
 x = "xswap_link"
 url = "https://xswap.link"
 kind = "protocol"
-# Unverified: the address is listed only in github.com/xswaplink/xSwapRouter, a repo that xswap.link and its docs do not link.
-verified = false
+verified = true
 
 [[addresses]]
 chain = "ethereum-mainnet"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
-note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+note = "XSwapRouter proxy (chain 1 in the xswap.link app config)"
 
 [[addresses]]
 chain = "ethereum-mainnet-base-1"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
-note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+note = "XSwapRouter proxy (chain 8453 in the xswap.link app config)"
 
 [[addresses]]
 chain = "ethereum-mainnet-arbitrum-1"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
-note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+note = "XSwapRouter proxy (chain 42161 in the xswap.link app config)"
 
 [[addresses]]
 chain = "ethereum-mainnet-optimism-1"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
-note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+note = "XSwapRouter proxy (chain 10 in the xswap.link app config)"
 
 [[addresses]]
 chain = "polygon-mainnet"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
-note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+note = "XSwapRouter proxy (chain 137 in the xswap.link app config)"
 
 [[addresses]]
 chain = "avalanche-mainnet"
 address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
-note = "XSwapRouter proxy (xswaplink/xSwapRouter README)"
+note = "XSwapRouter proxy (chain 43114 in the xswap.link app config)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (chain 56 in the xswap.link app config)"

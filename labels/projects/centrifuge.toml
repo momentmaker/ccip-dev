@@ -1,0 +1,15 @@
+# Source: https://docs.centrifuge.io/developer/protocol/deployments/ (Mainnet table: "Chainlink Adapter 0x39CF679Eb0Ac9075CFb5f94930A367Ba1557D955", on a page that lists Ethereum and X Layer among the deployed chains; github.com/centrifuge/sdk src/config/deployments.ts gives the same chainlinkAdapter for chain ids 1 and 196)
+name = "Centrifuge"
+url = "https://centrifuge.io"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x39cf679eb0ac9075cfb5f94930a367ba1557d955"
+note = "ChainlinkAdapter (Centrifuge docs, deployments)"
+
+[[addresses]]
+chain = "ethereum-mainnet-xlayer-1"
+address = "0x39cf679eb0ac9075cfb5f94930a367ba1557d955"
+note = "ChainlinkAdapter (Centrifuge docs, deployments; centrifuge/sdk chain 196)"
