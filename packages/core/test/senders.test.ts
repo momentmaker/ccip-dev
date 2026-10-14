@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Label, LabelIndex } from '../src/labels';
-import { identityResolver, kindPhrase, labelCoverage, labeledAddresses, mergeIdentities, newcomerPicks, newcomerSpan, newcomerSpanWords, parseSenderKey, projectAddresses, rankIdentities, sharePct, type SenderChains } from '../src/senders';
+import { identityResolver, kindPhrase, labelCoverage, labeledAddresses, mergeIdentities, mostlyViaToken, newcomerPicks, newcomerSpan, newcomerSpanWords, parseSenderKey, projectAddresses, rankIdentities, sharePct, taggableX, type SenderChains } from '../src/senders';
+import type { ViaTokenCredit } from '../src/via-token';
 import {
   BASE_SENDER_1, BASE_SENDER_2, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_LABEL, XSTOCKS_LABELS, XSTOCKS_SENDER_ROWS, XSTOCKS_TOTALS,
 } from '../src/testing';
@@ -110,6 +111,7 @@ describe('ranking by identity', () => {
     expect({ ...top, share: sharePct(top!.messages, XSTOCKS_TOTALS.messages) }).toEqual({
       key: 'project:xstocks', label: 'xStocks', slug: 'xstocks', x: 'xStocksFi', kind: 'protocol', inferred: false,
       messages: 319, usd_value: 0, fee_usd: 79.75,
+      via_token_messages: 0, via_token_usd: 0, via_token_fee_usd: null, via_token: false,
       chains: [SOL, INK, XLAYER, BSC, ETH, HYPER],
       addresses: 2,
       keys: [`${INK}:${XBRIDGE_EVM}`, `${XLAYER}:${XBRIDGE_EVM}`, `${BSC}:${XBRIDGE_EVM}`, `${ETH}:${XBRIDGE_EVM}`, `${HYPER}:${XBRIDGE_EVM}`, `${SOL}:${XBRIDGE_SOLANA}`],
@@ -184,19 +186,19 @@ describe('label coverage', () => {
     // #when
     const coverage = labelCoverage(identities, XSTOCKS_TOTALS);
     // #then
-    expect(coverage).toEqual({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, window: '7d' });
+    expect(coverage).toEqual({ messages_pct: 20.3, usd_pct: 0, fees_pct: 20.3, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d' });
   });
 
   it('counts a project credited through a spread label as labeled', () => {
     // #given Maple's only row came through its Ethereum label
     const identities = mergeIdentities([row(BASE, ADDR, 3, 30, 1), row(BASE, '0xb', 1, 10, 1)], identityResolver(ON_ETHEREUM, CHAINS));
     // #then
-    expect(labelCoverage(identities, { messages: 4, usd_value: 40, fee_usd: 2 })).toEqual({ messages_pct: 75, usd_pct: 75, fees_pct: 50, window: '7d' });
+    expect(labelCoverage(identities, { messages: 4, usd_value: 40, fee_usd: 2 })).toEqual({ messages_pct: 75, usd_pct: 75, fees_pct: 50, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d' });
   });
 
   it('has no shares for an empty window, never NaN', () => {
     // #then
-    expect(labelCoverage([], { messages: 0, usd_value: 0, fee_usd: null })).toEqual({ messages_pct: null, usd_pct: null, fees_pct: null, window: '7d' });
+    expect(labelCoverage([], { messages: 0, usd_value: 0, fee_usd: null })).toEqual({ messages_pct: null, usd_pct: null, fees_pct: null, via_token_messages_pct: null, via_token_usd_pct: null, via_token_fees_pct: null, window: '7d' });
   });
 });
 
@@ -257,5 +259,68 @@ describe('kindPhrase', () => {
   it('words each label kind for a post, and leaves an unknown one out', () => {
     // #then
     expect(['protocol', 'app', 'institution', 'exchange', 'issuer', 'unknown', null].map(kindPhrase)).toEqual(['a protocol', 'an app', 'an institution', 'an exchange', 'a token issuer', null, null]);
+  });
+});
+
+const ELIZA: Label = { name: 'elizaOS', x: 'elizaOS', kind: 'protocol', slug: 'eliza' };
+const credit = (selector: string, project: Label, messages: number, usd_value = 0, fee_usd: number | null = null): ViaTokenCredit => ({ selector, project, messages, usd_value, fee_usd });
+
+describe('credits in the merge', () => {
+  it("adds a project's credits to its own sends: one identity with both parts, its chains and its handle", () => {
+    // #given Maple sent 5 from its Ethereum contract, and wallets bridged its token 3 times from Base
+    const merged = mergeIdentities([row(ETH, ADDR, 5, 50, 1)], identityResolver(ON_ETHEREUM, CHAINS), [credit(BASE, MAPLE, 3, 30, 0.5)]);
+    // #then
+    expect(merged.map((i) => ({ ...i, tag: taggableX(i) }))).toEqual([
+      expect.objectContaining({
+        key: 'project:maple-finance', messages: 8, usd_value: 80, fee_usd: 1.5, via_token_messages: 3, via_token_usd: 30, via_token_fee_usd: 0.5,
+        via_token: false, inferred: false, chains: [ETH, BASE], addresses: 1, keys: [`${ETH}:${ADDR}`], tag: 'maplefinance',
+      }),
+    ]);
+  });
+
+  it('marks an identity of credits alone via token, not inferred, with no address and no handle to tag', () => {
+    // #when
+    const [eliza] = mergeIdentities([], identityResolver({}, CHAINS), [credit(BASE, ELIZA, 4), credit(ETH, ELIZA, 2)]);
+    // #then
+    expect({ via: eliza!.via_token, inferred: eliza!.inferred, messages: eliza!.messages, addresses: eliza!.addresses, chains: eliza!.chains, tag: taggableX(eliza!) }).toEqual({
+      via: true, inferred: false, messages: 6, addresses: 0, chains: [BASE, ETH], tag: null,
+    });
+  });
+
+  it("keeps the inferred mark of a project whose own rows all came through a spread label", () => {
+    // #when
+    const [maple] = mergeIdentities([row(BASE, ADDR, 3)], identityResolver(ON_ETHEREUM, CHAINS), [credit(BASE, MAPLE, 2)]);
+    // #then
+    expect([maple!.inferred, maple!.via_token, taggableX(maple!)]).toEqual([true, false, null]);
+  });
+
+  it('ranks a project with credits once, by its sends and credits together', () => {
+    // #when
+    const ranked = rankIdentities(mergeIdentities([row(ETH, ADDR, 5), row(BASE, '0xb', 7)], identityResolver(ON_ETHEREUM, CHAINS), [credit(BASE, MAPLE, 3)]), 'messages', 5);
+    // #then
+    expect(ranked.map((i) => [i.key, i.messages])).toEqual([['project:maple-finance', 8], ['address:0xb', 7]]);
+  });
+});
+
+describe('mostlyViaToken', () => {
+  it.each([
+    [10, 5, true],
+    [10, 4, false],
+    [10, undefined, false],
+    [0, 0, false],
+  ] as const)('%i messages with %s via token: %s', (messages, via, mostly) => {
+    // #then
+    expect(mostlyViaToken(messages, via)).toBe(mostly);
+  });
+});
+
+describe('label coverage via token', () => {
+  it('counts credits as labeled, and reports the part that came via a token', () => {
+    // #given Maple 3 of 8 messages through its label, elizaOS 4 via its token, one unlabeled address
+    const identities = mergeIdentities([row(ETH, ADDR, 3, 30, 1), row(BASE, '0xb', 1, 10, 1)], identityResolver(ON_ETHEREUM, CHAINS), [credit(BASE, ELIZA, 4, 40, 2)]);
+    // #then
+    expect(labelCoverage(identities, { messages: 8, usd_value: 80, fee_usd: 4 })).toEqual({
+      messages_pct: 87.5, usd_pct: 87.5, fees_pct: 75, via_token_messages_pct: 50, via_token_usd_pct: 50, via_token_fees_pct: 50, window: '7d',
+    });
   });
 });

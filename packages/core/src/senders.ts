@@ -2,6 +2,7 @@ import { isAddressShape } from './chain-map';
 import type { Label, LabelIndex, LabelProject } from './labels';
 import { byName } from './roster';
 import { addDays } from './time';
+import { addRowSums, emptyRowSums, type RowSums, type ViaTokenCredit } from './via-token';
 
 export type LabelKind = LabelProject['kind'];
 
@@ -113,11 +114,17 @@ export interface IdentityTotals {
   slug: string | null;
   x: string | null;
   kind: LabelKind | null;
-  /** Every row of the project came through a spread label. */
+  /** It has sender rows, and every one came through a spread label. */
   inferred: boolean;
   messages: number;
   usd_value: number;
   fee_usd: number | null;
+  /** Messages credited through a claimed token: wallets bridging it through CCIP themselves. `messages` includes them. */
+  via_token_messages: number;
+  via_token_usd: number;
+  via_token_fee_usd: number | null;
+  /** Every one of its messages came via its token. */
+  via_token: boolean;
   /** Source chain selectors, busiest first. */
   chains: string[];
   /** Distinct addresses. */
@@ -128,38 +135,47 @@ export interface IdentityTotals {
 
 interface Group {
   identity: SenderIdentity;
+  /** It has sender rows, not only credits. */
+  sent: boolean;
   allInferred: boolean;
-  messages: number;
-  usd: number;
-  fee: number;
-  anyFee: boolean;
+  all: RowSums;
+  via: RowSums;
   chains: Map<string, number>;
   addresses: Set<string>;
   keys: Set<string>;
 }
 
-/** Sums sender rows by identity; one key's rows from several days add up. */
-export function mergeIdentities(rows: readonly SenderRow[], resolve: IdentityResolver): IdentityTotals[] {
+/**
+ * Sums sender rows by identity; one key's rows from several days add up. Credits add a claimed token's direct sends to
+ * its project, so a project that also sends from its own addresses is still one identity.
+ */
+export function mergeIdentities(rows: readonly SenderRow[], resolve: IdentityResolver, credits: readonly ViaTokenCredit[] = []): IdentityTotals[] {
   const groups = new Map<string, Group>();
+  const groupOf = (identity: SenderIdentity): Group => {
+    let group = groups.get(identity.key);
+    if (group === undefined) {
+      group = { identity, sent: false, allInferred: true, all: emptyRowSums(), via: emptyRowSums(), chains: new Map(), addresses: new Set(), keys: new Set() };
+      groups.set(identity.key, group);
+    }
+    return group;
+  };
   for (const row of rows) {
     const selector = row.key.slice(0, row.key.indexOf(':'));
     const address = senderKeyAddress(row.key);
     const identity = resolve(selector, address);
-    let group = groups.get(identity.key);
-    if (group === undefined) {
-      group = { identity, allInferred: true, messages: 0, usd: 0, fee: 0, anyFee: false, chains: new Map(), addresses: new Set(), keys: new Set() };
-      groups.set(identity.key, group);
-    }
+    const group = groupOf(identity);
+    group.sent = true;
     group.allInferred &&= identity.inferred;
-    group.messages += row.messages;
-    group.usd += row.usd_value;
-    if (row.fee_usd !== null) {
-      group.fee += row.fee_usd;
-      group.anyFee = true;
-    }
+    addRowSums(group.all, row);
     group.chains.set(selector, (group.chains.get(selector) ?? 0) + row.messages);
     group.addresses.add(senderAddress(address));
     group.keys.add(row.key);
+  }
+  for (const credit of credits) {
+    const group = groupOf({ key: projectKey(credit.project.slug), project: credit.project, inferred: false });
+    addRowSums(group.all, credit);
+    addRowSums(group.via, credit);
+    group.chains.set(credit.selector, (group.chains.get(credit.selector) ?? 0) + credit.messages);
   }
   return [...groups.values()].map(totalsOf);
 }
@@ -172,14 +188,28 @@ function totalsOf(g: Group): IdentityTotals {
     slug: project?.slug ?? null,
     x: project?.x ?? null,
     kind: project?.kind ?? null,
-    inferred: project !== null && g.allInferred,
-    messages: g.messages,
-    usd_value: g.usd,
-    fee_usd: g.anyFee ? g.fee : null,
+    inferred: project !== null && g.sent && g.allInferred,
+    messages: g.all.messages,
+    usd_value: g.all.usd,
+    fee_usd: g.all.anyFee ? g.all.fee : null,
+    via_token_messages: g.via.messages,
+    via_token_usd: g.via.usd,
+    via_token_fee_usd: g.via.anyFee ? g.via.fee : null,
+    via_token: g.via.messages > 0 && g.via.messages === g.all.messages,
     chains: [...g.chains].sort(([a, x], [b, y]) => y - x || byName(a, b)).map(([selector]) => selector),
     addresses: g.addresses.size,
     keys: [...g.keys],
   };
+}
+
+/** The handle a post may tag: a verified project's, unless its label was spread or none of its messages were its own sends. */
+export function taggableX(i: Pick<IdentityTotals, 'x' | 'inferred' | 'via_token'>): string | null {
+  return i.inferred || i.via_token ? null : i.x;
+}
+
+/** Half or more of the identity's messages came via its token, so a post names it "via its token". */
+export function mostlyViaToken(messages: number, viaTokenMessages: number | undefined): boolean {
+  return messages > 0 && (viaTokenMessages ?? 0) * 2 >= messages;
 }
 
 export type IdentityOrder = 'value' | 'fees' | 'messages';
@@ -205,10 +235,14 @@ export interface LabelCoverage {
   messages_pct: number | null;
   usd_pct: number | null;
   fees_pct: number | null;
+  /** The part of each share credited via a claimed token; each is included in its share above. */
+  via_token_messages_pct: number | null;
+  via_token_usd_pct: number | null;
+  via_token_fees_pct: number | null;
   window: '7d';
 }
 
-/** How much of a window the labeled identities (verified or inferred) account for. */
+/** How much of a window the labeled identities (verified, inferred or credited via a token) account for. */
 export function labelCoverage(identities: readonly IdentityTotals[], totals: { messages: number; usd_value: number; fee_usd: number | null }): LabelCoverage {
   const labeled = identities.filter((i) => i.slug !== null);
   const sum = (pick: (i: IdentityTotals) => number) => labeled.reduce((s, i) => s + pick(i), 0);
@@ -216,6 +250,9 @@ export function labelCoverage(identities: readonly IdentityTotals[], totals: { m
     messages_pct: sharePct(sum((i) => i.messages), totals.messages),
     usd_pct: sharePct(sum((i) => i.usd_value), totals.usd_value),
     fees_pct: sharePct(sum((i) => i.fee_usd ?? 0), totals.fee_usd),
+    via_token_messages_pct: sharePct(sum((i) => i.via_token_messages), totals.messages),
+    via_token_usd_pct: sharePct(sum((i) => i.via_token_usd), totals.usd_value),
+    via_token_fees_pct: sharePct(sum((i) => i.via_token_fee_usd ?? 0), totals.fee_usd),
     window: '7d',
   };
 }

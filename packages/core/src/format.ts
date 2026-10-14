@@ -145,3 +145,22 @@ export function linkShareText(pct: number): string {
   if (pct < 0.1) return '<0.1% paid in LINK';
   return `${pct < 10 ? pct.toFixed(1) : Math.round(pct)}% paid in LINK`;
 }
+
+/** The label coverage shares a coverage line words; coverage stored before via token has no via-token share. */
+export interface CoverageShares {
+  messages_pct: number | null;
+  usd_pct: number | null;
+  via_token_messages_pct?: number | null;
+}
+
+/**
+ * The status page's coverage line, which the candidates pull request leads with too. Coverage stored before via token
+ * keeps the older wording; null when the window had no messages.
+ */
+export function labelCoverageLine(c: CoverageShares | null | undefined): string | null {
+  if (!c || c.messages_pct === null) return null;
+  const value = c.usd_pct === null ? '' : `, ${formatShare(c.usd_pct)} of value`;
+  const via = c.via_token_messages_pct;
+  if (via === undefined || via === null) return `Labeled senders: ${formatShare(c.messages_pct)} of messages${value} (last 7 days)`;
+  return `Labeled: ${formatShare(c.messages_pct)} of messages (${formatShare(c.messages_pct - via)} sent by a labeled project, ${formatShare(via)} via its token)${value} (last 7 days)`;
+}

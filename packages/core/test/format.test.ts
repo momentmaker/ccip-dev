@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DASH, formatAgo, dataSharePct, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatLinkAmount, formatPct, formatPrice, formatShare, formatUsd, formatUsdDown, formatUsdFull, formatUtcDay, formatUtcTime, linkShareText,
+  DASH, formatAgo, dataSharePct, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatLinkAmount, formatPct, formatPrice, formatShare, formatUsd, formatUsdDown, formatUsdFull, formatUtcDay, formatUtcTime, labelCoverageLine, linkShareText,
 } from '../src/format';
 
 describe('formatUsd', () => {
@@ -198,5 +198,18 @@ describe('dataSharePct', () => {
   ])('%s messages with %s data messages is %s', (messages, data, pct) => {
     // #then
     expect(dataSharePct(messages, data)).toBe(pct);
+  });
+});
+
+describe('the coverage line', () => {
+  it.each([
+    [{ messages_pct: 74.2, usd_pct: 61.3, via_token_messages_pct: 45.1 }, 'Labeled: 74% of messages (29% sent by a labeled project, 45% via its token), 61% of value (last 7 days)'],
+    [{ messages_pct: 30, usd_pct: null, via_token_messages_pct: 0 }, 'Labeled: 30% of messages (30% sent by a labeled project, 0% via its token) (last 7 days)'],
+    [{ messages_pct: 81.2, usd_pct: 94.4 }, 'Labeled senders: 81% of messages, 94% of value (last 7 days)'],
+    [{ messages_pct: null, usd_pct: null }, null],
+    [null, null],
+  ])('words %o as %j', (coverage, line) => {
+    // #then
+    expect(labelCoverageLine(coverage)).toBe(line);
   });
 });

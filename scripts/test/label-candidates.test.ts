@@ -396,9 +396,9 @@ describe('candidates by identity', () => {
 describe('the candidates pull request', () => {
   it('leads with label coverage and its change in points from last week', () => {
     // #given
-    const now = { messages_pct: 81.2, usd_pct: 94.4, fees_pct: 90, window: '7d' as const };
-    const before = { messages_pct: 78.2, usd_pct: 95.4, fees_pct: 90, window: '7d' as const };
-    const none = { messages_pct: null, usd_pct: null, fees_pct: null, window: '7d' as const };
+    const now = { messages_pct: 81.2, usd_pct: 94.4, fees_pct: 90, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d' as const };
+    const before = { messages_pct: 78.2, usd_pct: 95.4, fees_pct: 90, via_token_messages_pct: 0, via_token_usd_pct: 0, via_token_fees_pct: 0, window: '7d' as const };
+    const none = { messages_pct: null, usd_pct: null, fees_pct: null, via_token_messages_pct: null, via_token_usd_pct: null, via_token_fees_pct: null, window: '7d' as const };
     // #then
     expect([coverageMarkdown(now, before), coverageMarkdown(now, none), coverageMarkdown(none, before)]).toEqual([
       'Labeled senders: 81% of messages (+3 points), 94% of value (−1 point), 90% of fees (±0 points) over the last 7 days.',
