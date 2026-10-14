@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { runHourly } from '../src/jobs/hourly';
 import { LATE_FINALIZE_HOUR_UTC } from '../src/schedule';
 import * as store from '../src/store';
-import { harness, liveRow, readPublic, resetStorage, rpcFake } from './helpers';
+import { harness, liveRow, readPublic, resetStorage, rpcFake, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -162,6 +162,29 @@ describe('runHourly', () => {
     await runHourly(harness({ now: `2026-10-08T0${LATE_FINALIZE_HOUR_UTC}:00:00.000Z`, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: f, env: env_ }).c);
     // #then
     expect(f.calls.filter((c) => c.url.endsWith('/sendPhoto'))).toEqual([]);
+  });
+});
+
+describe('runHourly via-token backfill', () => {
+  const run = (db?: D1Database) =>
+    harness({ now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), coingecko: linkMapped(), fetch: rpcFake({ balanceLink: 1n }), ...(db ? { db } : {}) });
+
+  it('backfills the days rolled up before today', async () => {
+    // #given
+    await store.replaceDaily(env.DB, { day: '2026-10-07', messages: 1, token_messages: 0, usd_value: 1, fee_usd: 1, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 }, [], NOW);
+    // #when
+    await runHourly(run().c);
+    // #then
+    expect(await store.getMeta(env.DB, 'via_token_backfill:before')).toBe('2026-10-07');
+  });
+
+  it('alerts when the backfill fails, and finishes the hour', async () => {
+    // #given
+    const h = run(watchedDb(/SELECT day FROM daily_totals WHERE day < \? ORDER BY day DESC/, { fail: true }).db);
+    // #when
+    await runHourly(h.c);
+    // #then
+    expect(h.alerts.map((a) => a.signature)).toEqual(['via-token-backfill']);
   });
 });
 

@@ -2,7 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  VIA_ADDRESS, VIA_GROUP, VIA_SENDER_KEY, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
+  VIA_ADDRESS, VIA_GROUP, VIA_SENDER_KEY, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 
@@ -629,6 +629,18 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
     ...breakdown.map((b) => insertBreakdown.bind(b.day, b.dim, b.key, b.messages, b.usd_value, b.fee_usd)),
   ]);
+}
+
+export async function rolledUpDaysBefore(db: D1Database, before: string, limit: number): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT day FROM daily_totals WHERE day < ? ORDER BY day DESC LIMIT ?')
+    .bind(before, limit)
+    .all<{ day: string }>();
+  return results.map((r) => r.day);
+}
+
+export async function backfillViaTokenDay(db: D1Database, day: string): Promise<void> {
+  await db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day).run();
 }
 
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {

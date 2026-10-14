@@ -1,10 +1,11 @@
-import { rankIdentities, VIA_TOKEN_CREDITS_SQL, type Dim } from '@ccip-dev/core';
+import { rankIdentities, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDITS_SQL, type Dim } from '@ccip-dev/core';
 import { fakeCcip, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runFinalize } from '../src/jobs/finalize';
 import { identitiesOf, labelCoverageOf, rankedIdentities, senderBook } from '../src/senders';
 import * as store from '../src/store';
+import { backfillViaToken } from '../src/via-token-backfill';
 import { harness, liveRow, resetStorage, seedRegistry } from './helpers';
 
 beforeEach(resetStorage);
@@ -18,14 +19,16 @@ const LOOSE = '0x00000000000000000000000000000000000b0001';
 const WALLET = '0x00000000000000000000000000000000000c0001';
 const APP = '0x00000000000000000000000000000000000d0001';
 
-describe('migration 0008', () => {
+describe('backfillViaToken', () => {
   const DAY = '2026-10-07';
   const NOW = '2026-10-08T00:07:00.000Z';
+  const CURSOR = 'via_token_backfill:before';
   const at = (minute: number) => `${DAY}T10:0${minute}:00.000Z`;
   const EXPECTED = [
     { key: `${BASE}:${WALLET}|${BASE}:${LOOSE}`, messages: 2, usd_value: 16, fee_usd: 2 },
     { key: `${BASE}:${WALLET}|${GROUP}`, messages: 2, usd_value: 15, fee_usd: 1 },
   ];
+  const TOTALS = { messages: 1, token_messages: 1, usd_value: 0, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 };
 
   /** The wallet bridged elizaOS twice and a token outside the registry once, and sent one data message; an app sent elizaOS for it once; one send carried the loose token first and elizaOS second, and one has no origin. */
   async function seedDay(): Promise<void> {
@@ -62,7 +65,8 @@ describe('migration 0008', () => {
 
   const viaRows = async () =>
     (await env.DB.prepare("SELECT key, messages, usd_value, fee_usd FROM daily_breakdown WHERE dim = 'via_token' ORDER BY key").all()).results;
-  const backfill = () => env.DB.batch(env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0008'))!.queries.map((q) => env.DB.prepare(q)));
+  const backfill = (maxDays?: number) => backfillViaToken(harness({ now: NOW }).c, maxDays);
+  const rollUp = (day: string) => store.replaceDaily(env.DB, { day, ...TOTALS }, [], NOW);
 
   it("rolls up a wallet's direct sends by their first token's group or the token itself, and never an app's send", async () => {
     // #given
@@ -74,7 +78,7 @@ describe('migration 0008', () => {
   });
 
   it('backfills the same rows the rollup writes', async () => {
-    // #given a finalized day whose via_token rows are gone, as before the migration
+    // #given a finalized day whose via_token rows are gone, as before the dimension existed
     await seedDay();
     await finalizeDay();
     await env.DB.prepare("DELETE FROM daily_breakdown WHERE dim = 'via_token'").run();
@@ -90,28 +94,62 @@ describe('migration 0008', () => {
     await finalizeDay();
     // #when
     await backfill();
+    await store.setMeta(env.DB, CURSOR, null);
     await backfill();
     await finalizeDay();
     // #then
     expect(await viaRows()).toEqual(EXPECTED);
   });
 
-  it('backfills nothing for a day that was never rolled up', async () => {
+  it('never keys a send by its second token, nor a send with no origin', async () => {
+    // #given only the send carrying elizaOS second and the one with no origin
+    await seedDay();
+    await env.DB.prepare("DELETE FROM messages WHERE message_id NOT IN ('second', 'no-origin')").run();
+    await rollUp(DAY);
+    // #when
+    await backfill();
+    // #then
+    expect(await viaRows()).toEqual([{ key: `${BASE}:${WALLET}|${BASE}:${LOOSE}`, messages: 1, usd_value: 9, fee_usd: null }]);
+  });
+
+  it('writes nothing for a day that was never rolled up', async () => {
     // #given
     await seedDay();
     // #when
-    await backfill();
+    await store.backfillViaTokenDay(env.DB, DAY);
     // #then
     expect(await viaRows()).toEqual([]);
   });
 
-  it('reads the month by a range on messages_day', async () => {
-    // #given
-    const statement = env.TEST_MIGRATIONS.find((m) => m.name.startsWith('0008'))!.queries[0]!;
+  it("reads the day's messages by messages_day", async () => {
     // #when
-    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${statement}`).all<{ detail: string }>();
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${VIA_TOKEN_BACKFILL_DAY_SQL}`).bind(DAY).all<{ detail: string }>();
     // #then
-    expect(plan.results.map((r) => r.detail)).toContainEqual(expect.stringMatching(/messages_day \(day>\? AND day<\?\)/));
+    expect(plan.results.map((r) => r.detail)).toContainEqual(expect.stringMatching(/messages_day \(day=\?\)/));
+  });
+
+  it('walks back from today, newest first, a run of days at a time, and ends at done', async () => {
+    // #given five rolled-up days before today
+    for (const day of ['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07']) await rollUp(day);
+    const cursors: (string | null)[] = [];
+    // #when
+    for (let run = 0; run < 4; run++) {
+      await backfill(2);
+      cursors.push(await store.getMeta(env.DB, CURSOR));
+    }
+    // #then
+    expect(cursors).toEqual(['2026-10-06', '2026-10-04', '2026-10-03', 'done']);
+  });
+
+  it('does nothing once done', async () => {
+    // #given a rolled-up day with no via_token rows, and the cursor at done
+    await seedDay();
+    await rollUp(DAY);
+    await store.setMeta(env.DB, CURSOR, 'done');
+    // #when
+    await backfill();
+    // #then
+    expect(await viaRows()).toEqual([]);
   });
 });
 

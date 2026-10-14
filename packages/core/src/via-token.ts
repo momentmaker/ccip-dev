@@ -1,6 +1,7 @@
 import type { Label, ProjectRegistry, TokenLabels } from './labels';
 import { addRowSums, emptyRowSums, type RowSums } from './row-sums';
 import { senderKeyAddress, type SenderChains, type SenderRow } from './senders';
+import { BREAKDOWN_CONFLICT } from './sql';
 
 /** A token's registry group id by its chain selector and address as message_tokens stores them; null for none. */
 export type TokenGroupOf = (chain: string, token: string) => string | null;
@@ -158,3 +159,16 @@ const viaTokenCreditsSql = (withDay: boolean) => {
  */
 export const VIA_TOKEN_CREDITS_SQL = viaTokenCreditsSql(false);
 export const VIA_TOKEN_CREDIT_DAYS_SQL = viaTokenCreditsSql(true);
+
+const VIA_TOKEN_GROUP_OF_FIRST = "COALESCE(t.group_id, mt.chain || ':' || mt.token)";
+
+/**
+ * Writes day ?1's via_token rows from its stored messages, keyed as rollupDay keys them, for the days rolled up before the
+ * dimension existed. A day with no daily_totals row gets none, so a backfill never writes a day finalize hasn't.
+ */
+export const VIA_TOKEN_BACKFILL_DAY_SQL = `INSERT INTO daily_breakdown (day, dim, key, messages, usd_value, fee_usd)
+SELECT m.day, 'via_token', m.src_chain || ':' || m.sender || '|' || ${VIA_TOKEN_GROUP_OF_FIRST}, COUNT(*), SUM(m.usd_value), SUM(m.fee_usd)
+FROM messages m JOIN message_tokens mt ON mt.message_id = m.message_id AND mt.idx = 0 LEFT JOIN tokens t ON t.chain = mt.chain AND t.address = mt.token
+WHERE m.day = ?1 AND m.sender = m.origin AND EXISTS (SELECT 1 FROM daily_totals d WHERE d.day = m.day)
+GROUP BY m.day, m.src_chain, m.sender, ${VIA_TOKEN_GROUP_OF_FIRST}
+${BREAKDOWN_CONFLICT}`;

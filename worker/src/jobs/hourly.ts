@@ -6,6 +6,7 @@ import type { RunContext } from '../context';
 import { publishRegistryFiles } from '../publish';
 import { balanceRpcUrls } from '../rpc';
 import * as store from '../store';
+import { backfillViaToken } from '../via-token-backfill';
 import { runReserveTransfers } from './reserve';
 
 const RESERVE_ALERT_AFTER = 3;
@@ -22,7 +23,18 @@ export async function runHourly(c: RunContext): Promise<void> {
   const reserve = await publishRegistryFiles(c);
   await broadcastHourly(c, reserve);
   await refreshCoingeckoIds(c);
+  await backfillViaTokenHistory(c);
   if (registryError !== null) throw registryError;
+}
+
+/** History only: a failure is retried from the cursor next hour, and never holds up the rest of the hour. */
+async function backfillViaTokenHistory(c: RunContext): Promise<void> {
+  try {
+    await backfillViaToken(c);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    await c.alert('via-token-backfill', `The via_token history backfill failed and is retried next hour from its cursor: ${detail}`);
+  }
 }
 
 async function recordReserve(c: RunContext): Promise<void> {
