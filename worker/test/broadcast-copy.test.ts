@@ -10,7 +10,7 @@ const DAILY: DailyFacts = {
   totals: { day: '2026-10-10', messages: { value: 1313, pct: -34 }, value: { value: 17_100_000, pct: -64 }, fees: { value: 739, pct: -34 }, linkSharePct: 0.5, linkUsd: 3.7, linkAmount: 0.29 },
   leaders: {
     token: { key: 't', symbol: 'syrupUSDC', project: p('Maple', 'maplefinance'), usd: 6_100_000, sharePct: 35.67 },
-    sender: { key: 's', player: p('xStocks', 'xStocksFi'), messages: 97 },
+    sender: { key: 'project:xstocks', player: p('xStocks', 'xStocksFi'), messages: 97, sharePct: 7.39 },
     lane: { key: 'l', src: p('Ethereum', 'ethereum'), dst: p('Arc', 'arc'), usd: 5_200_000, messages: 400, feeUsd: 10 },
   },
   feeChain: { key: 'c', player: p('Base', 'base'), feeUsd: 412 },
@@ -61,7 +61,7 @@ describe('X posts', () => {
         '1,313 messages · $17.1M moved',
         '$739 in fees · 0.5% paid in $LINK',
         'Top token: $syrupUSDC Maple · $6.1M (36%)',
-        'Top sender: xStocks · 97 messages',
+        'Top sender: xStocks · 97 messages (7.4%)',
         'Busiest lane: Ethereum → Arc · $5.2M',
         '#Chainlink',
       ].join('\n'),
@@ -78,11 +78,11 @@ describe('X posts', () => {
         '14,103 messages ▲ 5.0% · $334.0M moved ▲ 17%',
         '$8.0K in fees ▲ 6.0% · 0.5% paid in $LINK',
         'Top token: $syrupUSDC Maple · $6.1M (36%)',
-        'Top sender: xStocks · 97 messages',
+        'Top sender: xStocks · 97 messages (7.4%)',
         'Top fee chains: Base · BNB Chain · Ethereum',
         '#Chainlink',
       ].join('\n'),
-      length: 247,
+      length: 254,
     });
   });
 
@@ -119,7 +119,7 @@ describe('X posts', () => {
   it('drops the busiest lane, then the top sender, then the top token until the post fits 280', () => {
     // #given ever longer plain names
     const lane = { ...DAILY.leaders.lane!, src: p(long(60)), dst: p(long(60)) };
-    const sender = { key: 's', player: p(long(120)), messages: 97 };
+    const sender = { key: 's', player: p(long(120)), messages: 97, sharePct: null };
     const token = { ...DAILY.leaders.token!, symbol: long(200, 'T') };
     // #when
     const first = composeCopy(withLeaders({ lane })).xText;
@@ -148,7 +148,7 @@ describe('links', () => {
   it('never writes a domain-looking name as a link, on X or Telegram', () => {
     // #given a sender, a token and a project whose names read as domains
     const facts = withLeaders({
-      sender: { key: 's', player: p('pump.fun'), messages: 97 },
+      sender: { key: 's', player: p('pump.fun'), messages: 97, sharePct: null },
       token: { ...DAILY.leaders.token!, symbol: 'xStocks.fi', project: p('Ondo.finance') },
     });
     // #when
@@ -190,7 +190,7 @@ describe('Telegram captions', () => {
         '$739 in fees (▼ 34%) · 0.5% paid in LINK ($4, 0.29 LINK)',
         '',
         'Top token: syrupUSDC (Maple) · $6.1M, 36% of the value moved',
-        'Top sender: xStocks · 97 messages',
+        "Top sender: xStocks · 97 messages, 7.4% of the day's",
         'Busiest lane: Ethereum → Arc · $5.2M',
         'Top fee chain: Base · $412 in fees',
         '',
@@ -201,7 +201,7 @@ describe('Telegram captions', () => {
 
   it('escapes names, and drops lines to stay within 1,024 characters', () => {
     // #given a sender name with HTML in it, and lane names too long for a caption
-    const escaped = composeCopy(withLeaders({ sender: { key: 's', player: p('A<b>&C'), messages: 1 } })).telegramHtml;
+    const escaped = composeCopy(withLeaders({ sender: { key: 's', player: p('A<b>&C'), messages: 1, sharePct: null } })).telegramHtml;
     const longLane = composeCopy(withLeaders({ lane: { ...DAILY.leaders.lane!, src: p(long(400)), dst: p(long(400)) } })).telegramHtml;
     // #then
     expect({
@@ -256,3 +256,32 @@ describe('X cashtags in the copy', () => {
   });
 });
 
+
+describe("the top sender's share", () => {
+  const XSTOCKS = { key: 'project:xstocks', player: p('xStocks', 'xStocksFi'), messages: 319, sharePct: 20.33 };
+
+  it('writes the 2026-10-13 top sender as the spec does on X, by name and with no mention', () => {
+    // #when
+    const { xText } = composeCopy(withLeaders({ sender: XSTOCKS }));
+    // #then
+    expect({ line: xText.split('\n').find((l) => l.startsWith('Top sender')), mentions: xText.match(/@\w+/g) }).toEqual({ line: 'Top sender: xStocks · 319 messages (20%)', mentions: null });
+  });
+
+  it("words it as a share of the day's messages on Telegram, and of the week's in the weekly", () => {
+    // #when
+    const daily = composeCopy(withLeaders({ sender: XSTOCKS })).telegramHtml;
+    const weekly = composeCopy({ ...WEEKLY, leaders: { ...WEEKLY.leaders, sender: XSTOCKS } }).telegramHtml;
+    // #then
+    expect([daily, weekly].map((t) => t.split('\n').find((l) => l.startsWith('Top sender')))).toEqual([
+      "Top sender: xStocks · 319 messages, 20% of the day's",
+      "Top sender: xStocks · 319 messages, 20% of the week's",
+    ]);
+  });
+
+  it('leaves the share out for a sender without one', () => {
+    // #when
+    const { xText } = composeCopy(withLeaders({ sender: { ...XSTOCKS, sharePct: null } }));
+    // #then
+    expect(xText).toContain('Top sender: xStocks · 319 messages\n');
+  });
+});

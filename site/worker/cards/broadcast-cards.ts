@@ -39,12 +39,15 @@ function leaderCell(label: string, name: string, value: string): VNode {
   );
 }
 
+/** "319 msgs · 20%"; a leader published before identities has no share and reads "319 msgs". */
+const senderFigure = (l: Leader) => `${formatCount(l.messages)} msgs${l.share_pct === undefined || l.share_pct === null ? '' : ` · ${formatShare(l.share_pct)}`}`;
+
 function leadersRow(lead: DayLeaders, names: ChainNames): VNode {
   return h(
     'div',
     { style: { display: 'flex', marginTop: 18, paddingTop: 14, borderTop: '1px solid #1f2a3c' } },
     lead.token ? leaderCell('Top token', lead.token.label ?? shortAddress(addressOf(lead.token.key)), formatUsd(lead.token.usd)) : null,
-    lead.sender ? leaderCell('Top sender', lead.sender.label ?? shortAddress(addressOf(lead.sender.key)), `${formatCount(lead.sender.messages)} msgs`) : null,
+    lead.sender ? leaderCell('Top sender', lead.sender.label ?? shortAddress(addressOf(lead.sender.key)), senderFigure(lead.sender)) : null,
     lead.fee_chain ? leaderCell('Top fee chain', chainName(names, lead.fee_chain.key), `${formatFeeTotal(lead.fee_chain.fee_usd)} fees`) : null,
   );
 }

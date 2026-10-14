@@ -62,7 +62,7 @@ describe('daily facts', () => {
       totals: { day: DAY, messages: { value: 150, pct: -25 }, value: { value: 2e6, pct: -75 }, fees: { value: 5, pct: 25 }, linkSharePct: 25, linkUsd: 1.25, linkAmount: 0.1 },
       leaders: {
         token: { key: `${BASE}:${SYRUP_BASE}`, symbol: 'syrupUSDC', project: { name: 'Maple', x: 'maplefinance' }, usd: 500_000, sharePct: 25 },
-        sender: { key: 'project:xstocks', player: { name: 'xStocks', x: 'xStocksFi' }, messages: 97 },
+        sender: { key: 'project:xstocks', player: { name: 'xStocks', x: 'xStocksFi' }, messages: 97, sharePct: 64.7 },
         lane: { key: `${ETH}>${BASE}`, src: { name: 'Ethereum', x: 'ethereum' }, dst: { name: 'Base', x: 'base' }, usd: 1_200_000, messages: 30, feeUsd: 1 },
       },
       feeChain: { key: BASE, player: { name: 'Base', x: 'base' }, feeUsd: 4 },
@@ -82,6 +82,16 @@ describe('daily facts', () => {
       src: { name: 'Ethereum', x: null },
       project: null,
     });
+  });
+
+  it('names an inferred sender without its handle, since a label carried over from another chain is not verified', async () => {
+    // #given the sender is labeled only on Base, so its Ethereum address inherits the label by spread
+    await seedDay();
+    const { c } = harness({ now: NOW, labels: { [labelKey('ethereum-mainnet-base-1', SENDER)]: LABELS[labelKey('ethereum-mainnet', SENDER)]! }, handles: HANDLES });
+    // #when
+    const facts = dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), DAY);
+    // #then
+    expect(facts?.leaders.sender?.player).toEqual({ name: 'xStocks', x: null });
   });
 
   it('has nothing for a day without totals', async () => {

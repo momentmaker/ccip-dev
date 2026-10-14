@@ -76,19 +76,25 @@ function leaderLinesX(l: LeaderFacts): Line[] {
     const project = l.token.project ? plainName(l.token.project) : null;
     lines.push({ text: words(`Top token: $${noLinks(l.token.symbol)}`, project, `· ${formatUsd(l.token.usd)}${share}`), drop: DROP.token });
   }
-  if (l.sender) lines.push({ text: `Top sender: ${plainName(l.sender.player)} · ${plural(l.sender.messages, 'message')}`, drop: DROP.sender });
+  if (l.sender) {
+    const share = l.sender.sharePct === null ? null : formatShare(l.sender.sharePct);
+    lines.push({ text: `Top sender: ${plainName(l.sender.player)} · ${plural(l.sender.messages, 'message')}${paren(share)}`, drop: DROP.sender });
+  }
   if (l.lane) lines.push({ text: `Busiest lane: ${plainName(l.lane.src)} → ${plainName(l.lane.dst)} · ${formatUsd(l.lane.usd)}`, drop: DROP.lane });
   return lines;
 }
 
-function leaderLinesTg(l: LeaderFacts): Line[] {
+function leaderLinesTg(l: LeaderFacts, period: 'day' | 'week'): Line[] {
   const lines: Line[] = [];
   if (l.token) {
     const project = l.token.project ? ` (${tgName(l.token.project)})` : '';
     const share = l.token.sharePct === null ? '' : `, ${formatShare(l.token.sharePct)} of the value moved`;
     lines.push({ text: `Top token: ${tgText(l.token.symbol)}${project} · ${formatUsd(l.token.usd)}${share}`, drop: DROP.token });
   }
-  if (l.sender) lines.push({ text: `Top sender: ${tgName(l.sender.player)} · ${plural(l.sender.messages, 'message')}`, drop: DROP.sender });
+  if (l.sender) {
+    const share = l.sender.sharePct === null ? '' : `, ${formatShare(l.sender.sharePct)} of the ${period}'s`;
+    lines.push({ text: `Top sender: ${tgName(l.sender.player)} · ${plural(l.sender.messages, 'message')}${share}`, drop: DROP.sender });
+  }
   if (l.lane) lines.push({ text: `Busiest lane: ${tgName(l.lane.src)} → ${tgName(l.lane.dst)} · ${formatUsd(l.lane.usd)}`, drop: DROP.lane });
   return lines;
 }
@@ -125,7 +131,7 @@ function dailyTg(f: DailyFacts): Line[] {
     { text: `${formatUsd(t.value.value)} moved${paren(arrow(t.value.pct))}` },
     ...feesTg(t.fees.value, arrow(t.fees.pct), t.linkSharePct, t.linkUsd, t.linkAmount),
     { text: '' },
-    ...leaderLinesTg(f.leaders),
+    ...leaderLinesTg(f.leaders, 'day'),
     ...(f.feeChain ? [{ text: `Top fee chain: ${tgName(f.feeChain.player)} · ${formatFeeTotal(f.feeChain.feeUsd)} in fees`, drop: DROP.lane }] : []),
     { text: '' },
     { text: '#CCIP #Chainlink $LINK', drop: DROP.closing },
@@ -154,7 +160,7 @@ function weeklyTg(f: WeeklyFacts): Line[] {
     { text: `${formatUsd(t.value.value)} moved${paren(arrow(t.value.pct))}` },
     ...feesTg(t.fees.value, arrow(t.fees.pct), t.linkSharePct, t.linkUsd, t.linkAmount),
     { text: '' },
-    ...leaderLinesTg(f.leaders),
+    ...leaderLinesTg(f.leaders, 'week'),
     ...(f.feeChains.length > 0 ? [{ text: `Top fee chains: ${chains}`, drop: DROP.feeChains }] : []),
     { text: '' },
     { text: '#CCIP #Chainlink $LINK', drop: DROP.closing },
