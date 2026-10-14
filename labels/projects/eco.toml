@@ -1,0 +1,21 @@
+# Source: https://www.npmjs.com/package/@eco-foundation/routes-ts (Eco's address package, v3.2.24 dist/index.js: EcoProtocolAddresses for chain ids "1", "2020" and "8453" each give "CcipProver": "0xEC0B53A81C996da376F125E541E40082815CDcDc")
+name = "Eco"
+x = "eco"
+url = "https://eco.com"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xec0b53a81c996da376f125e541e40082815cdcdc"
+note = "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 1)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xec0b53a81c996da376f125e541e40082815cdcdc"
+note = "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 8453)"
+
+[[addresses]]
+chain = "ronin-mainnet"
+address = "0xec0b53a81c996da376f125e541e40082815cdcdc"
+note = "Eco Routes CCIPProver (@eco-foundation/routes-ts, chain 2020)"

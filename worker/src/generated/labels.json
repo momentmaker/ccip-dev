@@ -41,6 +41,16 @@
     "kind": "protocol",
     "slug": "bungee"
   },
+  "ethereum-mainnet:0x39cf679eb0ac9075cfb5f94930a367ba1557d955": {
+    "name": "Centrifuge",
+    "kind": "protocol",
+    "slug": "centrifuge"
+  },
+  "ethereum-mainnet-xlayer-1:0x39cf679eb0ac9075cfb5f94930a367ba1557d955": {
+    "name": "Centrifuge",
+    "kind": "protocol",
+    "slug": "centrifuge"
+  },
   "ethereum-mainnet-optimism-1:0xb509c046e1182c7b36d2d9733554bc268716803c": {
     "name": "Chainlink CCIP tests",
     "x": "chainlink",
@@ -100,6 +110,24 @@
     "x": "DeriveXYZ",
     "kind": "protocol",
     "slug": "derive"
+  },
+  "ethereum-mainnet:0xec0b53a81c996da376f125e541e40082815cdcdc": {
+    "name": "Eco",
+    "x": "eco",
+    "kind": "protocol",
+    "slug": "eco"
+  },
+  "ethereum-mainnet-base-1:0xec0b53a81c996da376f125e541e40082815cdcdc": {
+    "name": "Eco",
+    "x": "eco",
+    "kind": "protocol",
+    "slug": "eco"
+  },
+  "ronin-mainnet:0xec0b53a81c996da376f125e541e40082815cdcdc": {
+    "name": "Eco",
+    "x": "eco",
+    "kind": "protocol",
+    "slug": "eco"
   },
   "avalanche-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
     "name": "Enso",
@@ -293,6 +321,102 @@
     "kind": "protocol",
     "slug": "glacis"
   },
+  "ethereum-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "binance_smart_chain-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-base-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-arbitrum-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "avalanche-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-unichain-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "sonic-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-optimism-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-linea-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-worldchain-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-scroll-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-ink-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "bitcoin-mainnet-botanix:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "bitcoin-mainnet-bob-1:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "0g-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
+  "ethereum-mainnet-base-1:0x814899380bc056b843999f48e3ae520baa711895": {
+    "name": "Interport Finance",
+    "x": "InterportFi",
+    "kind": "protocol",
+    "slug": "interport"
+  },
   "ethereum-mainnet-base-1:0x328de900860816d29d1367f6903a24d8ed40c997": {
     "name": "Lido",
     "x": "lidofinance",
@@ -304,6 +428,11 @@
     "x": "Mellowprotocol",
     "kind": "protocol",
     "slug": "mellow"
+  },
+  "ethereum-mainnet-base-1:0x671be08d6d3c826c2f6d76915f1b54af484d4077": {
+    "name": "Ribbita (TIBBIR)",
+    "kind": "app",
+    "slug": "ribbita"
   },
   "ethereum-mainnet:0xf0000058000021003e4754dca700c766de7601c2": {
     "name": "Stake DAO",
@@ -394,5 +523,47 @@
     "x": "xStocksFi",
     "kind": "protocol",
     "slug": "xstocks"
+  },
+  "ethereum-mainnet:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "ethereum-mainnet-base-1:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "ethereum-mainnet-arbitrum-1:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "ethereum-mainnet-optimism-1:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "polygon-mainnet:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "avalanche-mainnet:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "binance_smart_chain-mainnet:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
   }
 }
