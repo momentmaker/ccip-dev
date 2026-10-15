@@ -88,6 +88,7 @@ describe('backfillViaToken', () => {
     expect(await viaRows()).toEqual(EXPECTED);
   });
 
+  // Two real finalizes: about 2 s alone, past vitest's 5 s default under the full parallel suite.
   it('leaves one row per key when the backfill runs twice over a finalized day, and when the day is finalized again after it', async () => {
     // #given
     await seedDay();
@@ -99,7 +100,7 @@ describe('backfillViaToken', () => {
     await finalizeDay();
     // #then
     expect(await viaRows()).toEqual(EXPECTED);
-  });
+  }, 15_000);
 
   it('never keys a send by its second token, nor a send with no origin', async () => {
     // #given only the send carrying elizaOS second and the one with no origin
