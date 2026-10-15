@@ -1,6 +1,6 @@
 import type { MarineSummary, SessionAnswer } from '@ccip-dev/core/linkmarine';
 import { describe, expect, it } from 'vitest';
-import { callsignParts, canShareToStory, chanceText, firstScreen, mainButton, MAX_TILT, shareLink, startParam, storyText, storyUrl, tgApi, tierBanner, tilt, tiltOn } from '../src/lib/tg';
+import { backVisible, callsignParts, canShareToStory, chanceText, firstScreen, mainButton, MAX_TILT, shareLink, startParam, storyText, storyUrl, tgApi, tierBanner, tilt, tiltOn, toDogTag, type Screen } from '../src/lib/tg';
 import { telegramWebApp, type TelegramWebApp } from '../src/lib/telegram-webapp';
 
 const MARINE: MarineSummary = {
@@ -200,5 +200,19 @@ describe('the Mini App API client', () => {
       [true, 'image/png', 4],
       [true, 'image/gif', 4],
     ]);
+  });
+});
+
+describe('where MY DOG TAG and Back go', () => {
+  it('pops back to the dog tag already in the stack, and pushes one only when there is none', () => {
+    // #given
+    const roster: Screen = { name: 'roster', marine: null, tag: null };
+    // #then
+    expect([toDogTag([{ name: 'dogtag' }, roster]), toDogTag([roster, { name: 'dogtag' }, roster]), toDogTag([roster])]).toEqual([[{ name: 'dogtag' }], [roster, { name: 'dogtag' }], [roster, { name: 'dogtag' }]]);
+  });
+
+  it('shows Back with somewhere to go back to, a sheet to close, and never during the draw', () => {
+    // #then
+    expect([backVisible('roster', 1, false), backVisible('roster', 2, false), backVisible('roster', 1, true), backVisible('draw', 2, false), backVisible('draw', 1, true), backVisible(null, 0, false)]).toEqual([false, true, true, false, false, false]);
   });
 });

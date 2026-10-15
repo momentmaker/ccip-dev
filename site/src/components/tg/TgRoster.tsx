@@ -24,41 +24,43 @@ export default function TgRoster({ roster, tab, now, open, onTab, onPickTag, onP
     <section className="tg-body tg-roster" aria-label="The roster">
       <div className="tg-tabs" role="tablist">
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : undefined} onClick={() => onTab(t.id)}>
+          <button key={t.id} type="button" role="tab" id={`tg-tab-${t.id}`} aria-controls="tg-panel" aria-selected={tab === t.id} className={tab === t.id ? 'on' : undefined} onClick={() => onTab(t.id)}>
             {t.label}
           </button>
         ))}
       </div>
       <Ticker roster={roster} />
-      {tab === 'wall' && (
-        <>
-          {marines.length === 0 && <p className="tg-muted">No Marines yet. Be #0001.</p>}
-          <ul className="tg-marines">
-            {marines.slice(0, shown).map((m) => (
-              <li key={m.serial}>
-                <button type="button" className="tg-marine" onClick={() => onPickMarine(m.serial)}>
-                  <span className="tg-sq" style={{ backgroundImage: `url("${memeUrl(m.memes[0].file)}")` }} aria-hidden="true" />
-                  <span>
-                    <span className="tg-cs">
-                      #{serialText(m.serial)} {m.callsign.toUpperCase()}
+      <div role="tabpanel" id="tg-panel" aria-labelledby={`tg-tab-${tab}`}>
+        {tab === 'wall' && (
+          <>
+            {marines.length === 0 && <p className="tg-muted">No Marines yet. Be #0001.</p>}
+            <ul className="tg-marines">
+              {marines.slice(0, shown).map((m) => (
+                <li key={m.serial}>
+                  <button type="button" className="tg-marine" onClick={() => onPickMarine(m.serial)}>
+                    <span className="tg-sq" style={{ backgroundImage: `url("${memeUrl(m.memes[0].file)}")` }} aria-hidden="true" />
+                    <span>
+                      <span className="tg-cs">
+                        #{serialText(m.serial)} {m.callsign.toUpperCase()}
+                      </span>
+                      <span className="tg-muted">
+                        {tierName(m.tier)} · rarer than {rarerThan(m.percentile)}%
+                      </span>
                     </span>
-                    <span className="tg-muted">
-                      {tierName(m.tier)} · rarer than {rarerThan(m.percentile)}%
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {marines.length > shown && (
-            <button type="button" className="tg-btn2" onClick={() => setShown(shown + TG_WALL_PAGE)}>
-              Show more
-            </button>
-          )}
-        </>
-      )}
-      {tab === 'constellation' && <Constellation roster={roster} onPickTag={onPickTag} />}
-      {tab === 'rarest' && <RarestTen roster={roster} onPickMarine={onPickMarine} />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {marines.length > shown && (
+              <button type="button" className="tg-btn2" onClick={() => setShown(shown + TG_WALL_PAGE)}>
+                Show more
+              </button>
+            )}
+          </>
+        )}
+        {tab === 'constellation' && <Constellation roster={roster} onPickTag={onPickTag} />}
+        {tab === 'rarest' && <RarestTen roster={roster} onPickMarine={onPickMarine} />}
+      </div>
       <p className="tg-eyebrow tg-wanted">Today’s most wanted</p>
       <div className="tg-chips">
         {mostWanted(roster, now).map((t) => (

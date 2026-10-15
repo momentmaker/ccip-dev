@@ -1,4 +1,8 @@
-/** The slice of Telegram's Mini App API (telegram-web-app.js; core.telegram.org/bots/webapps) the LinkMarines app uses. */
+/**
+ * The slice of Telegram's Mini App API (telegram-web-app.js; core.telegram.org/bots/webapps) the LinkMarines app uses.
+ * Its buttons hand themselves back from every method, for chaining, so those methods return `unknown` here: an effect written as
+ * an arrow expression around one would give React the button as its cleanup, and the compiler now refuses that.
+ */
 export interface BottomButtonParams {
   text?: string;
   color?: string;
@@ -19,12 +23,12 @@ export interface TelegramWebApp {
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
   setBottomBarColor?(color: string): void;
-  MainButton: { setParams(params: BottomButtonParams): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
-  BackButton: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
-  HapticFeedback: { impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void; notificationOccurred(type: 'error' | 'success' | 'warning'): void };
+  MainButton: { setParams(params: BottomButtonParams): unknown; show(): unknown; hide(): unknown; onClick(cb: () => void): unknown; offClick(cb: () => void): unknown };
+  BackButton: { show(): unknown; hide(): unknown; onClick(cb: () => void): unknown; offClick(cb: () => void): unknown };
+  HapticFeedback: { impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): unknown; notificationOccurred(type: 'error' | 'success' | 'warning'): unknown };
   openTelegramLink(url: string): void;
   shareToStory?(mediaUrl: string, params?: { text?: string; widget_link?: { url: string; name?: string } }): void;
-  DeviceOrientation?: { start(params: { refresh_rate?: number }, cb?: (started: boolean) => void): void; stop(): void; beta: number | null; gamma: number | null };
+  DeviceOrientation?: { start(params: { refresh_rate?: number }, cb?: (started: boolean) => void): unknown; stop(): unknown; beta: number | null; gamma: number | null };
   onEvent(event: string, cb: () => void): void;
   offEvent(event: string, cb: () => void): void;
 }

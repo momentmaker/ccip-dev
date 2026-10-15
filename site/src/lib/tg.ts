@@ -18,6 +18,17 @@ export function startParam(app: Pick<TelegramWebApp, 'initDataUnsafe'>, search: 
   return parseStartParam(app.initDataUnsafe.start_param ?? new URLSearchParams(search).get('startapp'));
 }
 
+export const failureText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/** MY DOG TAG goes back to the dog tag already in the stack, so going to and fro never grows it. */
+export function toDogTag(stack: readonly Screen[]): Screen[] {
+  const at = stack.map((s) => s.name).lastIndexOf('dogtag');
+  return at >= 0 ? stack.slice(0, at + 1) : [...stack, { name: 'dogtag' }];
+}
+
+/** The BackButton shows while there is somewhere to go back to, but not during the draw: the answer is in and the dog tag follows on its own. */
+export const backVisible = (screen: Screen['name'] | null, depth: number, sheetOpen: boolean) => screen !== 'draw' && (depth > 1 || sheetOpen);
+
 export function firstScreen(start: StartParam | null, session: SessionAnswer): Screen {
   if (start?.kind === 'marine') return { name: 'roster', marine: start.serial, tag: null };
   if (start?.kind === 'tag') return { name: 'roster', marine: null, tag: start.tag };

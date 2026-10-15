@@ -36,6 +36,13 @@ describe('screen 4: the roster', () => {
     expect([text(roster('constellation')).includes('The meme constellation.'), text(roster('rarest')).includes('The hardest draws in the corps.')]).toEqual([true, true]);
   });
 
+  it('gives each tab a name the panel is labelled by, and the panel the tab on show', () => {
+    // #when
+    const out = roster('rarest');
+    // #then
+    expect({ controls: out.match(/aria-controls="tg-panel"/g)?.length, panel: /role="tabpanel" id="tg-panel" aria-labelledby="tg-tab-rarest"/.test(out), tab: out.includes('id="tg-tab-rarest"') }).toEqual({ controls: 3, panel: true, tab: true });
+  });
+
   it('chips today’s most wanted tags, and says it opens soon while the switch is off', () => {
     // #when
     const out = roster('wall', false);
@@ -55,11 +62,21 @@ describe('the roster’s sheets', () => {
     expect(text(renderToString(createElement(TagSheet, { roster: ROSTER_FIXTURE, tag: 'zoomer', onClose: noop })))).toContain('zoomer · 1 meme · 5.0% per draw Nobody has drawn it yet.');
   });
 
-  it('shows a Marine’s public web card, never their name', () => {
+  it('shows a Marine’s public web card with their callsign, tier and odds', () => {
     // #when
     const out = renderToString(createElement(MarineSheet, { roster: ROSTER_FIXTURE, serial: 2, onClose: noop }));
     // #then
     expect([out.includes('src="https://discord.ccip.dev/web/2.png"'), text(out).includes('#0002 PAINTING-SPACE-PROPHECY Legendary · rarer than 97%')]).toEqual([true, true]);
+  });
+
+  it('is a modal dialog whose close button takes focus when it opens', () => {
+    // #when
+    const sheets = [renderToString(createElement(TagSheet, { roster: ROSTER_FIXTURE, tag: 'pepe', onClose: noop })), renderToString(createElement(MarineSheet, { roster: ROSTER_FIXTURE, serial: 2, onClose: noop }))];
+    // #then
+    expect(sheets.map((out) => [/role="dialog" aria-modal="true"/.test(out), /<button type="button" class="tg-close" aria-label="Close" autofocus="">/.test(out)])).toEqual([
+      [true, true],
+      [true, true],
+    ]);
   });
 
   it('opens nothing for a tag or a Marine the roster lacks', () => {

@@ -1,21 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { webCardUrl } from '../../lib/marines';
-import { tilt, tiltOn, type MainButtonState } from '../../lib/tg';
+import { failureText, TG_BACKGROUND, tilt, tiltOn, type MainButtonState } from '../../lib/tg';
 import type { TelegramWebApp } from '../../lib/telegram-webapp';
 import { usePrefersReducedMotion } from '../hooks';
 import type { Tilt } from './DogTagScreen';
 
-/** Telegram's bottom button, set for the screen; one click handler, kept current. */
+/** Tells Telegram the app is up, takes the full height and paints its chrome; a colour waits for the Bot API version whose script takes it, because an older script throws. */
+export function useLaunch(app: TelegramWebApp): void {
+  useEffect(() => {
+    app.ready();
+    app.expand();
+    if (app.isVersionAtLeast('6.9')) app.setHeaderColor(TG_BACKGROUND);
+    if (app.isVersionAtLeast('6.1')) app.setBackgroundColor(TG_BACKGROUND);
+    if (app.isVersionAtLeast('7.10')) app.setBottomBarColor?.(TG_BACKGROUND);
+  }, [app]);
+}
+
+/** Telegram's bottom button, set for the screen; one click handler, kept current. A hidden button is hidden, never given blank text, which Telegram refuses. */
 export function useMainButton(app: TelegramWebApp, state: MainButtonState, onClick: () => void): void {
   const click = useRef(onClick);
   click.current = onClick;
   useEffect(() => {
-    app.MainButton.setParams({ text: state.text || ' ', color: state.color, text_color: state.textColor, is_active: state.active, is_visible: state.visible });
+    if (!state.visible) {
+      app.MainButton.hide();
+      return;
+    }
+    app.MainButton.setParams({ text: state.text, color: state.color, text_color: state.textColor, is_active: state.active, is_visible: true });
   }, [app, state.text, state.color, state.textColor, state.active, state.visible]);
   useEffect(() => {
     const handler = () => click.current();
     app.MainButton.onClick(handler);
-    return () => app.MainButton.offClick(handler);
+    return () => {
+      app.MainButton.offClick(handler);
+    };
   }, [app]);
 }
 
@@ -26,14 +43,19 @@ export function useBackButton(app: TelegramWebApp, visible: boolean, onBack: () 
   useEffect(() => {
     const handler = () => back.current();
     app.BackButton.onClick(handler);
-    return () => app.BackButton.offClick(handler);
+    return () => {
+      app.BackButton.offClick(handler);
+    };
   }, [app]);
-  useEffect(() => (visible ? app.BackButton.show() : app.BackButton.hide()), [app, visible]);
+  useEffect(() => {
+    if (visible) app.BackButton.show();
+    else app.BackButton.hide();
+  }, [app, visible]);
 }
 
-const CARD_POLL_MS = 2_000;
+export const CARD_POLL_MS = 2_000;
 /** About a minute of polling; after that the public web card stands in. */
-const CARD_POLLS = 30;
+export const CARD_POLLS = 30;
 
 export interface OwnCard {
   url: string;
@@ -41,7 +63,7 @@ export interface OwnCard {
   own: boolean;
 }
 
-/** Your own card as an object URL, polled while it is being stamped; the public web card if it never comes. */
+/** Your own card as an object URL, polled while it is being stamped; the public web card if it never comes or the Worker refuses it. */
 export function useOwnCard(card: () => Promise<Blob | null>, serial: number | null): OwnCard | null {
   const [found, setFound] = useState<OwnCard | null>(null);
   useEffect(() => {
@@ -51,20 +73,24 @@ export function useOwnCard(card: () => Promise<Blob | null>, serial: number | nu
     let made: string | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async (left: number) => {
+      let blob: Blob | null;
       try {
-        const blob = await card();
-        if (stopped) return;
-        if (blob) {
-          made = URL.createObjectURL(blob);
-          setFound({ url: made, own: true });
-          return;
-        }
+        blob = await card();
       } catch (err) {
-        console.warn(`card: ${err instanceof Error ? err.message : String(err)}`);
+        if (stopped) return;
+        console.warn(failureText(err));
+        setFound({ url: webCardUrl(serial), own: false });
+        return;
       }
       if (stopped) return;
-      if (left <= 1) setFound({ url: webCardUrl(serial), own: false });
-      else timer = setTimeout(() => void poll(left - 1), CARD_POLL_MS);
+      if (blob) {
+        made = URL.createObjectURL(blob);
+        setFound({ url: made, own: true });
+      } else if (left <= 1) {
+        setFound({ url: webCardUrl(serial), own: false });
+      } else {
+        timer = setTimeout(() => void poll(left - 1), CARD_POLL_MS);
+      }
     };
     void poll(CARD_POLLS);
     return () => {
