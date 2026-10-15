@@ -230,5 +230,7 @@ export interface LinkMarineRenderer {
   renderMarineCards(card: MarineCard): Promise<MarineCardImages>;
   /** The roster's card for the web: the dog tag card without the name and avatar row. */
   renderMarineWebCard(card: MarineWebCard): Promise<Uint8Array>;
+  /** The Telegram sticker: the two tags on their chain with the serial, 512×512 on a transparent ground, no name or avatar. */
+  renderMarineSticker(card: MarineWebCard): Promise<Uint8Array>;
   renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array>;
 }

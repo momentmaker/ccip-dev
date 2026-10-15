@@ -317,3 +317,29 @@ export function marineTree(card: MarineCard | MarineWebCard): VNode {
     at(680, 395, { width: px(50), justifyContent: 'flex-end', ...font(MONO, 700, 13, INK.blue) }, 'ccip.dev'),
   );
 }
+
+/** How far the tags come down from where the card hangs them, in the mockups' units, so the ball chain's top stays in frame. */
+export const TAGS_DROP = 24;
+
+/**
+ * The two tags on their ball chain and nothing else, at the card's size on a transparent ground: the art of the
+ * sticker and the Story card. It draws the callsign, the serial and the lore, never a name or an avatar.
+ */
+export function tagsTree(card: MarineWebCard): VNode {
+  const look = TIER_LOOKS[card.tier];
+  const back = tagSvg('back', BACK_TAG, look);
+  const front = tagSvg('front', FRONT_TAG, look);
+  return h(
+    'div',
+    { style: { width: KINO_SIZE.width, height: KINO_SIZE.height, display: 'flex', position: 'relative', fontFamily: 'Inter', color: INK.text } },
+    h(
+      'div',
+      { style: { position: 'absolute', left: 0, top: px(TAGS_DROP), width: KINO_SIZE.width, height: KINO_SIZE.height, display: 'flex' } },
+      artLayer(back.body, back.defs),
+      backEtch(card, look),
+      artLayer(front.body, front.defs),
+      frontText(card, look),
+      artLayer(chainSvg() + (look.sparkles ? sparkles() : ''), DOT_FILTER),
+    ),
+  );
+}

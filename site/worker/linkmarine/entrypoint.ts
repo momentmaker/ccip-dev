@@ -4,9 +4,10 @@ import type { AssetFetcher } from '../cards/coin-icons';
 import { chainArts } from './chain-hex';
 import { glintGif, marineImages } from './glint';
 import { intelSelectors, intelTree } from './intel';
-import { marineTree, webCardOf } from './marine-card';
+import { marineTree, tagsTree, webCardOf } from './marine-card';
 import { MEME_SIZE, memeTree } from './meme';
 import { renderKino } from './render';
+import { STICKER_SIZE, stickerTree } from './sticker';
 
 export interface LinkMarineEnv {
   ASSETS: AssetFetcher;
@@ -38,6 +39,12 @@ export class LinkMarineCards extends WorkerEntrypoint<LinkMarineEnv> implements 
 
   async renderMarineWebCard(card: MarineWebCard): Promise<Uint8Array> {
     return (await renderKino(marineTree(webCardOf(card)))).png;
+  }
+
+  async renderMarineSticker(card: MarineWebCard): Promise<Uint8Array> {
+    const web = webCardOf(card);
+    const tags = await renderKino(tagsTree(web));
+    return (await renderKino(stickerTree(web, tags.png), STICKER_SIZE)).png;
   }
 
   async renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array> {

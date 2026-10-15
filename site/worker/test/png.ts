@@ -1,4 +1,5 @@
-export async function pngPixel(png: Uint8Array, x: number, y: number): Promise<[number, number, number]> {
+/** A pixel's red, green, blue and alpha; alpha is 255 in a PNG without an alpha channel. */
+export async function pngRgba(png: Uint8Array, x: number, y: number): Promise<[number, number, number, number]> {
   const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
   const width = view.getUint32(16);
   const bitDepth = png[24];
@@ -31,5 +32,10 @@ export async function pngPixel(png: Uint8Array, x: number, y: number): Promise<[
     }
     prev = row;
   }
-  return [row[x * channels]!, row[x * channels + 1]!, row[x * channels + 2]!];
+  return [row[x * channels]!, row[x * channels + 1]!, row[x * channels + 2]!, channels === 4 ? row[x * channels + 3]! : 255];
+}
+
+export async function pngPixel(png: Uint8Array, x: number, y: number): Promise<[number, number, number]> {
+  const [r, g, b] = await pngRgba(png, x, y);
+  return [r, g, b];
 }
