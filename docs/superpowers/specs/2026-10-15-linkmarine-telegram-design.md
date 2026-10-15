@@ -1,6 +1,6 @@
 # LinkMarines on Telegram: enlist, dog tags and the sticker pack
 
-**Status:** Draft for owner review · **Date:** 2026-10-15 · **Builds on:** `2026-10-13-linkmarine-bot-design.md` and `2026-10-13-linkmarines-roster-design.md`
+**Status:** Approved by the owner, 2026-10-15 · **Date:** 2026-10-15 · **Builds on:** `2026-10-13-linkmarine-bot-design.md` and `2026-10-13-linkmarines-roster-design.md`
 
 The Discord LinkMarine bot enlists a member with `/enlist`. It draws three random meme tags into a callsign that is unique everywhere, sets a tier, assigns a serial and stamps a dog-tag card. That bot design called Telegram "a later, separate front door". This spec builds it: a Telegram twin of the enlist flow, plus three things only Telegram can do. Telegram gets no stats commands.
 
