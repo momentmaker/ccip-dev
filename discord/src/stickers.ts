@@ -27,8 +27,8 @@ const PACK_UNKNOWN = /STICKERSET_INVALID/;
 type Outcome = { kind: 'added' } | { kind: 'limited' } | { kind: 'failed'; why: string } | { kind: 'stalled'; why: string };
 
 const isLimited = (r: TelegramResult<unknown>) => !r.ok && r.status === 429;
-/** No answer came back (0) or a server or proxy error did (5xx): either can follow a request Telegram carried out, so only the pack can say. */
-const isUnknown = (r: TelegramResult<unknown>) => !r.ok && (r.status === 0 || r.status >= 500);
+/** Anything but a 4xx: Telegram may have acted. No answer came back (0), or a 200 or 3xx whose body could not be read, or a server or proxy error (5xx). */
+const isUnknown = (r: TelegramResult<unknown>) => !r.ok && !(r.status >= 400 && r.status < 500);
 const why = (r: TelegramResult<unknown>) => (r.ok ? 'ok' : `${r.status} ${r.description}`);
 
 async function claimRun(db: D1Database, now: Date): Promise<string | null> {

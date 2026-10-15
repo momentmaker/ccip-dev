@@ -304,6 +304,39 @@ describe('the sticker job', () => {
     });
   });
 
+  it('keeps a Marine marked when an add Telegram carried out comes back as a 200 with an unreadable body, and records the right sticker once on the next run', async () => {
+    // #given the client reports a 200 whose body could not be parsed as a failure with status 200
+    for (let i = 1; i <= 3; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
+    const { tg, sets } = packs({ addStickerToSet: (n) => (n === 1 ? acted(tgError(200, 'HTTP 200')) : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    const afterFirst = await stickers();
+    await stickerJob(bot);
+    // #then
+    expect({
+      afterFirst,
+      after: await stickers(),
+      pack: sets.get(V1),
+      adds: tg.calls.filter((c) => c.method === 'addStickerToSet').length,
+      alerts: bot.alerts.map((a) => a.signature),
+    }).toEqual({
+      afterFirst: [
+        [1, V1, 'in-up1'],
+        [2, V1, null],
+        [3, null, null],
+      ],
+      after: [
+        [1, V1, 'in-up1'],
+        [2, V1, 'in-up2'],
+        [3, V1, 'in-up3'],
+      ],
+      pack: ['in-up1', 'in-up2', 'in-up3'],
+      adds: 2,
+      alerts: ['telegram-sticker:2'],
+    });
+  });
+
   it('keeps a Marine marked when the pack cannot be read after a lost add, then records it when it can', async () => {
     // #given the add reaches Telegram, its answer is lost, and the next run's getStickerSet answers 500
     for (let i = 1; i <= 3; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
