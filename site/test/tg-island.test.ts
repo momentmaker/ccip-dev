@@ -1,8 +1,9 @@
 import type { MarineSummary } from '@ccip-dev/core/linkmarine';
 import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
-import { createElement, type ComponentType, type ReactNode } from 'react';
+import { createElement, useState, type ComponentType, type ReactNode } from 'react';
 import type { Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mainButton, shareLink, STORY_WIDGET, storyText, storyUrl } from '../src/lib/tg';
 import { MiniDocument, type MiniNode } from './fixtures/mini-dom';
 import { strictTelegram } from './fixtures/strict-telegram';
 
@@ -27,6 +28,8 @@ const DRAWN = { already: false, marine: MARINE, banner: 'rare' };
 let doc: MiniDocument;
 let MiniApp: ComponentType;
 let Boundary: ComponentType<{ children: ReactNode }>;
+let useMainButton: typeof import('../src/components/tg/use-telegram').useMainButton;
+let useBackButton: typeof import('../src/components/tg/use-telegram').useBackButton;
 let render: (element: ReactNode) => void;
 let createRoot: typeof import('react-dom/client').createRoot;
 let flushSync: typeof import('react-dom').flushSync;
@@ -43,6 +46,7 @@ beforeAll(async () => {
   ({ flushSync } = await import('react-dom'));
   ({ default: MiniApp } = await import('../src/components/tg/MiniApp'));
   ({ Boundary } = await import('../src/components/tg/Boundary'));
+  ({ useMainButton, useBackButton } = await import('../src/components/tg/use-telegram'));
 });
 
 afterAll(async () => {
@@ -201,6 +205,28 @@ describe('the Mini App under React, against a Telegram that is as strict as the 
     expect({ onRoster, dogTag: app.text().includes('Stamping your dog tag…'), back: tg.back.visible, uncaught }).toEqual({ onRoster: { main: 'MY DOG TAG', back: true }, dogTag: true, back: false, uncaught: [] });
   });
 
+  it('shares the Story card from Telegram’s phone apps, with the card, the line and the Enlist link', async () => {
+    // #given
+    const tg = strictTelegram('7.8');
+    stubApi({ session: json(ENLISTED) });
+    await launch(tg);
+    // #when
+    tg.clickMain();
+    // #then
+    expect({ stories: tg.stories, opened: tg.opened }).toEqual({ stories: [{ mediaUrl: storyUrl(MARINE.serial), params: { text: storyText(MARINE), widget_link: STORY_WIDGET } }], opened: [] });
+  });
+
+  it('opens the share sheet instead in Telegram Desktop, which has no stories', async () => {
+    // #given
+    const tg = strictTelegram('8.0', undefined, 'tdesktop');
+    stubApi({ session: json(ENLISTED) });
+    await launch(tg);
+    // #when
+    tg.clickMain();
+    // #then
+    expect({ stories: tg.stories, opened: tg.opened }).toEqual({ stories: [], opened: [shareLink(MARINE)] });
+  });
+
   it('says on the welcome screen that the enlist did not go through, and clears it when you try again', async () => {
     // #given
     const tg = strictTelegram();
@@ -261,5 +287,26 @@ describe('the boundary', () => {
     const app = await mount(createElement(Boundary, null, createElement('p', null, 'all well'), createElement(Boom)));
     // #then
     expect({ text: app.text(), warnings: vi.mocked(console.warn).mock.calls }).toEqual({ text: 'LinkMarines is out of reach right now. Close the app and open it again in a minute.', warnings: [['boom']] });
+  });
+
+  it('hides Telegram’s bottom button and back button when a child throws, so neither is left on screen with no handler', async () => {
+    // #given
+    const tg = strictTelegram();
+    let trip: () => void = () => undefined;
+    function Fragile() {
+      const [broken, setBroken] = useState(false);
+      trip = () => setBroken(true);
+      useMainButton(tg.app, mainButton('welcome', { switch: 'on', marine: null, gate: 'ok' }), () => undefined);
+      useBackButton(tg.app, true, () => undefined);
+      if (broken) throw new Error('boom');
+      return createElement('p', null, 'all well');
+    }
+    await mount(createElement(Boundary, null, createElement(Fragile)));
+    const shown = { main: tg.main.visible, back: tg.back.visible };
+    // #when
+    flushSync(() => trip());
+    await settle();
+    // #then
+    expect({ shown, afterThrow: { main: tg.main.visible, back: tg.back.visible } }).toEqual({ shown: { main: true, back: true }, afterThrow: { main: false, back: false } });
   });
 });

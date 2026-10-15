@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as sheets from '../src/components/tg/Sheets';
 import * as telegram from '../src/components/tg/use-telegram';
 import { webCardUrl } from '../src/lib/marines';
-import { mainButton } from '../src/lib/tg';
+import { mainButton, MAX_TILT } from '../src/lib/tg';
 import { strictTelegram } from './fixtures/strict-telegram';
 
 const react = vi.hoisted(() => ({ host: null as { useState: (initial: unknown) => unknown; useRef: (initial: unknown) => unknown; useEffect: (effect: () => unknown, deps?: readonly unknown[]) => void } | null, reducedMotion: false }));
@@ -353,6 +353,8 @@ describe('useOwnCard', () => {
   });
 });
 
+const radians = (degrees: number) => (degrees * Math.PI) / 180;
+
 describe('useTilt', () => {
   it('stays still under reduced motion, and never starts the sensor', () => {
     // #given
@@ -360,7 +362,7 @@ describe('useTilt', () => {
     react.reducedMotion = true;
     // #when
     const hook = renderHook(() => telegram.useTilt(tg.app, true), undefined);
-    tg.sense(10, 10);
+    tg.sense(radians(10), radians(10));
     // #then
     expect({ tilt: hook.result, started: tg.orientation.started, listeners: tg.listeners('deviceOrientationChanged') }).toEqual({ tilt: null, started: 0, listeners: 0 });
   });
@@ -372,9 +374,9 @@ describe('useTilt', () => {
     // #when
     tg.sense(null, null);
     const unread = hook.result;
-    tg.sense(40, 5);
+    tg.sense(radians(40), radians(5));
     const atRest = hook.result;
-    tg.sense(34, 11);
+    tg.sense(radians(34), radians(11));
     const tilted = hook.result;
     hook.unmount();
     // #then
@@ -386,6 +388,20 @@ describe('useTilt', () => {
       stopped: 1,
       listeners: 0,
     });
+  });
+
+  it('takes Telegram’s radians as radians: 0.419 rad (24°) from rest reaches the ±8° clamp', () => {
+    // #given
+    const tg = strictTelegram();
+    const hook = renderHook(() => telegram.useTilt(tg.app, true), undefined);
+    tg.sense(0, 0);
+    // #when
+    tg.sense(0.419, 0.419);
+    const forward = hook.result;
+    tg.sense(-0.419, -0.419);
+    const back = hook.result;
+    // #then
+    expect({ forward, back }).toEqual({ forward: { x: -MAX_TILT, y: MAX_TILT, streak: 100 }, back: { x: MAX_TILT, y: -MAX_TILT, streak: 0 } });
   });
 
   it('listens to the browser’s own sensor before Bot API 8.0, and lets go of it when it ends', () => {

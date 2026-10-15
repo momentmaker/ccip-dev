@@ -16,7 +16,7 @@ export function useLaunch(app: TelegramWebApp): void {
   }, [app]);
 }
 
-/** Telegram's bottom button, set for the screen; one click handler, kept current. A hidden button is hidden, never given blank text, which Telegram refuses. */
+/** Telegram's bottom button, set for the screen; one click handler, kept current, and hidden again when the app goes. A hidden button is hidden, never given blank text, which Telegram refuses. */
 export function useMainButton(app: TelegramWebApp, state: MainButtonState, onClick: () => void): void {
   const click = useRef(onClick);
   click.current = onClick;
@@ -34,9 +34,15 @@ export function useMainButton(app: TelegramWebApp, state: MainButtonState, onCli
       app.MainButton.offClick(handler);
     };
   }, [app]);
+  useEffect(
+    () => () => {
+      app.MainButton.hide();
+    },
+    [app],
+  );
 }
 
-/** Telegram's back button, shown while there is somewhere to go back to. */
+/** Telegram's back button, shown while there is somewhere to go back to, and hidden when the app goes. */
 export function useBackButton(app: TelegramWebApp, visible: boolean, onBack: () => void): void {
   const back = useRef(onBack);
   back.current = onBack;
@@ -51,6 +57,12 @@ export function useBackButton(app: TelegramWebApp, visible: boolean, onBack: () 
     if (visible) app.BackButton.show();
     else app.BackButton.hide();
   }, [app, visible]);
+  useEffect(
+    () => () => {
+      app.BackButton.hide();
+    },
+    [app],
+  );
 }
 
 export const CARD_POLL_MS = 2_000;
@@ -102,7 +114,9 @@ export function useOwnCard(card: () => Promise<Blob | null>, serial: number | nu
   return found;
 }
 
-/** The tilt shimmer: Telegram's DeviceOrientation where it has one (Bot API 8.0), else the browser's; never under reduced motion. */
+const toDegrees = (radians: number | null) => (radians === null ? null : (radians * 180) / Math.PI);
+
+/** The tilt shimmer: Telegram's DeviceOrientation where it has one (Bot API 8.0, which reports radians), else the browser's, which reports degrees; never under reduced motion. */
 export function useTilt(app: TelegramWebApp, active: boolean): Tilt | null {
   const reducedMotion = usePrefersReducedMotion();
   const [state, setState] = useState<Tilt | null>(null);
@@ -118,7 +132,7 @@ export function useTilt(app: TelegramWebApp, active: boolean): Tilt | null {
       setState(tilt(beta, gamma, rest));
     };
     if (telegram) {
-      const changed = () => apply(telegram.beta, telegram.gamma);
+      const changed = () => apply(toDegrees(telegram.beta), toDegrees(telegram.gamma));
       app.onEvent('deviceOrientationChanged', changed);
       telegram.start({ refresh_rate: 50 });
       return () => {

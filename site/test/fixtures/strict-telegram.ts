@@ -1,5 +1,7 @@
 import type { BottomButtonParams, TelegramWebApp } from '../../src/lib/telegram-webapp';
 
+type StoryParams = Parameters<NonNullable<TelegramWebApp['shareToStory']>>[1];
+
 const compareVersions = (a: string, b: string) => {
   const [x, y] = [a, b].map((v) => v.split('.').map(Number)) as [number[], number[]];
   for (let i = 0; i < Math.max(x.length, y.length); i++) {
@@ -10,8 +12,12 @@ const compareVersions = (a: string, b: string) => {
 };
 const HEX = /^#[0-9a-f]{6}$/i;
 
-/** Telegram's own script, as far as the hooks can tell: bottom buttons refuse blank text, colours have to be hex (or a key before 6.9), and every button method hands the button back. */
-export function strictTelegram(version = '8.0', startParam?: string) {
+const isHttps = (value: string) => /^https:\/\//i.test(value);
+const STORY_TEXT_MAX = 200;
+const STORY_WIDGET_NAME_MAX = 48;
+
+/** Telegram's own script, as far as the hooks can tell: bottom buttons refuse blank text, colours have to be hex (or a key before 6.9), every button method hands the button back, DeviceOrientation reports radians, and shareToStory refuses what the script does. */
+export function strictTelegram(version = '8.0', startParam?: string, platform = 'ios') {
   const atLeast = (v: string) => compareVersions(version, v) >= 0;
   const mainClicks = new Set<() => void>();
   const backClicks = new Set<() => void>();
@@ -26,6 +32,7 @@ export function strictTelegram(version = '8.0', startParam?: string) {
   const colors = { header: '', background: '', bottomBar: '' };
   const haptics: string[] = [];
   const opened: string[] = [];
+  const stories: { mediaUrl: string; params: StoryParams | undefined }[] = [];
   const orientation = { beta: null as number | null, gamma: null as number | null, started: 0, stopped: 0 };
 
   const mainButton = {
@@ -104,7 +111,7 @@ export function strictTelegram(version = '8.0', startParam?: string) {
   const app: TelegramWebApp = {
     initData: 'query_id=x',
     initDataUnsafe: startParam ? { start_param: startParam } : {},
-    platform: 'ios',
+    platform,
     isVersionAtLeast: atLeast,
     ready: () => undefined,
     expand: () => undefined,
@@ -129,6 +136,13 @@ export function strictTelegram(version = '8.0', startParam?: string) {
       notificationOccurred: (type) => void haptics.push(`notify:${type}`),
     },
     openTelegramLink: (url) => void opened.push(url),
+    shareToStory(mediaUrl, params) {
+      if (!atLeast('7.8')) return;
+      if (!isHttps(mediaUrl)) throw new Error('WebAppMediaUrlInvalid');
+      if (params?.text !== undefined && params.text.trim().length > STORY_TEXT_MAX) throw new Error('WebAppShareToStoryParamInvalid');
+      if (params?.widget_link !== undefined && (!isHttps(params.widget_link.url) || (params.widget_link.name ?? '').trim().length > STORY_WIDGET_NAME_MAX)) throw new Error('WebAppShareToStoryParamInvalid');
+      stories.push({ mediaUrl, params });
+    },
     DeviceOrientation: deviceOrientation,
     onEvent(event, cb) {
       events.set(event, (events.get(event) ?? new Set()).add(cb));
@@ -147,6 +161,7 @@ export function strictTelegram(version = '8.0', startParam?: string) {
     orientation,
     haptics,
     opened,
+    stories,
     mainOn,
     mainOff,
     backOn,
@@ -157,6 +172,7 @@ export function strictTelegram(version = '8.0', startParam?: string) {
     clickBack: () => [...backClicks].forEach((cb) => cb()),
     listeners: (event: string) => events.get(event)?.size ?? 0,
     sense(beta: number | null, gamma: number | null) {
+      if ((beta !== null && Math.abs(beta) > Math.PI) || (gamma !== null && Math.abs(gamma) > Math.PI / 2)) throw new Error(`DeviceOrientation reports radians, not degrees: beta ${beta}, gamma ${gamma}`);
       orientation.beta = beta;
       orientation.gamma = gamma;
       events.get('deviceOrientationChanged')?.forEach((cb) => cb());
