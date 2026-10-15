@@ -17,4 +17,5 @@ export interface Env {
   TELEGRAM_GATE_CHATS?: string;
   /** The owner's Telegram user id: owns the sticker packs, may run /id anywhere. */
   TELEGRAM_STICKER_OWNER_ID?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
 }

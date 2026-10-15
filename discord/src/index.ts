@@ -8,6 +8,7 @@ import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { miniAppRoute } from './miniapp';
 import { publicRoute, type PublicDeps } from './public';
 import { stickerJob } from './stickers';
+import { pruneClaims, telegramWebhook } from './telegram-bot';
 import { createTelegramBot } from './telegram-marines';
 import { verifyDiscordRequest } from './verify';
 
@@ -129,6 +130,7 @@ export default {
   async fetch(request, env, ctx) {
     const path = new URL(request.url).pathname;
     if (path.startsWith('/tg/')) return miniAppRoute(request, createTelegramBot(env), (work) => ctx.waitUntil(work));
+    if (path === '/telegram') return telegramWebhook(request, createTelegramBot(env), env.TELEGRAM_WEBHOOK_SECRET ?? '', (work) => ctx.waitUntil(work));
     if (path !== '/interactions') return (await publicRoute(request, publicDeps(env, ctx))) ?? new Response('Not found', { status: 404 });
     if (request.method !== 'POST') return new Response('Not found', { status: 404 });
     const body = await cappedBody(request);
@@ -140,7 +142,8 @@ export default {
     return handleInteraction(interaction, env.DISCORD_SERVERS, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
   },
 
-  async scheduled(_controller, env, ctx) {
+  async scheduled(controller, env, ctx) {
     ctx.waitUntil(stickerJob(createTelegramBot(env)));
+    ctx.waitUntil(pruneClaims(env.DB, new Date(controller.scheduledTime)));
   },
 } satisfies ExportedHandler<Env>;
