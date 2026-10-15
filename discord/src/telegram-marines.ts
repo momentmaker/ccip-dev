@@ -125,6 +125,21 @@ export function claimStamp(db: D1Database, serial: number, now: Date): Promise<b
   return claimMeta(db, `tg-stamp:${serial}`, now.getTime(), STAMP_CLAIM_MS);
 }
 
+/** Renders and keeps the web and Story cards from the public fields, each on its own so one that fails does not cost the other. */
+async function stampPublicCards(bot: TelegramBot, marine: Marine, reports: Report[]): Promise<void> {
+  const pngs = await loadMemes(bot.bucket, marine.memes);
+  if (!pngs) return;
+  const card = publicCard(bot, marine, pngs);
+  const cards = [
+    { what: 'web card', key: webCardKey(marine.serial), render: () => bot.renderer.renderMarineWebCard(card) },
+    { what: 'Story card', key: storyKey(marine.serial), render: () => bot.renderer.renderMarineStory(card) },
+  ];
+  const kept = await Promise.allSettled(cards.map(async ({ key, render }) => bot.bucket.put(key, await render(), { httpMetadata: { contentType: 'image/png' } })));
+  kept.forEach((result, i) => {
+    if (result.status === 'rejected') reports.push({ signature: 'telegram-stamp', text: `the ${cards[i]!.what} failed: ${reason(result.reason)}` });
+  });
+}
+
 /**
  * Stamps a Telegram Marine: the card with their name and photo (and the glint), then the public web card and the
  * Story card, which carry neither. Anything that fails is told to the alert chat as telegram-stamp:<serial>, once.
@@ -133,17 +148,9 @@ export async function stampTelegram(bot: TelegramBot, marine: Marine, user: Tele
   const reports: Report[] = [];
   await stampCard(bot, marine, () => telegramAvatar(bot, marine.serial, user), reports);
   try {
-    const pngs = await loadMemes(bot.bucket, marine.memes);
-    if (pngs) {
-      const card = publicCard(bot, marine, pngs);
-      const [web, story] = await Promise.all([bot.renderer.renderMarineWebCard(card), bot.renderer.renderMarineStory(card)]);
-      await Promise.all([
-        bot.bucket.put(webCardKey(marine.serial), web, { httpMetadata: { contentType: 'image/png' } }),
-        bot.bucket.put(storyKey(marine.serial), story, { httpMetadata: { contentType: 'image/png' } }),
-      ]);
-    }
+    await stampPublicCards(bot, marine, reports);
   } catch (err) {
-    reports.push({ signature: 'telegram-stamp', text: `the web and Story cards failed: ${reason(err)}` });
+    reports.push({ signature: 'telegram-stamp', text: `the web and Story cards could not be made: ${reason(err)}` });
   }
   if (reports.length > 0) await bot.alert(`telegram-stamp:${marine.serial}`, `Marine #${marine.serial}: ${reports.map((r) => r.text).join('; ')}`);
 }

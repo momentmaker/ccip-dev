@@ -1,3 +1,4 @@
+import type { MarineCard } from '@ccip-dev/core/linkmarine';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enlistMarine } from '../src/enlistment';
@@ -219,24 +220,63 @@ describe('stamping a Telegram Marine', () => {
   it('stamps the card with the name and photo, and the web and Story cards with neither', async () => {
     // #given
     const renderer = fakeRenderer();
-    const bot = fakeTelegramBot({ renderer, tg: fakeTelegram({ getUserProfilePhotos: () => PHOTOS, getFile: () => tgOk({ file_path: 'photos/mid.jpg' }) }, { 'photos/mid.jpg': JPEG }) });
+    const drawn: MarineCard[] = [];
+    const drawing = {
+      ...renderer,
+      renderMarineCards: async (card: MarineCard) => {
+        drawn.push(card);
+        return renderer.renderMarineCards(card);
+      },
+    };
+    const bot = fakeTelegramBot({ renderer: drawing, tg: fakeTelegram({ getUserProfilePhotos: () => PHOTOS, getFile: () => tgOk({ file_path: 'photos/mid.jpg' }) }, { 'photos/mid.jpg': JPEG }) });
     const marine = await enlisted(bot);
     // #when
     await stampTelegram(bot, marine, TG_USER);
     // #then
     const kept = await Promise.all(['cards/1.png', webCardKey(1), storyKey(1), 'avatars/1.png'].map(async (k) => (await env.MARINES.head(k))?.httpMetadata?.contentType));
     const publicCards = JSON.stringify([...renderer.webCards, ...renderer.stories]);
-    expect({ kept, named: publicCards.includes('Ada') || publicCards.includes('avatar'), alerts: bot.alerts }).toEqual({ kept: Array(4).fill('image/png'), named: false, alerts: [] });
+    expect({ kept, named: publicCards.includes('Ada') || publicCards.includes('avatar'), alerts: bot.alerts, private: { name: drawn[0]?.name, avatar: drawn[0]?.avatar && [...drawn[0].avatar] } }).toEqual({
+      kept: Array(4).fill('image/png'),
+      named: false,
+      alerts: [],
+      private: { name: 'Ada Lovelace', avatar: [...PNG_BYTES] },
+    });
   });
 
-  it('alerts telegram-stamp:<serial> once when a card fails, keeping what did render', async () => {
+  it.each([
+    { failing: 'renderMarineStory', failed: 'Story card', web: 'image/png', story: undefined },
+    { failing: 'renderMarineWebCard', failed: 'web card', web: undefined, story: 'image/png' },
+  ] as const)('alerts telegram-stamp:<serial> once when the $failed fails, keeping the card and the other public card that rendered', async ({ failing, failed, web, story }) => {
     // #given
-    const bot = fakeTelegramBot({ renderer: fakeRenderer('renderMarineStory'), tg: noPhotos() });
+    const bot = fakeTelegramBot({ renderer: fakeRenderer(failing), tg: noPhotos() });
     const marine = await enlisted(bot);
     // #when
     await stampTelegram(bot, marine, TG_USER);
     // #then
-    expect({ alerts: bot.alerts.map((a) => a.signature), card: (await env.MARINES.head('cards/1.png')) !== null }).toEqual({ alerts: ['telegram-stamp:1'], card: true });
+    const contentType = async (key: string) => (await env.MARINES.head(key))?.httpMetadata?.contentType;
+    expect({ alerts: bot.alerts.map((a) => [a.signature, a.text]), card: await contentType('cards/1.png'), web: await contentType(webCardKey(1)), story: await contentType(storyKey(1)) }).toEqual({
+      alerts: [['telegram-stamp:1', `Marine #1: the ${failed} failed: ${failing} failed`]],
+      card: 'image/png',
+      web,
+      story,
+    });
+  });
+
+  it('alerts once when the memes cannot be read for the public cards, as well as for the card', async () => {
+    // #given
+    const unreadable = new Proxy(env.MARINES, {
+      get(target, prop) {
+        if (prop === 'get') return async () => Promise.reject(new Error('R2 is down'));
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bot = fakeTelegramBot({ bucket: unreadable, tg: noPhotos() });
+    const marine = await enlisted(bot);
+    // #when
+    await stampTelegram(bot, marine, TG_USER);
+    // #then
+    expect(bot.alerts.map((a) => [a.signature, a.text.includes('the web and Story cards could not be made: R2 is down')])).toEqual([['telegram-stamp:1', true]]);
   });
 
   it('runs one stamp a minute per Marine, however often it is asked', async () => {
