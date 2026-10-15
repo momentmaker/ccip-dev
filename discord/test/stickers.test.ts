@@ -4,37 +4,45 @@ import { STICKERS_PER_RUN, stickerJob } from '../src/stickers';
 import type { TelegramResult } from '../src/telegram-api';
 import { fakeRenderer, fakeTelegram, fakeTelegramBot, OWNER_ID, resetStorage, seedMarine, TG_SETTINGS, tgError, tgOk } from './helpers';
 
+/** An answer Telegram gives after carrying the request out, so the pack has changed even when the answer is an error. */
+const acted = (answer: TelegramResult<unknown>) => ({ acted: answer });
+type Failure = TelegramResult<unknown> | ReturnType<typeof acted> | null;
+
 /**
- * Telegram's sticker packs, held in memory: uploads get file ids, packs hold their stickers in order. `fail` answers a
- * method from a table first, by call count, so a test can fail the nth call.
+ * Telegram's sticker packs, held in memory: uploads get file ids, packs hold their stickers in order, `preset` ones to
+ * begin with. `fail` answers a method from a table first, by call count, so a test can fail the nth call; a failure
+ * wrapped in `acted` is one Telegram carried out, and any other answer to a create or add leaves the pack as it was.
  */
-function packs(fail: Record<string, (n: number) => TelegramResult<unknown> | null> = {}) {
-  const sets = new Map<string, string[]>();
+function packs(fail: Record<string, (n: number) => Failure> = {}, preset: Record<string, string[]> = {}) {
+  const sets = new Map<string, string[]>(Object.entries(preset));
   const counts: Record<string, number> = {};
   let uploads = 0;
-  const failing = (method: string) => fail[method]?.((counts[method] = (counts[method] ?? 0) + 1)) ?? null;
+  const failing = (method: string) => {
+    const failure = fail[method]?.((counts[method] = (counts[method] ?? 0) + 1)) ?? null;
+    return failure && { answer: 'acted' in failure ? failure.acted : failure, performed: 'acted' in failure };
+  };
   const tg = fakeTelegram({
-    uploadStickerFile: () => failing('uploadStickerFile') ?? tgOk({ file_id: `up${++uploads}` }),
+    uploadStickerFile: () => failing('uploadStickerFile')?.answer ?? tgOk({ file_id: `up${++uploads}` }),
     createNewStickerSet: (b) => {
       const name = String(b.name);
       if (sets.has(name)) return tgError(400, 'Bad Request: sticker set name is already occupied');
       const failed = failing('createNewStickerSet');
-      if (failed) return failed;
+      if (failed && !failed.performed) return failed.answer;
       sets.set(name, [`in-${(b.stickers as { sticker: string }[])[0]!.sticker}`]);
-      return tgOk(true);
+      return failed?.answer ?? tgOk(true);
     },
     addStickerToSet: (b) => {
       const failed = failing('addStickerToSet');
-      if (failed && !(failed.ok === false && failed.status === 0 && failed.description === 'lost')) return failed;
+      if (failed && !failed.performed) return failed.answer;
       sets.get(String(b.name))!.push(`in-${(b.sticker as { sticker: string }).sticker}`);
-      return failed ?? tgOk(true);
+      return failed?.answer ?? tgOk(true);
     },
-    getStickerSet: (b) => failing('getStickerSet') ?? (sets.has(String(b.name)) ? tgOk({ stickers: sets.get(String(b.name))!.map((file_id) => ({ file_id })) }) : tgError(400, 'Bad Request: STICKERSET_INVALID')),
+    getStickerSet: (b) => failing('getStickerSet')?.answer ?? (sets.has(String(b.name)) ? tgOk({ stickers: sets.get(String(b.name))!.map((file_id) => ({ file_id })) }) : tgError(400, 'Bad Request: STICKERSET_INVALID')),
   });
   return { tg, sets };
 }
 
-const LOST = tgError(0, 'lost');
+const LOST = acted(tgError(0, 'lost'));
 
 async function stickers(): Promise<[number, string | null, string | null][]> {
   const { results } = await env.DB.prepare('SELECT serial, sticker_set, sticker_file_id FROM marines ORDER BY serial').all<{ serial: number; sticker_set: string | null; sticker_file_id: string | null }>();
@@ -60,6 +68,13 @@ async function insertMarine(platform: string, userId: string, callsign: string):
   )
     .bind(platform, userId, callsign, MEMES)
     .run();
+}
+
+const V1 = 'linkmarines_by_ccipdevbot';
+
+/** A Marine as an earlier run left them: in a pack, with the sticker recorded or, when `fileId` is null, only marked. */
+async function placeIn(serial: number, set: string, fileId: string | null): Promise<void> {
+  await env.DB.prepare('UPDATE marines SET sticker_set = ?, sticker_file_id = ? WHERE serial = ?').bind(set, fileId, serial).run();
 }
 
 beforeEach(resetStorage);
@@ -251,6 +266,261 @@ describe('the sticker job', () => {
     expect(tg.calls.filter((c) => c.method.startsWith('send')).map((c) => [c.method, c.body.chat_id, c.body.text ?? c.body.sticker, c.body.reply_markup])).toEqual([
       ['sendMessage', '777000111', "You're sticker #2 in LinkMarines Vol. 1", undefined],
       ['sendSticker', '777000111', 'in-up2', { inline_keyboard: [[{ text: 'Add the pack', url: 'https://t.me/addstickers/linkmarines_by_ccipdevbot' }]] }],
+    ]);
+  });
+
+  it('keeps a Marine marked when an add Telegram carried out is answered 502, and records the right sticker once on the next run', async () => {
+    // #given the add of the second Marine reaches Telegram, but a proxy answers 502
+    for (let i = 1; i <= 3; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
+    const { tg, sets } = packs({ addStickerToSet: (n) => (n === 1 ? acted(tgError(502, 'HTTP 502')) : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    const afterFirst = await stickers();
+    await stickerJob(bot);
+    // #then
+    expect({
+      afterFirst,
+      after: await stickers(),
+      pack: sets.get(V1),
+      uploads: tg.calls.filter((c) => c.method === 'uploadStickerFile').length,
+      adds: tg.calls.filter((c) => c.method === 'addStickerToSet').length,
+      alerts: bot.alerts.map((a) => a.signature),
+    }).toEqual({
+      afterFirst: [
+        [1, V1, 'in-up1'],
+        [2, V1, null],
+        [3, null, null],
+      ],
+      after: [
+        [1, V1, 'in-up1'],
+        [2, V1, 'in-up2'],
+        [3, V1, 'in-up3'],
+      ],
+      pack: ['in-up1', 'in-up2', 'in-up3'],
+      uploads: 3,
+      adds: 2,
+      alerts: ['telegram-sticker:2'],
+    });
+  });
+
+  it('keeps a Marine marked when the pack cannot be read after a lost add, then records it when it can', async () => {
+    // #given the add reaches Telegram, its answer is lost, and the next run's getStickerSet answers 500
+    for (let i = 1; i <= 3; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
+    const { tg, sets } = packs({ addStickerToSet: (n) => (n === 1 ? LOST : null), getStickerSet: (n) => (n === 2 ? tgError(500, 'Internal Server Error') : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    await stickerJob(bot);
+    const whileUnreadable = await stickers();
+    await stickerJob(bot);
+    // #then
+    expect({ whileUnreadable, after: await stickers(), pack: sets.get(V1), alerts: bot.alerts.map((a) => a.signature) }).toEqual({
+      whileUnreadable: [
+        [1, V1, 'in-up1'],
+        [2, V1, null],
+        [3, null, null],
+      ],
+      after: [
+        [1, V1, 'in-up1'],
+        [2, V1, 'in-up2'],
+        [3, V1, 'in-up3'],
+      ],
+      pack: ['in-up1', 'in-up2', 'in-up3'],
+      alerts: ['telegram-sticker:2', 'telegram-sticker:2'],
+    });
+  });
+
+  it('records nothing, and keeps the Marine marked, when the pack holds more than one sticker beyond the recorded ones', async () => {
+    // #given one Marine recorded, the next marked, and a pack with two stickers more than the recorded one
+    await insertMarine('discord', 'u1', 'marine-1');
+    await insertMarine('discord', 'u2', 'marine-2');
+    await placeIn(1, V1, 'in-a');
+    await placeIn(2, V1, null);
+    const { tg } = packs({}, { [V1]: ['in-a', 'in-b', 'in-c'] });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    // #then
+    expect({ recorded: await stickers(), alerts: bot.alerts.map((a) => [a.signature, a.text.includes('3 stickers for 1 recorded')]) }).toEqual({
+      recorded: [
+        [1, V1, 'in-a'],
+        [2, V1, null],
+      ],
+      alerts: [['telegram-sticker:2', true]],
+    });
+  });
+
+  it('stalls, the Marine still marked, when Telegram says it added a sticker the pack does not hold', async () => {
+    // #given an add answered ok without the sticker reaching the pack
+    await seedMarine('a', 'momentmaker', CALLSIGNS[0]!);
+    await seedMarine('b', 'rory', CALLSIGNS[1]!);
+    const { tg } = packs({ addStickerToSet: (n) => (n === 1 ? tgOk(true) : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    // #then
+    expect([await stickers(), bot.alerts.map((a) => a.signature)]).toEqual([
+      [
+        [1, V1, 'in-up1'],
+        [2, V1, null],
+      ],
+      ['telegram-sticker:2'],
+    ]);
+  });
+
+  it('never adds to a pack no recorded Marine is in: it unmarks the Marine and alerts the owner', async () => {
+    // #given the first pack exists already, holding a sticker no Marine is recorded with
+    await seedMarine('a', 'momentmaker', CALLSIGNS[0]!);
+    const { tg, sets } = packs({}, { [V1]: ['in-stale'] });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    // #then
+    expect({
+      adds: tg.calls.filter((c) => c.method === 'addStickerToSet').length,
+      recorded: await stickers(),
+      pack: sets.get(V1),
+      alerts: bot.alerts.map((a) => [a.signature, a.text.includes(V1), a.text.includes('no Marine is recorded')]),
+    }).toEqual({ adds: 0, recorded: [[1, null, null]], pack: ['in-stale'], alerts: [['telegram-sticker:1', true, true]] });
+  });
+
+  it('settles a create Telegram carried out but whose answer was lost, from the pack on the next run', async () => {
+    // #given
+    await seedMarine('a', 'momentmaker', CALLSIGNS[0]!);
+    await seedMarine('b', 'rory', CALLSIGNS[1]!);
+    const { tg, sets } = packs({ createNewStickerSet: (n) => (n === 1 ? LOST : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    const afterFirst = await stickers();
+    await stickerJob(bot);
+    // #then
+    expect({ afterFirst, after: await stickers(), pack: sets.get(V1), creates: tg.calls.filter((c) => c.method === 'createNewStickerSet').length }).toEqual({
+      afterFirst: [
+        [1, V1, null],
+        [2, null, null],
+      ],
+      after: [
+        [1, V1, 'in-up1'],
+        [2, V1, 'in-up2'],
+      ],
+      pack: ['in-up1', 'in-up2'],
+      creates: 1,
+    });
+  });
+
+  it('makes a Marine due again when a lost create never reached Telegram, and creates the pack on a later run', async () => {
+    // #given
+    await seedMarine('a', 'momentmaker', CALLSIGNS[0]!);
+    const { tg, sets } = packs({ createNewStickerSet: (n) => (n === 1 ? tgError(0, 'request failed (TimeoutError)') : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    await stickerJob(bot);
+    const whenDue = await stickers();
+    await stickerJob(bot);
+    // #then
+    expect({ whenDue, after: await stickers(), pack: sets.get(V1) }).toEqual({ whenDue: [[1, null, null]], after: [[1, V1, 'in-up2']], pack: ['in-up2'] });
+  });
+
+  it('stalls, the Marine still marked, when a pack with recorded Marines cannot be found', async () => {
+    // #given the first Marine recorded in a pack Telegram no longer knows, the second marked in it
+    await insertMarine('discord', 'u1', 'marine-1');
+    await insertMarine('discord', 'u2', 'marine-2');
+    await placeIn(1, V1, 'in-a');
+    await placeIn(2, V1, null);
+    const bot = fakeTelegramBot({ tg: packs().tg });
+    // #when
+    await stickerJob(bot);
+    // #then
+    expect([await stickers(), bot.alerts.map((a) => a.signature)]).toEqual([
+      [
+        [1, V1, 'in-a'],
+        [2, V1, null],
+      ],
+      ['telegram-sticker:2'],
+    ]);
+  });
+
+  it('ends the run quietly at a 429 on creating the pack, the Marine due again', async () => {
+    // #given
+    for (let i = 1; i <= 2; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
+    const { tg } = packs({ createNewStickerSet: (n) => (n === 1 ? tgError(429, 'Too Many Requests: retry after 30', 30) : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    // #then
+    expect({ uploads: tg.calls.filter((c) => c.method === 'uploadStickerFile').length, recorded: await stickers(), alerts: bot.alerts }).toEqual({
+      uploads: 1,
+      recorded: [
+        [1, null, null],
+        [2, null, null],
+      ],
+      alerts: [],
+    });
+  });
+
+  it('ends the run quietly at a 429 on adding to the pack, the Marine due again', async () => {
+    // #given
+    for (let i = 1; i <= 3; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
+    const { tg } = packs({ addStickerToSet: (n) => (n === 1 ? tgError(429, 'Too Many Requests: retry after 30', 30) : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    // #then
+    expect({ uploads: tg.calls.filter((c) => c.method === 'uploadStickerFile').length, recorded: await stickers(), alerts: bot.alerts }).toEqual({
+      uploads: 2,
+      recorded: [
+        [1, V1, 'in-up1'],
+        [2, null, null],
+        [3, null, null],
+      ],
+      alerts: [],
+    });
+  });
+
+  it('ends the run quietly at a 429 on reading the pack, the Marine still marked, and settles it on the next run without adding it again', async () => {
+    // #given the second Marine is added, and reading the pack to record it hits a 429
+    for (let i = 1; i <= 3; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);
+    const { tg, sets } = packs({ getStickerSet: (n) => (n === 2 ? tgError(429, 'Too Many Requests: retry after 30', 30) : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    const afterFirst = await stickers();
+    const uploadsFirst = tg.calls.filter((c) => c.method === 'uploadStickerFile').length;
+    await stickerJob(bot);
+    // #then
+    expect({ afterFirst, uploadsFirst, after: await stickers(), pack: sets.get(V1), alerts: bot.alerts }).toEqual({
+      afterFirst: [
+        [1, V1, 'in-up1'],
+        [2, V1, null],
+        [3, null, null],
+      ],
+      uploadsFirst: 2,
+      after: [
+        [1, V1, 'in-up1'],
+        [2, V1, 'in-up2'],
+        [3, V1, 'in-up3'],
+      ],
+      pack: ['in-up1', 'in-up2', 'in-up3'],
+      alerts: [],
+    });
+  });
+
+  it("uploads, creates and adds as the owner, whose id is the settings'", async () => {
+    // #given
+    await seedMarine('a', 'momentmaker', CALLSIGNS[0]!);
+    await seedMarine('b', 'rory', CALLSIGNS[1]!);
+    const { tg } = packs();
+    // #when
+    await stickerJob(fakeTelegramBot({ tg, settings: { ...TG_SETTINGS, ownerId: 987654321 } }));
+    // #then
+    expect(tg.calls.filter((c) => ['uploadStickerFile', 'createNewStickerSet', 'addStickerToSet'].includes(c.method)).map((c) => [c.method, String(c.body.user_id)])).toEqual([
+      ['uploadStickerFile', '987654321'],
+      ['createNewStickerSet', '987654321'],
+      ['uploadStickerFile', '987654321'],
+      ['addStickerToSet', '987654321'],
     ]);
   });
 

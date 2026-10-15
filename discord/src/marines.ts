@@ -25,7 +25,6 @@ export function revealSteps(tags: readonly string[], tier: Tier): string[] {
   return [`${up[0]} ▮▮`, `${up[0]} · ${up[1]} ▮`, banner ? `${banner}\n${last}` : last];
 }
 
-/** The text a posted card carries: the callsign, and once LinkMarines is on Telegram, the Marine's sticker pack. */
 export function cardText(bot: Pick<Bot, 'telegramOpen'>, marine: Pick<Marine, 'callsign' | 'serial'>): string {
   if (!bot.telegramOpen) return marine.callsign;
   const volume = stickerVolume(marine.serial);

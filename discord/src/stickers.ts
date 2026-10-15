@@ -9,7 +9,8 @@ import { TELEGRAM_PLATFORM, type TelegramBot } from './telegram-marines';
  * The sticker job: every Marine, from either platform, becomes a sticker in their volume's LinkMarines pack, oldest
  * serial first. A Marine is marked (sticker_set set, sticker_file_id NULL) before its sticker is added and recorded
  * after, one at a time, so the pack holds exactly one sticker per recorded Marine, in the order they were added. A run
- * that loses Telegram's answer leaves the Marine marked, and the next run counts the pack to settle it: never twice.
+ * that gets no sure answer from Telegram leaves the Marine marked, and the next run counts the pack to settle it: never
+ * twice. A pack whose count does not fit the Marines recorded in it is never guessed at; the job stalls for the owner.
  */
 export const STICKERS_PER_RUN = 10;
 export const STICKER_EMOJI = '🎖';
@@ -19,13 +20,15 @@ const RUN_LOCK_MS = 15 * 60_000;
 const RUN_LOCK = 'sticker-run';
 /** Telegram's answer to creating a pack that exists. */
 const NAME_TAKEN = /name is already occupied/i;
+/** Telegram's answer to reading a pack that was never created. */
+const PACK_UNKNOWN = /STICKERSET_INVALID/;
 
-/** added: recorded. limited: a 429, so the run ends quietly. failed: alert and go on. stalled: alert and end the run, a Marine still marked. */
+/** added: recorded. limited: a 429, so the run ends quietly. failed: alert and go on. stalled: alert and end the run, to settle a Marine left marked before any other is touched, or for the owner to look. */
 type Outcome = { kind: 'added' } | { kind: 'limited' } | { kind: 'failed'; why: string } | { kind: 'stalled'; why: string };
 
 const isLimited = (r: TelegramResult<unknown>) => !r.ok && r.status === 429;
-/** No answer came back: whether Telegram acted is not known. */
-const isUnknown = (r: TelegramResult<unknown>) => !r.ok && r.status === 0;
+/** No answer came back (0) or a server or proxy error did (5xx): either can follow a request Telegram carried out, so only the pack can say. */
+const isUnknown = (r: TelegramResult<unknown>) => !r.ok && (r.status === 0 || r.status >= 500);
 const why = (r: TelegramResult<unknown>) => (r.ok ? 'ok' : `${r.status} ${r.description}`);
 
 async function claimRun(db: D1Database, now: Date): Promise<string | null> {
@@ -49,25 +52,32 @@ async function tellMarine(bot: TelegramBot, marine: Marine, fileId: string): Pro
 }
 
 /**
- * Records a marked Marine's sticker: the pack's sticker after the recorded ones. Right after Telegram said it added the
- * sticker, a pack without it stalls the job for the owner to look; on a later run it means the add never happened, and
- * the Marine is due again.
+ * Records a marked Marine's sticker, which must be the one sticker the pack holds beyond the recorded ones. Any other
+ * count is never guessed at: a pack with more stalls the job for the owner to reconcile, and one with as many as are
+ * recorded means the add never happened, which is a stall right after Telegram said it added the sticker and otherwise
+ * puts the Marine due again. A pack that cannot be read stalls too, except one that was never created.
  */
 async function settle(bot: TelegramBot, marine: Marine, set: string, justAdded: boolean): Promise<Outcome> {
   const pack = await bot.tg.call<{ stickers: { file_id: string }[] }>('getStickerSet', { name: set });
   if (isLimited(pack)) return { kind: 'limited' };
-  if (!pack.ok && (justAdded || isUnknown(pack))) return { kind: 'stalled', why: `getStickerSet ${set}: ${why(pack)}; the next run settles it` };
-  const stickers = pack.ok ? pack.result.stickers : [];
   const recorded = await recordedIn(bot.db, set);
-  const ours = stickers[recorded];
-  if (ours) {
+  if (!pack.ok) {
+    if (justAdded || recorded > 0 || !PACK_UNKNOWN.test(pack.description)) return { kind: 'stalled', why: `getStickerSet ${set}: ${why(pack)}; the next run settles it` };
+    await mark(bot.db, marine.serial, null);
+    return { kind: 'failed', why: `${set} was never created (${why(pack)}); it is due again` };
+  }
+  const { stickers } = pack.result;
+  if (stickers.length === recorded + 1) {
+    const ours = stickers[recorded]!;
     await record(bot.db, marine.serial, ours.file_id);
     await tellMarine(bot, marine, ours.file_id);
     return { kind: 'added' };
   }
-  if (justAdded) return { kind: 'stalled', why: `${set} holds ${stickers.length} stickers for ${recorded} recorded Marines right after an add` };
+  const holds = `${set} holds ${stickers.length} stickers for ${recorded} recorded Marines`;
+  if (stickers.length !== recorded) return { kind: 'stalled', why: `${holds}; the owner must reconcile it` };
+  if (justAdded) return { kind: 'stalled', why: `${holds} right after an add` };
   await mark(bot.db, marine.serial, null);
-  return { kind: 'failed', why: `${set} does not hold the sticker (${pack.ok ? `${stickers.length} stickers` : why(pack)}); it is due again` };
+  return { kind: 'failed', why: `${holds}, so the sticker was never added; it is due again` };
 }
 
 /** The sticker's PNG, or why it could not be drawn. */
@@ -91,8 +101,13 @@ async function addSticker(bot: TelegramBot, marine: Marine, owner: number): Prom
   const sticker = { sticker: upload.result.file_id, format: 'static', emoji_list: [STICKER_EMOJI] };
   const packExists = (await bot.db.prepare('SELECT 1 FROM marines WHERE sticker_set = ? LIMIT 1').bind(set).first()) !== null;
   await mark(bot.db, marine.serial, set);
-  let added = packExists ? null : await bot.tg.call('createNewStickerSet', { user_id: owner, name: set, title: stickerPackTitle(volume), stickers: [sticker] });
-  if (added === null || (!added.ok && added.status === 400 && NAME_TAKEN.test(added.description))) added = await bot.tg.call('addStickerToSet', { user_id: owner, name: set, sticker });
+  const added = packExists
+    ? await bot.tg.call('addStickerToSet', { user_id: owner, name: set, sticker })
+    : await bot.tg.call('createNewStickerSet', { user_id: owner, name: set, title: stickerPackTitle(volume), stickers: [sticker] });
+  if (!packExists && !added.ok && added.status === 400 && NAME_TAKEN.test(added.description)) {
+    await mark(bot.db, marine.serial, null);
+    return { kind: 'stalled', why: `the pack ${set} exists but no Marine is recorded in it; the owner must look at it` };
+  }
   if (isUnknown(added)) return { kind: 'stalled', why: `adding to ${set}: ${why(added)}; the next run settles it` };
   if (!added.ok) {
     await mark(bot.db, marine.serial, null);
