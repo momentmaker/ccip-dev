@@ -1,0 +1,10 @@
+---
+import MiniApp from '../../components/tg/MiniApp';
+import Base from '../../layouts/Base.astro';
+import '../../styles/marines.css';
+import '../../styles/tg.css';
+---
+<Base title="LinkMarines on Telegram" description="The LinkMarines Mini App: enlist, your dog tag and the roster, inside Telegram." noindex bare>
+  <script is:inline slot="head" src="https://telegram.org/js/telegram-web-app.js"></script>
+  <MiniApp client:load />
+</Base>

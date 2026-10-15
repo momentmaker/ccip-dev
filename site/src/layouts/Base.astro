@@ -19,9 +19,11 @@ interface Props {
   cardPath?: string | null;
   /** Keeps an unlisted page out of search results. */
   noindex?: boolean;
+  /** The page alone: no header, footer, background pattern or analytics (the Telegram Mini App). */
+  bare?: boolean;
 }
 
-const { title, description, cardPath = null, noindex = false } = Astro.props;
+const { title, description, cardPath = null, noindex = false, bare = false } = Astro.props;
 const fullTitle = title === 'ccip.dev' ? title : `${title} · ccip.dev`;
 const canonical = new URL(Astro.url.pathname, SITE_URL).href;
 const ogImage = ogImageUrl(cardPath, BUILD_DATE);
@@ -52,12 +54,17 @@ const ogImage = ogImageUrl(cardPath, BUILD_DATE);
     <meta property="og:image:alt" content={fullTitle} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@ccipdev" />
-    {UMAMI_WEBSITE_ID && <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>}
+    {UMAMI_WEBSITE_ID && !bare && <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>}
+    <slot name="head" />
   </head>
-  <body>
-    <div class="ground" aria-hidden="true"></div>
-    <Header />
-    <main class="page"><slot /></main>
-    <Footer />
-  </body>
+  {bare ? (
+    <body class="bare"><slot /></body>
+  ) : (
+    <body>
+      <div class="ground" aria-hidden="true"></div>
+      <Header />
+      <main class="page"><slot /></main>
+      <Footer />
+    </body>
+  )}
 </html>

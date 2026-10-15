@@ -28,7 +28,7 @@ const MARINE: MarineSummary = {
 };
 
 describe('screen 1: welcome and gate', () => {
-  const welcome = (props: Partial<Parameters<typeof Welcome>[0]> = {}) => renderToString(createElement(Welcome, { roster: ROSTER_FIXTURE, gate: 'ok', open: true, onJoin: noop, onCheck: noop, ...props }));
+  const welcome = (props: Partial<Parameters<typeof Welcome>[0]> = {}) => renderToString(createElement(Welcome, { roster: ROSTER_FIXTURE, gate: 'ok', open: true, notice: null, onJoin: noop, onCheck: noop, ...props }));
 
   it('says what enlisting is, seats the plank owners and counts the Marines and the tags', () => {
     // #when
@@ -54,6 +54,18 @@ describe('screen 1: welcome and gate', () => {
     const out = text(welcome({ open: false, gate: 'join' }));
     // #then
     expect([out.includes('LinkMarines on Telegram opens soon'), out.includes('Not in @ccipdev')]).toEqual([true, false]);
+  });
+
+  it('says in a status line why the last enlist did not go through', () => {
+    // #when
+    const out = welcome({ notice: "Couldn't enlist just now. Try again." });
+    // #then
+    expect([out.includes('<p class="tg-notice" role="status">'), text(out).includes("Couldn't enlist just now. Try again.")]).toEqual([true, true]);
+  });
+
+  it('shows no status line when there is nothing to say', () => {
+    // #then
+    expect(welcome().includes('tg-notice')).toBe(false);
   });
 });
 

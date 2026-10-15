@@ -65,7 +65,7 @@ const streakAt = (y: number) => Math.round(50 + (y / MAX_TILT) * 50);
 
 /** The card's turn and the light streak's place (0–100%) for the phone's tilt off where it was first held. */
 export function tilt(beta: number, gamma: number, rest: { beta: number; gamma: number }): { x: number; y: number; streak: number } {
-  // A sensor reads null, which arrives as NaN, until its first sample; the card then lies flat instead of taking NaN styles.
+  // A sensor with no sample yet can report undefined or NaN; the card then lies flat instead of taking NaN styles.
   if (![beta, gamma, rest.beta, rest.gamma].every(Number.isFinite)) return { x: 0, y: 0, streak: streakAt(0) };
   const x = clamp(-(beta - rest.beta) / TILT_RATIO, MAX_TILT);
   const y = clamp((gamma - rest.gamma) / TILT_RATIO, MAX_TILT);

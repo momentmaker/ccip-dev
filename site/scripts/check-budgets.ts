@@ -6,6 +6,7 @@ import { gzipSync } from 'node:zlib';
 export const BUDGETS = [
   { page: 'index.html', maxGzipBytes: 150 * 1024 },
   { page: 'replay/index.html', maxGzipBytes: 200 * 1024 },
+  { page: 'tg/index.html', maxGzipBytes: 130 * 1024 },
 ];
 
 export function entryScripts(html: string): string[] {

@@ -11,8 +11,8 @@ export function OpensSoon() {
   );
 }
 
-/** Screen 1: enlist, the plank-owner seats, the counts, and the gate's notice when it fails. */
-export default function Welcome({ roster, gate, open, onJoin, onCheck }: { roster: RosterFile | null; gate: Gate; open: boolean; onJoin: () => void; onCheck: () => void }) {
+/** Screen 1: enlist, the plank-owner seats, the counts, the gate's notice when it fails, and a status line when the last enlist did not go through. */
+export default function Welcome({ roster, gate, open, notice, onJoin, onCheck }: { roster: RosterFile | null; gate: Gate; open: boolean; notice: string | null; onJoin: () => void; onCheck: () => void }) {
   const seats = roster ? plankSeats(roster.marines) : [];
   const left = seats.filter((s) => s === null).length;
   return (
@@ -55,6 +55,11 @@ export default function Welcome({ roster, gate, open, onJoin, onCheck }: { roste
             </button>
           </div>
         </div>
+      )}
+      {notice && (
+        <p className="tg-notice" role="status">
+          {notice}
+        </p>
       )}
       {!open && <OpensSoon />}
     </section>

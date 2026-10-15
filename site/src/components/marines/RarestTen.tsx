@@ -2,7 +2,8 @@ import { rarerThan, serialText } from '@ccip-dev/core/linkmarine';
 import { ranked, type RosterFile } from '@ccip-dev/core/roster';
 import { marinePath, rarestBarPct } from '../../lib/marines';
 
-export default function RarestTen({ roster }: { roster: RosterFile }) {
+/** The ten rarest Marines. With `onPickMarine`, a row opens the Marine where it is instead of going to their page. */
+export default function RarestTen({ roster, onPickMarine }: { roster: RosterFile; onPickMarine?: (serial: number) => void }) {
   if (roster.marines.length === 0) return null;
   const all = ranked(roster.marines);
   const high = all[0]!.score;
@@ -15,7 +16,17 @@ export default function RarestTen({ roster }: { roster: RosterFile }) {
       <ol className="mr-rarest">
         {all.slice(0, 10).map((m, i) => (
           <li key={m.serial}>
-            <a className="mr-rarest-row" href={marinePath(m.serial)}>
+            <a
+              className="mr-rarest-row"
+              href={marinePath(m.serial)}
+              onClick={
+                onPickMarine &&
+                ((e) => {
+                  e.preventDefault();
+                  onPickMarine(m.serial);
+                })
+              }
+            >
               <span className="mr-rank">{i + 1}</span>
               <span className="mr-callsign">
                 {m.callsign} <small>#{serialText(m.serial)}</small>

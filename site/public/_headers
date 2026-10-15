@@ -5,3 +5,8 @@
   X-Frame-Options: DENY
   Content-Security-Policy: frame-ancestors 'none'
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# The Telegram Mini App runs in an iframe on Telegram's web clients, so it may be framed. It does nothing outside Telegram.
+/tg/*
+  ! X-Frame-Options
+  ! Content-Security-Policy
