@@ -41,7 +41,7 @@ describe('project spotlight card', () => {
     // #then
     expect(await words({ kind: 'project', monday: '2026-10-05' })).toEqual(
       expect.arrayContaining([
-        'PROJECT SPOTLIGHT', 'Fastest-growing project', 'xStocks', '2,100 messages ', '50% vs the week before',
+        'PROJECT SPOTLIGHT', 'Fastest-growing project', 'xStocks', '2,100 messages', '50% vs the week before',
         'On ', 'Ethereum', ' · ', 'Base', 'Paid ', '$525', ' in fees last week', 'Its page: ', 'ccip.dev/projects/xstocks',
       ]),
     );
@@ -75,6 +75,13 @@ describe('project spotlight card', () => {
     const tree = await broadcastTree({ kind: 'project', monday: '2026-10-05' }, { ...inputs, load: withProject({ messages: 700, previous_messages: 1_400 }) });
     // #then
     expect(JSON.stringify(tree)).toContain(downGlyph);
+  });
+
+  it('says a tenfold or bigger growth as a multiple, on its own line, in glyphs the fonts have', async () => {
+    // #when
+    const found = await words({ kind: 'project', monday: '2026-10-05' }, withProject({ messages: 2_749, previous_messages: 49 }));
+    // #then
+    expect({ multiple: found.includes('56× the week before'), percent: found.some((t) => t.includes('%')), glyphs: found.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({ multiple: true, percent: false, glyphs: [] });
   });
 
   it('has no card for a week without a spotlighted project', async () => {

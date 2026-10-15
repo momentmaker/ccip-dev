@@ -51,11 +51,15 @@ export async function projectSpotlightTree(monday: string, inputs: BroadcastInpu
   if (project === null || !hasReplayDay(replay, sunday)) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, monday, sunday, { gold: project.chains[0] ?? null, starFree: [TEXT_COLUMN] });
-  const pct = project.previous_messages === 0 ? null : ((project.messages - project.previous_messages) / project.previous_messages) * 100;
+  const before = project.previous_messages;
+  const pct = before === 0 ? null : ((project.messages - before) / before) * 100;
   const change: Child[] =
     pct === null
       ? ['none the week before']
-      : [glyph(pct >= 0 ? 'up' : 'down', 18, pct >= 0 ? COLORS.up : COLORS.down, { right: 6 }), `${formatShare(Math.abs(pct))} vs the week before`];
+      : [
+          glyph(pct >= 0 ? 'up' : 'down', 18, pct >= 0 ? COLORS.up : COLORS.down, { right: 6 }),
+          project.messages >= before * 10 ? `${formatCount(Math.round(project.messages / before))}× the week before` : `${formatShare(Math.abs(pct))} vs the week before`,
+        ];
   const insight: Child[] =
     project.usd > 0
       ? ['Moved ', bold(formatUsd(project.usd)), ' last week']
@@ -69,7 +73,8 @@ export async function projectSpotlightTree(monday: string, inputs: BroadcastInpu
       pill('PROJECT SPOTLIGHT', PILLS.violet, 'star'),
       eyebrow('Fastest-growing project', { marginTop: 24 }),
       bigText(project.name, nameSize(project.name)),
-      columnLine([bold(`${counted(project.messages, 'message')} `), ...change]),
+      columnLine([bold(counted(project.messages, 'message'))]),
+      columnLine(change, { fontSize: 24, color: COLORS.soft }),
       project.chains.length === 0 ? null : columnLine(['On ', ...listed(project.chains.slice(0, 3).map((s) => chainName(names, s)))], { fontSize: 24, color: COLORS.soft }),
     ),
     insight,
