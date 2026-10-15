@@ -3,8 +3,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   addDays, buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, claimedTokenKeys, dayOf, identityResolver, isAddressShape, labelCoverage,
-  labeledAddresses, labelKey, mergeIdentities, normalizeAddress, REGISTRY_GROUPS_SQL, sanitize, senderKeyAddress, tokenClaims, validateChainHandles, validateRegistry,
-  VIA_GROUP, VIA_SELECTOR, VIA_TOKEN_CREDITS_SQL, viaTokenCredits, type Handles, type IdentityResolver, type LabelCoverage, type RegistryProject, type SenderRow,
+  labeledAddresses, labelKey, mergeIdentities, normalizeAddress, REGISTRY_GROUPS_SQL, sanitize, SENDER_ADDRESS, senderKeyAddress, tokenClaims, unlabeledSenderRowsSql,
+  validateChainHandles, validateRegistry, VIA_GROUP, VIA_SELECTOR, VIA_TOKEN_CREDITS_SQL, viaTokenCredits, type Handles, type IdentityResolver, type LabelCoverage,
+  type RegistryProject, type SenderRow,
 } from '@ccip-dev/core';
 import { dataSharePct, formatShare, labelCoverageLine } from '@ccip-dev/core/format';
 import { shortAddress } from '@ccip-dev/core/names';
@@ -59,28 +60,47 @@ export function coverageWindows(today: string) {
   };
 }
 
+/** What netting a sender's rows needs: the addresses a verified label names, which keep every send, and the claimed via-token keys. */
+export interface Credits {
+  labeled: readonly string[];
+  claimed: readonly string[];
+}
+
 /**
- * Each (address, chain) row of the addresses in the top ?4 by messages or the top ?4 by value since ?1, each address
- * summed across its chains and held to the thresholds (?2 dollars or ?3 messages).
+ * Each sender key's sums over [?1, ?2], as the Worker ranks senders: an address a label names (?3) whole, any other net
+ * of its claimed direct sends (?4) through the Worker's own SQL, and a key with nothing left out. A wallet whose sends
+ * are credited to a token's project is not drafted for them.
  */
-export function identityCandidateQuery(sinceDay: string, minUsd: number, minMessages: number, limit = CANDIDATES_PER_ORDER) {
+const NET_SENDER_KEYS = `SELECT key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value FROM (
+    ${unlabeledSenderRowsSql(false, '?4')}
+    UNION ALL
+    SELECT key, ${SENDER_ADDRESS}, messages, usd_value, fee_usd FROM daily_breakdown
+    WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
+  ) GROUP BY key HAVING SUM(messages) > 0`;
+
+const netParams = (fromDay: string, toDay: string, credits: Credits) => [fromDay, toDay, JSON.stringify(credits.labeled), JSON.stringify(credits.claimed)];
+
+/**
+ * Each (address, chain) row of the addresses in the top ?7 by messages or the top ?7 by value over [?1, ?2], net of
+ * their credited sends, each address summed across its chains and held to the thresholds (?5 dollars or ?6 messages).
+ */
+export function identityCandidateQuery(fromDay: string, toDay: string, credits: Credits, minUsd: number, minMessages: number, limit = CANDIDATES_PER_ORDER) {
   return {
     sql: `WITH rows AS (
-            SELECT substr(key, 1, instr(key, ':') - 1) AS chain, substr(key, instr(key, ':') + 1) AS address, messages, usd_value
-            FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1
+            SELECT substr(key, 1, instr(key, ':') - 1) AS chain, address, messages, usd_value FROM (${NET_SENDER_KEYS})
           ), by_address AS (
             SELECT address, SUM(messages) AS messages, SUM(usd_value) AS usd FROM rows GROUP BY address
-            HAVING SUM(usd_value) >= ?2 OR SUM(messages) >= ?3
+            HAVING SUM(usd_value) >= ?5 OR SUM(messages) >= ?6
           ), picked AS (
-            SELECT address FROM (SELECT address FROM by_address ORDER BY messages DESC, address LIMIT ?4)
+            SELECT address FROM (SELECT address FROM by_address ORDER BY messages DESC, address LIMIT ?7)
             UNION
-            SELECT address FROM (SELECT address FROM by_address ORDER BY usd DESC, address LIMIT ?4)
+            SELECT address FROM (SELECT address FROM by_address ORDER BY usd DESC, address LIMIT ?7)
           )
           SELECT r.address AS address, r.chain AS chain, c.name AS chain_name, c.chain_id AS chain_id, c.family AS family,
-            SUM(r.messages) AS messages, SUM(r.usd_value) AS usd
+            r.messages AS messages, r.usd_value AS usd
           FROM rows r JOIN picked p ON p.address = r.address LEFT JOIN chains c ON c.selector = r.chain
-          GROUP BY r.address, r.chain ORDER BY r.address, messages DESC, r.chain`,
-    params: [sinceDay, minUsd, minMessages, limit],
+          ORDER BY r.address, messages DESC, r.chain`,
+    params: [...netParams(fromDay, toDay, credits), minUsd, minMessages, limit],
   };
 }
 
@@ -99,15 +119,15 @@ export function messageStatsQuery(fromDay: string, toDay: string, pairs: readonl
   };
 }
 
-/** Each (address, chain) row since ?1 of the given addresses, with no threshold: the rows of senders new on CCIP. */
-export function newcomerRowsQuery(sinceDay: string, addresses: readonly string[]) {
+/** Each (address, chain) row over [?1, ?2] of the addresses in ?5, net of their credited sends, with no threshold: the rows of senders new on CCIP. */
+export function newcomerRowsQuery(fromDay: string, toDay: string, credits: Credits, addresses: readonly string[]) {
   return {
-    sql: `SELECT substr(key, instr(key, ':') + 1) AS address, substr(key, 1, instr(key, ':') - 1) AS chain, c.name AS chain_name, c.chain_id AS chain_id,
-            c.family AS family, SUM(messages) AS messages, SUM(usd_value) AS usd
-          FROM daily_breakdown LEFT JOIN chains c ON c.selector = substr(key, 1, instr(key, ':') - 1)
-          WHERE dim = 'sender' AND day >= ?1 AND substr(key, instr(key, ':') + 1) IN (SELECT value FROM json_each(?2))
-          GROUP BY key ORDER BY address, messages DESC, chain`,
-    params: [sinceDay, JSON.stringify(addresses)],
+    sql: `SELECT r.address AS address, substr(r.key, 1, instr(r.key, ':') - 1) AS chain, c.name AS chain_name, c.chain_id AS chain_id,
+            c.family AS family, r.messages AS messages, r.usd_value AS usd
+          FROM (${NET_SENDER_KEYS}) r LEFT JOIN chains c ON c.selector = substr(r.key, 1, instr(r.key, ':') - 1)
+          WHERE r.address IN (SELECT value FROM json_each(?5))
+          ORDER BY address, messages DESC, chain`,
+    params: [...netParams(fromDay, toDay, credits), JSON.stringify(addresses)],
   };
 }
 
@@ -828,12 +848,13 @@ async function main(): Promise<void> {
   const claims = tokenClaims(tokenLabels, buildProjectRegistry(projects), senderChains, groups);
   const claimed = [...claims.keys()];
   const labeledList = labeledAddresses(labelIndex);
+  const credits: Credits = { labeled: labeledList, claimed };
 
   const nq = newcomerQuery(since);
   const newcomers = new Set((await d1<{ address: string }>(nq.sql, nq.params)).map((r) => r.address));
-  const cq = identityCandidateQuery(since, minUsd, minMessages);
+  const cq = identityCandidateQuery(since, windows.week.to, credits, minUsd, minMessages);
   const ranked = unlabeledRows(await d1<CandidateRow>(cq.sql, cq.params), labeled, resolve);
-  const nrq = newcomerRowsQuery(since, [...newcomers]);
+  const nrq = newcomerRowsQuery(since, windows.week.to, credits, [...newcomers]);
   const newcomerRows = newcomers.size === 0 ? [] : await d1<CandidateRow>(nrq.sql, nrq.params);
   const rows = withNewcomerRows(ranked, newcomerRows, labeled, resolve).filter((r) => {
     if (r.chain_name !== null && knownChains.has(r.chain_name)) return true;

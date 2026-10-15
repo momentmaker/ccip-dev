@@ -2,7 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  VIA_ADDRESS, VIA_GROUP, VIA_SENDER_KEY, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
+  SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 
@@ -729,9 +729,6 @@ export async function senderChains(db: D1Database): Promise<Map<string, SenderCh
   return new Map(results.map((r) => [r.selector, { name: r.name, family: r.family }]));
 }
 
-/** A sender key's address: daily_breakdown keys senders `<selector>:<address>`, and selectors hold no colon. */
-const SENDER_ADDRESS = "substr(key, instr(key, ':') + 1)";
-
 /** No LIMIT: a project's rows on every chain must all arrive before they merge and rank. */
 export const SENDER_TOTALS_OF_SQL = `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
   FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
@@ -761,23 +758,11 @@ const ADDRESS_ORDER_SQL: Record<TopOrder, string> = {
 };
 
 /**
- * The sender rows over [?1, ?2] of addresses outside the labeled list ?3, with the claimed direct sends (the keys in the
- * JSON list `claimedParam`) as negative rows: summed per key, they leave what the move to the token's project leaves.
- */
-const unlabeledRowsSql = (withDay: boolean, claimedParam: string) => `SELECT ${withDay ? 'day, ' : ''}key, address, messages, usd_value, fee_usd FROM (
-    SELECT day, key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd FROM daily_breakdown
-    WHERE dim = 'sender' AND day >= ?1 AND day <= ?2
-    UNION ALL
-    SELECT day, ${VIA_SENDER_KEY}, ${VIA_ADDRESS}, -messages, -usd_value, -fee_usd FROM daily_breakdown
-    WHERE dim = 'via_token' AND day >= ?1 AND day <= ?2 AND ${VIA_GROUP} IN (SELECT value FROM json_each(${claimedParam}))
-  ) WHERE address NOT IN (SELECT value FROM json_each(?3))`;
-
-/**
  * The per-key rows of the ?4 busiest addresses outside the labeled list ?3 over [?1, ?2], net of the claimed keys ?5,
  * each address ranked by its rows summed across chains. A key with nothing left is dropped before the cut, so the ?4
  * are the busiest by what they keep.
  */
-export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledRowsSql(false, '?5')}),
+export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledSenderRowsSql(false, '?5')}),
   net AS (
     SELECT key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
     FROM rows GROUP BY key HAVING SUM(messages) > 0
@@ -802,7 +787,7 @@ export async function topUnlabeledSenders(
 }
 
 /** By messages, summed across chains and net of the claimed keys ?4, so a day's leader is one identity with every chain it sent from. */
-export const DAILY_TOP_UNLABELED_SQL = `WITH rows AS (${unlabeledRowsSql(true, '?4')}),
+export const DAILY_TOP_UNLABELED_SQL = `WITH rows AS (${unlabeledSenderRowsSql(true, '?4')}),
   net AS (
     SELECT day, key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
     FROM rows GROUP BY day, key HAVING SUM(messages) > 0

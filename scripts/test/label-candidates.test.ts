@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { identityResolver, tokenClaims, validateRegistry } from '@ccip-dev/core';
+import { dataSharePct } from '@ccip-dev/core/format';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeFetch, jsonResponse, NETWORKS, XBRIDGE_EVM, XBRIDGE_PROGRAM, XBRIDGE_SOLANA, XSTOCKS_CHAINS, XSTOCKS_DAY, XSTOCKS_LABEL, XSTOCKS_SENDER_ROWS } from '@ccip-dev/core/testing';
 import { parse } from 'smol-toml';
 import { describe, expect, it, vi } from 'vitest';
@@ -345,6 +346,7 @@ describe('candidates by identity', () => {
   };
   const rows = (db: DatabaseSync, q: { sql: string; params: unknown[] }) => (db.prepare(q.sql).all(...(q.params as (string | number)[])) as Record<string, unknown>[]).map((r) => ({ ...r }));
   const FILLER_1 = `0x${'0'.repeat(39)}1`;
+  const NO_CREDITS = { labeled: [], claimed: [] };
 
   it("finds xStocks's xBridge by its messages summed across five chains, though they carry no value", () => {
     // #given 2026-10-13's senders, before xStocks had a label
@@ -352,7 +354,7 @@ describe('candidates by identity', () => {
     const insert = db.prepare("INSERT INTO daily_breakdown VALUES (?, 'sender', ?, ?, ?, ?)");
     for (const r of XSTOCKS_SENDER_ROWS) insert.run(XSTOCKS_DAY, r.key, r.messages, r.usd_value, r.fee_usd);
     // #when the top 2 by messages and the top 2 by value
-    const candidates = groupCandidates(rows(db, identityCandidateQuery('2026-10-07', 50_000, 50, 2)) as unknown as CandidateRow[], new Map());
+    const candidates = groupCandidates(rows(db, identityCandidateQuery('2026-10-07', '2026-10-13', NO_CREDITS, 50_000, 50, 2)) as unknown as CandidateRow[], new Map());
     // #then
     expect(candidates.map((c) => [c.address, c.messages, c.chains.length])).toEqual([[XBRIDGE_EVM, 170, 5], [XBRIDGE_SOLANA, 149, 1], [BASE_SENDER_1, 76, 1], [FILLER_1, 50, 1]]);
   });
@@ -481,7 +483,70 @@ describe('candidates by identity', () => {
     insert.run(XSTOCKS_DAY, `${NETWORKS.base.chainSelector}:${BASE_SENDER_1}`, 3);
     insert.run(XSTOCKS_DAY, `${NETWORKS.base.chainSelector}:${BASE_SENDER_2}`, 9);
     // #then
-    expect(rows(db, newcomerRowsQuery('2026-10-07', [BASE_SENDER_1])).map((r) => [r.address, r.messages])).toEqual([[BASE_SENDER_1, 3]]);
+    expect(rows(db, newcomerRowsQuery('2026-10-07', '2026-10-13', NO_CREDITS, [BASE_SENDER_1])).map((r) => [r.address, r.messages])).toEqual([[BASE_SENDER_1, 3]]);
+  });
+
+  describe('wallets whose sends are credited via a token', () => {
+    const BASE = NETWORKS.base.chainSelector;
+    const ELIZA = `${BASE}:0x00000000000000000000000000000000000000e1`;
+    const USDC = `${BASE}:0x00000000000000000000000000000000000000c1`;
+    const CREDITED = { labeled: [BASE_SENDER_2], claimed: [ELIZA] };
+    /** `messages` sent on Base, `bridged` of them direct sends of `token`. */
+    const seed = (db: DatabaseSync, address: string, messages: number, bridged = 0, token = ELIZA) => {
+      db.prepare("INSERT INTO daily_breakdown VALUES (?, 'sender', ?, ?, ?, NULL)").run(XSTOCKS_DAY, `${BASE}:${address}`, messages, messages * 10);
+      if (bridged > 0) db.prepare("INSERT INTO daily_breakdown VALUES (?, 'via_token', ?, ?, ?, NULL)").run(XSTOCKS_DAY, `${BASE}:${address}|${token}`, bridged, bridged * 10);
+    };
+    const ranked = (db: DatabaseSync) => groupCandidates(rows(db, identityCandidateQuery('2026-10-07', '2026-10-13', CREDITED, 50_000, 50)) as unknown as CandidateRow[], new Map()).map((c) => [c.address, c.messages]);
+
+    it('drafts no wallet whose sends were all credited to the token’s project', () => {
+      // #given a wallet that only bridged elizaOS, 150 times, and one that sent 60 messages of its own
+      const db = database();
+      seed(db, XBRIDGE_EVM, 150, 150);
+      seed(db, BASE_SENDER_1, 60);
+      // #then
+      expect(ranked(db)).toEqual([[BASE_SENDER_1, 60]]);
+    });
+
+    it('ranks and thresholds a partly credited wallet by the sends it keeps', () => {
+      // #given 100 of a wallet's 155 sends bridged elizaOS, 40 of another's 80 bridged USDC, which no project claims
+      const db = database();
+      seed(db, XBRIDGE_EVM, 155, 100);
+      seed(db, BASE_SENDER_1, 80, 40, USDC);
+      seed(db, FILLER_1, 120, 80);
+      // #then the third keeps 40, under the 50-message threshold
+      expect(ranked(db)).toEqual([[BASE_SENDER_1, 80], [XBRIDGE_EVM, 55]]);
+    });
+
+    it('keeps every send of an address a label names, whose sends are never credited', () => {
+      // #given the second Base sender is labeled on another chain and bridged elizaOS 100 of its 155 times
+      const db = database();
+      seed(db, BASE_SENDER_2, 155, 100);
+      // #then
+      expect(ranked(db)).toEqual([[BASE_SENDER_2, 155]]);
+    });
+
+    it('reads a newcomer’s rows net of its credited sends, and none when nothing is left', () => {
+      // #given
+      const db = database();
+      seed(db, BASE_SENDER_1, 5, 3);
+      seed(db, XBRIDGE_EVM, 4, 4);
+      // #then
+      expect(rows(db, newcomerRowsQuery('2026-10-07', '2026-10-13', CREDITED, [BASE_SENDER_1, XBRIDGE_EVM])).map((r) => [r.address, r.messages])).toEqual([[BASE_SENDER_1, 2]]);
+    });
+
+    it('keeps a partly credited candidate’s data share within 100%', () => {
+      // #given 6 of the wallet's 10 sends bridged elizaOS; the other 4 are its data messages
+      const db = database();
+      seed(db, XBRIDGE_EVM, 10, 6);
+      const message = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, NULL, ?)');
+      for (let i = 0; i < 10; i++) message.run(`m${i}`, XSTOCKS_DAY, BASE, XBRIDGE_EVM, i < 4 ? 0 : 1);
+      // #when
+      const found = rows(db, identityCandidateQuery('2026-10-07', '2026-10-13', CREDITED, 0, 1)) as unknown as CandidateRow[];
+      const stats = rows(db, messageStatsQuery('2026-10-07', '2026-10-13', found)) as unknown as { address: string; data_messages: number; first_seen: string }[];
+      const [candidate] = groupCandidates(found, new Map(stats.map((s) => [s.address, s])));
+      // #then
+      expect(dataSharePct(candidate!.messages, candidate!.data_messages)).toBe(100);
+    });
   });
 
   describe('fast-tracking newcomers', () => {

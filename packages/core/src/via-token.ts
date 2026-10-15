@@ -138,6 +138,9 @@ export function splitViaToken(
   return { senders, credits };
 }
 
+/** SQL over a sender key `<selector>:<address>`: its address, since selectors hold no colon. */
+export const SENDER_ADDRESS = "substr(key, instr(key, ':') + 1)";
+
 /** SQL over a via_token key `<selector>:<sender>|<group>`: its sender key, its address and its group. */
 export const VIA_SENDER_KEY = "substr(key, 1, instr(key, '|') - 1)";
 export const VIA_ADDRESS = "substr(key, instr(key, ':') + 1, instr(key, '|') - instr(key, ':') - 1)";
@@ -152,6 +155,20 @@ const viaTokenCreditsSql = (withDay: boolean) => {
       AND ${VIA_GROUP} IN (SELECT value FROM json_each(?3)) AND ${VIA_ADDRESS} NOT IN (SELECT value FROM json_each(?4))
   ) GROUP BY ${day}credit ORDER BY ${day}credit`;
 };
+
+/**
+ * The sender rows over [?1, ?2] of addresses outside the labeled list ?3, with the claimed direct sends (the keys in the
+ * JSON list `claimedParam`) as negative rows: summed per key, they leave what the move to the token's project leaves.
+ * The Worker's rankings and the candidates job both read unlabeled senders through it, so neither counts a wallet for
+ * sends already credited to a project.
+ */
+export const unlabeledSenderRowsSql = (withDay: boolean, claimedParam: string): string => `SELECT ${withDay ? 'day, ' : ''}key, address, messages, usd_value, fee_usd FROM (
+    SELECT day, key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd FROM daily_breakdown
+    WHERE dim = 'sender' AND day >= ?1 AND day <= ?2
+    UNION ALL
+    SELECT day, ${VIA_SENDER_KEY}, ${VIA_ADDRESS}, -messages, -usd_value, -fee_usd FROM daily_breakdown
+    WHERE dim = 'via_token' AND day >= ?1 AND day <= ?2 AND ${VIA_GROUP} IN (SELECT value FROM json_each(${claimedParam}))
+  ) WHERE address NOT IN (SELECT value FROM json_each(?3))`;
 
 /**
  * Credit rows `<selector>|<group>` over [?1, ?2] for the claimed keys in the JSON list ?3, from senders outside the
