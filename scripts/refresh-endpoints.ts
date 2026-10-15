@@ -18,6 +18,11 @@ const MAX_RPC_CANDIDATES = 6;
 const MAX_EXPLORER_CANDIDATES = 3;
 const PROBE_TIMEOUT_MS = 8_000;
 const LOG_PROBE_TIMEOUT_MS = 20_000;
+/** A current endpoint that failed its first probe gets one slower, unhurried look before it is removed. */
+const RECHECK_TIMEOUT_MS = 20_000;
+/** A run that would remove more than this share of a map (or this many entries, if more) is refused: its probes failed, not the endpoints. */
+const MAX_REMOVED_SHARE = 0.2;
+const MIN_REMOVALS_ALLOWED = 3;
 const KEYED_URL = /api[_-]?key|apikey|demo|\/vk_|\/v\d\/[0-9a-f]{20,}/i;
 
 export interface ChainlistEntry {
@@ -78,6 +83,20 @@ export function candidateExplorers(entry: ChainlistEntry): string[] {
     .map((e) => e.url.replace(/\/$/, ''));
 }
 
+export type ProbeFailures = Map<string, number>;
+
+interface ProbeOptions {
+  timeoutMs?: number;
+  failures?: ProbeFailures;
+}
+
+function recordFailure(failures: ProbeFailures | undefined, reason: string): false {
+  failures?.set(reason, (failures.get(reason) ?? 0) + 1);
+  return false;
+}
+
+const failureReason = (err: unknown) => (err instanceof Error ? (err.name === 'Error' || err.name === 'TypeError' ? err.message : err.name) : 'error');
+
 async function rpcResult(fetchFn: typeof fetch, url: string, method: string, params: unknown[], timeoutMs: number): Promise<unknown> {
   const res = await fetchFn(url, {
     method: 'POST',
@@ -90,25 +109,26 @@ async function rpcResult(fetchFn: typeof fetch, url: string, method: string, par
   return body.result;
 }
 
-export async function verifyEvmRpc(fetchFn: typeof fetch, url: string, chainId: number): Promise<boolean> {
+export async function verifyEvmRpc(fetchFn: typeof fetch, url: string, chainId: number, opts: ProbeOptions = {}): Promise<boolean> {
+  const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
   try {
-    const reported = await rpcResult(fetchFn, url, 'eth_chainId', [], PROBE_TIMEOUT_MS);
-    if (typeof reported !== 'string' || BigInt(reported) !== BigInt(chainId)) return false;
-    const code = await rpcResult(fetchFn, url, 'eth_getCode', ['0x0000000000000000000000000000000000000000', 'latest'], PROBE_TIMEOUT_MS);
-    return typeof code === 'string';
-  } catch {
-    return false;
+    const reported = await rpcResult(fetchFn, url, 'eth_chainId', [], timeoutMs);
+    if (typeof reported !== 'string' || BigInt(reported) !== BigInt(chainId)) return recordFailure(opts.failures, 'wrong chain');
+    const code = await rpcResult(fetchFn, url, 'eth_getCode', ['0x0000000000000000000000000000000000000000', 'latest'], timeoutMs);
+    return typeof code === 'string' || recordFailure(opts.failures, 'no eth_getCode');
+  } catch (err) {
+    return recordFailure(opts.failures, failureReason(err));
   }
 }
 
-export async function verifyBlockscout(fetchFn: typeof fetch, base: string): Promise<boolean> {
+export async function verifyBlockscout(fetchFn: typeof fetch, base: string, opts: ProbeOptions = {}): Promise<boolean> {
   try {
-    const res = await fetchFn(`${base}/api/v2/stats`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
-    if (!res.ok) return false;
+    const res = await fetchFn(`${base}/api/v2/stats`, { signal: AbortSignal.timeout(opts.timeoutMs ?? PROBE_TIMEOUT_MS) });
+    if (!res.ok) return recordFailure(opts.failures, `HTTP ${res.status}`);
     const body = (await res.json()) as Record<string, unknown>;
-    return 'total_blocks' in body || 'total_addresses' in body;
-  } catch {
-    return false;
+    return 'total_blocks' in body || 'total_addresses' in body || recordFailure(opts.failures, 'not a blockscout');
+  } catch (err) {
+    return recordFailure(opts.failures, failureReason(err));
   }
 }
 
@@ -143,21 +163,38 @@ function sortedRecord(entries: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(entries).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
+/**
+ * Probes every chain at once, then gives each current entry that found no replacement a second, one-at-a-time look before
+ * removing it. It stops and throws once removals pass the limit, since that many dead endpoints at once means the run's
+ * own probes failed.
+ */
 async function refreshMap(
   names: string[],
   current: Record<string, string>,
   kind: 'rpc' | 'explorer',
   pick: (name: string) => Promise<{ keep: boolean; found: string | undefined }>,
+  recheck: (name: string) => Promise<boolean>,
 ): Promise<{ map: Record<string, string>; changes: Change[] }> {
   const results = await Promise.all(names.map(async (name) => ({ name, ...(await pick(name)) })));
+  const total = names.filter((name) => current[name]).length;
+  const limit = Math.max(MIN_REMOVALS_ALLOWED, Math.floor(total * MAX_REMOVED_SHARE));
   const map: Record<string, string> = {};
   const changes: Change[] = [];
+  let removed = 0;
   for (const { name, keep, found } of results) {
     if (keep) map[name] = current[name]!;
     else if (found) {
       map[name] = found;
       changes.push({ kind, chain: name, change: current[name] ? 'replaced' : 'added', url: found });
-    } else if (current[name]) changes.push({ kind, chain: name, change: 'removed' });
+    } else if (current[name]) {
+      if (await recheck(name)) {
+        map[name] = current[name]!;
+        continue;
+      }
+      removed += 1;
+      if (removed > limit) throw new Error(`refusing to write: this run would remove more than ${limit} of ${total} ${kind} endpoints, so its probes failed, not the endpoints`);
+      changes.push({ kind, chain: name, change: 'removed' });
+    }
   }
   return { map, changes };
 }
@@ -167,8 +204,11 @@ export async function refreshEndpoints(input: {
   ccipChains: CcipChain[];
   chainlist: ChainlistEntry[];
   current: Endpoints;
+  failures?: ProbeFailures;
 }): Promise<{ endpoints: Endpoints; changes: Change[] }> {
-  const { fetch: fetchFn, ccipChains, chainlist, current } = input;
+  const { fetch: fetchFn, ccipChains, chainlist, current, failures } = input;
+  const probe = { failures };
+  const recheck = { failures, timeoutMs: RECHECK_TIMEOUT_MS };
   const byChainId = new Map(chainlist.map((c) => [Number(c.chainId), c]));
   const evm = ccipChains.filter((c) => c.family === 'EVM');
   const evmNames = evm.map((c) => c.name);
@@ -178,16 +218,22 @@ export async function refreshEndpoints(input: {
   const rpc = await refreshMap(evmNames, current.rpc, 'rpc', async (name) => {
     const chainId = Number(chainOf.get(name)!.chain_id);
     const existing = current.rpc[name];
-    if (existing && isKeylessHttps(existing) && (await verifyEvmRpc(fetchFn, existing, chainId))) return { keep: true, found: undefined };
+    if (existing && isKeylessHttps(existing) && (await verifyEvmRpc(fetchFn, existing, chainId, probe))) return { keep: true, found: undefined };
     const candidates = entryOf(name) ? candidateRpcs(entryOf(name)!) : [];
-    return { keep: false, found: await firstVerified(candidates, MAX_RPC_CANDIDATES, (url) => verifyEvmRpc(fetchFn, url, chainId)) };
+    return { keep: false, found: await firstVerified(candidates, MAX_RPC_CANDIDATES, (url) => verifyEvmRpc(fetchFn, url, chainId, probe)) };
+  }, async (name) => {
+    const existing = current.rpc[name]!;
+    return isKeylessHttps(existing) && verifyEvmRpc(fetchFn, existing, Number(chainOf.get(name)!.chain_id), recheck);
   });
 
   const explorer = await refreshMap(evmNames, current.explorer, 'explorer', async (name) => {
     const existing = current.explorer[name];
-    if (existing && isKeylessHttps(existing) && (await verifyBlockscout(fetchFn, existing))) return { keep: true, found: undefined };
+    if (existing && isKeylessHttps(existing) && (await verifyBlockscout(fetchFn, existing, probe))) return { keep: true, found: undefined };
     const candidates = entryOf(name) ? candidateExplorers(entryOf(name)!) : [];
-    return { keep: false, found: await firstVerified(candidates, MAX_EXPLORER_CANDIDATES, (url) => verifyBlockscout(fetchFn, url)) };
+    return { keep: false, found: await firstVerified(candidates, MAX_EXPLORER_CANDIDATES, (url) => verifyBlockscout(fetchFn, url, probe)) };
+  }, async (name) => {
+    const existing = current.explorer[name]!;
+    return isKeylessHttps(existing) && verifyBlockscout(fetchFn, existing, recheck);
   });
 
   const handEdited = (map: Record<string, string>) =>
@@ -244,7 +290,15 @@ async function readCurrent(): Promise<Endpoints> {
 async function main(): Promise<void> {
   const { chains } = await getJson<{ chains: CcipChain[] }>('https://data.ccip.dev/v1/chains.json');
   const chainlist = await getJson<ChainlistEntry[]>('https://chainlist.org/rpcs.json');
-  const { endpoints, changes } = await refreshEndpoints({ fetch, ccipChains: chains, chainlist, current: await readCurrent() });
+  const failures: ProbeFailures = new Map();
+  const tally = () => [...failures].sort((a, b) => b[1] - a[1]).map(([reason, n]) => `${reason} ${n}`).join(', ');
+  let refreshed: Awaited<ReturnType<typeof refreshEndpoints>>;
+  try {
+    refreshed = await refreshEndpoints({ fetch, ccipChains: chains, chainlist, current: await readCurrent(), failures });
+  } finally {
+    if (failures.size > 0) console.log(`probe failures: ${tally()}`);
+  }
+  const { endpoints, changes } = refreshed;
   await writeFile(ENDPOINTS_FILE, `${JSON.stringify(endpoints, null, 2)}\n`);
   await writeFile(path.join(ROOT, 'endpoints-pr.md'), changesMarkdown(changes));
   const count = (kind: Change['kind'], change: Change['change']) => changes.filter((c) => c.kind === kind && c.change === change).length;

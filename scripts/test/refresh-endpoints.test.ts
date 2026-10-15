@@ -125,6 +125,60 @@ describe('refreshEndpoints', () => {
     ]);
   });
 
+  it('checks a current entry again before removing it, and keeps it when it answers the second time', async () => {
+    // #given the current endpoint fails its first probe and answers the next
+    let calls = 0;
+    const flaky: FakeRoute = async (u, init) => {
+      if (u !== 'https://current.example') return undefined;
+      calls += 1;
+      return calls <= 1 ? new Response('busy', { status: 503 }) : rpcRoute('https://current.example', { chainId: 10 })(u, init);
+    };
+    // #when
+    const { endpoints, changes } = await refreshEndpoints({
+      fetch: fakeFetch(flaky), ccipChains: [evmChain('optimism-mainnet', '10')], chainlist: [entry(10, [])],
+      current: { ...base, rpc: { 'optimism-mainnet': 'https://current.example' }, explorer: {}, ethereumLogs: [] },
+    });
+    // #then
+    expect({ rpc: endpoints.rpc, changes }).toEqual({ rpc: { 'optimism-mainnet': 'https://current.example' }, changes: [] });
+  });
+
+  it('refuses a run that would remove most of the current endpoints, as when the probes themselves fail', async () => {
+    // #given ten working chains whose endpoints all fail to answer this run
+    const names = Array.from({ length: 10 }, (_, i) => `chain-${i}`);
+    const run = refreshEndpoints({
+      fetch: fakeFetch(() => new Response('unreachable', { status: 503 })),
+      ccipChains: names.map((n, i) => evmChain(n, String(100 + i))), chainlist: [],
+      current: { ...base, rpc: Object.fromEntries(names.map((n) => [n, `https://${n}.example`])), explorer: {}, ethereumLogs: [] },
+    });
+    // #then
+    await expect(run).rejects.toThrow(/would remove more than 3 of 10 rpc endpoints/);
+  });
+
+  it('still removes a few dead endpoints, under the limit of max(3, 20%)', async () => {
+    // #given ten chains, three of them dead
+    const names = Array.from({ length: 10 }, (_, i) => `chain-${i}`);
+    const routes = names.map((n, i) => (i < 3 ? dead(`https://${n}.example`) : rpcRoute(`https://${n}.example`, { chainId: 100 + i })));
+    // #when
+    const { changes } = await refreshEndpoints({
+      fetch: fakeFetch(...routes), ccipChains: names.map((n, i) => evmChain(n, String(100 + i))), chainlist: [],
+      current: { ...base, rpc: Object.fromEntries(names.map((n) => [n, `https://${n}.example`])), explorer: {}, ethereumLogs: [] },
+    });
+    // #then
+    expect(changes.filter((c) => c.change === 'removed').length).toBe(3);
+  });
+
+  it('tallies why probes failed, so a failed run says what went wrong', async () => {
+    // #given
+    const failures = new Map<string, number>();
+    // #when
+    await refreshEndpoints({
+      fetch: fakeFetch(dead('https://old.example')), ccipChains: [evmChain('gone-chain', '8')], chainlist: [],
+      current: { ...base, rpc: { 'gone-chain': 'https://old.example' }, explorer: {}, ethereumLogs: [] }, failures,
+    });
+    // #then the first probe and the second look both failed with HTTP 503
+    expect(failures.get('HTTP 503')).toBe(2);
+  });
+
   it('carries non-EVM entries over unchanged', async () => {
     const { endpoints } = await refreshEndpoints({
       fetch: fakeFetch(), ccipChains: [{ name: 'solana-mainnet', family: 'SVM', chain_id: 'abc' }], chainlist: [],
