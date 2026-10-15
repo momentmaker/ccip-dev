@@ -123,3 +123,12 @@ export async function enlist(db: D1Database, recruit: Recruit, draft: () => Draf
 export async function setCardKey(db: D1Database, serial: number, key: string): Promise<void> {
   await db.prepare('UPDATE marines SET card_key = ? WHERE serial = ?').bind(key, serial).run();
 }
+
+/** Claims a `meta` key for `ttlMs`: false while an earlier claim is younger. The values are ISO times, which compare as text. */
+export async function claimMeta(db: D1Database, key: string, nowMs: number, ttlMs: number): Promise<boolean> {
+  const res = await db
+    .prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE meta.value <= ?3')
+    .bind(key, new Date(nowMs).toISOString(), new Date(nowMs - ttlMs).toISOString())
+    .run();
+  return res.meta.changes > 0;
+}

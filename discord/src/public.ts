@@ -1,13 +1,15 @@
 import { ROSTER_VERSION, type RosterFile, type RosterMarine } from '@ccip-dev/core/roster';
-import type { MarineWebCard, Tier } from '@ccip-dev/core/linkmarine';
+import type { LinkMarineRenderer, MarineWebCard, Tier } from '@ccip-dev/core/linkmarine';
 import type { Bot } from './bot';
 import { tagChances, type CallsignSnapshot } from './draw';
+import { publicCard } from './enlistment';
 import { loadMemes, memeKey, stockMemes } from './memes';
 import type { MarineMeme } from './store';
 
 /**
- * The bot's public, read-only routes, which the site's /marines/ pages read: the roster, the meme images and the web
- * cards. Callsigns only. Every query names PUBLIC_COLUMNS, so a Discord name, avatar or id never leaves the bot.
+ * The bot's public, read-only routes, which the site's /marines/ pages and the Mini App read: the roster, the meme
+ * images, the web cards and the Story cards. Callsigns only. Every query names PUBLIC_COLUMNS, so a name, an avatar or
+ * an account id never leaves the bot.
  */
 export interface PublicDeps extends Pick<Bot, 'db' | 'bucket' | 'renderer' | 'fetch' | 'snapshot' | 'now'> {
   cache: Pick<Cache, 'match' | 'put'> | null;
@@ -81,9 +83,11 @@ const IMMUTABLE = 'public, max-age=31536000, immutable';
 const WEB_MAX_AGE = 86_400;
 const MEME_PATH = /^\/memes\/([^/]+)\.png$/;
 const WEB_PATH = /^\/web\/([^/]+)\.png$/;
+const STORY_PATH = /^\/story\/([^/]+)\.png$/;
 const SERIAL = /^[1-9][0-9]{0,8}$/;
 
 export const webCardKey = (serial: number) => `web/${serial}.png`;
+export const storyKey = (serial: number) => `story/${serial}.png`;
 
 const png = (body: ReadableStream | Uint8Array, cacheControl: string) => new Response(body, { headers: { ...CORS, 'Content-Type': 'image/png', 'Cache-Control': cacheControl } });
 const missing = () => new Response('Not found', { status: 404, headers: { ...CORS, 'Cache-Control': `public, max-age=${MISSING_MAX_AGE}` } });
@@ -124,38 +128,32 @@ async function memeResponse(path: string, deps: PublicDeps): Promise<Response> {
   return stocked ? png(stocked.body, IMMUTABLE) : unavailable('meme');
 }
 
-/** A Marine's web card: from R2, else rendered once through the site (never with a name or avatar) and kept. */
-async function webCardResponse(path: string, deps: PublicDeps): Promise<Response> {
-  const digits = WEB_PATH.exec(path)![1]!;
-  if (!SERIAL.test(digits)) return missing();
-  const serial = Number(digits);
-  const kept = await deps.bucket.get(webCardKey(serial));
-  if (kept) return png(kept.body, `public, max-age=${WEB_MAX_AGE}`);
-  const row = await deps.db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM marines WHERE serial = ?`).bind(serial).first<PublicRow>();
-  if (!row) return missing();
-  try {
-    const stored = JSON.parse(row.memes) as MarineMeme[];
-    await stockMemes(deps.bucket, deps.renderer, deps.fetch, deps.snapshot.archive, stored);
-    const pngs = await loadMemes(deps.bucket, stored);
-    if (!pngs) throw new Error('memes missing from storage right after copying');
-    const marine = rosterMarine(row, deps.snapshot);
-    const card: MarineWebCard = {
-      serial,
-      callsign: marine.callsign,
-      tier: marine.tier,
-      percentile: marine.percentile,
-      memes: marine.memes.map((m, i) => ({ tag: m.tag, count: m.count, png: pngs[i]! })),
-      blood: marine.blood,
-      faith: marine.faith,
-      enlistedAt: row.enlisted_at,
-    };
-    const bytes = await deps.renderer.renderMarineWebCard(card);
-    await deps.bucket.put(webCardKey(serial), bytes, { httpMetadata: { contentType: 'image/png' } });
-    return png(bytes, `public, max-age=${WEB_MAX_AGE}`);
-  } catch (err) {
-    console.error(`web card #${serial}: ${reason(err)}`);
-    return unavailable('card');
-  }
+/**
+ * A public card of a Marine: from R2, else rendered once through the site from the public columns (never with a name or
+ * avatar) and kept. The web card and the Story card are both served this way.
+ */
+function keptCard(path: RegExp, key: (serial: number) => string, what: string, draw: (renderer: LinkMarineRenderer, card: MarineWebCard) => Promise<Uint8Array>): Route {
+  return async (requested, deps) => {
+    const digits = path.exec(requested)![1]!;
+    if (!SERIAL.test(digits)) return missing();
+    const serial = Number(digits);
+    const kept = await deps.bucket.get(key(serial));
+    if (kept) return png(kept.body, `public, max-age=${WEB_MAX_AGE}`);
+    const row = await deps.db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM marines WHERE serial = ?`).bind(serial).first<PublicRow>();
+    if (!row) return missing();
+    try {
+      const stored = JSON.parse(row.memes) as MarineMeme[];
+      await stockMemes(deps.bucket, deps.renderer, deps.fetch, deps.snapshot.archive, stored);
+      const pngs = await loadMemes(deps.bucket, stored);
+      if (!pngs) throw new Error('memes missing from storage right after copying');
+      const bytes = await draw(deps.renderer, publicCard(deps, { ...row, enlistedAt: row.enlisted_at, memes: stored }, pngs));
+      await deps.bucket.put(key(serial), bytes, { httpMetadata: { contentType: 'image/png' } });
+      return png(bytes, `public, max-age=${WEB_MAX_AGE}`);
+    } catch (err) {
+      console.error(`${what} #${serial}: ${reason(err)}`);
+      return unavailable('card');
+    }
+  };
 }
 
 export type Route = (path: string, deps: PublicDeps) => Promise<Response>;
@@ -164,7 +162,8 @@ export type Route = (path: string, deps: PublicDeps) => Promise<Response>;
 export const ROUTES: [RegExp, Route][] = [
   [/^\/roster\.json$/, rosterResponse],
   [MEME_PATH, memeResponse],
-  [WEB_PATH, webCardResponse],
+  [WEB_PATH, keptCard(WEB_PATH, webCardKey, 'web card', (renderer, card) => renderer.renderMarineWebCard(card))],
+  [STORY_PATH, keptCard(STORY_PATH, storyKey, 'Story card', (renderer, card) => renderer.renderMarineStory(card))],
 ];
 
 const POLICY_HEADER = 'x-ccip-cache-control';

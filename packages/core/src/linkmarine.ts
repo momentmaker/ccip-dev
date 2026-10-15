@@ -269,3 +269,19 @@ export function parseStartParam(param: string | null | undefined): StartParam | 
   const tag = START_TAG.exec(param ?? '');
   return tag ? { kind: 'tag', tag: tag[1]! } : null;
 }
+
+/** What the Mini App is told of a Marine: never the name, the photo or the account. */
+export interface MarineSummary {
+  serial: number;
+  callsign: string;
+  tags: string[];
+  tier: Tier;
+  percentile: number;
+  memes: { tag: string; file: string; count: number }[];
+  /** The sticker pack volume the Marine's sticker is in, or will be. */
+  volume: number;
+  cardReady: boolean;
+}
+
+/** ok: a member of a gate chat, or already enlisted. join: not yet in one. */
+export type Gate = 'ok' | 'join';

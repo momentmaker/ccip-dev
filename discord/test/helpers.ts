@@ -6,6 +6,8 @@ import { simulate, type CallsignSnapshot } from '../src/draw';
 import type { CommandOption, Interaction } from '../src/interactions';
 import type { PublicDeps } from '../src/public';
 import { enlist, type MarineMeme } from '../src/store';
+import type { TelegramApi, TelegramResult } from '../src/telegram-api';
+import type { TelegramBot, TelegramSettings } from '../src/telegram-marines';
 
 export const GUILD = '1100000000000000001';
 export const APP = '1200000000000000002';
@@ -205,19 +207,19 @@ export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
 
 /**
  * Enlists a Marine straight into the test D1 with the given callsign. Each meme is the tag's first snapshot file,
- * keyed as the bot keys memes. `extra` overrides the draw's tier, score or percentile, or the memes (to leave out counts).
+ * keyed as the bot keys memes. `extra` overrides the draw's tier, score or percentile, the memes (to leave out counts) or the platform.
  */
 export async function seedMarine(
   userId: string,
   displayName: string,
   callsign: string,
-  extra: { tier?: 'common' | 'uncommon' | 'rare' | 'legendary'; score?: number; percentile?: number; memes?: MarineMeme[] } = {},
+  extra: { tier?: 'common' | 'uncommon' | 'rare' | 'legendary'; score?: number; percentile?: number; memes?: MarineMeme[]; platform?: string } = {},
 ): Promise<void> {
   const tags = callsign.split('-') as [string, string, string];
   const files = tags.map((tag) => SNAPSHOT.tags.find((t) => t.tag === tag)!.memes[0]!);
   const result = await enlist(
     env.DB,
-    { platform: 'discord', userId, displayName, enlistedAt: '2026-10-13T10:40:00.000Z', snapshotVersion: SNAPSHOT.version },
+    { platform: extra.platform ?? 'discord', userId, displayName, enlistedAt: '2026-10-13T10:40:00.000Z', snapshotVersion: SNAPSHOT.version },
     () => ({
       draw: { tags, callsign, tagKey: [...tags].sort().join('-'), score: extra.score ?? 15, tier: extra.tier ?? 'common', percentile: extra.percentile ?? 40 },
       memes: extra.memes ?? tags.map((tag, i) => ({ tag, file: files[i]!, key: `memes/${files[i]}.png`, count: SNAPSHOT.tags.find((t) => t.tag === tag)!.count, sha: SNAPSHOT.archive.sha })),
@@ -277,4 +279,51 @@ export async function signedLaunch(user: Record<string, unknown>, authDate: numb
   const hmac = async (key: BufferSource, data: string) => crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), encode(data));
   const hash = toHex(await hmac(await hmac(encode('WebAppData'), token), check));
   return new URLSearchParams({ ...fields, hash }).toString();
+}
+
+export interface TelegramCall {
+  method: string;
+  body: Record<string, unknown>;
+  /** An upload's file name. */
+  file?: string;
+}
+
+type Answer = (body: Record<string, unknown>) => TelegramResult<unknown>;
+
+/** The Bot API as the bot calls it: each method answered from `answers` (true when unlisted), every call recorded. `files` are what download serves. */
+export function fakeTelegram(answers: Record<string, Answer> = {}, files: Record<string, Uint8Array> = {}): TelegramApi & { calls: TelegramCall[] } {
+  const calls: TelegramCall[] = [];
+  const answer = (method: string, body: Record<string, unknown>) => (answers[method] ?? (() => ({ ok: true, result: true })))(body) as TelegramResult<never>;
+  return {
+    calls,
+    async call(method, body) {
+      calls.push({ method, body });
+      return answer(method, body);
+    },
+    async upload(method, fields, file) {
+      calls.push({ method, body: fields, file: file.name });
+      return answer(method, fields);
+    },
+    async download(path) {
+      return files[path] ?? null;
+    },
+  };
+}
+
+export const tgOk = (result: unknown): TelegramResult<unknown> => ({ ok: true, result });
+export const tgError = (status: number, description: string, retryAfter: number | null = null): TelegramResult<unknown> => ({ ok: false, status, description, retryAfter });
+
+export const OWNER_ID = 42;
+export const TG_SETTINGS: TelegramSettings = { open: true, gateChats: ['@ccipdev'], ownerId: OWNER_ID, botToken: BOT_TOKEN };
+
+export interface FakeTelegramBot extends FakeBot {
+  tg: ReturnType<typeof fakeTelegram>;
+  settings: TelegramSettings;
+  /** Mirrors settings.open, so the bot's two switches never disagree. */
+  telegramOpen: boolean;
+}
+
+/** fakeBot with a fake Bot API and LinkMarines on Telegram switched on. */
+export function fakeTelegramBot(overrides: Partial<TelegramBot> = {}): FakeTelegramBot {
+  return { ...fakeBot(), tg: fakeTelegram(), settings: TG_SETTINGS, telegramOpen: TG_SETTINGS.open, ...overrides } as FakeTelegramBot;
 }
