@@ -1,7 +1,6 @@
 import type { Gate } from '@ccip-dev/core/linkmarine';
 import { PLANK_SEATS, plankSeats, type RosterFile } from '@ccip-dev/core/roster';
 
-/** The welcome shows the first three rows of the hundred plank-owner seats. */
 export const SEAT_PREVIEW = 30;
 
 export function OpensSoon() {

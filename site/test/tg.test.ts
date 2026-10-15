@@ -59,6 +59,11 @@ describe('the draw', () => {
     // #then
     expect([chanceText(0.04412), tierBanner('rare', 88.4), tierBanner('common', 55.9)]).toEqual(['4.4%', 'RARE · RARER THAN 88%', 'COMMON · RARER THAN 55%']);
   });
+
+  it('leaves “rarer than” off the banner for a draw rarer than under one in a hundred, as the card does', () => {
+    // #then
+    expect([tierBanner('common', 0), tierBanner('common', 0.9), tierBanner('common', 1)]).toEqual(['COMMON', 'COMMON', 'COMMON · RARER THAN 1%']);
+  });
 });
 
 describe('the bottom button', () => {
@@ -91,6 +96,17 @@ describe('the tilt', () => {
       { x: 0, y: 0, streak: 50 },
       { x: -4, y: 4, streak: 75 },
       { x: -MAX_TILT, y: -MAX_TILT, streak: 0 },
+    ]);
+  });
+
+  it('holds the card at rest, never NaN, when a reading is not a number', () => {
+    // #given
+    const rest = { beta: 40, gamma: 0 };
+    // #then
+    expect([tilt(Number.NaN, 0, rest), tilt(40, Number.POSITIVE_INFINITY, rest), tilt(40, 0, { beta: Number.NaN, gamma: 0 })]).toEqual([
+      { x: 0, y: 0, streak: 50 },
+      { x: 0, y: 0, streak: 50 },
+      { x: 0, y: 0, streak: 50 },
     ]);
   });
 
@@ -140,5 +156,49 @@ describe('the Mini App API client', () => {
     const results = [await tgApi('x', answering(202, { stamping: true })).card(), await tgApi('x', answering(403, { gate: 'join' })).enlist(), await tgApi('x', answering(409, { switch: 'off' })).enlist()];
     // #then
     expect(results).toEqual([null, { gate: 'join' }, { switch: 'off' }]);
+  });
+
+  describe('when the Worker refuses', () => {
+    const LAUNCH = 'query_id=SECRET&hash=abc';
+    /** A Worker that echoes the request body into its refusal, so an error that quoted the body would carry the launch data. */
+    const refusing = (status: number) => (async (_url: string, init: RequestInit) => new Response(JSON.stringify({ error: 'refused', echo: init.body }), { status })) as unknown as typeof fetch;
+    const failure = (call: 'session' | 'enlist' | 'card', status: number) =>
+      tgApi(LAUNCH, refusing(status))
+        [call]()
+        .then(
+          () => 'resolved',
+          (err: Error) => err.message,
+        );
+
+    it('throws on bad launch data, a failed draw and a server error, for the session and the enlist alike', async () => {
+      // #when
+      const messages = await Promise.all([401, 503, 500].flatMap((status) => [failure('session', status), failure('enlist', status)]));
+      // #then
+      expect(messages).toEqual(['session: HTTP 401', 'enlist: HTTP 401', 'session: HTTP 503', 'enlist: HTTP 503', 'session: HTTP 500', 'enlist: HTTP 500']);
+    });
+
+    it('throws on a card for the switch off or no Marine', async () => {
+      // #then
+      expect(await Promise.all([failure('card', 409), failure('card', 404)])).toEqual(['card: HTTP 409', 'card: HTTP 404']);
+    });
+
+    it('never puts the launch data in an error', async () => {
+      // #when
+      const messages = await Promise.all([401, 413, 503, 500].flatMap((status) => [failure('session', status), failure('enlist', status), failure('card', status)]));
+      // #then
+      expect(messages.filter((message) => message.includes(LAUNCH) || message.includes('SECRET'))).toEqual([]);
+    });
+  });
+
+  it('gives the card as the Blob it was sent, a PNG or a glint’s GIF', async () => {
+    // #given
+    const sending = (type: string) => (async () => new Response(new Blob(['card'], { type }), { status: 200 })) as unknown as typeof fetch;
+    // #when
+    const cards = await Promise.all(['image/png', 'image/gif'].map((type) => tgApi('x', sending(type)).card()));
+    // #then
+    expect(cards.map((card) => [card instanceof Blob, card?.type, card?.size])).toEqual([
+      [true, 'image/png', 4],
+      [true, 'image/gif', 4],
+    ]);
   });
 });

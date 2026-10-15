@@ -71,9 +71,14 @@ describe('screen 2: the draw', () => {
     // #when
     const out = draw(2);
     // #then
-    expect({ spinning: out.match(/tg-hex tg-spin/g)?.length, memes: [...out.matchAll(/memes\/([a-z]+)\.jpeg\.png/g)].map((m) => m[1]), copy: text(out) }).toMatchObject({ spinning: 1, memes: ['comfy', 'painting'] });
+    expect({ spinning: out.match(/tg-hex tg-spin/g)?.length, memes: [...out.matchAll(/memes\/([a-z]+)\.jpeg\.png/g)].map((m) => m[1]) }).toEqual({ spinning: 1, memes: ['comfy', 'painting'] });
     expect(squashed(out)).toContain('COMFY-PAINTING-······');
     expect(text(out)).toContain('comfy · 25 memes · 10.0% painting · 1 meme · 5.0%');
+  });
+
+  it('never prints a tag before its hex locks, in the tag row, the callsign, the memes or the odds line', () => {
+    // #then
+    expect([0, 1, 2].map((locked) => MARINE.tags.slice(locked).filter((tag) => draw(locked).toLowerCase().includes(tag)))).toEqual([[], [], []]);
   });
 
   it('ends a Rare draw on its banner, and a Common one without', () => {
@@ -105,6 +110,13 @@ describe('screen 3: your dog tag', () => {
     const out = dogtag(null);
     // #then
     expect([squashed(out).includes('COMFY-PAINTING-SERGEYStampingyourdogtag…'), out.includes('tg-spin'), out.includes('<img')]).toEqual([true, false, false]);
+  });
+
+  it('keeps the name-and-photo footnote off until your card is on show', () => {
+    // #when
+    const out = dogtag(null, true);
+    // #then
+    expect(text(out).includes('Your card here shows your Telegram name and photo')).toBe(false);
   });
 });
 

@@ -11,8 +11,8 @@ export interface Tilt {
 }
 
 /**
- * Screen 3: the tier banner, your own card (tilting when the phone does), and what to do with it. `ownCard` is false when the
- * public web card stands in for your own: it has no name or photo, so the footnote about them would be untrue.
+ * The footnote says your card shows your name and photo, so it waits for a card to show (the draw's last frame stands in while
+ * it is stamped) and is dropped when `ownCard` is false: the public web card that stands in then has neither.
  */
 export default function DogTagScreen({ marine, cardUrl, ownCard, tilt, onPack, onShare, onRoster }: { marine: MarineSummary; cardUrl: string | null; ownCard: boolean; tilt: Tilt | null; onPack: () => void; onShare: () => void; onRoster: () => void }) {
   const turn = tilt ? ({ '--tilt-x': `${tilt.x}deg`, '--tilt-y': `${tilt.y}deg`, '--streak': `${tilt.streak}%` } as CSSProperties) : undefined;
@@ -45,7 +45,7 @@ export default function DogTagScreen({ marine, cardUrl, ownCard, tilt, onPack, o
       <button type="button" className="tg-btn2" onClick={onRoster}>
         🪖 See the roster
       </button>
-      {ownCard && <p className="tg-muted tg-center">Your card here shows your Telegram name and photo; only you see this version.</p>}
+      {ownCard && cardUrl && <p className="tg-muted tg-center">Your card here shows your Telegram name and photo; only you see this version.</p>}
     </section>
   );
 }
