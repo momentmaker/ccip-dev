@@ -236,3 +236,34 @@ export interface LinkMarineRenderer {
   renderMarineStory(card: MarineWebCard): Promise<Uint8Array>;
   renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array>;
 }
+
+/** LinkMarines on Telegram: the bot, its Mini App and the sticker packs, as the bot and the site both name them. */
+export const TELEGRAM_BOT_USERNAME = 'ccipdevbot';
+/** The Mini App's direct link: registered with @BotFather as `marines`. */
+export const MINI_APP_LINK = `https://t.me/${TELEGRAM_BOT_USERNAME}/marines`;
+export const MINI_APP_URL = 'https://ccip.dev/tg/';
+
+export const miniAppLink = (startapp?: string) => (startapp ? `${MINI_APP_LINK}?startapp=${startapp}` : MINI_APP_LINK);
+
+/** Telegram caps a static sticker set at 120 stickers. */
+export const STICKERS_PER_PACK = 120;
+/** A Marine's sticker volume: serials 1–120 are Vol. 1, 121–240 Vol. 2, and so on. */
+export const stickerVolume = (serial: number) => Math.ceil(serial / STICKERS_PER_PACK);
+export const stickerPackName = (volume: number) => `linkmarines${volume === 1 ? '' : volume}_by_${TELEGRAM_BOT_USERNAME}`;
+export const stickerPackTitle = (volume: number) => `LinkMarines Vol. ${volume} · ccip.dev`;
+export const stickerPackUrl = (volume: number) => `https://t.me/addstickers/${stickerPackName(volume)}`;
+
+/** Where a Mini App link opens: screen 1, a Marine on the roster, or a tag's sheet on the roster. */
+export type StartParam = { kind: 'enlist' } | { kind: 'marine'; serial: number } | { kind: 'tag'; tag: string };
+
+const START_MARINE = /^marine_([1-9]\d{0,8})$/;
+const START_TAG = /^tag_([a-z0-9_]{1,13})$/;
+
+/** A `startapp` value as the Mini App reads it; anything else is null, so a link can only ever open a known screen. */
+export function parseStartParam(param: string | null | undefined): StartParam | null {
+  if (param === 'enlist') return { kind: 'enlist' };
+  const marine = START_MARINE.exec(param ?? '');
+  if (marine) return { kind: 'marine', serial: Number(marine[1]) };
+  const tag = START_TAG.exec(param ?? '');
+  return tag ? { kind: 'tag', tag: tag[1]! } : null;
+}

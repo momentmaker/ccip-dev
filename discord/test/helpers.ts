@@ -261,3 +261,19 @@ export function fakeCache(options: { browserTtl?: number } = {}): Pick<Cache, 'm
     put: async (request: RequestInfo | URL, response: Response) => void store.set(keyOf(request), response),
   } as Pick<Cache, 'match' | 'put'> & { store: Map<string, Response> };
 }
+
+export const BOT_TOKEN = '123456:TEST-bot-token';
+/** A Telegram account, as launch data names it. */
+export const TG_USER = { id: 777000111, first_name: 'Ada', last_name: 'Lovelace', username: 'ada' };
+
+const toHex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/** Launch data as Telegram signs it, for `user` at `authDate` (Unix seconds), with any other fields in `extra`. */
+export async function signedLaunch(user: Record<string, unknown>, authDate: number, token = BOT_TOKEN, extra: Record<string, string> = {}): Promise<string> {
+  const fields: Record<string, string> = { query_id: 'AAHdF6IQAAAAAN0XohDhrOrc', user: JSON.stringify(user), auth_date: String(authDate), ...extra };
+  const check = Object.keys(fields).sort().map((k) => `${k}=${fields[k]}`).join('\n');
+  const encode = (s: string) => new TextEncoder().encode(s);
+  const hmac = async (key: BufferSource, data: string) => crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), encode(data));
+  const hash = toHex(await hmac(await hmac(encode('WebAppData'), token), check));
+  return new URLSearchParams({ ...fields, hash }).toString();
+}
