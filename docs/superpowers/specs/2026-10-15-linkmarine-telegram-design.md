@@ -1,6 +1,6 @@
 # LinkMarines on Telegram: a Mini App, a thin bot and the sticker pack
 
-**Status:** Draft for owner review (revised: Mini App) · **Date:** 2026-10-15 · **Builds on:** `2026-10-13-linkmarine-bot-design.md` and `2026-10-13-linkmarines-roster-design.md`
+**Status:** Approved by the owner, 2026-10-15 (Mini App) · **Date:** 2026-10-15 · **Builds on:** `2026-10-13-linkmarine-bot-design.md` and `2026-10-13-linkmarines-roster-design.md`
 
 The Discord LinkMarine bot enlists a member with `/enlist`. It draws three random meme tags into a callsign that is unique everywhere, sets a tier, assigns a serial and stamps a dog-tag card. That bot design called Telegram "a later, separate front door". This spec builds it as a **Telegram Mini App**: enlisting, your dog tag and the roster run inside Telegram, opened from @ccipdevbot. A thin bot supports it, and every Marine also becomes a sticker. Telegram gets no stats commands.
 
