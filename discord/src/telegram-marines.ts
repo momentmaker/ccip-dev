@@ -72,12 +72,13 @@ function launchPhotoUrl(user: TelegramUser): string | null {
   }
 }
 
-/** The launch photo's bytes, or null when the download fails or is refused: the profile photo is the fallback. */
+/** The launch photo's bytes, or null when the download fails, is refused or is not a JPEG: the profile photo is the fallback. */
 async function downloadLaunchPhoto(bot: TelegramBot, url: string): Promise<Uint8Array | null> {
   try {
     const res = await bot.fetch(url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) });
-    return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
-  } catch {
+    return res.ok && res.headers.get('content-type')?.startsWith('image/jpeg') ? new Uint8Array(await res.arrayBuffer()) : null;
+  } catch (err) {
+    console.warn(`telegram launch photo download failed (${err instanceof Error ? err.name : 'unknown error'})`);
     return null;
   }
 }

@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enlistMarine } from '../src/enlistment';
 import { storyKey, webCardKey } from '../src/public';
 import type { Marine } from '../src/store';
@@ -10,6 +10,7 @@ import { fakeFetch, fakeRenderer, fakeTelegram, fakeTelegramBot, PNG_BYTES, rese
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0xff, 0xd9]);
 const PHOTOS = tgOk({ total_count: 1, photos: [[{ file_id: 'small', width: 160 }, { file_id: 'mid', width: 640 }, { file_id: 'big', width: 1280 }]] });
 
+const jpeg = (type: string | null = 'image/jpeg') => new Response(JPEG, type === null ? {} : { headers: { 'content-type': type } });
 const noPhotos = () => fakeTelegram({ getUserProfilePhotos: () => tgOk({ total_count: 0, photos: [] }) });
 const asUser = (fields: Record<string, unknown>) => fields as unknown as TelegramUser;
 
@@ -20,6 +21,7 @@ async function enlisted(bot: ReturnType<typeof fakeTelegramBot>): Promise<Marine
 }
 
 beforeEach(resetStorage);
+afterEach(() => vi.restoreAllMocks());
 
 describe('a Telegram Marine’s stamped name', () => {
   it('is the first and last name, else @username, else "Marine"', () => {
@@ -48,7 +50,7 @@ describe('a Telegram Marine’s photo', () => {
   it('takes the launch photo when it is a JPEG on t.me, as the 240 px PNG the site makes, and keeps it', async () => {
     // #given
     const renderer = fakeRenderer();
-    const bot = fakeTelegramBot({ renderer, fetch: fakeFetch({ 'https://t.me/i/userpic/': () => new Response(JPEG) }) });
+    const bot = fakeTelegramBot({ renderer, fetch: fakeFetch({ 'https://t.me/i/userpic/': () => jpeg() }) });
     // #when
     const avatar = await telegramAvatar(bot, 3, { ...TG_USER, photo_url: 'https://t.me/i/userpic/320/abc.jpg' });
     // #then
@@ -72,17 +74,42 @@ describe('a Telegram Marine’s photo', () => {
     });
   });
 
-  it('else asks for the profile photo when the launch photo fails to download', async () => {
+  it('else asks for the profile photo when the launch photo fails to download, logging the error name and never the URL', async () => {
     // #given
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const timeout = Object.assign(new Error('GET https://t.me/i/userpic/320/abc.jpg timed out'), { name: 'TimeoutError' });
     const tg = fakeTelegram({ getUserProfilePhotos: () => PHOTOS, getFile: (b) => tgOk({ file_path: `photos/${b.file_id}.jpg` }) }, { 'photos/mid.jpg': JPEG });
     const bot = fakeTelegramBot({
       tg,
       fetch: fakeFetch({
         'https://t.me/i/userpic/': () => {
-          throw new Error('the request timed out');
+          throw timeout;
         },
       }),
     });
+    // #when
+    const avatar = await telegramAvatar(bot, 3, { ...TG_USER, photo_url: 'https://t.me/i/userpic/320/abc.jpg' });
+    // #then
+    expect({ avatar: avatar && [...avatar], asked: tg.calls.map((c) => c.method), logged: warn.mock.calls }).toEqual({
+      avatar: [...PNG_BYTES],
+      asked: ['getUserProfilePhotos', 'getFile'],
+      logged: [['telegram launch photo download failed (TimeoutError)']],
+    });
+  });
+
+  it.each(['https://example.com/a.jpg', 'http://t.me/a.jpg', 'https://t.me@example.com/a.jpg'])('never fetches %s as the launch photo, asking for the profile photo instead', async (photoUrl) => {
+    // #given
+    const bot = fakeTelegramBot({ fetch: fakeFetch({ 'http': () => jpeg() }), tg: noPhotos() });
+    // #when
+    await telegramAvatar(bot, 3, { ...TG_USER, photo_url: photoUrl });
+    // #then
+    expect({ fetched: bot.fetch.urls, asked: bot.tg.calls.map((c) => c.method) }).toEqual({ fetched: [], asked: ['getUserProfilePhotos'] });
+  });
+
+  it.each([['text/html'], ['image/svg+xml'], [null]])('takes the launch photo only as image/jpeg: a response typed %s is a failed download, so the profile photo is asked for', async (type) => {
+    // #given
+    const tg = fakeTelegram({ getUserProfilePhotos: () => PHOTOS, getFile: (b) => tgOk({ file_path: `photos/${b.file_id}.jpg` }) }, { 'photos/mid.jpg': JPEG });
+    const bot = fakeTelegramBot({ tg, fetch: fakeFetch({ 'https://t.me/i/userpic/': () => jpeg(type) }) });
     // #when
     const avatar = await telegramAvatar(bot, 3, { ...TG_USER, photo_url: 'https://t.me/i/userpic/320/abc.jpg' });
     // #then
