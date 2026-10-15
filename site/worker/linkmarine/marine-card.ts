@@ -1,7 +1,6 @@
 import { callsignSeed, filledPips, rimText, seededRandom, serialText, marineOdds, type MarineCard, type MarineWebCard, type Tier } from '@ccip-dev/core/linkmarine';
-import { bytesToBase64 } from '../cards/coin-icons';
 import { h, type VNode } from '../h';
-import { artLayer, at, capDay, DOT_FILTER, drawable, font, halo, type HaloRing, HEX_CLIP, hexImage, hexPoints, INK, KINO_SIZE, MONO, onCurve, pips, pulse, px, r1, skyLayer } from './art';
+import { artLayer, at, capDay, DOT_FILTER, drawable, font, halo, type HaloRing, HEX_CLIP, hexImage, hexPoints, INK, KINO_SIZE, MONO, onCurve, pips, pngUri, pulse, px, r1, skyLayer } from './art';
 import { cssLinear, cssRadialSpot, HOLO_STOPS, TIER_LOOKS, type TierLook } from './metal';
 
 export interface TagBox {
@@ -25,7 +24,7 @@ const RIM_ADVANCE = RIM_FONT * (0.6 + 0.22);
 /** The rim microtext stays on the bottom edge's straight part, between the rounded corners, less a small inset. */
 const RIM_SPAN = FRONT_TAG.width - 2 * (TAG_RADIUS + RIM_INSET);
 export const RIM_BUDGET = Math.floor(RIM_SPAN / RIM_ADVANCE);
-const CHAIN_TOP = { x: 260, y: -10 };
+export const CHAIN_TOP = { x: 260, y: -10 };
 /** The etching: the mockup's grayscale(1) contrast(1.7) brightness(.95), toned towards the metal. */
 export const ETCH_FILTER = 'grayscale(1) contrast(1.7) brightness(0.95) sepia(0.35)';
 const ETCH_OPACITY = 0.62;
@@ -53,8 +52,6 @@ export const PLANET_LAYOUTS: readonly { planets: readonly [Point, Point, Point];
   { planets: [{ x: 580, y: 214 }, { x: 470, y: 318 }, { x: 690, y: 300 }], lanes: [{ x: 490, y: 230 }, { x: 580, y: 390 }, { x: 660, y: 220 }] },
 ];
 const PLANET_R = [46, 40, 30];
-
-const pngUri = (bytes: Uint8Array) => `data:image/png;base64,${bytesToBase64(bytes)}`;
 
 /** A point of a tag's own coordinates, where it lands on the card once the tag is turned about its centre. */
 export function onTag(tag: TagBox, x: number, y: number): { x: number; y: number } {
@@ -339,7 +336,8 @@ export function tagsTree(card: MarineWebCard): VNode {
       backEtch(card, look),
       artLayer(front.body, front.defs),
       frontText(card, look),
-      artLayer(chainSvg() + (look.sparkles ? sparkles() : ''), DOT_FILTER),
     ),
+    // An SVG layer clips at its own top edge, so the chain, which starts above the card, is dropped inside its layer, not with the div.
+    artLayer(`<g transform="translate(0 ${TAGS_DROP})">${chainSvg() + (look.sparkles ? sparkles() : '')}</g>`, DOT_FILTER),
   );
 }

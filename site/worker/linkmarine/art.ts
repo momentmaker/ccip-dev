@@ -1,4 +1,5 @@
 import { seededRandom } from '@ccip-dev/core/linkmarine';
+import { bytesToBase64 } from '../cards/coin-icons';
 import { h, type Child, type VNode } from '../h';
 
 export const KINO_SIZE = { width: 1200, height: 675 } as const;
@@ -60,6 +61,7 @@ export function hexClipInside(boxWidth: number): string {
 }
 
 export const svgDataUri = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
+export const pngUri = (bytes: Uint8Array) => `data:image/png;base64,${bytesToBase64(bytes)}`;
 
 /**
  * A full-card layer of SVG art, written in the mockups' 760×428 coordinates. resvg draws no raster image and no text
