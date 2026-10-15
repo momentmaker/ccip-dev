@@ -12,7 +12,7 @@ const ownerId = ownerIdFrom(readFileSync(join(import.meta.dirname, '..', '..', '
 for (const call of setupCalls(secret, ownerId)) {
   const answer = await callBot(token, call);
   if (call.method === 'getStickerSet' && packDoesNotExist(answer)) {
-    console.log(`${stickerPackName(1)} does not exist yet: the sticker job creates it with Marine #1's sticker once TELEGRAM_BOT is on`);
+    console.log(`${stickerPackName(1)} does not exist yet: the sticker job creates it with the oldest Marine's sticker once TELEGRAM_BOT is on`);
   } else if (call.method === 'getChat' && ownerHasNotStarted(answer)) {
     throw new Error(`the sticker owner ${ownerId} has not started @ccipdevbot: send it /start from that account, then run this again`);
   } else if (!answer.ok) {
