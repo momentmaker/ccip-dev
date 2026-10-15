@@ -1,12 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stickerPackName, stickerPackUrl } from '@ccip-dev/core/linkmarine';
-import { callBot, checkSecret, ownerIdFrom, setupCalls } from './requests';
+import { callBot, checkSecret, ownerHasNotStarted, ownerIdFrom, packDoesNotExist, setupCalls } from './requests';
 
-/**
- * `pnpm telegram:setup`: points @ccipdevbot at the Worker and sets its command and menu button, with
- * TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET from .env. It prints what it set, never the token or the secret.
- */
+// Never prints the token or the secret.
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) throw new Error('.env: set TELEGRAM_BOT_TOKEN first (see docs/runbook.md, "LinkMarines on Telegram")');
 const secret = checkSecret(process.env.TELEGRAM_WEBHOOK_SECRET);
@@ -14,12 +11,14 @@ const ownerId = ownerIdFrom(readFileSync(join(import.meta.dirname, '..', '..', '
 
 for (const call of setupCalls(secret, ownerId)) {
   const answer = await callBot(token, call);
-  if (call.method === 'getStickerSet') {
-    console.log(answer.ok ? `${stickerPackName(1)} exists: ${stickerPackUrl(1)}` : `${stickerPackName(1)} does not exist yet: the sticker job creates it with Marine #1's sticker once TELEGRAM_BOT is on`);
-  } else if (call.method === 'getChat' && !answer.ok) {
+  if (call.method === 'getStickerSet' && packDoesNotExist(answer)) {
+    console.log(`${stickerPackName(1)} does not exist yet: the sticker job creates it with Marine #1's sticker once TELEGRAM_BOT is on`);
+  } else if (call.method === 'getChat' && ownerHasNotStarted(answer)) {
     throw new Error(`the sticker owner ${ownerId} has not started @ccipdevbot: send it /start from that account, then run this again`);
   } else if (!answer.ok) {
     throw new Error(`${call.method}: Telegram said ${answer.description ?? `HTTP ${answer.status}`}`);
+  } else if (call.method === 'getStickerSet') {
+    console.log(`${stickerPackName(1)} exists: ${stickerPackUrl(1)}`);
   } else {
     console.log(call.method === 'getChat' ? `sticker owner ${ownerId} has started the bot` : `${call.method}: done`);
   }

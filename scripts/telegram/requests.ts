@@ -1,7 +1,6 @@
 import { MINI_APP_URL, stickerPackName } from '@ccip-dev/core/linkmarine';
 import { parse } from 'smol-toml';
 
-/** What `pnpm telegram:setup` asks the Bot API, in order (core.telegram.org/bots/api). */
 export const WEBHOOK_URL = 'https://discord.ccip.dev/telegram';
 export const ALLOWED_UPDATES = ['message', 'my_chat_member'];
 export const BOT_COMMANDS = [{ command: 'start', description: 'Enlist and get your LinkMarine dog tag' }];
@@ -33,7 +32,6 @@ export function checkSecret(secret: string | undefined): string {
   return secret;
 }
 
-/** The webhook, the commands, the menu button, then two checks: that the owner has started the bot, and whether Vol. 1 exists yet. */
 export function setupCalls(secret: string, ownerId: number): SetupCall[] {
   return [
     { method: 'setWebhook', body: { url: WEBHOOK_URL, secret_token: secret, allowed_updates: ALLOWED_UPDATES, drop_pending_updates: true } },
@@ -43,6 +41,12 @@ export function setupCalls(secret: string, ownerId: number): SetupCall[] {
     { method: 'getStickerSet', body: { name: stickerPackName(1) } },
   ];
 }
+
+// Telegram answers 400 "chat not found" to a user who never started the bot; a block, a rate limit or an outage is a different problem.
+export const ownerHasNotStarted = ({ status, description }: BotAnswer): boolean => status === 400 && /chat not found|user not found/i.test(description ?? '');
+
+// STICKERSET_INVALID is how Telegram says a set is not there yet; any other failure must not pass for that.
+export const packDoesNotExist = ({ description }: BotAnswer): boolean => /STICKERSET_INVALID/.test(description ?? '');
 
 export const botUrl = (token: string, method: string) => `https://api.telegram.org/bot${token}/${method}`;
 

@@ -31,7 +31,7 @@ jobs:
       - run: pnpm --filter @ccip-dev/site test
       - run: pnpm --filter @ccip-dev/site build
         env:
-          TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT }}
+          TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT == 'on' && 'on' || 'off' }}
       - run: pnpm --filter @ccip-dev/site exec wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
