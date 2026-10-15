@@ -1,3 +1,4 @@
+import type { EnlistAnswer, SessionAnswer } from '@ccip-dev/core/linkmarine';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import worker from '../src/index';
@@ -14,15 +15,29 @@ const botWith = (overrides: Parameters<typeof fakeTelegramBot>[0] = {}) => fakeT
 /** The bot's fake clock in Unix seconds: launch data signed at it is fresh. */
 const nowS = (bot: FakeTelegramBot) => Math.floor(bot.clock.ms / 1000);
 
+/** Answers as soon as the route does, leaving the work it handed to waitUntil in `work`. */
+async function send(bot: FakeTelegramBot, path: string, work: Promise<unknown>[], user: Record<string, unknown> = TG_USER, extra: Record<string, unknown> = {}) {
+  const initData = await signedLaunch(user, nowS(bot));
+  return miniAppRoute(new Request(`https://discord.ccip.dev${path}`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://ccip.dev' }, body: JSON.stringify({ initData, ...extra }) }), bot, (p) => void work.push(p));
+}
+
 async function ask(bot: FakeTelegramBot, path: string, user: Record<string, unknown> = TG_USER, extra: Record<string, unknown> = {}) {
   const work: Promise<unknown>[] = [];
-  const initData = await signedLaunch(user, nowS(bot));
-  const res = await miniAppRoute(new Request(`https://discord.ccip.dev${path}`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://ccip.dev' }, body: JSON.stringify({ initData, ...extra }) }), bot, (p) => void work.push(p));
+  const res = await send(bot, path, work, user, extra);
   await Promise.all(work);
   return res;
 }
 
-const body = async (res: Response): Promise<any> => res.json();
+const body = async <T = unknown>(res: Response): Promise<T> => (await res.json()) as T;
+type SessionOn = Extract<SessionAnswer, { switch: 'on' }>;
+
+/** A renderer whose card render waits for `release`, so a stamp can be caught in flight. */
+function heldRenderer() {
+  const renderer = fakeRenderer();
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  return { renderer: { ...renderer, renderMarineCards: async (c: Parameters<typeof renderer.renderMarineCards>[0]) => (await held, renderer.renderMarineCards(c)) }, release };
+}
 
 beforeEach(resetStorage);
 
@@ -41,6 +56,18 @@ describe('the Mini App API: requests', () => {
       'content-type',
       'https://ccip.dev',
     ]);
+  });
+
+  it('allows ccip.dev alone whatever Origin asks, and never allows credentials', async () => {
+    // #given requests from another site
+    const bot = botWith();
+    const origin = 'https://evil.example';
+    const initData = await signedLaunch(TG_USER, nowS(bot));
+    // #when
+    const preflight = await miniAppRoute(new Request('https://discord.ccip.dev/tg/enlist', { method: 'OPTIONS', headers: { origin } }), bot, () => {});
+    const answer = await miniAppRoute(new Request('https://discord.ccip.dev/tg/session', { method: 'POST', headers: { origin }, body: JSON.stringify({ initData }) }), bot, () => {});
+    // #then
+    expect([preflight, answer].flatMap((r) => [r.headers.get('access-control-allow-origin'), r.headers.get('access-control-allow-credentials')])).toEqual(['https://ccip.dev', null, 'https://ccip.dev', null]);
   });
 
   it('refuses missing, stale and tampered launch data with 401, a body without it with 400, and a GET with 405', async () => {
@@ -62,6 +89,17 @@ describe('the Mini App API: requests', () => {
     ]);
     // #then
     expect(answers.map((r) => r.status)).toEqual([401, 401, 401, 400, 400, 405, 404]);
+  });
+
+  it('tells a refused launch only that it was refused', async () => {
+    // #given
+    const bot = botWith();
+    const stale = await signedLaunch(TG_USER, nowS(bot) - 86_401);
+    const post = (initData: string) => miniAppRoute(new Request('https://discord.ccip.dev/tg/card', { method: 'POST', body: JSON.stringify({ initData }) }), bot, () => {});
+    // #when
+    const answers = await Promise.all([post(''), post(stale)]);
+    // #then
+    expect([answers.map((r) => r.status), await Promise.all(answers.map((r) => body(r)))]).toEqual([[401, 401], [{ error: 'launch' }, { error: 'launch' }]]);
   });
 
   it('refuses a body over 16 KB with 413, by its declared length or by what it sends, and reads one of exactly 16 KB', async () => {
@@ -115,36 +153,42 @@ describe('the Mini App API: /tg/session', () => {
     // #when
     const res = await ask(botWith({ tg }), '/tg/session');
     // #then
-    const answer = await body(res);
-    expect([answer.gate, answer.marine.serial, tg.calls.length]).toEqual(['ok', 1, 0]);
+    const answer = await body<SessionOn>(res);
+    expect([answer.gate, answer.marine?.serial, tg.calls.length]).toEqual(['ok', 1, 0]);
   });
 });
 
 describe('the Mini App API: /tg/enlist', () => {
-  it('draws, answers the Marine with its banner, and stamps the card, web card and Story card after answering', async () => {
-    // #given every draw is Legendary
-    const bot = botWith({ tg: memberOf('member') });
+  it('draws and answers the Marine with its banner before the card, web card and Story card are stamped in the background', async () => {
+    // #given every draw is Legendary, and a stamp held until released
+    const { renderer, release } = heldRenderer();
+    const bot = botWith({ tg: memberOf('member'), renderer });
     bot.snapshot = { ...bot.snapshot, cutoffs: { uncommon: 0, rare: 0, legendary: 0 } };
+    const work: Promise<unknown>[] = [];
+    const keptCards = () => Promise.all(['cards/1.png', 'cards/1.gif', 'web/1.png', 'story/1.png'].map(async (k) => (await env.MARINES.head(k)) !== null));
     // #when
-    const answer = await body(await ask(bot, '/tg/enlist'));
+    const answer = await body<EnlistAnswer>(await send(bot, '/tg/enlist', work));
+    const keptAtAnswer = await keptCards();
+    release();
+    await Promise.all(work);
     // #then
-    const kept = await Promise.all(['cards/1.png', 'cards/1.gif', 'web/1.png', 'story/1.png'].map(async (k) => (await env.MARINES.head(k)) !== null));
-    expect({ already: answer.already, banner: answer.banner, serial: answer.marine.serial, tier: answer.marine.tier, volume: answer.marine.volume, kept }).toEqual({
+    expect({ already: answer.already, banner: answer.banner, serial: answer.marine.serial, tier: answer.marine.tier, volume: answer.marine.volume, keptAtAnswer, kept: await keptCards() }).toEqual({
       already: false,
       banner: 'legendary',
       serial: 1,
       tier: 'legendary',
       volume: 1,
+      keptAtAnswer: [false, false, false, false],
       kept: [true, true, true, true],
     });
   });
 
   it('answers an enlisted Marine with their own Marine, drawing nothing and checking no gate', async () => {
     // #given
-    const first = await body(await ask(botWith({ tg: memberOf('member') }), '/tg/enlist'));
+    const first = await body<EnlistAnswer>(await ask(botWith({ tg: memberOf('member') }), '/tg/enlist'));
     const tg = memberOf('member');
     // #when
-    const again = await body(await ask(botWith({ tg }), '/tg/enlist'));
+    const again = await body<EnlistAnswer>(await ask(botWith({ tg }), '/tg/enlist'));
     // #then
     expect([again.already, again.banner, again.marine.callsign, tg.calls.length]).toEqual([true, null, first.marine.callsign, 0]);
   });
@@ -173,7 +217,7 @@ describe('the Mini App API: /tg/enlist', () => {
       renderer: { ...renderer, renderMarineCards: async (c) => (drawn.push(c.name), renderer.renderMarineCards(c)) },
     });
     // #when
-    const answer = await body(await ask(bot, '/tg/enlist', { id: TG_USER.id, first_name: '', username: 'ada' }));
+    const answer = await body<EnlistAnswer>(await ask(bot, '/tg/enlist', { id: TG_USER.id, first_name: '', username: 'ada' }));
     // #then
     expect({ already: answer.already, drawn }).toEqual({ already: false, drawn: ['@ada'] });
   });
@@ -208,22 +252,25 @@ describe('the Mini App API: /tg/card', () => {
     // #given a Marine whose stamp failed at enlistment, and a renderer held until released
     const failing = botWith({ tg: memberOf('member'), renderer: fakeRenderer('renderMarineCard') });
     await ask(failing, '/tg/enlist');
-    const renderer = fakeRenderer();
-    let release = () => {};
-    const held = new Promise<void>((resolve) => (release = resolve));
-    const bot = botWith({ renderer: { ...renderer, renderMarineCards: async (c) => (await held, renderer.renderMarineCards(c)) } });
+    const { renderer, release } = heldRenderer();
+    const bot = botWith({ renderer });
     bot.clock.ms += 61_000;
     const work: Promise<unknown>[] = [];
-    const poll = async () => {
-      const initData = await signedLaunch(TG_USER, nowS(bot));
-      return miniAppRoute(new Request('https://discord.ccip.dev/tg/card', { method: 'POST', body: JSON.stringify({ initData }) }), bot, (p) => void work.push(p));
-    };
     // #when both polls are answered before the stamp finishes
-    const [first, second] = [await poll(), await poll()];
+    const [first, second] = [await send(bot, '/tg/card', work), await send(bot, '/tg/card', work)];
     release();
     await Promise.all(work);
     // #then
     expect([first.status, second.status, work.length, renderer.calls.filter((c) => c === 'renderMarineCards').length]).toEqual([202, 202, 1, 1]);
+  });
+
+  it('answers 409 and no card while the switch is off, even to an enlisted Marine', async () => {
+    // #given a Marine with a stamped card
+    await ask(botWith({ tg: memberOf('member') }), '/tg/enlist');
+    // #when
+    const res = await ask(botWith({ settings: { ...TG_SETTINGS, open: false } }), '/tg/card');
+    // #then
+    expect([res.status, res.headers.get('content-type'), await body(res)]).toEqual([409, 'application/json', { switch: 'off' }]);
   });
 
   it('answers 404 to someone not enlisted, whatever Marine the body names', async () => {
@@ -276,15 +323,15 @@ describe('the Mini App API: what an answer holds', () => {
 });
 
 describe('the Mini App API: failures', () => {
-  it('answers 500 and alerts telegram-api:<route> when the database fails, without the launch data', async () => {
+  it.each(['session', 'enlist', 'card'])('answers 500 and alerts telegram-api:%s when the database fails, without the launch data', async (route) => {
     // #given
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     onTestFinished(() => error.mockRestore());
     const bot = botWith({ db: { prepare: () => { throw new Error('D1 is down'); } } as unknown as D1Database });
     // #when
-    const res = await ask(bot, '/tg/session');
+    const res = await ask(bot, `/tg/${route}`);
     // #then
     const told = [...bot.alerts.map((a) => a.text), ...error.mock.calls.map(String)];
-    expect([res.status, bot.alerts.map((a) => a.signature), told.some((t) => t.includes('hash='))]).toEqual([500, ['telegram-api:session'], false]);
+    expect([res.status, await body(res), bot.alerts.map((a) => a.signature), told.some((t) => t.includes('hash='))]).toEqual([500, { error: 'internal' }, [`telegram-api:${route}`], false]);
   });
 });
