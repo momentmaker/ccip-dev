@@ -285,3 +285,12 @@ export interface MarineSummary {
 
 /** ok: a member of a gate chat, or already enlisted. join: not yet in one. */
 export type Gate = 'ok' | 'join';
+
+/** POST /tg/session. */
+export type SessionAnswer = { switch: 'off' } | { switch: 'on'; marine: MarineSummary | null; gate: Gate };
+/** POST /tg/enlist, when it enlists or finds the Marine. */
+export interface EnlistAnswer {
+  already: boolean;
+  marine: MarineSummary;
+  banner: 'rare' | 'legendary' | null;
+}

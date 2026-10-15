@@ -1,10 +1,13 @@
+import { cappedBody } from './body';
 import { createBot, SNAPSHOT, type Bot } from './bot';
 import type { Env } from './env';
 import { chainActivity, chainChoices } from './intel';
 import { COMMAND_KINDS, intelCommand } from './intel-commands';
 import { deferred, InteractionType, json, privateReply, ResponseType, type Interaction } from './interactions';
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
+import { miniAppRoute } from './miniapp';
 import { publicRoute, type PublicDeps } from './public';
+import { createTelegramBot } from './telegram-marines';
 import { verifyDiscordRequest } from './verify';
 
 export const NOT_HERE = 'ccip.dev isn’t available here.';
@@ -98,33 +101,6 @@ export function botHandlers(bot: Bot): Handlers {
   };
 }
 
-/** Discord's interactions run to a few KB: a body past this is refused before its signature is checked. */
-export const MAX_BODY_BYTES = 64 * 1024;
-
-/** The body as text, or null past MAX_BODY_BYTES, whether its Content-Length says so or its bytes do. */
-async function cappedBody(request: Request): Promise<string | null> {
-  if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) return null;
-  if (!request.body) return '';
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (let read = await reader.read(); !read.done; read = await reader.read()) {
-    size += read.value.byteLength;
-    if (size > MAX_BODY_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(read.value);
-  }
-  const bytes = new Uint8Array(size);
-  let at = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, at);
-    at += chunk.byteLength;
-  }
-  return new TextDecoder().decode(bytes);
-}
-
 /** A verified body as an interaction; null when it is not a JSON object. */
 function parseInteraction(body: string): Interaction | null {
   try {
@@ -150,7 +126,9 @@ function publicDeps(env: Env, ctx: ExecutionContext): PublicDeps {
 
 export default {
   async fetch(request, env, ctx) {
-    if (new URL(request.url).pathname !== '/interactions') return (await publicRoute(request, publicDeps(env, ctx))) ?? new Response('Not found', { status: 404 });
+    const path = new URL(request.url).pathname;
+    if (path.startsWith('/tg/')) return miniAppRoute(request, createTelegramBot(env), (work) => ctx.waitUntil(work));
+    if (path !== '/interactions') return (await publicRoute(request, publicDeps(env, ctx))) ?? new Response('Not found', { status: 404 });
     if (request.method !== 'POST') return new Response('Not found', { status: 404 });
     const body = await cappedBody(request);
     if (body === null) return new Response('Request body too large', { status: 413 });
