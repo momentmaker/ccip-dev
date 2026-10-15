@@ -8,7 +8,7 @@ import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { miniAppRoute } from './miniapp';
 import { publicRoute, type PublicDeps } from './public';
 import { stickerJob } from './stickers';
-import { pruneClaims, telegramWebhook } from './telegram-bot';
+import { alertTelegramSetup, pruneClaims, telegramWebhook } from './telegram-bot';
 import { createTelegramBot } from './telegram-marines';
 import { verifyDiscordRequest } from './verify';
 
@@ -143,7 +143,9 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(stickerJob(createTelegramBot(env)));
+    const bot = createTelegramBot(env);
+    ctx.waitUntil(stickerJob(bot));
+    ctx.waitUntil(alertTelegramSetup(bot, env.TELEGRAM_WEBHOOK_SECRET ?? ''));
     ctx.waitUntil(pruneClaims(env.DB, new Date(controller.scheduledTime)));
   },
 } satisfies ExportedHandler<Env>;

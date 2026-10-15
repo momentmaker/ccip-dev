@@ -4,7 +4,7 @@ import { reason } from './enlistment';
 import type { TelegramBot } from './telegram-marines';
 
 // The thin bot behind @ccipdevbot's webhook, POST /telegram: /start opens the Mini App, /id names a chat for the owner or
-// a gate chat, and the bot leaves a group unless the owner added it or it is on the gate list. Everything else happens in the Mini App.
+// a gate chat, and the bot leaves a group unless the owner added it, it is on the gate list or it is the alert chat. Everything else happens in the Mini App.
 
 export interface TelegramChat {
   id: number;
@@ -56,6 +56,20 @@ export async function pruneClaims(db: D1Database, now: Date): Promise<void> {
   await db.prepare("DELETE FROM meta WHERE (key LIKE 'tg-update:%' OR key LIKE 'tg-stamp:%') AND value < ?").bind(before).run();
 }
 
+const OWNER_UNSET = `TELEGRAM_STICKER_OWNER_ID is empty, so the sticker packs can't be made: set it in discord/wrangler.toml and deploy (runbook, "LinkMarines on Telegram", one-time setup step 3)`;
+const SECRET_UNSET = `TELEGRAM_WEBHOOK_SECRET is not set on the Worker, so the bot can't hear /start: put it there with the wrangler secret put line (runbook, "LinkMarines on Telegram", one-time setup step 4)`;
+
+/**
+ * While the switch is on, a setting left out of the one-time setup would fail without a trace: no owner and the sticker
+ * job returns quietly every run, no webhook secret and every delivery is refused with a 401. The alerter sends one
+ * telegram-setup alert an hour however often this runs, so both gaps share it.
+ */
+export async function alertTelegramSetup(bot: TelegramBot, webhookSecret: string): Promise<void> {
+  if (!bot.settings.open) return;
+  const missing = [...(bot.settings.ownerId === null ? [OWNER_UNSET] : []), ...(webhookSecret === '' ? [SECRET_UNSET] : [])];
+  if (missing.length > 0) await bot.alert('telegram-setup', `LinkMarines on Telegram is on, but ${missing.join('; ')}`);
+}
+
 /** tg.call never throws, so a refusal would leave no trace. It is warned, not alerted: a user who blocked the bot is routine. */
 async function callOrWarn(bot: TelegramBot, method: 'sendMessage' | 'leaveChat', body: Record<string, unknown>): Promise<void> {
   const res = await bot.tg.call(method, body);
@@ -71,7 +85,8 @@ async function start(bot: TelegramBot, chat: TelegramChat, payload: string | nul
 
 export async function handleUpdate(bot: TelegramBot, update: TelegramUpdate): Promise<void> {
   const owner = bot.settings.ownerId;
-  const allowed = (chat: TelegramChat, from: number | undefined) => chat.type === 'private' || onGateList(chat, bot.settings.gateChats) || (owner !== null && from === owner);
+  const allowed = (chat: TelegramChat, from: number | undefined) =>
+    chat.type === 'private' || onGateList(chat, bot.settings.gateChats) || String(chat.id) === bot.settings.alertChatId || (owner !== null && from === owner);
   const joined = update.my_chat_member;
   if (joined) {
     // A group that restricts new members adds the bot as restricted, which is still being in the chat.

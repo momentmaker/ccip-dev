@@ -95,7 +95,7 @@ describe('the sticker job', () => {
       pack: sets.get('linkmarines_by_ccipdevbot'),
       recorded: await stickers(),
     }).toEqual({
-      create: [OWNER_ID, 'linkmarines_by_ccipdevbot', 'LinkMarines Vol. 1 · ccip.dev', [{ sticker: 'up1', format: 'static', emoji_list: ['🎖'] }]],
+      create: [OWNER_ID, 'linkmarines_by_ccipdevbot', 'LinkMarines Vol. 1 · ccip.dev', [{ sticker: 'up1', format: 'static', emoji_list: ['\u{1F396}\u{FE0F}'] }]],
       added: ['linkmarines_by_ccipdevbot'],
       pack: ['in-up1', 'in-up2'],
       recorded: [

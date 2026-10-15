@@ -72,6 +72,18 @@ describe('the Telegram settings', () => {
     expect(settings.ownerId).toBe(ownerId);
   });
 
+  it.each([
+    ['-1007777', '-1007777'],
+    [' -1007777 ', '-1007777'],
+    [undefined, ''],
+    ['', ''],
+  ])('reads TELEGRAM_ALERT_CHAT_ID %j as %j, trimmed', (value, alertChatId) => {
+    // #when
+    const settings = settingsOf({ TELEGRAM_ALERT_CHAT_ID: value });
+    // #then
+    expect(settings.alertChatId).toBe(alertChatId);
+  });
+
   it('reads the bot token, empty while unset', () => {
     // #then
     expect([settingsOf({ TELEGRAM_BOT_TOKEN: '123:abc' }).botToken, settingsOf({}).botToken]).toEqual(['123:abc', '']);
@@ -190,6 +202,38 @@ describe('a Telegram Marine’s photo', () => {
     const avatar = await telegramAvatar(bot, 3, TG_USER);
     // #then
     expect([avatar, await env.MARINES.head('avatars/3.png')]).toEqual([null, null]);
+  });
+});
+
+describe('a Telegram Marine’s photo that Telegram is slow to give', () => {
+  const never = <T>() => new Promise<T>(() => undefined);
+  const STALLS = [
+    { stalls: 'getUserProfilePhotos', tg: () => ({ ...fakeTelegram(), call: never }) },
+    { stalls: 'the download of the photo', tg: () => ({ ...fakeTelegram({ getUserProfilePhotos: () => PHOTOS, getFile: () => tgOk({ file_path: 'photos/mid.jpg' }) }), download: never }) },
+  ];
+
+  it.each(STALLS)('stamps the card with the gradient disc after one 6 s budget when $stalls never answers', async ({ tg }) => {
+    // #given
+    const budgets: number[] = [];
+    const deadline = (ms: number) => {
+      budgets.push(ms);
+      return new Promise<null>((resolve) => setTimeout(() => resolve(null), 5));
+    };
+    const renderer = fakeRenderer();
+    const drawn: MarineCard[] = [];
+    const drawing = {
+      ...renderer,
+      renderMarineCards: async (card: MarineCard) => {
+        drawn.push(card);
+        return renderer.renderMarineCards(card);
+      },
+    };
+    const bot = fakeTelegramBot({ renderer: drawing, tg: tg(), deadline });
+    const marine = await enlisted(bot);
+    // #when
+    await stampTelegram(bot, marine, TG_USER);
+    // #then
+    expect({ budgets, avatar: drawn[0]?.avatar ?? null, card: (await env.MARINES.head('cards/1.png'))?.httpMetadata?.contentType, alerts: bot.alerts }).toEqual({ budgets: [6_000], avatar: null, card: 'image/png', alerts: [] });
   });
 });
 

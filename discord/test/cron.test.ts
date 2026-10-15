@@ -23,7 +23,7 @@ describe('the cron', () => {
     // #given
     await staleLock();
     // #when the roster is empty, so the run has nothing to send
-    const lock = await cron({ ...env, TELEGRAM_BOT: 'on', TELEGRAM_STICKER_OWNER_ID: '42' });
+    const lock = await cron({ ...env, TELEGRAM_BOT: 'on', TELEGRAM_STICKER_OWNER_ID: '42', TELEGRAM_WEBHOOK_SECRET: 'secret' });
     // #then
     expect(lock).toBeNull();
   });

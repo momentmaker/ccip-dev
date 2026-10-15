@@ -17,6 +17,8 @@ export interface TelegramSettings {
   gateChats: string[];
   /** TELEGRAM_STICKER_OWNER_ID, or null while unset. */
   ownerId: number | null;
+  /** TELEGRAM_ALERT_CHAT_ID, empty while unset: the bot never leaves the chat its own alerts go to. */
+  alertChatId: string;
   botToken: string;
 }
 
@@ -33,6 +35,7 @@ export function telegramSettings(env: Env): TelegramSettings {
     open: env.TELEGRAM_BOT === 'on',
     gateChats: (env.TELEGRAM_GATE_CHATS ?? '').split(',').map((c) => c.trim()).filter((c) => c !== ''),
     ownerId: Number.isSafeInteger(owner) && owner > 0 ? owner : null,
+    alertChatId: (env.TELEGRAM_ALERT_CHAT_ID ?? '').trim(),
     botToken: env.TELEGRAM_BOT_TOKEN ?? '',
   };
 }
@@ -100,13 +103,25 @@ async function profilePhoto(bot: TelegramBot, user: TelegramUser): Promise<Uint8
   return file.ok && file.result.file_path ? bot.tg.download(file.result.file_path, PHOTO_TIMEOUT_MS) : null;
 }
 
+/** The whole photo lookup shares this one budget: the card waits on it, and a slow Telegram should cost the photo, not the card. */
+const AVATAR_BUDGET_MS = 6_000;
+
+async function photoWithinBudget(bot: TelegramBot, user: TelegramUser): Promise<Uint8Array | null> {
+  const lookupDone = new AbortController();
+  try {
+    return await Promise.race([profilePhoto(bot, user), bot.deadline(AVATAR_BUDGET_MS, lookupDone.signal)]);
+  } finally {
+    lookupDone.abort();
+  }
+}
+
 /**
  * The avatar to stamp: the profile photo as the 240 px PNG the site makes of a meme, kept in R2 as the Discord
  * avatars are; else the one kept before; else null, the gradient disc. Never rejects.
  */
 export async function telegramAvatar(bot: TelegramBot, serial: number, user: TelegramUser): Promise<Uint8Array | null> {
   try {
-    const photo = await profilePhoto(bot, user);
+    const photo = await photoWithinBudget(bot, user);
     if (photo) {
       const png = await bot.renderer.prepareMeme(photo);
       await bot.bucket.put(avatarKey(serial), png, { httpMetadata: { contentType: 'image/png' } });

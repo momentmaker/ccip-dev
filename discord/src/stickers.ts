@@ -13,7 +13,8 @@ import { TELEGRAM_PLATFORM, type TelegramBot } from './telegram-marines';
  * twice. A pack whose count does not fit the Marines recorded in it is never guessed at; the job stalls for the owner.
  */
 export const STICKERS_PER_RUN = 10;
-export const STICKER_EMOJI = '🎖';
+/** Fully qualified, with the variation selector U+FE0F; the bare U+1F396 is the unqualified form. */
+export const STICKER_EMOJI = '\u{1F396}\u{FE0F}';
 const UPLOAD_TIMEOUT_MS = 15_000;
 /** One run at a time: a run holds this lock until it ends, or for 15 minutes at most. */
 const RUN_LOCK_MS = 15 * 60_000;

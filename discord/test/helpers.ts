@@ -315,7 +315,7 @@ export const tgOk = (result: unknown): TelegramResult<unknown> => ({ ok: true, r
 export const tgError = (status: number, description: string, retryAfter: number | null = null): TelegramResult<unknown> => ({ ok: false, status, description, retryAfter });
 
 export const OWNER_ID = 42;
-export const TG_SETTINGS: TelegramSettings = { open: true, gateChats: ['@ccipdev'], ownerId: OWNER_ID, botToken: BOT_TOKEN };
+export const TG_SETTINGS: TelegramSettings = { open: true, gateChats: ['@ccipdev'], ownerId: OWNER_ID, alertChatId: '', botToken: BOT_TOKEN };
 
 export interface FakeTelegramBot extends FakeBot {
   tg: ReturnType<typeof fakeTelegram>;

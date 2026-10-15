@@ -2,7 +2,7 @@ import { createScheduledController } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import worker from '../src/index';
-import { claimUpdate, handleUpdate, parseCommand, pruneClaims, telegramWebhook, webhookSecretMatches, type TelegramChat, type TelegramUpdate } from '../src/telegram-bot';
+import { alertTelegramSetup, claimUpdate, handleUpdate, parseCommand, pruneClaims, telegramWebhook, webhookSecretMatches, type TelegramChat, type TelegramUpdate } from '../src/telegram-bot';
 import { fakeTelegram, fakeTelegramBot, OWNER_ID, resetStorage, TG_SETTINGS, tgError } from './helpers';
 
 const SECRET = 'webhook-secret_123';
@@ -10,6 +10,7 @@ const DM: TelegramChat = { id: 777000111, type: 'private' };
 const CCIPDEV: TelegramChat = { id: -1001234, type: 'channel', username: 'ccipdev' };
 const MARINE_GROUP: TelegramChat = { id: -1005555, type: 'supergroup' };
 const STRANGERS: TelegramChat = { id: -1009999, type: 'group' };
+const ALERTS: TelegramChat = { id: -1007777, type: 'group' };
 const SETTINGS = { ...TG_SETTINGS, gateChats: ['@ccipdev', String(MARINE_GROUP.id)] };
 
 const message = (chat: TelegramChat, text: string, from = 777000111, update_id = 1): TelegramUpdate => ({ update_id, message: { from: { id: from }, chat, text } });
@@ -194,6 +195,17 @@ describe('the thin bot', () => {
     expect(bot.tg.calls.map((c) => [c.method, c.body.chat_id])).toEqual([['leaveChat', STRANGERS.id]]);
   });
 
+  it('stays in the alert chat when anyone adds it or sends a command there, and still leaves any other group', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: { ...SETTINGS, alertChatId: String(ALERTS.id) } });
+    // #when
+    await handleUpdate(bot, added(ALERTS, 777000111));
+    await handleUpdate(bot, message(ALERTS, '/id', 777000111));
+    await handleUpdate(bot, message(STRANGERS, '/id', 777000111));
+    // #then
+    expect(bot.tg.calls.map((c) => [c.method, c.body.chat_id])).toEqual([['leaveChat', STRANGERS.id]]);
+  });
+
   it('leaves a group not on the list where a command reaches it', async () => {
     // #given
     const bot = fakeTelegramBot({ settings: SETTINGS, tg: fakeTelegram({ leaveChat: () => tgError(400, 'Bad Request: chat not found') }) });
@@ -287,6 +299,57 @@ describe('the thin bot', () => {
   });
 });
 
+describe('a setup left unfinished', () => {
+  const ON_BUT = 'LinkMarines on Telegram is on, but ';
+  const OWNER_MISSING = `TELEGRAM_STICKER_OWNER_ID is empty, so the sticker packs can't be made: set it in discord/wrangler.toml and deploy (runbook, "LinkMarines on Telegram", one-time setup step 3)`;
+  const SECRET_MISSING = `TELEGRAM_WEBHOOK_SECRET is not set on the Worker, so the bot can't hear /start: put it there with the wrangler secret put line (runbook, "LinkMarines on Telegram", one-time setup step 4)`;
+
+  it('alerts telegram-setup naming the sticker owner and the runbook step that sets it, while the owner is empty', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: { ...SETTINGS, ownerId: null } });
+    // #when
+    await alertTelegramSetup(bot, SECRET);
+    // #then
+    expect(bot.alerts).toEqual([{ signature: 'telegram-setup', text: ON_BUT + OWNER_MISSING }]);
+  });
+
+  it('alerts telegram-setup naming the webhook secret and the runbook step that sets it, while the Worker has none', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    // #when
+    await alertTelegramSetup(bot, '');
+    // #then
+    expect(bot.alerts).toEqual([{ signature: 'telegram-setup', text: ON_BUT + SECRET_MISSING }]);
+  });
+
+  it('names both in one alert when both are missing, since an alert is sent once an hour per signature', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: { ...SETTINGS, ownerId: null } });
+    // #when
+    await alertTelegramSetup(bot, '');
+    // #then
+    expect(bot.alerts).toEqual([{ signature: 'telegram-setup', text: `${ON_BUT}${OWNER_MISSING}; ${SECRET_MISSING}` }]);
+  });
+
+  it('alerts nothing once both are set', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    // #when
+    await alertTelegramSetup(bot, SECRET);
+    // #then
+    expect(bot.alerts).toEqual([]);
+  });
+
+  it('alerts nothing while the switch is off, whatever is missing', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: { ...SETTINGS, open: false, ownerId: null } });
+    // #when
+    await alertTelegramSetup(bot, '');
+    // #then
+    expect(bot.alerts).toEqual([]);
+  });
+});
+
 describe('the cron', () => {
   const cron = async (environment: typeof env, scheduledTime: Date) => {
     const work: Promise<unknown>[] = [];
@@ -315,8 +378,44 @@ describe('the cron', () => {
       },
     } as unknown as D1Database;
     // #when
-    await cron({ ...env, DB: failingPrune, TELEGRAM_BOT: 'on', TELEGRAM_STICKER_OWNER_ID: '42' }, new Date());
+    await cron({ ...env, DB: failingPrune, TELEGRAM_BOT: 'on', TELEGRAM_STICKER_OWNER_ID: '42', TELEGRAM_WEBHOOK_SECRET: SECRET }, new Date());
     // #then
     expect(await env.DB.prepare("SELECT value FROM meta WHERE key = 'sticker-run'").first()).toBeNull();
+  });
+
+  describe('on a setup left unfinished', () => {
+    const logged = () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      onTestFinished(() => warn.mockRestore());
+      return () => warn.mock.calls.map((c) => c.join(' '));
+    };
+    const alertRow = () => env.DB.prepare("SELECT key FROM meta WHERE key = 'alert:telegram-setup'").first();
+
+    it('alerts telegram-setup while the switch is on and the sticker owner is empty, though the sticker job has nothing to do', async () => {
+      // #given
+      const warnings = logged();
+      // #when
+      await cron({ ...env, TELEGRAM_BOT: 'on', TELEGRAM_STICKER_OWNER_ID: '', TELEGRAM_WEBHOOK_SECRET: SECRET }, new Date());
+      // #then
+      expect({ warnings: warnings(), claimed: await alertRow() }).toEqual({ warnings: [expect.stringContaining('TELEGRAM_STICKER_OWNER_ID is empty')], claimed: { key: 'alert:telegram-setup' } });
+    });
+
+    it('alerts telegram-setup while the switch is on and the Worker has no webhook secret', async () => {
+      // #given
+      const warnings = logged();
+      // #when
+      await cron({ ...env, TELEGRAM_BOT: 'on', TELEGRAM_STICKER_OWNER_ID: '42' }, new Date());
+      // #then
+      expect({ warnings: warnings(), claimed: await alertRow() }).toEqual({ warnings: [expect.stringContaining('TELEGRAM_WEBHOOK_SECRET is not set')], claimed: { key: 'alert:telegram-setup' } });
+    });
+
+    it('alerts nothing while the switch is off', async () => {
+      // #given
+      const warnings = logged();
+      // #when
+      await cron({ ...env, TELEGRAM_BOT: 'off', TELEGRAM_STICKER_OWNER_ID: '' }, new Date());
+      // #then
+      expect({ warnings: warnings(), claimed: await alertRow() }).toEqual({ warnings: [], claimed: null });
+    });
   });
 });
