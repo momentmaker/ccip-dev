@@ -1,8 +1,10 @@
 import { ALL_MARINES, tagsDrawn, type RosterFile, type WallQuery } from '@ccip-dev/core/roster';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { tagFromSearch } from '../../lib/telegram';
 import { useNow } from '../hooks';
 import Census from './Census';
 import Constellation from './Constellation';
+import { EnlistButtons, EnlistCta } from './Enlist';
 import MostWanted from './MostWanted';
 import PlankOwners from './PlankOwners';
 import RarestTen from './RarestTen';
@@ -10,7 +12,7 @@ import Ticker from './Ticker';
 import { useRoster } from './use-roster';
 import Wall from './Wall';
 
-function Hero({ roster }: { roster: RosterFile | null }) {
+function Hero({ roster, telegram }: { roster: RosterFile | null; telegram: boolean }) {
   const dash = '—';
   return (
     <header className="mr-hero">
@@ -19,9 +21,16 @@ function Hero({ roster }: { roster: RosterFile | null }) {
         <h1>
           The <span className="mr-gold-text">Roster</span>.
         </h1>
-        <p className="mr-lead">
-          Every Marine who has enlisted with the ccip.dev bot, by callsign. One draw each, stamped forever. Enlist in any server with <code>/enlist</code>.
-        </p>
+        {telegram ? (
+          <>
+            <p className="mr-lead">Every Marine who has enlisted with the ccip.dev bot, on Discord or Telegram, by callsign. One draw each, stamped forever.</p>
+            <EnlistButtons />
+          </>
+        ) : (
+          <p className="mr-lead">
+            Every Marine who has enlisted with the ccip.dev bot, by callsign. One draw each, stamped forever. Enlist in any server with <code>/enlist</code>.
+          </p>
+        )}
       </div>
       <dl className="mr-stats">
         <div>
@@ -44,17 +53,24 @@ function Hero({ roster }: { roster: RosterFile | null }) {
   );
 }
 
-/** The roster page's sections, from the roster as loaded: pure, so it renders on the server for tests and as the loading shell. */
-export function RosterPage({ roster, failed, now }: { roster: RosterFile | null; failed: boolean; now: Date }) {
-  const [query, setQuery] = useState<WallQuery>(ALL_MARINES);
-  const pickTag = (tag: string) => {
-    setQuery({ ...ALL_MARINES, tag });
+/**
+ * The roster page's sections, from the roster as loaded: pure, so it renders on the server for tests and as the loading
+ * shell. `telegram` adds LinkMarines on Telegram; `tag` (from ?tag=) opens the wall on that tag once the roster is in.
+ */
+export function RosterPage({ roster, failed, now, telegram = false, tag = null }: { roster: RosterFile | null; failed: boolean; now: Date; telegram?: boolean; tag?: string | null }) {
+  const [query, setQuery] = useState<WallQuery>(() => (tag === null ? ALL_MARINES : { ...ALL_MARINES, tag }));
+  const pickTag = (picked: string) => {
+    setQuery({ ...ALL_MARINES, tag: picked });
     document.getElementById('wall')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const loaded = roster !== null;
+  useEffect(() => {
+    if (tag !== null && loaded) pickTag(tag);
+  }, [tag, loaded]);
   if (roster === null) {
     return (
       <>
-        <Hero roster={null} />
+        <Hero roster={null} telegram={telegram} />
         {failed ? (
           <p className="mr-state" role="status">
             The roster is out of reach right now. Retrying…
@@ -64,12 +80,13 @@ export function RosterPage({ roster, failed, now }: { roster: RosterFile | null;
             Loading the roster…
           </p>
         )}
+        <EnlistCta roster={null} telegram={telegram} />
       </>
     );
   }
   return (
     <>
-      <Hero roster={roster} />
+      <Hero roster={roster} telegram={telegram} />
       <Ticker roster={roster} />
       <Census roster={roster} onPickTag={pickTag} />
       <MostWanted roster={roster} now={now} />
@@ -77,12 +94,15 @@ export function RosterPage({ roster, failed, now }: { roster: RosterFile | null;
       <PlankOwners roster={roster} />
       <Wall roster={roster} query={query} onQuery={setQuery} />
       <Constellation roster={roster} onPickTag={pickTag} />
+      <EnlistCta roster={roster} telegram={telegram} />
     </>
   );
 }
 
-export default function RosterView() {
+export default function RosterView({ telegram = false }: { telegram?: boolean }) {
   const { roster, failed } = useRoster();
   const now = useNow(60_000);
-  return <RosterPage roster={roster} failed={failed} now={now ?? new Date()} />;
+  const [tag, setTag] = useState<string | null>(null);
+  useEffect(() => setTag(tagFromSearch(window.location.search)), []);
+  return <RosterPage roster={roster} failed={failed} now={now ?? new Date()} telegram={telegram} tag={tag} />;
 }

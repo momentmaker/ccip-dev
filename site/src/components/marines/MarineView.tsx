@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { enlistedText, marineTitle, marineUrl, memeUrl, pipText, serialFromPath, shareLine, tierName, webCardUrl } from '../../lib/marines';
 import { xIntentUrl } from '../../lib/share';
 import DogTag from './DogTag';
+import { EnlistButtons } from './Enlist';
 import { useRoster } from './use-roster';
 
 function CardImage({ marine }: { marine: RosterMarine }) {
@@ -57,8 +58,11 @@ function Missing({ label }: { label: string }) {
   );
 }
 
-/** A Marine's page. `serial` is undefined until the browser has read it from the path, null when the path holds none. */
-export function MarinePage({ roster, failed, serial }: { roster: RosterFile | null; failed: boolean; serial: number | null | undefined }) {
+/**
+ * A Marine's page. `serial` is undefined until the browser has read it from the path, null when the path holds none.
+ * `telegram` offers enlisting on Discord and on Telegram.
+ */
+export function MarinePage({ roster, failed, serial, telegram = false }: { roster: RosterFile | null; failed: boolean; serial: number | null | undefined; telegram?: boolean }) {
   if (serial === null) return <Missing label="No Marine here." />;
   if (serial === undefined || roster === null) {
     return failed ? (
@@ -115,18 +119,21 @@ export function MarinePage({ roster, failed, serial }: { roster: RosterFile | nu
             Share on X
           </a>
           <CopyLink url={marineUrl(serial)} />
-          <a className="mr-btn mr-btn-discord" href="/discord/">
-            Enlist yours
-          </a>
+          {!telegram && (
+            <a className="mr-btn mr-btn-discord" href="/discord/">
+              Enlist yours
+            </a>
+          )}
         </div>
+        {telegram && <EnlistButtons />}
       </div>
     </article>
   );
 }
 
-export default function MarineView() {
+export default function MarineView({ telegram = false }: { telegram?: boolean }) {
   const { roster, failed } = useRoster();
   const [serial, setSerial] = useState<number | null | undefined>(undefined);
   useEffect(() => setSerial(serialFromPath(window.location.pathname)), []);
-  return <MarinePage roster={roster} failed={failed} serial={serial} />;
+  return <MarinePage roster={roster} failed={failed} serial={serial} telegram={telegram} />;
 }

@@ -2,6 +2,9 @@
 import Base from '../layouts/Base.astro';
 import { DISCORD_INSTALL_URL } from '../config';
 import { DISCORD_PATH } from '../lib/socials';
+import { TELEGRAM_ENLIST_URL, telegramOpen } from '../lib/telegram';
+
+const telegram = telegramOpen(process.env.TELEGRAM_BOT);
 
 const TIERS = [
   { name: 'Common', share: '60% · steel', color: '#c9d1dc', swatch: 'linear-gradient(135deg,#4a5260,#c9d1dc 28%,#eef2f7 40%,#8e98a6 62%,#5b6472)' },
@@ -37,7 +40,7 @@ const SAFE = [
   },
   {
     title: 'Stores only your tag',
-    text: 'Your Discord account ID, the display name and avatar stamped on your card, your callsign and draw, and a copy of the card, its memes and the avatar.',
+    text: 'Your Discord account ID, the display name and avatar stamped on your card, your callsign and draw, and a copy of the card, its memes and the avatar.' + (telegram ? ' On Telegram: your Telegram account ID, the name and photo stamped on your own card (only you see that version), your callsign and draw, and copies of the card images.' : ''),
     icon: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
   },
   {
@@ -62,6 +65,7 @@ const SAFE = [
           <a class="btn ghost" href="#commands">See the commands</a>
         </div>
         <p class="fine"><b>No permissions.</b> It reads no messages and changes nothing in your server.</p>
+        {telegram && <p class="fine">On Telegram? <a href={TELEGRAM_ENLIST_URL}>Enlist in the LinkMarines Mini App</a>: the same draw, the same roster.</p>}
       </div>
       <div class="hero-card">
         <img src="/discord/marine-legendary.gif" width="1200" height="675" fetchpriority="high" alt="A Legendary dog tag card for Link Marine #0007: the memes painting, space and prophecy" />
@@ -156,6 +160,7 @@ const SAFE = [
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d={DISCORD_PATH} /></svg>
           Add to Discord
         </a>
+        {telegram && <a class="btn telegram" href={TELEGRAM_ENLIST_URL}>Enlist on Telegram</a>}
       </div>
       <p class="roster-line"><span id="roster-count" hidden></span><a href="/marines/">See the roster</a></p>
     </section>
@@ -196,6 +201,7 @@ const SAFE = [
   .btn:hover { text-decoration: none; filter: brightness(1.08); }
   .btn.discord { background: linear-gradient(180deg, #5865f2, #4752c4); box-shadow: 0 8px 28px rgba(88, 101, 242, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
   .btn.ghost { background: var(--card); border: 1px solid var(--border); color: var(--fg); }
+  .btn.telegram { background: linear-gradient(180deg, #2aabee, #229ed9); }
   .fine { color: var(--muted); font-size: 13px; margin-top: 14px; }
   .fine b { color: var(--ink); font-weight: 600; }
   .hero-card { position: relative; }

@@ -1,10 +1,13 @@
 ---
 import MarineView from '../../components/marines/MarineView';
 import Base from '../../layouts/Base.astro';
+import { telegramOpen } from '../../lib/telegram';
 import '../../styles/marines.css';
+
+const telegram = telegramOpen(process.env.TELEGRAM_BOT);
 ---
 <Base title="LinkMarine" description="A LinkMarine's dog tags on ccip.dev: the callsign, its tier and the memes behind it." noindex>
   <div class="mr-page">
-    <MarineView client:load />
+    <MarineView client:load telegram={telegram} />
   </div>
 </Base>
