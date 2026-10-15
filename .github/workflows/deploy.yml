@@ -38,7 +38,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      - run: pnpm --filter @ccip-dev/discord exec wrangler deploy
+      # TELEGRAM_BOT opens LinkMarines on Telegram (docs/runbook.md, "LinkMarines on Telegram"); anything but "on" keeps it shut.
+      - run: pnpm --filter @ccip-dev/discord exec wrangler deploy --var "TELEGRAM_BOT:${{ vars.TELEGRAM_BOT == 'on' && 'on' || 'off' }}"
         if: vars.DISCORD_BOT == 'on'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
