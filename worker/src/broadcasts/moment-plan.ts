@@ -50,18 +50,23 @@ export function dueMoments(m: MomentsBody, today: string): DueMoment[] {
 }
 
 /**
- * The moments to post now: those not already sent or seeded, welcome first, then a new sender, countdown, movers, spotlight and the
- * weekly New on CCIP (an older one first within a kind), as many as today's budget still allows, with at most NEWCOMERS_PER_DAY new senders.
+ * The moments to post now: those not already sent or seeded, any on the last day it can post first, then welcome, a new
+ * sender, countdown, movers, spotlight, project spotlight and the weekly New on CCIP (an older one first within a kind),
+ * as many as today's budget still allows, with at most NEWCOMERS_PER_DAY new senders.
  */
 export function pickMoments(
   due: readonly DueMoment[],
-  o: { done: ReadonlySet<string>; sentToday: number; newcomersSentToday?: number },
+  o: { today: string; done: ReadonlySet<string>; sentToday: number; newcomersSentToday?: number },
 ): DueMoment[] {
+  const expiringDue = addDays(o.today, -CARRY_DAYS);
+  // A countdown is planned afresh every day it counts down, so it has no last day to post on.
+  const lastDay = (d: DueMoment) => d.target.kind !== 'countdown' && d.due <= expiringDue;
   let newcomers = o.newcomersSentToday ?? 0;
   return due
     .filter((d) => !o.done.has(broadcastKey(d.target)))
     .sort(
       (a, b) =>
+        Number(lastDay(b)) - Number(lastDay(a)) ||
         BUDGETED_MOMENTS.indexOf(a.target.kind) - BUDGETED_MOMENTS.indexOf(b.target.kind) ||
         compare(a.due, b.due) ||
         compare(broadcastKey(a.target), broadcastKey(b.target)),

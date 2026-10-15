@@ -100,41 +100,73 @@ describe('dueMoments', () => {
 
 describe('pickMoments', () => {
   const d = (target: DueMoment['target'], day: string): DueMoment => ({ target, due: day });
+  /** None of ALL is on its last day yet. */
+  const TODAY = '2026-10-15';
   const ALL = [
-    d({ kind: 'roundup', monday: '2026-10-05' }, '2026-10-10'),
+    d({ kind: 'roundup', monday: '2026-10-05' }, '2026-10-14'),
     d({ kind: 'spotlight', monday: '2026-10-05' }, '2026-10-15'),
     d({ kind: 'countdown', metric: 'fees', threshold: 1e6 }, '2026-10-15'),
     d({ kind: 'welcome', selector: 'b' }, '2026-10-15'),
     d({ kind: 'welcome', selector: 'a' }, '2026-10-14'),
-    d({ kind: 'movers', monday: '2026-10-05' }, '2026-10-13'),
+    d({ kind: 'movers', monday: '2026-10-05' }, '2026-10-14'),
   ];
   const keys = (list: DueMoment[]) => list.map((m) => `${m.target.kind}${'selector' in m.target ? `:${m.target.selector}` : ''}`);
 
   it('takes welcome, countdown, movers, spotlight and New on CCIP in that order, an older one first, up to 2 a day', () => {
-    expect([keys(pickMoments(ALL, { done: new Set(), sentToday: 0 })), keys(pickMoments(ALL, { done: new Set(), sentToday: 1 })), keys(pickMoments(ALL, { done: new Set(), sentToday: 2 }))]).toEqual([
-      ['welcome:a', 'welcome:b'], ['welcome:a'], [],
-    ]);
+    expect([0, 1, 2].map((sentToday) => keys(pickMoments(ALL, { today: TODAY, done: new Set(), sentToday })))).toEqual([['welcome:a', 'welcome:b'], ['welcome:a'], []]);
   });
 
   it('places the project spotlight after the spotlight and drops New on CCIP when the budget is spent', () => {
     // #given
     const due = [d({ kind: 'roundup', monday: '2026-10-05' }, '2026-10-14'), d({ kind: 'project', monday: '2026-10-05' }, '2026-10-14'), d({ kind: 'spotlight', monday: '2026-10-05' }, '2026-10-14')];
     // #then
-    expect(keys(pickMoments(due, { done: new Set(), sentToday: 0 }))).toEqual(['spotlight', 'project']);
+    expect(keys(pickMoments(due, { today: TODAY, done: new Set(), sentToday: 0 }))).toEqual(['spotlight', 'project']);
   });
 
   it('skips the moments already sent or seeded', () => {
     // #when
-    const picked = pickMoments(ALL, { done: new Set(['broadcast:welcome:a', 'broadcast:welcome:b', 'broadcast:countdown:fees:1000000']), sentToday: 0 });
+    const picked = pickMoments(ALL, { today: TODAY, done: new Set(['broadcast:welcome:a', 'broadcast:welcome:b', 'broadcast:countdown:fees:1000000']), sentToday: 0 });
     // #then
     expect(keys(picked)).toEqual(['movers', 'spotlight']);
   });
 
   it('takes a new sender right after a welcome and before a countdown', () => {
     // #when
-    const picked = pickMoments([d({ kind: 'countdown', metric: 'fees', threshold: 1e6 }, '2026-10-15'), d({ kind: 'newcomer', key: 'project:xstocks' }, '2026-10-15'), d({ kind: 'welcome', selector: 'a' }, '2026-10-15')], { done: new Set(), sentToday: 0 });
+    const picked = pickMoments([d({ kind: 'countdown', metric: 'fees', threshold: 1e6 }, '2026-10-15'), d({ kind: 'newcomer', key: 'project:xstocks' }, '2026-10-15'), d({ kind: 'welcome', selector: 'a' }, '2026-10-15')], { today: TODAY, done: new Set(), sentToday: 0 });
     // #then
     expect(keys(picked)).toEqual(['welcome:a', 'newcomer']);
+  });
+
+  describe('a moment on the last day of its window', () => {
+    /** The project spotlight planned for Oct 14, and a new sender and a chain that arrived on Oct 15. */
+    const project = d({ kind: 'project', monday: '2026-10-05' }, '2026-10-14');
+    const newcomer = d({ kind: 'newcomer', key: 'project:xstocks' }, '2026-10-16');
+    const welcome = d({ kind: 'welcome', selector: 'a' }, '2026-10-16');
+
+    it('posts ahead of fresh ones that can still wait, when the budget is 2', () => {
+      // #when on Oct 16, the project spotlight's last day
+      const picked = pickMoments([newcomer, welcome, project], { today: '2026-10-16', done: new Set(), sentToday: 0 });
+      // #then
+      expect(keys(picked)).toEqual(['project', 'welcome:a']);
+    });
+
+    it('leaves the fresh one it displaced to the next day', () => {
+      // #given the project spotlight and the welcome went out on Oct 16, and the project spotlight is no longer due
+      const done = new Set(['broadcast:project:2026-10-05', 'broadcast:welcome:a']);
+      // #when
+      const picked = pickMoments([newcomer, welcome], { today: '2026-10-17', done, sentToday: 0 });
+      // #then
+      expect(keys(picked)).toEqual(['newcomer']);
+    });
+
+    it('does not move a countdown ahead, which is due again every day', () => {
+      // #given a countdown planned two days before, with one moment already sent today
+      const countdown = d({ kind: 'countdown', metric: 'fees', threshold: 1e6 }, '2026-10-14');
+      // #when
+      const picked = pickMoments([countdown, welcome], { today: '2026-10-16', done: new Set(), sentToday: 1 });
+      // #then
+      expect(keys(picked)).toEqual(['welcome:a']);
+    });
   });
 });
 
@@ -152,7 +184,7 @@ describe('pickMoments newcomer cap', () => {
       d({ kind: 'spotlight', monday: '2026-10-05' }, '2026-10-15'),
     ];
     // #when
-    const picked = pickMoments(due, { done: new Set(), sentToday: 0 });
+    const picked = pickMoments(due, { today: '2026-10-15', done: new Set(), sentToday: 0 });
     // #then the other two carry or expire as usual
     expect(kinds(picked)).toEqual(['newcomer', 'movers']);
   });
@@ -161,7 +193,7 @@ describe('pickMoments newcomer cap', () => {
     // #given a new sender went out in an earlier hourly run
     const due = [d({ kind: 'newcomer', key: 'project:b' }, '2026-10-15'), d({ kind: 'newcomer', key: 'project:c' }, '2026-10-15')];
     // #when
-    const picked = pickMoments(due, { done: new Set(), sentToday: 1, newcomersSentToday: 1 });
+    const picked = pickMoments(due, { today: '2026-10-15', done: new Set(), sentToday: 1, newcomersSentToday: 1 });
     // #then
     expect(picked).toEqual([]);
   });
