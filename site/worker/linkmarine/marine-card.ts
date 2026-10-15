@@ -1,6 +1,6 @@
 import { callsignSeed, filledPips, rimText, seededRandom, serialText, marineOdds, type MarineCard, type MarineWebCard, type Tier } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
-import { artLayer, at, capDay, DOT_FILTER, drawable, font, halo, type HaloRing, HEX_CLIP, hexImage, hexPoints, INK, KINO_SIZE, MONO, onCurve, pips, pngUri, pulse, px, r1, skyLayer } from './art';
+import { artLayer, at, capDay, DOT_FILTER, drawable, font, halo, type HaloRing, hexClipCentred, hexImage, hexPoints, INK, KINO_SIZE, MONO, onCurve, pips, pngUri, pulse, px, r1, skyLayer } from './art';
 import { cssLinear, cssRadialSpot, HOLO_STOPS, TIER_LOOKS, type TierLook } from './metal';
 
 export interface TagBox {
@@ -28,6 +28,8 @@ export const CHAIN_TOP = { x: 260, y: -10 };
 /** The etching: the mockup's grayscale(1) contrast(1.7) brightness(.95), toned towards the metal. */
 export const ETCH_FILTER = 'grayscale(1) contrast(1.7) brightness(0.95) sepia(0.35)';
 const ETCH_OPACITY = 0.62;
+/** The three etched memes on the back tag, in the tag's own mockup units. */
+export const ETCH_HEX = { left: 62, top: 30, width: 64, height: 72, gap: 10 } as const;
 
 const HALO_CENTER = { x: 225, y: 230 };
 const HALO_RINGS: readonly HaloRing[] = [
@@ -201,18 +203,20 @@ function frontText(card: MarineCard | MarineWebCard, look: TierLook): VNode {
 }
 
 function backEtch(card: MarineCard | MarineWebCard, look: TierLook): VNode {
+  // Square boxes, as hexImage's: Satori skews a clip-path on a box narrower than its cover-scaled meme.
+  const etchSide = px(ETCH_HEX.height);
   return tagFace(
     BACK_TAG,
     h(
       'div',
-      { style: { position: 'absolute', left: px(62), top: px(30), display: 'flex' } },
+      { style: { position: 'absolute', left: px(ETCH_HEX.left), top: px(ETCH_HEX.top), display: 'flex' } },
       ...card.memes.map((m, i) =>
         h('img', {
           src: pngUri(m.png),
-          width: px(64),
-          height: px(72),
+          width: etchSide,
+          height: etchSide,
           style: {
-            width: px(64), height: px(72), marginLeft: i === 0 ? 0 : px(10), objectFit: 'cover', clipPath: HEX_CLIP,
+            position: 'absolute', left: px(i * (ETCH_HEX.width + ETCH_HEX.gap) - (ETCH_HEX.height - ETCH_HEX.width) / 2), top: 0, width: etchSide, height: etchSide, objectFit: 'cover', clipPath: hexClipCentred(ETCH_HEX.height, ETCH_HEX.width),
             // The mockup multiplies a grey, contrasty meme onto the metal; Satori has no blend modes, so a sepia tint and transparency stand in.
             filter: ETCH_FILTER, opacity: ETCH_OPACITY,
           },

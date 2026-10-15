@@ -53,12 +53,15 @@ export function hexPoints(cx: number, cy: number, r: number): string {
 /** The same hexagon as a CSS clip-path on a box 0.866·2r wide and 2r tall. */
 export const HEX_CLIP = 'polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)';
 
-/** That hexagon as a clip-path on a box wider than it, `boxWidth` r wide and 2r tall: its sides sit inside the box's. */
-export function hexClipInside(boxWidth: number): string {
-  const inset = (((boxWidth - Math.sqrt(3)) / (2 * boxWidth)) * 100).toFixed(2);
+/** A hexagon `hexWidth` wide and as tall as the box, centred in a box `boxWidth` wide, as a clip-path: its sides sit inside the box's. */
+export function hexClipCentred(boxWidth: number, hexWidth: number): string {
+  const inset = (((boxWidth - hexWidth) / (2 * boxWidth)) * 100).toFixed(2);
   const far = (100 - Number(inset)).toFixed(2);
   return `polygon(50% 0, ${far}% 25%, ${far}% 75%, 50% 100%, ${inset}% 75%, ${inset}% 25%)`;
 }
+
+/** The regular hexagon as a clip-path on a box wider than it, `boxWidth` r wide and 2r tall. */
+export const hexClipInside = (boxWidth: number): string => hexClipCentred(boxWidth, Math.sqrt(3));
 
 export const svgDataUri = (svg: string) => `data:image/svg+xml;base64,${btoa(svg)}`;
 export const pngUri = (bytes: Uint8Array) => `data:image/png;base64,${bytesToBase64(bytes)}`;

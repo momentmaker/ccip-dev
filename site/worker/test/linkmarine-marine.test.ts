@@ -5,7 +5,7 @@ import { marine, webMarine } from '../../test/fixtures/linkmarine';
 import { h } from '../h';
 import { LinkMarineCards } from '../linkmarine/entrypoint';
 import { px } from '../linkmarine/art';
-import { BACK_TAG, FRONT_TAG, onTag } from '../linkmarine/marine-card';
+import { FRONT_TAG, onTag } from '../linkmarine/marine-card';
 import { renderKino } from '../linkmarine/render';
 import { pngPixel } from './png';
 
@@ -56,8 +56,8 @@ describe('the LinkMarineCards entrypoint: the dog tag card', () => {
     // #given a red meme and a white one; painting-space-prophecy puts its first planet at (580, 214)
     const [red, white] = await Promise.all([solid('#d01818'), solid('#ffffff')]);
     const [onRed, onWhite] = await Promise.all([cards().renderMarineCard(marine('legendary', [red])), cards().renderMarineCard(marine('legendary', [white]))]);
-    // #when the third etching, above the front tag, and the first planet's centre
-    const [ex, ey] = at(onTag(BACK_TAG, 254, 50));
+    // #when the middle of the third etching's open part, above the front tag, and the first planet's centre
+    const [ex, ey] = at({ x: 298, y: 136 });
     const [etchedRed, etchedWhite, planet] = await Promise.all([pngPixel(onRed, ex, ey), pngPixel(onWhite, ex, ey), pngPixel(onRed, Math.round(px(580)), Math.round(px(214)))]);
     // #then the etching follows the meme but loses its red; the planet keeps it
     expect({ etched: etchedWhite[0]! - etchedRed[0]! > 100, etchedRed: etchedRed[0]! - etchedRed[1]! > 60, planetRed: planet[0]! - planet[1]! > 120 }).toEqual({ etched: true, etchedRed: false, planetRed: true });
