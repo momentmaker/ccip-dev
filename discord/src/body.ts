@@ -1,4 +1,4 @@
-/** Discord's interactions and Telegram's updates and launch data run to a few KB: a body past this is refused before it is checked. */
+/** Discord's interactions and Telegram's updates run to a few KB: a body past this is refused before it is checked. */
 export const MAX_BODY_BYTES = 64 * 1024;
 
 /** The body as text, or null past `maxBytes`, whether its Content-Length says so or its bytes do. */

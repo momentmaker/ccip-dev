@@ -10,6 +10,7 @@ import { checkGate, claimStamp, marineSummary, stampTelegram, TELEGRAM_PLATFORM,
  * launch data in its body, never in a URL; the user is the one the verified launch data names, and no route takes any
  * other. Only https://ccip.dev may call it from a browser.
  */
+
 export const MINI_APP_ORIGIN = 'https://ccip.dev';
 
 /** verifyLaunchData refuses launch data past 8192 characters and the JSON around it adds little, so a larger body is no launch. */
@@ -45,10 +46,17 @@ async function enlist(bot: TelegramBot, user: TelegramUser, waitUntil: Waiter): 
   if ((await checkGate(bot, user.id)) === 'join') return json({ gate: 'join' }, 403);
   const result = await enlistMarine(bot, { platform: TELEGRAM_PLATFORM, userId: String(user.id), displayName: telegramName(user) });
   if (result.kind === 'clashed') {
-    await bot.alert('telegram-api:enlist', 'every one of 20 draws for a Telegram recruit clashed with a callsign already taken');
+    await bot.alert('telegram-draw', 'every one of 20 draws for a Telegram recruit clashed with a callsign already taken');
     return json({ error: 'draw' }, 503);
   }
-  if (result.marine.cardKey === null) await stampLater(bot, result.marine, user, waitUntil);
+  if (result.marine.cardKey === null) {
+    try {
+      await stampLater(bot, result.marine, user, waitUntil);
+    } catch (err) {
+      // The Marine is on record: a 500 here would cost them the banner, because the retry finds them already enlisted.
+      await bot.alert('telegram-api:enlist', `Marine #${result.marine.serial} enlisted, but starting its stamp failed: ${reason(err)}`);
+    }
+  }
   const already = result.kind === 'already';
   return json({ already, marine: marineSummary(bot, result.marine), banner: already ? null : banner(result.marine.tier) } satisfies EnlistAnswer);
 }
@@ -67,13 +75,19 @@ async function card(bot: TelegramBot, user: TelegramUser, waitUntil: Waiter): Pr
 }
 
 const ROUTES: Record<string, (bot: TelegramBot, user: TelegramUser, waitUntil: Waiter) => Promise<Response>> = {
-  '/tg/session': (bot, user) => session(bot, user),
+  '/tg/session': session,
   '/tg/enlist': enlist,
   '/tg/card': card,
 };
 
 async function launchUser(request: Request, bot: TelegramBot): Promise<TelegramUser | Response> {
-  const body = await cappedBody(request, MAX_REQUEST_BYTES);
+  let body: string | null;
+  try {
+    body = await cappedBody(request, MAX_REQUEST_BYTES);
+  } catch (err) {
+    console.warn(`/tg/ request body could not be read (${err instanceof Error ? err.name : 'unknown error'})`);
+    return json({ error: 'bad request' }, 400);
+  }
   if (body === null) return json({ error: 'too large' }, 413);
   let initData: unknown;
   try {

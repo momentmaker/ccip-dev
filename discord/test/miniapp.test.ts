@@ -2,8 +2,9 @@ import type { EnlistAnswer, SessionAnswer } from '@ccip-dev/core/linkmarine';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import worker from '../src/index';
+import { createAlerter } from '../src/alerts';
 import { miniAppRoute } from '../src/miniapp';
-import { fakeRenderer, fakeTelegram, fakeTelegramBot, GIF_BYTES, PNG_BYTES, resetStorage, seedMarine, signedLaunch, TG_SETTINGS, TG_USER, tgOk, type FakeTelegramBot } from './helpers';
+import { fakeRenderer, fakeTelegram, fakeTelegramBot, GIF_BYTES, PNG_BYTES, resetStorage, seedMarine, signedLaunch, SNAPSHOT, TG_SETTINGS, TG_USER, tgOk, type FakeTelegramBot } from './helpers';
 
 const OTHER = { id: 888000222, first_name: 'Grace' };
 
@@ -117,6 +118,25 @@ describe('the Mini App API: requests', () => {
     expect(answers.map((r) => r.status)).toEqual([413, 413, 200]);
   });
 
+  it('answers 400 and alerts nothing when the request body cannot be read', async () => {
+    // #given a body that fails mid-read, and an alerter that records into meta as the real one does
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const bot = botWith();
+    bot.alert = createAlerter(env.DB, {}, { fetch: bot.fetch, now: bot.now });
+    const dropped = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"initData":'));
+        controller.error(new Error('client went away'));
+      },
+    });
+    // #when
+    const res = await miniAppRoute(new Request('https://discord.ccip.dev/tg/session', { method: 'POST', body: dropped }), bot, () => {});
+    // #then
+    const alerted = await env.DB.prepare("SELECT COUNT(*) AS n FROM meta WHERE key LIKE 'alert:%'").first<{ n: number }>();
+    expect([res.status, await body(res), alerted?.n, warn.mock.calls.map(String)]).toEqual([400, { error: 'bad request' }, 0, ['/tg/ request body could not be read (Error)']]);
+  });
+
   it('is reached through the Worker at /tg/, which keeps it shut while TELEGRAM_BOT is off', async () => {
     // #given the test config, whose TELEGRAM_BOT is "off"
     const ctx = { waitUntil: () => {}, passThroughOnException: () => {}, props: {} } as unknown as ExecutionContext;
@@ -191,6 +211,37 @@ describe('the Mini App API: /tg/enlist', () => {
     const again = await body<EnlistAnswer>(await ask(botWith({ tg }), '/tg/enlist'));
     // #then
     expect([again.already, again.banner, again.marine.callsign, tg.calls.length]).toEqual([true, null, first.marine.callsign, 0]);
+  });
+
+  it('answers 503 and alerts telegram-draw when every draw clashes with a callsign already taken', async () => {
+    // #given the only three tags are someone else's
+    const threeTags = { ...SNAPSHOT, tags: SNAPSHOT.tags.slice(0, 3) };
+    await ask(botWith({ tg: memberOf('member'), snapshot: threeTags }), '/tg/enlist', OTHER);
+    const bot = botWith({ tg: memberOf('member'), snapshot: threeTags });
+    // #when
+    const res = await ask(bot, '/tg/enlist');
+    // #then
+    expect([res.status, await body(res), bot.alerts.map((a) => a.signature), (await env.DB.prepare('SELECT COUNT(*) AS n FROM marines').first<{ n: number }>())?.n]).toEqual([503, { error: 'draw' }, ['telegram-draw'], 1]);
+  });
+
+  it('still answers the draw and its banner when starting the stamp fails after the Marine is on record', async () => {
+    // #given a database that fails only the stamp claim, and every draw Legendary
+    const claimFails = { prepare: (sql: string) => { if (sql.includes('INSERT INTO meta')) throw new Error('D1 is busy'); return env.DB.prepare(sql); } } as unknown as D1Database;
+    const bot = botWith({ tg: memberOf('member'), db: claimFails });
+    bot.snapshot = { ...bot.snapshot, cutoffs: { uncommon: 0, rare: 0, legendary: 0 } };
+    // #when
+    const res = await ask(bot, '/tg/enlist');
+    const answer = await body<EnlistAnswer>(res);
+    // #then the app's next polls start the stamp, since the card is still missing
+    const polling = botWith();
+    const polls = [await ask(polling, '/tg/card'), await ask(polling, '/tg/card')];
+    expect({ status: res.status, already: answer.already, banner: answer.banner, alerts: bot.alerts.map((a) => a.signature), polls: polls.map((r) => r.status) }).toEqual({
+      status: 200,
+      already: false,
+      banner: 'legendary',
+      alerts: ['telegram-api:enlist'],
+      polls: [202, 200],
+    });
   });
 
   it('refuses someone outside the gate chats with 403, taking no serial', async () => {
