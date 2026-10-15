@@ -1,3 +1,4 @@
+import { parseStartParam } from '@ccip-dev/core/linkmarine';
 import type { RosterFile } from '@ccip-dev/core/roster';
 import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
 import { createElement } from 'react';
@@ -63,7 +64,17 @@ describe('the roster page’s ?tag=', () => {
 
   it('reads only what can be a tag', () => {
     // #then
-    expect(['?tag=pepe', '?tag=based_af', '?tag=Pepe', '?tag=%3Cscript%3E', '?other=1', ''].map(tagFromSearch)).toEqual(['pepe', 'based_af', null, null, null, null]);
+    expect(['?tag=pepe', '?tag=based_af', '?tag=Pepe', '?tag=%3Cscript%3E', '?other=1', ''].map(tagFromSearch)).toEqual(['pepe', null, null, null, null, null]);
+  });
+
+  it('accepts and refuses the same tags as a tag_ deep link into the Mini App', () => {
+    // #given
+    const tags = ['pepe', 'based', 'abcdefghijklm', '4ir', 'based_af', '_', 'abcdefghijklmn', 'Pepe', '', 'a-b', 'a b'];
+    // #when
+    const fromSearch = tags.map((tag) => tagFromSearch(`?tag=${encodeURIComponent(tag)}`) !== null);
+    const fromLink = tags.map((tag) => parseStartParam(`tag_${tag}`)?.kind === 'tag');
+    // #then
+    expect({ fromSearch, fromLink }).toEqual({ fromSearch: fromLink, fromLink: [true, true, true, true, false, false, false, false, false, false, false] });
   });
 });
 

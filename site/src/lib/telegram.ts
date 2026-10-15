@@ -1,4 +1,4 @@
-import { miniAppLink, stickerPackUrl, stickerVolume } from '@ccip-dev/core/linkmarine';
+import { miniAppLink, stickerPackUrl, stickerVolume, TAG_PATTERN } from '@ccip-dev/core/linkmarine';
 import type { RosterFile } from '@ccip-dev/core/roster';
 
 /** LinkMarines on Telegram shows on the site once the TELEGRAM_BOT GitHub variable is "on": the site build reads it. */
@@ -13,5 +13,5 @@ export function stickerPacks(roster: RosterFile): { volume: number; url: string 
 
 export function tagFromSearch(search: string): string | null {
   const tag = new URLSearchParams(search).get('tag');
-  return tag !== null && /^[a-z0-9_]{1,13}$/.test(tag) ? tag : null;
+  return tag !== null && TAG_PATTERN.test(tag) ? tag : null;
 }

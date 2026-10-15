@@ -258,16 +258,18 @@ export const stickerPackUrl = (volume: number) => `https://t.me/addstickers/${st
 /** Where a Mini App link opens: screen 1, a Marine on the roster, or a tag's sheet on the roster. */
 export type StartParam = { kind: 'enlist' } | { kind: 'marine'; serial: number } | { kind: 'tag'; tag: string };
 
+/** A tag as the callsign snapshot holds it: a–z and 0–9 only, since callsigns join tags with "-", and at most 13 characters. Every link that names a tag is checked against this. */
+export const TAG_PATTERN = /^[a-z0-9]{1,13}$/;
 const START_MARINE = /^marine_([1-9]\d{0,8})$/;
-const START_TAG = /^tag_([a-z0-9]{1,13})$/;
+const START_TAG_PREFIX = 'tag_';
 
 /** A `startapp` value as the Mini App reads it; anything else is null, so a link can only ever open a known screen. */
 export function parseStartParam(param: string | null | undefined): StartParam | null {
   if (param === 'enlist') return { kind: 'enlist' };
   const marine = START_MARINE.exec(param ?? '');
   if (marine) return { kind: 'marine', serial: Number(marine[1]) };
-  const tag = START_TAG.exec(param ?? '');
-  return tag ? { kind: 'tag', tag: tag[1]! } : null;
+  const tag = param?.startsWith(START_TAG_PREFIX) ? param.slice(START_TAG_PREFIX.length) : null;
+  return tag !== null && TAG_PATTERN.test(tag) ? { kind: 'tag', tag } : null;
 }
 
 /** What the Mini App is told of a Marine: never the name, the photo or the account. */
