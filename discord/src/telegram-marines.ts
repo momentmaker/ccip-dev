@@ -166,14 +166,15 @@ const MEMBER = new Set(['creator', 'administrator', 'member']);
 const NOT_IN_CHAT = /user not found|participant_id_invalid|member not found/i;
 
 /**
- * Whether the user is in any gate chat. Every check runs at once. When none could be checked at all (the bot was
- * removed from the channel, a chat id is wrong, Telegram is down), the gate fails closed and alerts telegram-gate.
+ * Whether the user is in any gate chat; anything else is 'join'. Every check runs at once. A chat that errors with
+ * anything but "not in the chat" (the bot was removed from it, a chat id is wrong, Telegram is down) is alerted as
+ * telegram-gate:<chat> even when another chat lets the user in, so one broken chat is noticed while the rest work.
  */
 export async function checkGate(bot: TelegramBot, userId: number): Promise<Gate> {
   const chats = bot.settings.gateChats;
   const answers = await Promise.all(chats.map((chat) => bot.tg.call<{ status: string; is_member?: boolean }>('getChatMember', { chat_id: chat, user_id: userId }, GATE_TIMEOUT_MS)));
-  if (answers.some((a) => a.ok && (MEMBER.has(a.result.status) || (a.result.status === 'restricted' && a.result.is_member === true)))) return 'ok';
-  const failures = answers.flatMap((a, i) => (!a.ok && !(a.status === 400 && NOT_IN_CHAT.test(a.description)) ? [`${chats[i]}: ${a.description}`] : []));
-  if (failures.length === chats.length) await bot.alert('telegram-gate', `no gate chat could be checked, so nobody can enlist: ${failures.join('; ') || 'TELEGRAM_GATE_CHATS is empty'}`);
-  return 'join';
+  const alerts = answers.flatMap((a, i) => (!a.ok && !(a.status === 400 && NOT_IN_CHAT.test(a.description)) ? [bot.alert(`telegram-gate:${chats[i]}`, `gate chat ${chats[i]} could not be checked: ${a.description}`)] : []));
+  if (chats.length === 0) alerts.push(bot.alert('telegram-gate', 'TELEGRAM_GATE_CHATS is empty, so nobody can enlist'));
+  await Promise.all(alerts);
+  return answers.some((a) => a.ok && (MEMBER.has(a.result.status) || (a.result.status === 'restricted' && a.result.is_member === true))) ? 'ok' : 'join';
 }
