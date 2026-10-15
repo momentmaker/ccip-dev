@@ -2,10 +2,11 @@ import type { MarineCard } from '@ccip-dev/core/linkmarine';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enlistMarine } from '../src/enlistment';
+import type { Env } from '../src/env';
 import { storyKey, webCardKey } from '../src/public';
 import type { Marine } from '../src/store';
 import type { TelegramUser } from '../src/telegram-auth';
-import { checkGate, claimStamp, marineSummary, stampTelegram, STAMP_CLAIM_MS, TELEGRAM_PLATFORM, telegramAvatar, telegramName } from '../src/telegram-marines';
+import { checkGate, claimStamp, marineSummary, stampTelegram, STAMP_CLAIM_MS, TELEGRAM_PLATFORM, telegramAvatar, telegramName, telegramSettings } from '../src/telegram-marines';
 import { fakeFetch, fakeRenderer, fakeTelegram, fakeTelegramBot, PNG_BYTES, resetStorage, TG_SETTINGS, TG_USER, tgError, tgOk } from './helpers';
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0xff, 0xd9]);
@@ -23,6 +24,59 @@ async function enlisted(bot: ReturnType<typeof fakeTelegramBot>): Promise<Marine
 
 beforeEach(resetStorage);
 afterEach(() => vi.restoreAllMocks());
+
+describe('the Telegram settings', () => {
+  const settingsOf = (vars: Partial<Env>) => telegramSettings(vars as Env);
+
+  it.each([
+    [undefined, false],
+    ['', false],
+    ['off', false],
+    ['ON', false],
+    ['on', true],
+  ])('reads TELEGRAM_BOT %j as open: %s', (value, open) => {
+    // #when
+    const settings = settingsOf({ TELEGRAM_BOT: value });
+    // #then
+    expect(settings.open).toBe(open);
+  });
+
+  it.each([
+    [undefined, []],
+    ['', []],
+    ['@ccipdev', ['@ccipdev']],
+    [' @ccipdev , -1001 ,, -1002 , ', ['@ccipdev', '-1001', '-1002']],
+  ])('reads TELEGRAM_GATE_CHATS %j as %j, trimmed and without empty entries', (value, gateChats) => {
+    // #when
+    const settings = settingsOf({ TELEGRAM_GATE_CHATS: value });
+    // #then
+    expect(settings.gateChats).toEqual(gateChats);
+  });
+
+  it.each([
+    ['42', 42],
+    [' 42 ', 42],
+    [undefined, null],
+    ['', null],
+    ['abc', null],
+    ['0', null],
+    ['-5', null],
+    ['4.5', null],
+    ['1e3', null],
+    ['0x10', null],
+    ['9007199254740993', null],
+  ])('reads TELEGRAM_STICKER_OWNER_ID %j as %j', (value, ownerId) => {
+    // #when
+    const settings = settingsOf({ TELEGRAM_STICKER_OWNER_ID: value });
+    // #then
+    expect(settings.ownerId).toBe(ownerId);
+  });
+
+  it('reads the bot token, empty while unset', () => {
+    // #then
+    expect([settingsOf({ TELEGRAM_BOT_TOKEN: '123:abc' }).botToken, settingsOf({}).botToken]).toEqual(['123:abc', '']);
+  });
+});
 
 describe('a Telegram Marine’s stamped name', () => {
   it('is the first and last name, else @username, else "Marine"', () => {

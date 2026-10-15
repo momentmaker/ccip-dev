@@ -27,7 +27,8 @@ export interface TelegramBot extends Bot {
 }
 
 export function telegramSettings(env: Env): TelegramSettings {
-  const owner = Number(env.TELEGRAM_STICKER_OWNER_ID ?? '');
+  const ownerText = (env.TELEGRAM_STICKER_OWNER_ID ?? '').trim();
+  const owner = /^\d+$/.test(ownerText) ? Number(ownerText) : NaN;
   return {
     open: env.TELEGRAM_BOT === 'on',
     gateChats: (env.TELEGRAM_GATE_CHATS ?? '').split(',').map((c) => c.trim()).filter((c) => c !== ''),

@@ -325,5 +325,5 @@ export interface FakeTelegramBot extends FakeBot {
 
 /** fakeBot with a fake Bot API and LinkMarines on Telegram switched on. */
 export function fakeTelegramBot(overrides: Partial<TelegramBot> = {}): FakeTelegramBot {
-  return { ...fakeBot(), tg: fakeTelegram(), settings: TG_SETTINGS, telegramOpen: TG_SETTINGS.open, ...overrides } as FakeTelegramBot;
+  return { ...fakeBot(), tg: fakeTelegram(), settings: TG_SETTINGS, telegramOpen: (overrides.settings ?? TG_SETTINGS).open, ...overrides } as FakeTelegramBot;
 }
