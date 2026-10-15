@@ -130,7 +130,7 @@ export function claimStamp(db: D1Database, serial: number, now: Date): Promise<b
  */
 export async function stampTelegram(bot: TelegramBot, marine: Marine, user: TelegramUser): Promise<void> {
   const reports: Report[] = [];
-  await stampCard(bot, marine, () => telegramAvatar(bot, marine.serial, user), reports, 'telegram');
+  await stampCard(bot, marine, () => telegramAvatar(bot, marine.serial, user), reports);
   try {
     const pngs = await loadMemes(bot.bucket, marine.memes);
     if (pngs) {

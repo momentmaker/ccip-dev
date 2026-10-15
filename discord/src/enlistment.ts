@@ -83,7 +83,7 @@ export type Cards = Attachment[];
 export type AvatarSource = () => Promise<Uint8Array | null>;
 
 /** The card, and the glint for Rare and up; a failed glint is reported and leaves the static card to post. */
-async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes: Uint8Array | null, reports: Report[], prefix: string): Promise<{ png: Uint8Array; gif: Uint8Array | null }> {
+async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes: Uint8Array | null, reports: Report[]): Promise<{ png: Uint8Array; gif: Uint8Array | null }> {
   const card: MarineCard = {
     serial: marine.serial,
     callsign: marine.callsign,
@@ -96,7 +96,7 @@ async function render(bot: Bot, marine: Marine, pngs: Uint8Array[], avatarBytes:
     enlistedAt: marine.enlistedAt,
     avatar: avatarBytes,
   };
-  const glintFailed = (why: string) => reports.push({ signature: `${prefix}-render:marine`, text: `glint for Marine #${marine.serial} failed: ${why}` });
+  const glintFailed = (why: string) => reports.push({ signature: 'discord-render:marine', text: `glint for Marine #${marine.serial} failed: ${why}` });
   try {
     const images = await bot.renderer.renderMarineCards(card);
     if (images.glintError !== null) glintFailed(images.glintError);
@@ -119,10 +119,9 @@ async function keep(bot: Bot, serial: number, rendered: { png: Uint8Array; gif: 
 /**
  * Stamps a Marine's card: copies the memes (while getting the avatar), renders the card (and the glint for Rare and
  * up), keeps them in R2 and records the card. Never throws: returns the images to post, or null when it could not,
- * adding what to alert to `reports`. A card that rendered is returned even when R2 would not keep it. The reports'
- * signatures start with `prefix`, so one platform's failure is not held back by the alert dedupe of the other's.
+ * adding what to alert to `reports`. A card that rendered is returned even when R2 would not keep it.
  */
-export async function stampCard(bot: Bot, marine: Marine, avatar: AvatarSource, reports: Report[], prefix = 'discord'): Promise<Cards | null> {
+export async function stampCard(bot: Bot, marine: Marine, avatar: AvatarSource, reports: Report[]): Promise<Cards | null> {
   try {
     let copyFailure: unknown = null;
     const [, avatarBytes] = await Promise.all([
@@ -130,30 +129,30 @@ export async function stampCard(bot: Bot, marine: Marine, avatar: AvatarSource, 
       avatar(),
     ]);
     if (copyFailure) {
-      reports.push({ signature: `${prefix}-memes`, text: `memes for Marine #${marine.serial} could not be copied: ${reason(copyFailure)}` });
+      reports.push({ signature: 'discord-memes', text: `memes for Marine #${marine.serial} could not be copied: ${reason(copyFailure)}` });
       return null;
     }
     const pngs = await loadMemes(bot.bucket, marine.memes);
     if (!pngs) {
-      reports.push({ signature: `${prefix}-render:marine`, text: `Marine #${marine.serial}'s memes were missing from storage right after copying` });
+      reports.push({ signature: 'discord-render:marine', text: `Marine #${marine.serial}'s memes were missing from storage right after copying` });
       return null;
     }
     let rendered;
     try {
-      rendered = await render(bot, marine, pngs, avatarBytes, reports, prefix);
+      rendered = await render(bot, marine, pngs, avatarBytes, reports);
     } catch (err) {
-      reports.push({ signature: `${prefix}-render:marine`, text: `Marine #${marine.serial}'s card failed to render: ${reason(err)}` });
+      reports.push({ signature: 'discord-render:marine', text: `Marine #${marine.serial}'s card failed to render: ${reason(err)}` });
       return null;
     }
     try {
       await keep(bot, marine.serial, rendered);
     } catch (err) {
-      reports.push({ signature: `${prefix}-store:marine`, text: `Marine #${marine.serial}'s card could not be kept in storage: ${reason(err)}` });
+      reports.push({ signature: 'discord-store:marine', text: `Marine #${marine.serial}'s card could not be kept in storage: ${reason(err)}` });
     }
     const still: Attachment = { name: `marine-${marine.serial}.png`, type: 'image/png', bytes: rendered.png };
     return rendered.gif ? [{ name: `marine-${marine.serial}.gif`, type: 'image/gif', bytes: rendered.gif }, still] : [still];
   } catch (err) {
-    reports.push({ signature: `${prefix}-render:marine`, text: `Marine #${marine.serial}'s card could not be stamped: ${reason(err)}` });
+    reports.push({ signature: 'discord-render:marine', text: `Marine #${marine.serial}'s card could not be stamped: ${reason(err)}` });
     return null;
   }
 }

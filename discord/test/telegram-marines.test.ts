@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { enlistMarine, stampCard, type Report } from '../src/enlistment';
+import { enlistMarine } from '../src/enlistment';
 import { storyKey, webCardKey } from '../src/public';
 import type { Marine } from '../src/store';
 import type { TelegramUser } from '../src/telegram-auth';
@@ -232,21 +232,10 @@ describe('a Telegram stamp that fails', () => {
       },
     });
   const FAILURES = [
-    { failure: 'the memes cannot be copied', signature: 'telegram-memes', bot: () => fakeTelegramBot({ fetch: fakeFetch(), tg: noPhotos() }) },
-    { failure: 'the card does not render', signature: 'telegram-render:marine', bot: () => fakeTelegramBot({ renderer: fakeRenderer('renderMarineCard'), tg: noPhotos() }) },
-    { failure: 'R2 will not keep the card', signature: 'telegram-store:marine', bot: () => fakeTelegramBot({ bucket: refusingCards(), tg: noPhotos() }) },
+    { failure: 'the memes cannot be copied', bot: () => fakeTelegramBot({ fetch: fakeFetch(), tg: noPhotos() }) },
+    { failure: 'the card does not render', bot: () => fakeTelegramBot({ renderer: fakeRenderer('renderMarineCard'), tg: noPhotos() }) },
+    { failure: 'R2 will not keep the card', bot: () => fakeTelegramBot({ bucket: refusingCards(), tg: noPhotos() }) },
   ];
-
-  it.each(FAILURES)('is reported as $signature when $failure, so Discord’s hourly alert dedupe never hides it', async ({ bot: makeBot, signature }) => {
-    // #given
-    const bot = makeBot();
-    const marine = await enlisted(bot);
-    const reports: Report[] = [];
-    // #when
-    await stampCard(bot, marine, async () => null, reports, 'telegram');
-    // #then
-    expect(reports.map((r) => r.signature)).toEqual([signature]);
-  });
 
   it.each(FAILURES)('is alerted as telegram-stamp:<serial> when $failure', async ({ bot: makeBot }) => {
     // #given
