@@ -52,7 +52,16 @@ export async function pngPixel(png: Uint8Array, x: number, y: number): Promise<[
 }
 
 /** The whole image decoded once, for a test that reads many pixels. */
-export async function pngImage(png: Uint8Array): Promise<{ width: number; height: number; at: (x: number, y: number) => Rgba }> {
+export async function pngImage(png: Uint8Array): Promise<{ width: number; height: number; at: (x: number, y: number) => Rgba; rowsWhere: (from: number, to: number, accepts: (r: number, g: number, b: number) => boolean) => number[] }> {
   const { width, channels, rows } = await decode(png, Infinity);
-  return { width, height: rows.length, at: (x, y) => rgbaAt(rows[y]!, x, channels) };
+  const hasPixel = (row: Uint8Array, accepts: (r: number, g: number, b: number) => boolean) => {
+    for (let x = 0; x < width; x++) if (accepts(row[x * channels]!, row[x * channels + 1]!, row[x * channels + 2]!)) return true;
+    return false;
+  };
+  return {
+    width,
+    height: rows.length,
+    at: (x, y) => rgbaAt(rows[y]!, x, channels),
+    rowsWhere: (from, to, accepts) => Array.from({ length: to - from }, (_, i) => from + i).filter((y) => hasPixel(rows[y]!, accepts)),
+  };
 }

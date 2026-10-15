@@ -1,4 +1,4 @@
-import type { MarineWebCard } from '@ccip-dev/core/linkmarine';
+import type { MarineWebCard, Tier } from '@ccip-dev/core/linkmarine';
 import { createExecutionContext } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { marine, webMarine } from '../../test/fixtures/linkmarine';
@@ -51,6 +51,24 @@ describe('the LinkMarineCards entrypoint: the Story card', () => {
       return [image.at(x, Math.round(upper - 2))[0], image.at(x, Math.round(lower + 2))[0], image.at(x, Math.round(upper + 3))[0], image.at(x, Math.round(lower - 3))[0]];
     });
     expect(reds.map((r) => r > 150)).toEqual(STORY_HEXES.flatMap(() => [false, false, true, true]));
+  });
+
+  // Two Story cards are decoded and scanned here: kept above the 60 s default so a slow CI run cannot fail the gate that runs before deploy.
+  it("keeps what matters clear of Telegram's Story bars: the tags under the top 250 px, the labels above 1620, the footer by 1720", { timeout: 120_000 }, async () => {
+    // #given the Legendary Story card, whose tags are gold, and the Common one, whose hex frames are near white like the labels
+    const red = await solid('#d01818');
+    const [legendary, common] = await Promise.all(['legendary', 'common'].map(async (tier) => pngImage(await cards().renderMarineStory(webMarine(tier as Tier, [red])))));
+    // #when each row range is asked what is drawn on it: ink is anything brighter than the card's background
+    const bright = (r: number, g: number, b: number) => Math.max(r, g, b) > 150;
+    const nearWhite = (r: number, g: number, b: number) => Math.min(r, g, b) > 190;
+    const goldMetal = (r: number, g: number, b: number) => r > 200 && g > 150 && b < 130;
+    // #then
+    expect({
+      tagsInTheTopBar: legendary.rowsWhere(0, 250, goldMetal),
+      labelsBelow1620: [legendary, common].map((image) => image.rowsWhere(1620, 1920, nearWhite)),
+      footerShown: [legendary, common].map((image) => image.rowsWhere(1620, 1730, bright).length > 0),
+      anythingBelow1730: [legendary, common].map((image) => image.rowsWhere(1730, 1920, bright)),
+    }).toEqual({ tagsInTheTopBar: [], labelsBelow1620: [[], []], footerShown: [true, true], anythingBelow1730: [[], []] });
   });
 
   it('sets the callsign in the column, the longest one smaller', () => {
