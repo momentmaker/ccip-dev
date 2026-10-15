@@ -73,4 +73,41 @@ describe('Mini App launch data', () => {
     // #then
     expect([await verifyLaunchData(noName, BOT_TOKEN, NOW_MS), await verifyLaunchData(textId, BOT_TOKEN, NOW_MS)]).toEqual([null, null]);
   });
+  it('refuses a duplicate hash key, whichever comes first', async () => {
+    // #given
+    const signed = await signedLaunch(TG_USER, NOW_S);
+    const bogus = `hash=${'0'.repeat(64)}`;
+    // #then
+    expect([await verifyLaunchData(`${signed}&${bogus}`, BOT_TOKEN, NOW_MS), await verifyLaunchData(`${bogus}&${signed}`, BOT_TOKEN, NOW_MS)]).toEqual([null, null]);
+  });
+
+  it('refuses signed launch data whose user is missing or is not JSON', async () => {
+    // #given
+    const [missing, notJson] = await Promise.all([signedLaunch(TG_USER, NOW_S, BOT_TOKEN, { user: null }), signedLaunch(TG_USER, NOW_S, BOT_TOKEN, { user: 'not json' })]);
+    // #then
+    expect([await verifyLaunchData(missing, BOT_TOKEN, NOW_MS), await verifyLaunchData(notJson, BOT_TOKEN, NOW_MS)]).toEqual([null, null]);
+  });
+
+  it('refuses signed launch data whose auth_date is missing or is not a number', async () => {
+    // #given
+    const [missing, text] = await Promise.all([signedLaunch(TG_USER, NOW_S, BOT_TOKEN, { auth_date: null }), signedLaunch(TG_USER, NOW_S, BOT_TOKEN, { auth_date: 'soon' })]);
+    // #then
+    expect([await verifyLaunchData(missing, BOT_TOKEN, NOW_MS), await verifyLaunchData(text, BOT_TOKEN, NOW_MS)]).toEqual([null, null]);
+  });
+
+  it('refuses launch data whose auth_date was changed after signing, even to a fresher one', async () => {
+    // #given
+    const signed = new URLSearchParams(await signedLaunch(TG_USER, NOW_S - 3600));
+    signed.set('auth_date', String(NOW_S));
+    // #then
+    expect(await verifyLaunchData(signed.toString(), BOT_TOKEN, NOW_MS)).toBeNull();
+  });
+
+  it('refuses signed launch data longer than 8192 characters, and takes it at exactly 8192', async () => {
+    // #given
+    const bare = (await signedLaunch(TG_USER, NOW_S, BOT_TOKEN, { pad: '' })).length;
+    const [atLimit, overLimit] = await Promise.all([8192, 8193].map((length) => signedLaunch(TG_USER, NOW_S, BOT_TOKEN, { pad: 'x'.repeat(length - bare) })));
+    // #then
+    expect([atLimit.length, overLimit.length, (await verifyLaunchData(atLimit, BOT_TOKEN, NOW_MS))?.user.id ?? null, await verifyLaunchData(overLimit, BOT_TOKEN, NOW_MS)]).toEqual([8192, 8193, TG_USER.id, null]);
+  });
 });

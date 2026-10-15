@@ -243,7 +243,9 @@ export const TELEGRAM_BOT_USERNAME = 'ccipdevbot';
 export const MINI_APP_LINK = `https://t.me/${TELEGRAM_BOT_USERNAME}/marines`;
 export const MINI_APP_URL = 'https://ccip.dev/tg/';
 
-export const miniAppLink = (startapp?: string) => (startapp ? `${MINI_APP_LINK}?startapp=${startapp}` : MINI_APP_LINK);
+/** Telegram accepts a `startapp` of 1–64 letters, digits, underscores and hyphens; anything else is left off, so no other query can ride on the link. */
+const STARTAPP_VALUE = /^[A-Za-z0-9_-]{1,64}$/;
+export const miniAppLink = (startapp?: string) => (startapp && STARTAPP_VALUE.test(startapp) ? `${MINI_APP_LINK}?startapp=${startapp}` : MINI_APP_LINK);
 
 /** Telegram caps a static sticker set at 120 stickers. */
 export const STICKERS_PER_PACK = 120;
@@ -257,7 +259,7 @@ export const stickerPackUrl = (volume: number) => `https://t.me/addstickers/${st
 export type StartParam = { kind: 'enlist' } | { kind: 'marine'; serial: number } | { kind: 'tag'; tag: string };
 
 const START_MARINE = /^marine_([1-9]\d{0,8})$/;
-const START_TAG = /^tag_([a-z0-9_]{1,13})$/;
+const START_TAG = /^tag_([a-z0-9]{1,13})$/;
 
 /** A `startapp` value as the Mini App reads it; anything else is null, so a link can only ever open a known screen. */
 export function parseStartParam(param: string | null | undefined): StartParam | null {

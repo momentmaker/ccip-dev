@@ -29,7 +29,7 @@ const failed = (err: unknown): TelegramResult<never> => ({ ok: false, status: 0,
 async function answer<T>(res: Response): Promise<TelegramResult<T>> {
   let body: { ok?: boolean; result?: T; description?: unknown; parameters?: { retry_after?: unknown } } = {};
   try {
-    body = (await res.json()) as typeof body;
+    body = ((await res.json()) ?? {}) as typeof body;
   } catch {
     // A body that isn't JSON (a proxy's error page) leaves only the status to report.
   }
@@ -50,10 +50,10 @@ export function telegramApi(token: string, fetchFn: typeof fetch): TelegramApi {
       }
     },
     async upload<T>(method: string, fields: Record<string, string>, file: TelegramFile, timeoutMs = TELEGRAM_TIMEOUT_MS) {
-      const form = new FormData();
-      for (const [name, value] of Object.entries(fields)) form.append(name, value);
-      form.append(file.field, new Blob([file.bytes], { type: file.type }), file.name);
       try {
+        const form = new FormData();
+        for (const [name, value] of Object.entries(fields)) form.append(name, value);
+        form.append(file.field, new Blob([file.bytes], { type: file.type }), file.name);
         return await answer<T>(await fetchFn(url(method), { method: 'POST', body: form, signal: AbortSignal.timeout(timeoutMs) }));
       } catch (err) {
         return failed(err);

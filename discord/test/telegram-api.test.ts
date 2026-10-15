@@ -74,4 +74,42 @@ describe('the Telegram Bot API client', () => {
     // #then
     expect([got[0] && [...got[0]], got[1], found.requests[0]!.url]).toEqual([[9, 8], null, `https://api.telegram.org/file/bot${TOKEN}/photos/file_1.jpg`]);
   });
+
+  it('turns a hostile upload into a failure result, never a throw', async () => {
+    // #given
+    const t = answering(() => reply({ ok: true, result: {} }));
+    const fields = {
+      get user_id(): string {
+        throw new Error('unreadable field');
+      },
+    };
+    // #when
+    const got = await telegramApi(TOKEN, t.fetchFn).upload('uploadStickerFile', fields, { field: 'sticker', name: 's.png', type: 'image/png', bytes: new Uint8Array() });
+    // #then
+    expect([got, t.requests.length]).toEqual([{ ok: false, status: 0, description: 'request failed (Error)', retryAfter: null }, 0]);
+  });
+
+  it('keeps the real status when Telegram, or a proxy, answers with a JSON null', async () => {
+    // #given
+    const t = answering(() => reply(null, 502));
+    // #when
+    const got = await telegramApi(TOKEN, t.fetchFn).call('getMe', {});
+    // #then
+    expect(got).toEqual({ ok: false, status: 502, description: 'HTTP 502', retryAfter: null });
+  });
+
+  it('gives up on a request that outlasts its timeout: a failure result, or null, never a throw', async () => {
+    // #given a fetch that only ever ends by being aborted
+    const hanging = ((_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason)))) as typeof fetch;
+    const api = telegramApi(TOKEN, hanging);
+    // #when
+    const results = await Promise.all([api.call('getMe', {}, 10), api.upload('uploadStickerFile', {}, { field: 'sticker', name: 's.png', type: 'image/png', bytes: new Uint8Array() }, 10), api.download('photos/x.jpg', 10)]);
+    // #then
+    expect(results).toEqual([
+      { ok: false, status: 0, description: 'request failed (TimeoutError)', retryAfter: null },
+      { ok: false, status: 0, description: 'request failed (TimeoutError)', retryAfter: null },
+      null,
+    ]);
+  });
 });

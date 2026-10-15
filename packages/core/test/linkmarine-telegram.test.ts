@@ -21,11 +21,11 @@ describe('the LinkMarines sticker packs', () => {
 describe('the Mini App links', () => {
   it('reads enlist, a Marine and a tag, and nothing else', () => {
     // #then
-    expect(['enlist', 'marine_42', 'tag_pepe', 'tag_based_af', 'marine_0', 'marine_007', 'tag_Pepe', 'tag_', 'marine_', 'roster', '', null, undefined].map(parseStartParam)).toEqual([
+    expect(['enlist', 'marine_42', 'tag_pepe', 'tag_based', 'marine_0', 'marine_007', 'tag_Pepe', 'tag_', 'marine_', 'roster', '', null, undefined].map(parseStartParam)).toEqual([
       { kind: 'enlist' },
       { kind: 'marine', serial: 42 },
       { kind: 'tag', tag: 'pepe' },
-      { kind: 'tag', tag: 'based_af' },
+      { kind: 'tag', tag: 'based' },
       null,
       null,
       null,
@@ -38,8 +38,23 @@ describe('the Mini App links', () => {
     ]);
   });
 
+  it('refuses a tag the vocabulary cannot hold: an underscore, or more than 13 characters', () => {
+    // #then
+    expect(['tag_based_af', 'tag__', 'tag_abcdefghijklmn', 'tag_abcdefghijklm'].map(parseStartParam)).toEqual([null, null, null, { kind: 'tag', tag: 'abcdefghijklm' }]);
+  });
+
   it('builds the direct link, with startapp when given', () => {
     // #then
     expect([miniAppLink(), miniAppLink('enlist')]).toEqual(['https://t.me/ccipdevbot/marines', 'https://t.me/ccipdevbot/marines?startapp=enlist']);
+  });
+
+  it('leaves out a startapp Telegram would not accept, so no query can ride on the link', () => {
+    // #then
+    expect(['a&b=1', 'two words', 'x'.repeat(65), 'marine_7#x'].map(miniAppLink)).toEqual(Array(4).fill('https://t.me/ccipdevbot/marines'));
+  });
+
+  it('keeps a startapp of 64 letters, digits, underscores and hyphens', () => {
+    // #then
+    expect(miniAppLink('Tag_a-9'.padEnd(64, 'z'))).toBe(`https://t.me/ccipdevbot/marines?startapp=${'Tag_a-9'.padEnd(64, 'z')}`);
   });
 });

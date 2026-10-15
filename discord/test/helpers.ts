@@ -268,9 +268,10 @@ export const TG_USER = { id: 777000111, first_name: 'Ada', last_name: 'Lovelace'
 
 const toHex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
-/** Launch data as Telegram signs it, for `user` at `authDate` (Unix seconds), with any other fields in `extra`. */
-export async function signedLaunch(user: Record<string, unknown>, authDate: number, token = BOT_TOKEN, extra: Record<string, string> = {}): Promise<string> {
-  const fields: Record<string, string> = { query_id: 'AAHdF6IQAAAAAN0XohDhrOrc', user: JSON.stringify(user), auth_date: String(authDate), ...extra };
+/** Launch data as Telegram signs it, for `user` at `authDate` (Unix seconds). `extra` adds or replaces fields before signing; a null value leaves that field out. */
+export async function signedLaunch(user: Record<string, unknown>, authDate: number, token = BOT_TOKEN, extra: Record<string, string | null> = {}): Promise<string> {
+  const merged: Record<string, string | null> = { query_id: 'AAHdF6IQAAAAAN0XohDhrOrc', user: JSON.stringify(user), auth_date: String(authDate), ...extra };
+  const fields = Object.fromEntries(Object.entries(merged).filter((entry): entry is [string, string] => entry[1] !== null));
   const check = Object.keys(fields).sort().map((k) => `${k}=${fields[k]}`).join('\n');
   const encode = (s: string) => new TextEncoder().encode(s);
   const hmac = async (key: BufferSource, data: string) => crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), encode(data));

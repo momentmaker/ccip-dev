@@ -17,6 +17,8 @@ export interface LaunchData {
 export const LAUNCH_MAX_AGE_S = 86_400;
 /** Telegram's clock and ours may disagree by a little; a launch from further in the future is refused. */
 const CLOCK_SKEW_S = 300;
+/** Real launch data is under about 2 KB; refusing more keeps a huge string away from the HMAC. */
+const MAX_LAUNCH_LENGTH = 8192;
 
 const encoder = new TextEncoder();
 const HASH = /^[0-9a-f]{64}$/;
@@ -42,10 +44,10 @@ function parseUser(raw: string | null): TelegramUser | null {
  * HMAC-SHA256 under the key HMAC-SHA256("WebAppData", bot token). crypto.subtle.verify compares in constant time.
  */
 export async function verifyLaunchData(initData: string, botToken: string, nowMs: number): Promise<LaunchData | null> {
-  if (!initData || !botToken) return null;
+  if (!initData || !botToken || initData.length > MAX_LAUNCH_LENGTH) return null;
   const params = new URLSearchParams(initData);
   const hash = params.get('hash') ?? '';
-  if (!HASH.test(hash)) return null;
+  if (params.getAll('hash').length !== 1 || !HASH.test(hash)) return null;
   const dataCheck = [...params]
     .filter(([key]) => key !== 'hash')
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
