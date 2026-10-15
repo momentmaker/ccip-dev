@@ -58,10 +58,7 @@ function Missing({ label }: { label: string }) {
   );
 }
 
-/**
- * A Marine's page. `serial` is undefined until the browser has read it from the path, null when the path holds none.
- * `telegram` offers enlisting on Discord and on Telegram.
- */
+/** A Marine's page. `serial` is undefined until the browser has read it from the path, null when the path holds none. */
 export function MarinePage({ roster, failed, serial, telegram = false }: { roster: RosterFile | null; failed: boolean; serial: number | null | undefined; telegram?: boolean }) {
   if (serial === null) return <Missing label="No Marine here." />;
   if (serial === undefined || roster === null) {

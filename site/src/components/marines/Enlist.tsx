@@ -3,7 +3,6 @@ import { DISCORD_INSTALL_URL } from '../../config';
 import { DISCORD_PATH } from '../../lib/socials';
 import { stickerPacks, TELEGRAM_ENLIST_URL } from '../../lib/telegram';
 
-/** Enlist on Discord and on Telegram, side by side. */
 export function EnlistButtons() {
   return (
     <div className="mr-actions">
@@ -17,7 +16,6 @@ export function EnlistButtons() {
   );
 }
 
-/** The roster page's closing call to enlist: Discord alone until LinkMarines opens on Telegram, then both and the sticker packs. */
 export function EnlistCta({ roster, telegram }: { roster: RosterFile | null; telegram: boolean }) {
   const packs = telegram && roster ? stickerPacks(roster) : [];
   return (

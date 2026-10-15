@@ -40,7 +40,7 @@ const SAFE = [
   },
   {
     title: 'Stores only your tag',
-    text: 'Your Discord account ID, the display name and avatar stamped on your card, your callsign and draw, and a copy of the card, its memes and the avatar.' + (telegram ? ' On Telegram: your Telegram account ID, the name and photo stamped on your own card (only you see that version), your callsign and draw, and copies of the card images.' : ''),
+    text: 'Your Discord account ID, the display name and avatar stamped on your card, your callsign and draw, and a copy of the card, its memes and the avatar.' + (telegram ? ' On Telegram: your Telegram account ID, the name and photo stamped on your own card (only you see that version), your callsign and draw, and a copy of the card, its memes and the photo.' : ''),
     icon: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
   },
   {
@@ -201,7 +201,7 @@ const SAFE = [
   .btn:hover { text-decoration: none; filter: brightness(1.08); }
   .btn.discord { background: linear-gradient(180deg, #5865f2, #4752c4); box-shadow: 0 8px 28px rgba(88, 101, 242, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
   .btn.ghost { background: var(--card); border: 1px solid var(--border); color: var(--fg); }
-  .btn.telegram { background: linear-gradient(180deg, #2aabee, #229ed9); }
+  .btn.telegram { background: linear-gradient(180deg, #006fa8, #00609a); }
   .fine { color: var(--muted); font-size: 13px; margin-top: 14px; }
   .fine b { color: var(--ink); font-weight: 600; }
   .hero-card { position: relative; }

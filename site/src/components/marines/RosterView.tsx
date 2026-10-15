@@ -53,10 +53,7 @@ function Hero({ roster, telegram }: { roster: RosterFile | null; telegram: boole
   );
 }
 
-/**
- * The roster page's sections, from the roster as loaded: pure, so it renders on the server for tests and as the loading
- * shell. `telegram` adds LinkMarines on Telegram; `tag` (from ?tag=) opens the wall on that tag once the roster is in.
- */
+/** The roster page's sections, from the roster as loaded: pure, so it renders on the server for tests and as the loading shell. */
 export function RosterPage({ roster, failed, now, telegram = false, tag = null }: { roster: RosterFile | null; failed: boolean; now: Date; telegram?: boolean; tag?: string | null }) {
   const [query, setQuery] = useState<WallQuery>(() => (tag === null ? ALL_MARINES : { ...ALL_MARINES, tag }));
   const pickTag = (picked: string) => {
@@ -64,6 +61,7 @@ export function RosterPage({ roster, failed, now, telegram = false, tag = null }
     document.getElementById('wall')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const loaded = roster !== null;
+  // The wall to scroll to exists only once the roster is in.
   useEffect(() => {
     if (tag !== null && loaded) pickTag(tag);
   }, [tag, loaded]);
