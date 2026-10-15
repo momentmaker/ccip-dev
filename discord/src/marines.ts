@@ -1,4 +1,4 @@
-import { hasGlint, serialText, type Tier } from '@ccip-dev/core/linkmarine';
+import { hasGlint, serialText, stickerPackUrl, stickerVolume, type Tier } from '@ccip-dev/core/linkmarine';
 import type { Bot } from './bot';
 import { avatarKey, cardKey, enlistMarine, flush, isPng, readBytes, reason, stampCard, type Cards, type Report } from './enlistment';
 import { avatarUrl, displayName, escapeMarkdown, invoker, optionValue, type DiscordMember, type DiscordUser, type Interaction } from './interactions';
@@ -23,6 +23,13 @@ export function revealSteps(tags: readonly string[], tier: Tier): string[] {
   const last = up.join(' · ');
   const banner = tier === 'legendary' ? '⚠ LEGENDARY DRAW' : tier === 'rare' ? '⚠ RARE DRAW' : null;
   return [`${up[0]} ▮▮`, `${up[0]} · ${up[1]} ▮`, banner ? `${banner}\n${last}` : last];
+}
+
+/** The text a posted card carries: the callsign, and once LinkMarines is on Telegram, the Marine's sticker pack. */
+export function cardText(bot: Pick<Bot, 'telegramOpen'>, marine: Pick<Marine, 'callsign' | 'serial'>): string {
+  if (!bot.telegramOpen) return marine.callsign;
+  const volume = stickerVolume(marine.serial);
+  return `${marine.callsign}\n🎖 Sticker: LinkMarines Vol. ${volume} <${stickerPackUrl(volume)}>`;
 }
 
 const AVATAR_TIMEOUT_MS = 5_000;
@@ -143,7 +150,7 @@ export async function reveal(bot: Bot, token: string, marine: Marine, avatarSour
   const cards = outcome === 'late' ? null : outcome;
   if (cards && bot.now().getTime() - lastStepAt < STEP_MS) await bot.sleep(STEP_MS - (bot.now().getTime() - lastStepAt));
   try {
-    await postCard(bot, token, marine.callsign, cards, TEXT.stamping(marine), marine, startedAt, reports);
+    await postCard(bot, token, cardText(bot, marine), cards, TEXT.stamping(marine), marine, startedAt, reports);
   } catch (err) {
     console.error(`Marine #${marine.serial}: the final edit failed: ${reason(err)}`);
   }
@@ -204,7 +211,7 @@ export async function dogtagCommand(bot: Bot, interaction: Interaction, startedA
     const stamping = storedCard(bot, marine, avatarUrl(whose.user, whose.member, interaction.guild_id), reports);
     const cards = await byDeadline(bot, stamping, marine, startedAt, reports);
     const fallback = whose.self ? TEXT.stamping(marine) : TEXT.tagStamping(displayName(whose.user, whose.member));
-    if (cards) await postCard(bot, interaction.token, marine.callsign, cards === 'late' ? null : cards, fallback, marine, startedAt, reports);
+    if (cards) await postCard(bot, interaction.token, cardText(bot, marine), cards === 'late' ? null : cards, fallback, marine, startedAt, reports);
     else await bot.discord.privateFollowup(interaction.token, TEXT.internal, replyBudget(bot, startedAt));
     if (cards === 'late') await finishLate(bot, stamping, startedAt);
   } finally {

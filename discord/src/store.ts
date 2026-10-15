@@ -132,3 +132,15 @@ export async function claimMeta(db: D1Database, key: string, nowMs: number, ttlM
     .run();
   return res.meta.changes > 0;
 }
+
+/**
+ * The sticker job's queue, at most `limit`: first a Marine a cut-short run left marked (sticker_set set, no file id),
+ * then the Marines without a sticker, oldest serial first.
+ */
+export async function stickerQueue(db: D1Database, limit: number): Promise<{ marine: Marine; set: string | null }[]> {
+  const { results } = await db
+    .prepare('SELECT * FROM marines WHERE sticker_file_id IS NULL ORDER BY sticker_set IS NULL, serial LIMIT ?')
+    .bind(limit)
+    .all<MarineRow & { sticker_set: string | null }>();
+  return results.map((r) => ({ marine: toMarine(r), set: r.sticker_set }));
+}

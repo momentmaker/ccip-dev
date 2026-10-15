@@ -21,6 +21,8 @@ export interface Bot {
   now: () => Date;
   random: () => number;
   snapshot: CallsignSnapshot;
+  /** LinkMarines on Telegram is open (TELEGRAM_BOT is "on"): a posted card names the Marine's sticker pack. */
+  telegramOpen: boolean;
 }
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -51,5 +53,6 @@ export function createBot(env: Env): Bot {
     now,
     random: cryptoRandom,
     snapshot: SNAPSHOT,
+    telegramOpen: env.TELEGRAM_BOT === 'on',
   };
 }

@@ -7,6 +7,7 @@ import { deferred, InteractionType, json, privateReply, ResponseType, type Inter
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { miniAppRoute } from './miniapp';
 import { publicRoute, type PublicDeps } from './public';
+import { stickerJob } from './stickers';
 import { createTelegramBot } from './telegram-marines';
 import { verifyDiscordRequest } from './verify';
 
@@ -137,5 +138,9 @@ export default {
     const interaction = parseInteraction(body);
     if (!interaction) return new Response('Invalid interaction', { status: 400 });
     return handleInteraction(interaction, env.DISCORD_SERVERS, botHandlers(createBot(env)), (work) => ctx.waitUntil(work));
+  },
+
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(stickerJob(createTelegramBot(env)));
   },
 } satisfies ExportedHandler<Env>;

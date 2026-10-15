@@ -194,6 +194,7 @@ export function fakeBot(overrides: Partial<Bot> = {}): FakeBot {
     now: () => new Date(clock.ms),
     random: seededRandom(42),
     snapshot: SNAPSHOT,
+    telegramOpen: false,
     data: {
       load: async (name) => {
         throw new Error(`no ${name} in this test`);
@@ -319,11 +320,9 @@ export const TG_SETTINGS: TelegramSettings = { open: true, gateChats: ['@ccipdev
 export interface FakeTelegramBot extends FakeBot {
   tg: ReturnType<typeof fakeTelegram>;
   settings: TelegramSettings;
-  /** Mirrors settings.open, so the bot's two switches never disagree. */
-  telegramOpen: boolean;
 }
 
-/** fakeBot with a fake Bot API and LinkMarines on Telegram switched on. */
+/** fakeBot with a fake Bot API and LinkMarines on Telegram switched on. telegramOpen follows settings.open, so the bot's two switches never disagree. */
 export function fakeTelegramBot(overrides: Partial<TelegramBot> = {}): FakeTelegramBot {
   return { ...fakeBot(), tg: fakeTelegram(), settings: TG_SETTINGS, telegramOpen: (overrides.settings ?? TG_SETTINGS).open, ...overrides } as FakeTelegramBot;
 }
