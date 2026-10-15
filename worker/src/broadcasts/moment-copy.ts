@@ -66,10 +66,12 @@ function welcomeTg(f: WelcomeFacts): Line[] {
 }
 
 const newcomerSpanText = (f: NewcomerFacts) => newcomerSpanWords(f.firstDay, f.day, shortDay);
+const viaItsToken = (f: { viaToken: boolean }) => (f.viaToken ? ' via its token' : '');
 
 function newcomerX(f: NewcomerFacts): Line[] {
+  const sent = f.viaToken ? `, with ${plural(f.total, 'message')} via its token` : ` sent ${plural(f.total, 'message')}`;
   return [
-    { text: `🆕 New on #CCIP: ${subject(f.sender)} sent ${plural(f.total, 'message')} ${newcomerSpanText(f)}` },
+    { text: `🆕 New on #CCIP: ${subject(f.sender)}${sent} ${newcomerSpanText(f)}` },
     { text: `#${f.rank} sender on ${postDay(f.day)}${f.chains.length > 1 ? ` · ${plural(f.chains.length, 'chain')}` : ''}` },
     ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, plain)}`, drop: MOMENT_DROP.detail }] : []),
     { text: '#Chainlink $LINK', drop: MOMENT_DROP.closing },
@@ -80,7 +82,7 @@ function newcomerTg(f: NewcomerFacts): Line[] {
   const name = tgName(f.sender);
   return [
     { text: bold(`New on CCIP: ${name}`) },
-    { text: `${name} sent ${bold(formatCount(f.total))} message${f.total === 1 ? '' : 's'} ${newcomerSpanText(f)}, and was the #${f.rank} sender on ${longDay(f.day)}.` },
+    { text: `${name} ${f.viaToken ? 'had' : 'sent'} ${bold(formatCount(f.total))} message${f.total === 1 ? '' : 's'}${viaItsToken(f)} ${newcomerSpanText(f)}, and was the #${f.rank} sender on ${longDay(f.day)}.` },
     ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, tgName)}`, drop: MOMENT_DROP.detail }] : []),
     { text: '' },
     { text: CLOSING_TG, drop: MOMENT_DROP.closing },
@@ -222,7 +224,7 @@ const growth = (f: ProjectSpotlightFacts) => {
 function projectX(f: ProjectSpotlightFacts): Line[] {
   return [
     { text: `Project spotlight: ${subject(f.project)}${kindClause(f)} grew the most on #CCIP last week` },
-    { text: [`${plural(f.messages, 'message')}${growth(f)}`, ...projectFigures(f, (s) => s)].join(' · ') },
+    { text: [`${plural(f.messages, 'message')}${viaItsToken(f)}${growth(f)}`, ...projectFigures(f, (s) => s)].join(' · ') },
     ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, plain)}`, drop: MOMENT_DROP.detail }] : []),
     { text: '#Chainlink $LINK', drop: MOMENT_DROP.closing },
   ];
@@ -233,7 +235,7 @@ function projectTg(f: ProjectSpotlightFacts): Line[] {
   const figures = projectFigures(f, bold);
   return [
     { text: bold(`Project spotlight: ${name}`) },
-    { text: `${name}${kindClause(f)} grew the most on CCIP last week: ${bold(formatCount(f.messages))} message${f.messages === 1 ? '' : 's'}${growth(f)}.` },
+    { text: `${name}${kindClause(f)} grew the most on CCIP last week: ${bold(formatCount(f.messages))} message${f.messages === 1 ? '' : 's'}${viaItsToken(f)}${growth(f)}.` },
     ...(figures.length > 0 ? [{ text: figures.join(' · ') }] : []),
     ...(f.chains.length > 0 ? [{ text: `Chains: ${shownList(f.chains, 3, tgName)}`, drop: MOMENT_DROP.detail }] : []),
     { text: '' },

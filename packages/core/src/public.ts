@@ -192,6 +192,8 @@ export const ProjectSpotlightSchema = z.object({
   usd: z.number(),
   fee_usd: z.number().nullable(),
   chains: z.array(z.string()),
+  /** The part of `messages` credited via the project's claimed tokens; a file from before via token has none. */
+  via_token_messages: z.number().optional(),
 });
 
 export const MomentsWeekSchema = z.object({
@@ -229,6 +231,8 @@ export const SenderArrivalSchema = z.object({
   /** Its messages from its first day through `day`. */
   total_messages: z.number(),
   chains: z.array(z.string()),
+  /** The part of `messages` credited via the project's claimed tokens; a file from before via token has none. */
+  via_token_messages: z.number().optional(),
 });
 
 export const MomentsFileSchema = z.object({

@@ -111,10 +111,21 @@ describe('momentFacts', () => {
     expect({ xstocks, spread: spread?.kind === 'newcomer' ? spread.sender : null }).toEqual({
       xstocks: {
         kind: 'newcomer', key: 'project:xstocks', sender: { name: 'xStocks', x: 'xStocksFi' }, slug: 'xstocks', day: '2026-10-13', firstDay: '2026-10-09',
-        rank: 1, messages: 319, total: 520, chains: [{ name: 'Base', x: 'base' }, { name: 'Ethereum', x: 'ethereum' }],
+        rank: 1, messages: 319, total: 520, chains: [{ name: 'Base', x: 'base' }, { name: 'Ethereum', x: 'ethereum' }], viaToken: false,
       },
       spread: { name: 'Spread', x: null },
     });
+  });
+
+  it('says a new sender came via its token when half or more of its messages did, and not for a file from before via token', () => {
+    // #given
+    const arrival = { key: 'project:eliza', label: 'elizaOS', x: null, kind: 'app', inferred: false, day: '2026-10-13', first_day: '2026-10-09', rank: 1, messages: 300, total_messages: 1_889, chains: ['2'] };
+    const viaToken = (a: typeof arrival & { via_token_messages?: number }) => {
+      const facts = momentFacts({ ...SRC, moments: { ...MOMENTS, arrivals: { ...MOMENTS.arrivals, senders: [a] } } }, { kind: 'newcomer', key: a.key });
+      return facts?.kind === 'newcomer' ? facts.viaToken : null;
+    };
+    // #then
+    expect([viaToken({ ...arrival, via_token_messages: 150 }), viaToken({ ...arrival, via_token_messages: 149 }), viaToken(arrival)]).toEqual([true, false, false]);
   });
 
   it('has no facts for a moment the data does not hold', () => {
@@ -141,10 +152,21 @@ describe('momentFacts', () => {
     expect({ facts, inferred: inferred?.kind === 'project' ? inferred.project : null }).toEqual({
       facts: {
         kind: 'project', monday: '2026-10-05', project: { name: 'xStocks', x: 'xStocksFi' }, slug: 'xstocks', projectKind: 'protocol',
-        messages: 2_100, previous: 1_400, usd: 0, feeUsd: 525, chains: [{ name: 'Ethereum', x: 'ethereum' }, { name: 'Base', x: 'base' }],
+        messages: 2_100, previous: 1_400, usd: 0, feeUsd: 525, chains: [{ name: 'Ethereum', x: 'ethereum' }, { name: 'Base', x: 'base' }], viaToken: false,
       },
       inferred: { name: 'xStocks', x: null },
     });
+  });
+
+  it('says the spotlighted project came via its token when half or more of its messages did, and not for a file from before via token', () => {
+    // #given
+    const project = { key: 'project:eliza', slug: 'eliza', name: 'elizaOS', x: null, kind: 'app', inferred: false, messages: 2_100, previous_messages: 49, usd: 0, fee_usd: null, chains: ['2'] };
+    const viaToken = (p: typeof project & { via_token_messages?: number }) => {
+      const facts = momentFacts({ ...SRC, moments: { ...MOMENTS, weeks: MOMENTS.weeks.map((w) => (w.week === '2026-10-05' ? { ...w, project: p } : w)) } }, { kind: 'project', monday: '2026-10-05' });
+      return facts?.kind === 'project' ? facts.viaToken : null;
+    };
+    // #then
+    expect([viaToken({ ...project, via_token_messages: 1_050 }), viaToken({ ...project, via_token_messages: 1_049 }), viaToken(project)]).toEqual([true, false, false]);
   });
 });
 

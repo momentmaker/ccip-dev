@@ -155,6 +155,7 @@ export async function senderArrivals(c: RunContext, since: string, lastDay: stri
       messages: identity.messages,
       total_messages: sinceFirst?.messages ?? identity.messages,
       chains: identity.chains,
+      via_token_messages: identity.via_token_messages,
     });
   }
   return out;

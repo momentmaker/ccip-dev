@@ -95,6 +95,16 @@ describe('via-token senders', () => {
     expect(arrivals.senders!.map((a) => [a.key, a.x])).toEqual([['project:gamma', null]]);
   });
 
+  it("publishes how many of a recorded project's messages on its day came via its token", async () => {
+    // #given Gamma was recorded as new on a day when the wallet bridged its token 400 times
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [...xstocksBreakdown(), ...viaToken(400)], NOW);
+    await store.insertArrivals(env.DB, 'sender', ['project:gamma'], `${XSTOCKS_DAY}T00:00:00.000Z`, null);
+    // #when
+    const { arrivals } = await buildMoments(withClaim(), { lastDay: XSTOCKS_DAY, days: [] });
+    // #then
+    expect(arrivals.senders!.map((a) => [a.key, a.messages, a.via_token_messages])).toEqual([['project:gamma', 400, 400]]);
+  });
+
   it('does not post a project again when credits join it on a day it ranks, whether its project key or one of its addresses was recorded', async () => {
     // #given xStocks also claims the token the wallet bridged, and was recorded as new on an earlier run
     const xstocks = { name: 'xStocks', x: 'xStocksFi', url: null, kind: 'protocol' as const, source: null, addresses: [], tokens: [] };
@@ -147,7 +157,7 @@ describe('moments.json new senders', () => {
     // #then
     expect(moments.arrivals.senders).toEqual([{
       key: 'project:xstocks', label: 'xStocks', x: 'xStocksFi', kind: 'protocol', inferred: false,
-      day: XSTOCKS_DAY, first_day: '2026-10-09', rank: 1, messages: 319, total_messages: 319, chains: [SOL, INK, XLAYER, BSC, ETH, HYPER],
+      day: XSTOCKS_DAY, first_day: '2026-10-09', rank: 1, messages: 319, total_messages: 319, chains: [SOL, INK, XLAYER, BSC, ETH, HYPER], via_token_messages: 0,
     }]);
   });
 

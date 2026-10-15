@@ -275,7 +275,7 @@ describe('moments.json project spotlight', () => {
     // #then Beta gained 400 from nothing in the week of Sep 28; Alpha gained 200 the week after, against Beta's 100
     expect({ before: weeks.at(-2)!.project?.key, latest: weeks.at(-1)!.project }).toEqual({
       before: 'project:beta',
-      latest: { key: 'project:alpha', slug: 'alpha', name: 'Alpha', x: 'alpha', kind: 'app', inferred: false, messages: 300, previous_messages: 100, usd: 0, fee_usd: 75, chains: [BASE] },
+      latest: { key: 'project:alpha', slug: 'alpha', name: 'Alpha', x: 'alpha', kind: 'app', inferred: false, messages: 300, previous_messages: 100, usd: 0, fee_usd: 75, chains: [BASE], via_token_messages: 0 },
     });
   });
 
@@ -301,6 +301,15 @@ describe('moments.json project spotlight', () => {
     const { weeks } = await buildMoments(gammaContext(), { lastDay: LAST_DAY, days: [] });
     // #then
     expect(weeks.at(-1)!.project).toMatchObject({ key: 'project:gamma', x: null, inferred: false, messages: 600 });
+  });
+
+  it('publishes how many of the spotlighted week\'s messages came via its token', async () => {
+    // #given the wallet bridged it 600 times in the week of Oct 5
+    await seedGammaBridging('2026-10-06', 600);
+    // #when
+    const { weeks } = await buildMoments(gammaContext(), { lastDay: LAST_DAY, days: [] });
+    // #then
+    expect(weeks.at(-1)!.project?.via_token_messages).toBe(600);
   });
 
   it('counts credits in both weeks of the week-over-week gain', async () => {

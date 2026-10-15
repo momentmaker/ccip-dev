@@ -54,12 +54,14 @@ const ROUNDUP: RoundupFacts = {
 };
 const NEWCOMER: NewcomerFacts = {
   kind: 'newcomer', key: 'project:xstocks', sender: p('xStocks', 'xStocksFi'), slug: 'xstocks', day: '2026-10-13', firstDay: '2026-10-13', rank: 1, messages: 319, total: 319,
-  chains: [p('Solana', 'solana'), p('Ink', 'inkonchain'), p('X Layer', 'XLayerOfficial'), p('BNB Chain', 'BNBCHAIN'), p('Ethereum', 'ethereum'), p('HyperEVM')],
+  chains: [p('Solana', 'solana'), p('Ink', 'inkonchain'), p('X Layer', 'XLayerOfficial'), p('BNB Chain', 'BNBCHAIN'), p('Ethereum', 'ethereum'), p('HyperEVM')], viaToken: false,
 };
 const PROJECT: ProjectSpotlightFacts = {
   kind: 'project', monday: '2026-10-05', project: p('xStocks', 'xStocksFi'), slug: 'xstocks', projectKind: 'protocol',
-  messages: 2_100, previous: 1_400, usd: 0, feeUsd: 525, chains: [p('Ethereum', 'ethereum'), p('Base', 'base')],
+  messages: 2_100, previous: 1_400, usd: 0, feeUsd: 525, chains: [p('Ethereum', 'ethereum'), p('Base', 'base')], viaToken: false,
 };
+const ELIZA_NEWCOMER: NewcomerFacts = { ...NEWCOMER, key: 'project:eliza', sender: p('elizaOS'), slug: 'eliza', firstDay: '2026-10-09', messages: 300, total: 1_889, chains: [p('Base', 'base')], viaToken: true };
+const ELIZA_PROJECT: ProjectSpotlightFacts = { ...PROJECT, project: p('elizaOS'), slug: 'eliza', projectKind: 'app', messages: 2_749, previous: 49, usd: 2.1e6, viaToken: true };
 const LAST: Poll = {
   week: '2026-10-05', question_kind: 'fee_chain', question: 'Which chain will pay the most CCIP fees this week?',
   options: [{ key: '2', label: 'Base' }, { key: '3', label: 'BNB Chain' }, { key: '1', label: 'Ethereum' }, { key: 'other', label: 'Another chain' }],
@@ -319,6 +321,24 @@ describe('moment fitting', () => {
   });
 });
 
+describe('via-token moments with long names', () => {
+  it('keep New on CCIP and the project spotlight within 280 on X, with one cashtag, and 1,024 on Telegram', () => {
+    // #given untagged subjects with names at the label files' 64-character limit, the longest wordings, and 40 characters on every chain
+    const chains = [p(long(40)), p(long(40)), p(long(40)), p(long(40))];
+    const facts = [
+      { ...ELIZA_NEWCOMER, sender: p(long(64)), firstDay: '2026-09-20', total: 123_456, chains },
+      { ...ELIZA_PROJECT, project: p(long(64)), projectKind: 'issuer', messages: 123_456, chains },
+    ];
+    // #when
+    const copies = facts.map((f) => composeMomentCopy(f));
+    // #then
+    expect(copies.map((c) => [xLength(c.xText) <= X_MAX, (c.xText.match(/\$[A-Z]+/g) ?? []).length <= 1, c.telegramHtml.length <= TELEGRAM_CAPTION_MAX])).toEqual([
+      [true, true, true],
+      [true, true, true],
+    ]);
+  });
+});
+
 describe('moment links', () => {
   it('never turns a token symbol with an @ or a domain-like name into a mention or a link, on X or Telegram', () => {
     // #given a token symbol that tries to mention someone, and chain and project names that read as domains
@@ -374,6 +394,16 @@ describe('the new sender moment', () => {
     ]);
   });
 
+  it('says a sender whose messages came mostly via its token had them via its token, on X', () => {
+    // #then
+    expect(composeMomentCopy(ELIZA_NEWCOMER).xText.split('\n')[0]).toBe('🆕 New on #CCIP: elizaOS, with 1,889 messages via its token in its first week');
+  });
+
+  it('says the same on Telegram', () => {
+    // #then
+    expect(composeMomentCopy(ELIZA_NEWCOMER).telegramHtml.split('\n')[1]).toBe('elizaOS had <b>1,889</b> messages via its token in its first week, and was the #1 sender on Tue, Oct 13, 2026.');
+  });
+
   it('counts from the first message when it came over a week before', () => {
     // #then
     expect(composeMomentCopy({ ...NEWCOMER, firstDay: '2026-09-20', total: 2_400 }).xText.split('\n')[0]).toBe('🆕 New on #CCIP: @xStocksFi sent 2,400 messages since Sep 20');
@@ -405,6 +435,16 @@ describe('the project spotlight', () => {
         '#CCIP #Chainlink $LINK',
       ].join('\n'),
     );
+  });
+
+  it('says a project credited mostly via its token grew via its token, on X', () => {
+    // #then
+    expect(composeMomentCopy(ELIZA_PROJECT).xText.split('\n')[1]).toBe('2,749 messages via its token (56× the week before) · $2.1M moved · $525 in fees');
+  });
+
+  it('says the same on Telegram', () => {
+    // #then
+    expect(composeMomentCopy(ELIZA_PROJECT).telegramHtml.split('\n')[1]).toBe('elizaOS, an app, grew the most on CCIP last week: <b>2,749</b> messages via its token (56× the week before).');
   });
 
   it('says a tenfold or bigger growth as a multiple on X, never a percentage', () => {

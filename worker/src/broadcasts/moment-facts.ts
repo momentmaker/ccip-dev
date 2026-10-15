@@ -1,4 +1,4 @@
-import { addDays, dayOf, parseSenderKey, senderKeyAddress } from '@ccip-dev/core';
+import { addDays, dayOf, mostlyViaToken, parseSenderKey, senderKeyAddress } from '@ccip-dev/core';
 import type { MomentTarget } from '@ccip-dev/core/broadcasts';
 import { moversOf, roundupOf, type BoardName, type Climber, type Countdown, type MomentsBody } from '@ccip-dev/core/moments';
 import { shortAddress } from '@ccip-dev/core/names';
@@ -35,6 +35,8 @@ export interface NewcomerFacts {
   /** Its messages from its first day through `day`. */
   total: number;
   chains: Player[];
+  /** Half or more of its messages on `day` came via its token, so the post says so. */
+  viaToken: boolean;
 }
 
 export interface CountdownFacts {
@@ -86,6 +88,8 @@ export interface ProjectSpotlightFacts {
   usd: number;
   feeUsd: number | null;
   chains: Player[];
+  /** Half or more of its messages came via its token, so the post says so. */
+  viaToken: boolean;
 }
 
 export interface RoundupFacts {
@@ -192,6 +196,7 @@ function newcomerFacts(tags: Tagger, a: SenderArrival): NewcomerFacts {
     messages: a.messages,
     total: a.total_messages,
     chains: a.chains.map((s) => tags.chain(s)),
+    viaToken: mostlyViaToken(a.messages, a.via_token_messages),
   };
 }
 
@@ -233,6 +238,7 @@ export function momentFacts(src: MomentsSource, target: MomentTarget): MomentFac
         usd: p.usd,
         feeUsd: p.fee_usd,
         chains: p.chains.map((s) => tags.chain(s)),
+        viaToken: mostlyViaToken(p.messages, p.via_token_messages),
       };
     }
     case 'roundup':

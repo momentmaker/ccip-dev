@@ -270,6 +270,7 @@ async function projectSpotlightOf(weeks: ProjectWeeks, monday: string): Promise<
     usd: cents(p.usd_value),
     fee_usd: centsOrNull(p.fee_usd),
     chains: p.chains,
+    via_token_messages: p.via_token_messages,
   };
 }
 
