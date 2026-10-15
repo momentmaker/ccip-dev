@@ -1,6 +1,6 @@
 import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUtcDay, growthMultiple } from '@ccip-dev/core/format';
 import { chainName, shortAddress } from '@ccip-dev/core/names';
-import { newcomerSpanWords, parseSenderKey, senderKeyAddress } from '@ccip-dev/core/senders';
+import { mostlyViaToken, newcomerSpanWords, parseSenderKey, senderKeyAddress } from '@ccip-dev/core/senders';
 import { addDays } from '@ccip-dev/core/time';
 import type { Child, VNode } from '../h';
 import {
@@ -33,7 +33,11 @@ export async function newcomerTree(key: string, inputs: BroadcastInputs): Promis
       pill('NEW ON CCIP', PILLS.green, 'star'),
       eyebrow(`#${arrival.rank} sender of the day`, { marginTop: 24 }),
       bigText(name, nameSize(name)),
-      columnLine([bold(`${counted(arrival.total_messages, 'message')} `), newcomerSpanWords(arrival.first_day, arrival.day, formatUtcDay)]),
+      columnLine([
+        bold(`${counted(arrival.total_messages, 'message')} `),
+        ...(mostlyViaToken(arrival.messages, arrival.via_token_messages) ? ['via its token '] : []),
+        newcomerSpanWords(arrival.first_day, arrival.day, formatUtcDay),
+      ]),
       columnLine(['First message ', bold(`${formatUtcDay(arrival.first_day)} `), `· ${counted(arrival.chains.length, 'chain')}`], { fontSize: 24, color: COLORS.soft }),
     ),
     insight: arrival.chains.length === 0 ? [] : ['On ', ...listed(arrival.chains.slice(0, 3).map((s) => chainName(names, s)))],
@@ -74,7 +78,7 @@ export async function projectSpotlightTree(monday: string, inputs: BroadcastInpu
       pill('PROJECT SPOTLIGHT', PILLS.violet, 'star'),
       eyebrow('Fastest-growing project', { marginTop: 24 }),
       bigText(project.name, nameSize(project.name)),
-      columnLine([bold(counted(project.messages, 'message'))]),
+      columnLine([bold(counted(project.messages, 'message')), ...(mostlyViaToken(project.messages, project.via_token_messages) ? [' via its token'] : [])]),
       columnLine(change, { fontSize: 24, color: COLORS.soft }),
       project.chains.length === 0 ? null : columnLine(['On ', ...listed(project.chains.slice(0, 3).map((s) => chainName(names, s)))], { fontSize: 24, color: COLORS.soft }),
     ),

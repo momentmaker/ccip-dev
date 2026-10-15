@@ -27,6 +27,15 @@ describe('new sender card', () => {
     expect(await words({ kind: 'newcomer', key: address.key }, load)).toEqual(expect.arrayContaining(['0x671b…4077', 'Every sender: ', 'ccip.dev/top/sender/7d']));
   });
 
+  it('says the count came via its token only when half or more of the day\'s messages did', async () => {
+    // #given xStocks's day: 319 messages, 160 of them via its token, then 159
+    const arrival = (via: number) => withMoments({ arrivals: { ...MOMENTS.arrivals, senders: [{ ...MOMENTS.arrivals.senders![0]!, via_token_messages: via }] } });
+    // #when
+    const [mostly, under] = await Promise.all([160, 159].map((via) => words({ kind: 'newcomer', key: 'project:xstocks' }, arrival(via))));
+    // #then
+    expect([mostly!.join(''), under!.includes('via its token ')]).toEqual([expect.stringContaining('520 messages via its token in its first week'), false]);
+  });
+
   it('has no card for a sender moments.json does not list, and writes no glyph the fonts lack', async () => {
     // #when
     const missing = await broadcastTree({ kind: 'newcomer', key: 'project:nobody' }, inputs);
@@ -82,6 +91,20 @@ describe('project spotlight card', () => {
     const found = await words({ kind: 'project', monday: '2026-10-05' }, withProject({ messages: 2_749, previous_messages: 49 }));
     // #then
     expect({ multiple: found.includes('56× the week before'), percent: found.some((t) => t.includes('%')), glyphs: found.filter((w) => MISSING_GLYPHS.test(w)) }).toEqual({ multiple: true, percent: false, glyphs: [] });
+  });
+
+  it('says the count came via its token when half or more of the week\'s messages did', async () => {
+    // #when
+    const found = await words({ kind: 'project', monday: '2026-10-05' }, withProject({ messages: 2_749, previous_messages: 49, via_token_messages: 1_375 }));
+    // #then
+    expect(found.join('')).toContain('2,749 messages via its token');
+  });
+
+  it('keeps the count plain when under half of the week\'s messages came via its token', async () => {
+    // #when
+    const found = await words({ kind: 'project', monday: '2026-10-05' }, withProject({ messages: 2_749, previous_messages: 49, via_token_messages: 1_374 }));
+    // #then
+    expect(found.join('')).not.toContain('via its token');
   });
 
   it('has no card for a week without a spotlighted project', async () => {

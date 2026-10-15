@@ -1,4 +1,5 @@
 import type { HistoryFile, ProjectsFile, ReserveFile, TodayFile, TopEntry, TopFile } from '@ccip-dev/core/public';
+import { mostlyViaToken } from '@ccip-dev/core/senders';
 import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-paths';
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
@@ -184,7 +185,7 @@ export function projectCard(file: ProjectsFile, slug: string): CardSpec | null {
   return {
     eyebrow: `${p.name.toUpperCase()} ON CHAINLINK CCIP`,
     big: formatCount(week.messages),
-    label: `messages in the last 7 days${week.share_pct === null ? '' : ` · ${formatShare(week.share_pct)} of all`}`,
+    label: `messages ${mostlyViaToken(week.messages, week.via_token_messages) ? 'via its token' : 'in the last 7 days'}${week.share_pct === null ? '' : ` · ${formatShare(week.share_pct)} of all`}`,
     date: `to ${formatUtcDay(file.to)}`,
     extra: [month.usd > 0 ? `${formatUsd(month.usd)} moved in 30 days` : `${formatCount(month.messages)} messages in 30 days`, `ccip.dev/projects/${slug}`],
     spark: sparkPoints(p.series.map((s) => s.messages)),

@@ -197,6 +197,13 @@ describe('project card', () => {
     });
   });
 
+  it('says its week came via its token when half or more of its 7-day messages did', () => {
+    // #given xStocks's 319 messages in 7 days, 160 of them via its token, then 159
+    const via = (n: number) => ({ ...file, projects: file.projects.map((p) => ({ ...p, totals: { ...p.totals, '7d': { ...p.totals['7d'], via_token_messages: n } } })) });
+    // #then
+    expect([projectCard(via(160), 'xstocks')?.label, projectCard(via(159), 'xstocks')?.label]).toEqual(['messages via its token · 20% of all', 'messages in the last 7 days · 20% of all']);
+  });
+
   it('has no card for a project the file does not list', () => {
     // #then
     expect(projectCard(file, 'nobody')).toBeNull();
