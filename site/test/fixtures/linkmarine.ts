@@ -11,6 +11,9 @@ export const MARINES: Readonly<Record<Tier, { serial: number; callsign: string; 
   common: { serial: 1203, callsign: 'clown-rory-pepe', counts: [6, 15, 426], percentile: 17.3, blood: 'LINK+', faith: 'FUNDAMENTALS', name: 'rory' },
 };
 
+/** The mockup's memes in the chainlinkmeme archive: painting, space and prophecy. */
+export const MOCKUP_MEMES = ['a3ccf753ffd27a408d0d5d974faecf2f.jpeg', 'e572d111223722c3d6cce9d52b90f45e.jpeg', 'aabd55f53e8aea9de4665be183d5bb7d.jpeg'];
+
 /** A tier's sample Marine as the site draws it, with the memes given (reused when fewer than three). */
 export function marine(tier: Tier, pngs: readonly Uint8Array[], avatar: Uint8Array | null = null): MarineCard {
   const m = MARINES[tier];

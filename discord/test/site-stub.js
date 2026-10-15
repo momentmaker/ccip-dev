@@ -29,6 +29,10 @@ export class LinkMarineCards extends WorkerEntrypoint {
     return new Uint8Array(PNG);
   }
 
+  async renderMarineStory() {
+    return new Uint8Array(PNG);
+  }
+
   async renderIntelCard() {
     return new Uint8Array(PNG);
   }

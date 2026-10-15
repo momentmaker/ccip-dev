@@ -8,6 +8,7 @@ import { marineTree, tagsTree, webCardOf } from './marine-card';
 import { MEME_SIZE, memeTree } from './meme';
 import { renderKino } from './render';
 import { STICKER_SIZE, stickerTree } from './sticker';
+import { STORY_SIZE, storyTree } from './story';
 
 export interface LinkMarineEnv {
   ASSETS: AssetFetcher;
@@ -45,6 +46,13 @@ export class LinkMarineCards extends WorkerEntrypoint<LinkMarineEnv> implements 
     const web = webCardOf(card);
     const tags = await renderKino(tagsTree(web));
     return (await renderKino(stickerTree(web, tags.png), STICKER_SIZE)).png;
+  }
+
+  /** Never a name or an avatar: webCardOf drops them before anything is drawn. */
+  async renderMarineStory(card: MarineWebCard): Promise<Uint8Array> {
+    const web = webCardOf(card);
+    const tags = await renderKino(tagsTree(web));
+    return (await renderKino(storyTree(web, tags.png), STORY_SIZE)).png;
   }
 
   async renderIntelCard<K extends IntelKind>(kind: K, card: IntelCards[K]): Promise<Uint8Array> {

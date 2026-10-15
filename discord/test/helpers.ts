@@ -55,10 +55,11 @@ export const GIF_BYTES = new Uint8Array([71, 73, 70, 56, 57, 97]);
  * The site's renderer as the bot calls it, counting calls; `failing` names a method that throws. renderMarineCards draws
  * both images as the site does: it fails with renderMarineCard, and gives a failing renderMarineGlint back as the reason.
  */
-export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): LinkMarineRenderer & { calls: string[]; webCards: MarineWebCard[]; stickers: MarineWebCard[] } {
+export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): LinkMarineRenderer & { calls: string[]; webCards: MarineWebCard[]; stickers: MarineWebCard[]; stories: MarineWebCard[] } {
   const calls: string[] = [];
   const webCards: MarineWebCard[] = [];
   const stickers: MarineWebCard[] = [];
+  const stories: MarineWebCard[] = [];
   const call = <T>(name: keyof LinkMarineRenderer, value: T) => {
     calls.push(name);
     if (failing === name) throw new Error(`${name} failed`);
@@ -69,6 +70,7 @@ export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): L
     calls,
     webCards,
     stickers,
+    stories,
     async prepareMeme() {
       return call('prepareMeme', PNG_BYTES);
     },
@@ -91,6 +93,10 @@ export function fakeRenderer(failing: keyof LinkMarineRenderer | null = null): L
     async renderMarineSticker(card) {
       stickers.push(card);
       return call('renderMarineSticker', PNG_BYTES);
+    },
+    async renderMarineStory(card) {
+      stories.push(card);
+      return call('renderMarineStory', PNG_BYTES);
     },
     async renderIntelCard() {
       return call('renderIntelCard', PNG_BYTES);

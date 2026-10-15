@@ -7,6 +7,7 @@
     "build": "astro build && tsx scripts/check-build.ts && tsx scripts/check-budgets.ts",
     "test": "vitest run && vitest run -c vitest.worker.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p worker",
+    "cards:app": "tsx scripts/render-marines-app-image.ts",
     "cards:linkmarine": "tsx scripts/render-linkmarine-cards.ts",
     "cards:static": "tsx scripts/render-static-cards.ts",
     "fonts:embed": "tsx scripts/embed-fonts.ts",

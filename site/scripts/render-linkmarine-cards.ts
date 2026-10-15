@@ -4,25 +4,26 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { render } from '@cf-wasm/og/node';
 import { hasGlint, INTEL_KINDS, TIERS, type IntelCards, type IntelKind } from '@ccip-dev/core/linkmarine';
-import { DOSSIER, marine, RECORDS, SITREP, VAULT } from '../test/fixtures/linkmarine';
+import { DOSSIER, marine, MOCKUP_MEMES, RECORDS, SITREP, VAULT } from '../test/fixtures/linkmarine';
 import type { VNode } from '../worker/h';
 import { chainArts } from '../worker/linkmarine/chain-hex';
 import { KINO_FONTS } from '../worker/linkmarine/fonts';
 import { glintGif } from '../worker/linkmarine/glint';
 import { intelSelectors, intelTree } from '../worker/linkmarine/intel';
-import { marineTree, webCardOf } from '../worker/linkmarine/marine-card';
+import { marineTree, tagsTree, webCardOf } from '../worker/linkmarine/marine-card';
 import { MEME_SIZE, memeTree } from '../worker/linkmarine/meme';
+import { STICKER_SIZE, stickerTree } from '../worker/linkmarine/sticker';
+import { STORY_SIZE, storyTree } from '../worker/linkmarine/story';
 
 /**
  * `pnpm --filter @ccip-dev/site cards:linkmarine [--out DIR] [--archive ../chainlinkmeme]`: draws every tier of the dog
- * tag card (and the glint of Rare and Legendary) and the four intel cards from fixtures, for a human look before launch.
+ * tag card (and the glint of Rare and Legendary, the sticker and the Story card) and the four intel cards from fixtures,
+ * for a human look before launch.
  * With the chainlinkmeme checkout the tags carry the mockup's three real memes; without it, plain swatches.
  */
 const site = join(import.meta.dirname, '..');
 const { values } = parseArgs({ options: { out: { type: 'string', default: join(site, 'linkmarine-cards') }, archive: { type: 'string', default: join(site, '..', '..', 'chainlinkmeme') } } });
 const out = resolve(values.out);
-/** The mockup's memes: painting, space and prophecy. */
-const MOCKUP_MEMES = ['a3ccf753ffd27a408d0d5d974faecf2f.jpeg', 'e572d111223722c3d6cce9d52b90f45e.jpeg', 'aabd55f53e8aea9de4665be183d5bb7d.jpeg'];
 const SWATCHES = ['#c0392b', '#1f6fb2', '#7d3c98'];
 
 const draw = async (tree: VNode, width = 1200, height = 675) => render(tree as never, { width, height, fonts: KINO_FONTS, loadAdditionalAsset: async () => [] }).asPng();
@@ -50,6 +51,9 @@ for (const tier of TIERS) {
   await writeFile(join(out, `marine-${tier}.png`), rendered.image);
   const web = webCardOf(card);
   await writeFile(join(out, `marine-${tier}-web.png`), (await draw(marineTree(web))).image);
+  const tags = (await draw(tagsTree(web))).image;
+  await writeFile(join(out, `marine-${tier}-sticker.png`), (await draw(stickerTree(web, tags), STICKER_SIZE.width, STICKER_SIZE.height)).image);
+  await writeFile(join(out, `marine-${tier}-story.png`), (await draw(storyTree(web, tags), STORY_SIZE.width, STORY_SIZE.height)).image);
   if (hasGlint(tier)) await writeFile(join(out, `marine-${tier}.gif`), glintGif(new Uint8Array(rendered.pixels), rendered.width, rendered.height));
 }
 const intel: IntelCards = { sitrep: SITREP, dossier: DOSSIER, vault: VAULT, records: RECORDS };
@@ -58,4 +62,4 @@ for (const kind of INTEL_KINDS) {
   const arts = await chainArts(assets, intelSelectors(kind, card as never));
   await writeFile(join(out, `intel-${kind}.png`), (await draw(intelTree(kind, card as never, arts))).image);
 }
-console.log(`wrote ${TIERS.length} dog tag cards, their web cards, their glints and ${INTEL_KINDS.length} intel cards to ${out}`);
+console.log(`wrote ${TIERS.length} dog tag cards, their web cards, glints, stickers and Story cards, and ${INTEL_KINDS.length} intel cards to ${out}`);
