@@ -1,8 +1,8 @@
 import { createScheduledController } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import worker from '../src/index';
-import { claimUpdate, handleUpdate, pruneClaims, telegramWebhook, webhookSecretMatches, type TelegramChat, type TelegramUpdate } from '../src/telegram-bot';
+import { claimUpdate, handleUpdate, parseCommand, pruneClaims, telegramWebhook, webhookSecretMatches, type TelegramChat, type TelegramUpdate } from '../src/telegram-bot';
 import { fakeTelegram, fakeTelegramBot, OWNER_ID, resetStorage, TG_SETTINGS, tgError } from './helpers';
 
 const SECRET = 'webhook-secret_123';
@@ -16,6 +16,23 @@ const message = (chat: TelegramChat, text: string, from = 777000111, update_id =
 const added = (chat: TelegramChat, from: number, status = 'member'): TelegramUpdate => ({ update_id: 2, my_chat_member: { from: { id: from }, chat, new_chat_member: { status } } });
 const hook = (update: unknown, secret: string | null = SECRET) =>
   new Request('https://discord.ccip.dev/telegram', { method: 'POST', body: JSON.stringify(update), headers: secret === null ? {} : { 'X-Telegram-Bot-Api-Secret-Token': secret } });
+
+const DAY_MS = 86_400_000;
+const metaKeys = async () => (await env.DB.prepare('SELECT key FROM meta ORDER BY key').all<{ key: string }>()).results.map((r) => r.key);
+
+/** A day-old and a fresh claim of each kind, and old rows of other kinds that the prune must leave alone however old they are. */
+async function seedMeta(now: Date): Promise<void> {
+  const at = (msAgo: number) => new Date(now.getTime() - msAgo).toISOString();
+  const row = (key: string, value: string) => env.DB.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').bind(key, value);
+  await env.DB.batch([
+    row('tg-update:1', at(DAY_MS + 1)),
+    row('tg-update:2', at(1_000)),
+    row('tg-stamp:7', at(DAY_MS + 1)),
+    row('tg-stamp:8', at(1_000)),
+    row('sticker-run', '2020-01-01T00:00:00.000Z'),
+    row('alert:telegram-update', '2020-01-01T00:00:00.000Z'),
+  ]);
+}
 
 beforeEach(resetStorage);
 
@@ -81,15 +98,44 @@ describe('the webhook', () => {
     expect(answers.map((r) => r.status)).toEqual([401, 200]);
   });
 
-  it('drops claims older than a day', async () => {
+  it('drops update and stamp claims older than a day, and nothing else', async () => {
     // #given
     const now = new Date('2026-10-15T12:00:00.000Z');
-    await claimUpdate(env.DB, 1, new Date(now.getTime() - 86_400_001));
-    await claimUpdate(env.DB, 2, new Date(now.getTime() - 1_000));
+    await seedMeta(now);
     // #when
     await pruneClaims(env.DB, now);
     // #then
-    expect((await env.DB.prepare("SELECT key FROM meta WHERE key LIKE 'tg-update:%'").all<{ key: string }>()).results.map((r) => r.key)).toEqual(['tg-update:2']);
+    expect(await metaKeys()).toEqual(['alert:telegram-update', 'sticker-run', 'tg-stamp:8', 'tg-update:2']);
+  });
+
+  it('answers a request that is not a POST with 405', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    // #when
+    const res = await telegramWebhook(new Request('https://discord.ccip.dev/telegram', { headers: { 'X-Telegram-Bot-Api-Secret-Token': SECRET } }), bot, SECRET, () => {});
+    // #then
+    expect([res.status, res.headers.get('Allow')]).toEqual([405, 'POST']);
+  });
+
+  it('answers 200 and does no work for a body that is not JSON', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    const work: Promise<unknown>[] = [];
+    // #when
+    const res = await telegramWebhook(new Request('https://discord.ccip.dev/telegram', { method: 'POST', body: 'not json', headers: { 'X-Telegram-Bot-Api-Secret-Token': SECRET } }), bot, SECRET, (p) => void work.push(p));
+    // #then
+    expect([res.status, work.length]).toEqual([200, 0]);
+  });
+
+  it('answers 200 and drops an authenticated body past the cap, so Telegram does not retry it', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    const work: Promise<unknown>[] = [];
+    const oversized = { ...message(DM, '/start'), padding: 'x'.repeat(70_000) };
+    // #when
+    const res = await telegramWebhook(hook(oversized), bot, SECRET, (p) => void work.push(p));
+    // #then
+    expect([res.status, work.length]).toEqual([200, 0]);
   });
 });
 
@@ -157,6 +203,79 @@ describe('the thin bot', () => {
     expect(bot.tg.calls.map((c) => [c.method, c.body.chat_id])).toEqual([['leaveChat', STRANGERS.id]]);
   });
 
+  it('parses a command word whole, for us or for no bot', () => {
+    // #then
+    expect(['/start', '/START', '/start@ccipdevbot', '/Start@CcipDevBot marine_42', '/start marine_42', '/id', '/help'].map(parseCommand)).toEqual([
+      { name: 'start', payload: null },
+      { name: 'start', payload: null },
+      { name: 'start', payload: null },
+      { name: 'start', payload: 'marine_42' },
+      { name: 'start', payload: 'marine_42' },
+      { name: 'id', payload: null },
+      { name: 'help', payload: null },
+    ]);
+  });
+
+  it('does not take a longer word, or a command for another bot, for one of ours', () => {
+    // #then
+    expect(['/start_now', '/start2', '/start-x', '/id_card', '/id?', '/start@', '/start@otherbot', '/start@ccipdevbot_evil', '/start@ccipdevbot-evil', 'start', ''].map(parseCommand)).toEqual(Array(11).fill(null));
+  });
+
+  it('ignores a longer word that starts like a command of ours', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    // #when
+    await handleUpdate(bot, message(DM, '/start_now'));
+    await handleUpdate(bot, message(DM, '/start2'));
+    await handleUpdate(bot, message(MARINE_GROUP, '/id_card'));
+    // #then
+    expect(bot.tg.calls).toEqual([]);
+  });
+
+  it('warns with the method, status and description when the Bot API refuses a send or a leave, and alerts nothing', async () => {
+    // #given
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const tg = fakeTelegram({ sendMessage: () => tgError(403, 'Forbidden: bot was blocked by the user'), leaveChat: () => tgError(400, 'Bad Request: chat not found') });
+    const bot = fakeTelegramBot({ settings: SETTINGS, tg });
+    // #when
+    await handleUpdate(bot, message(DM, '/start'));
+    await handleUpdate(bot, message(MARINE_GROUP, '/id'));
+    await handleUpdate(bot, message(STRANGERS, '/start'));
+    await handleUpdate(bot, added(STRANGERS, 777000111));
+    // #then
+    expect([warn.mock.calls.map((c) => c.join(' ')), bot.alerts]).toEqual([
+      [
+        'telegram sendMessage failed (403): Forbidden: bot was blocked by the user',
+        'telegram sendMessage failed (403): Forbidden: bot was blocked by the user',
+        'telegram leaveChat failed (400): Bad Request: chat not found',
+        'telegram leaveChat failed (400): Bad Request: chat not found',
+      ],
+      [],
+    ]);
+  });
+
+  it('stays quiet when the Bot API answers', async () => {
+    // #given
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    // #when
+    await handleUpdate(bot, message(DM, '/start'));
+    await handleUpdate(bot, added(STRANGERS, 777000111));
+    // #then
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('counts any status but left and kicked as being in the chat, so a restricted add leaves too', async () => {
+    // #given
+    const bot = fakeTelegramBot({ settings: SETTINGS });
+    // #when
+    for (const status of ['restricted', 'kicked', 'left']) await handleUpdate(bot, added(STRANGERS, 777000111, status));
+    // #then
+    expect(bot.tg.calls.map((c) => [c.method, c.body.chat_id])).toEqual([['leaveChat', STRANGERS.id]]);
+  });
+
   it('says nothing to plain text', async () => {
     // #given
     const bot = fakeTelegramBot({ settings: SETTINGS });
@@ -176,15 +295,14 @@ describe('the cron', () => {
     await Promise.allSettled(work);
   };
 
-  it('drops claims older than a day as of the time it was scheduled for', async () => {
-    // #given
-    const scheduledTime = new Date('2026-10-15T12:00:00.000Z');
-    await claimUpdate(env.DB, 1, new Date(scheduledTime.getTime() - 86_400_001));
-    await claimUpdate(env.DB, 2, new Date(scheduledTime.getTime() - 1_000));
+  it('drops claims older than a day as of the time it was scheduled for, not the wall clock', async () => {
+    // #given a time far from the clock, so a prune that used the clock would drop the fresh claims too
+    const scheduledTime = new Date('2026-01-01T12:00:00.000Z');
+    await seedMeta(scheduledTime);
     // #when
     await cron(env, scheduledTime);
     // #then
-    expect((await env.DB.prepare("SELECT key FROM meta WHERE key LIKE 'tg-update:%'").all<{ key: string }>()).results.map((r) => r.key)).toEqual(['tg-update:2']);
+    expect(await metaKeys()).toEqual(['alert:telegram-update', 'sticker-run', 'tg-stamp:8', 'tg-update:2']);
   });
 
   it('still runs the sticker job when the prune fails', async () => {
