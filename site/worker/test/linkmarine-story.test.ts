@@ -7,8 +7,8 @@ import { px } from '../linkmarine/art';
 import { LinkMarineCards } from '../linkmarine/entrypoint';
 import { FRONT_TAG, onTag, TAGS_DROP } from '../linkmarine/marine-card';
 import { renderKino } from '../linkmarine/render';
-import { callsignSize, STORY_TAGS } from '../linkmarine/story';
-import { pngPixel } from './png';
+import { callsignSize, STORY_HEXES, STORY_TAGS } from '../linkmarine/story';
+import { pngImage, pngPixel } from './png';
 
 const size = (png: Uint8Array) => [new DataView(png.buffer, png.byteOffset).getUint32(16), new DataView(png.buffer, png.byteOffset).getUint32(20)];
 const solid = async (color: string) => (await renderKino(h('div', { style: { width: 240, height: 240, display: 'flex', backgroundColor: color } }), { width: 240, height: 240 })).png;
@@ -36,6 +36,21 @@ describe('the LinkMarineCards entrypoint: the Story card', () => {
     const [fromFull, fromWeb] = await Promise.all([cards().renderMarineStory(full), cards().renderMarineStory(webMarine('common', [red]))]);
     // #then
     expect([...fromFull]).toEqual([...fromWeb]);
+  });
+
+  it('clips each meme to its hexagon, none of it poking out past the slants', async () => {
+    // #given a red meme in all three hexagons
+    const red = await solid('#d01818');
+    // #when
+    const image = await pngImage(await cards().renderMarineStory(webMarine('legendary', [red])));
+    // #then a point 2 px outside each right-hand slant, inside the gap before the frame, is background, and 2 px inside it, the meme
+    const reds = STORY_HEXES.flatMap((hex) => {
+      const x = Math.round(hex.left + 0.95 * hex.width);
+      const upper = hex.top + (0.9 * hex.height) / 4;
+      const lower = hex.top + hex.height - (0.9 * hex.height) / 4;
+      return [image.at(x, Math.round(upper - 2))[0], image.at(x, Math.round(lower + 2))[0], image.at(x, Math.round(upper + 3))[0], image.at(x, Math.round(lower - 3))[0]];
+    });
+    expect(reds.map((r) => r > 150)).toEqual(STORY_HEXES.flatMap(() => [false, false, true, true]));
   });
 
   it('sets the callsign in the column, the longest one smaller', () => {

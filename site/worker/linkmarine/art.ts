@@ -140,15 +140,18 @@ export function onCurve(a: { x: number; y: number }, c: { x: number; y: number }
   return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y };
 }
 
-/** An image clipped to a pointy-top hexagon of circumradius r around (cx, cy), in the mockups' coordinates. */
+/**
+ * An image clipped to a pointy-top hexagon of circumradius r around (cx, cy), in the mockups' coordinates. Its box is
+ * square: in a box narrower than the cover-scaled image, Satori resolves the clip's percentages against the scaled
+ * image and skews the hexagon.
+ */
 export function hexImage(src: string, cx: number, cy: number, r: number, style: Record<string, unknown> = {}): VNode {
-  const width = px(r * Math.sqrt(3));
-  const height = px(r * 2);
+  const side = px(r * 2);
   return h('img', {
     src,
-    width,
-    height,
-    style: { position: 'absolute', left: px(cx - (r * Math.sqrt(3)) / 2), top: px(cy - r), width, height, objectFit: 'cover', clipPath: HEX_CLIP, ...style },
+    width: side,
+    height: side,
+    style: { position: 'absolute', left: px(cx - r), top: px(cy - r), width: side, height: side, objectFit: 'cover', clipPath: hexClipInside(2), ...style },
   });
 }
 

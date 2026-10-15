@@ -51,7 +51,7 @@ export const PLANET_LAYOUTS: readonly { planets: readonly [Point, Point, Point];
   { planets: [{ x: 682, y: 262 }, { x: 492, y: 212 }, { x: 560, y: 340 }], lanes: [{ x: 590, y: 170 }, { x: 560, y: 260 }, { x: 650, y: 360 }] },
   { planets: [{ x: 580, y: 214 }, { x: 470, y: 318 }, { x: 690, y: 300 }], lanes: [{ x: 490, y: 230 }, { x: 580, y: 390 }, { x: 660, y: 220 }] },
 ];
-const PLANET_R = [46, 40, 30];
+export const PLANET_R = [46, 40, 30];
 
 /** A point of a tag's own coordinates, where it lands on the card once the tag is turned about its centre. */
 export function onTag(tag: TagBox, x: number, y: number): { x: number; y: number } {

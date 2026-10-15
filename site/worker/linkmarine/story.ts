@@ -1,12 +1,13 @@
 import { marineOdds, serialText, type MarineWebCard, type Tier } from '@ccip-dev/core/linkmarine';
 import { h, type VNode } from '../h';
-import { halo, HEX_CLIP, hexPoints, INK, KINO_SIZE, MONO, pngUri, svgDataUri } from './art';
+import { halo, hexClipInside, hexPoints, INK, KINO_SIZE, MONO, pngUri, svgDataUri } from './art';
 import { TIER_LOOKS } from './metal';
 import { TAGS_BOX } from './sticker';
 
 export const STORY_SIZE = { width: 1080, height: 1920 } as const;
 export const STORY_TAGS = { left: 40, top: 150, scale: 1000 / TAGS_BOX.width } as const;
 const HEX = { width: 220, height: 254, gap: 50, top: 1470 } as const;
+export const STORY_HEXES = [0, 1, 2].map((i) => ({ left: (STORY_SIZE.width - (3 * HEX.width + 2 * HEX.gap)) / 2 + i * (HEX.width + HEX.gap), top: HEX.top, width: HEX.width, height: HEX.height }));
 const TEXT_WIDTH = 960;
 /** JetBrains Mono advances 0.6 em, and the callsign's letter-spacing adds 2 px. */
 const MONO_ADVANCE = 0.6;
@@ -40,7 +41,8 @@ function memeHex(png: Uint8Array, left: number, color: string): VNode {
   return h(
     'div',
     { style: { position: 'absolute', left: left - 10, top: HEX.top - 10, width: HEX.width + 20, height: HEX.height + 20, display: 'flex' } },
-    h('img', { src: pngUri(png), width: HEX.width, height: HEX.height, style: { position: 'absolute', left: 10, top: 10, width: HEX.width, height: HEX.height, objectFit: 'cover', clipPath: HEX_CLIP } }),
+    // A square box, so `cover` does not rescale the square meme and skew the clip's percentages; the hexagon is cut out of it.
+    h('img', { src: pngUri(png), width: HEX.height, height: HEX.height, style: { position: 'absolute', left: 10 - (HEX.height - HEX.width) / 2, top: 10, width: HEX.height, height: HEX.height, objectFit: 'cover', clipPath: hexClipInside(2) } }),
     h('img', { src: frame, width: HEX.width + 20, height: HEX.height + 20, style: { position: 'absolute', left: 0, top: 0, width: HEX.width + 20, height: HEX.height + 20 } }),
   );
 }
@@ -51,8 +53,6 @@ export function storyTree(card: MarineWebCard, tagsPng: Uint8Array): VNode {
   const odds = marineOdds(card.tier, card.percentile);
   const tagsWidth = Math.round(KINO_SIZE.width * STORY_TAGS.scale);
   const tagsHeight = Math.round(KINO_SIZE.height * STORY_TAGS.scale);
-  const row = 3 * HEX.width + 2 * HEX.gap;
-  const lefts = [0, 1, 2].map((i) => (STORY_SIZE.width - row) / 2 + i * (HEX.width + HEX.gap));
   return h(
     'div',
     { style: { width: STORY_SIZE.width, height: STORY_SIZE.height, display: 'flex', position: 'relative', backgroundColor: INK.navy, fontFamily: 'Inter', color: INK.text } },
@@ -63,9 +63,9 @@ export function storyTree(card: MarineWebCard, tagsPng: Uint8Array): VNode {
     centred(1140, { fontFamily: MONO, fontWeight: 700, fontSize: callsignSize(card.callsign), color: INK.text, letterSpacing: CALLSIGN_TRACKING }, card.callsign.toUpperCase()),
     centred(1240, { fontFamily: 'Inter', fontWeight: 900, fontSize: 120, color: 'transparent', backgroundImage: look.word, backgroundClip: 'text', lineHeight: 1 }, card.tier.toUpperCase()),
     ...(odds === null ? [] : [centred(1380, { fontFamily: MONO, fontWeight: 700, fontSize: 34, color: look.accent }, odds)]),
-    ...card.memes.map((m, i) => memeHex(m.png, lefts[i]!, look.color)),
+    ...card.memes.map((m, i) => memeHex(m.png, STORY_HEXES[i]!.left, look.color)),
     ...card.memes.map((m, i) =>
-      h('div', { style: { position: 'absolute', left: lefts[i]! - 40, top: HEX.top + HEX.height + 24, width: HEX.width + 80, display: 'flex', justifyContent: 'center', fontFamily: MONO, fontWeight: 700, fontSize: 32, color: INK.text } }, m.tag),
+      h('div', { style: { position: 'absolute', left: STORY_HEXES[i]!.left - 40, top: HEX.top + HEX.height + 24, width: HEX.width + 80, display: 'flex', justifyContent: 'center', fontFamily: MONO, fontWeight: 700, fontSize: 32, color: INK.text } }, m.tag),
     ),
     centred(1840, { fontFamily: MONO, fontWeight: 700, fontSize: 36, color: INK.blue, letterSpacing: 4 }, 'ccip.dev · LinkMarines'),
   );
