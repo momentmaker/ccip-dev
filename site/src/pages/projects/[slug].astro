@@ -7,7 +7,7 @@ import { buildData, buildDataIfPublished } from '../../lib/build-data';
 import { CHART_H, CHART_W, chartGeometry, chartSummary } from '../../lib/charts';
 import { formatCount, formatFeeTotal, formatShare, formatUsd } from '../../lib/format';
 import { chainName, chainNameMap, laneLabel } from '../../lib/names';
-import { addressExplorerUrl, kindLabel, labelFileUrl, projectPaths, projectTokenRows, seriesPoints, splitText, viaTokenSplitText, xProfileUrl } from '../../lib/projects';
+import { addressExplorerUrl, kindLabel, labelFileUrl, projectDescription, projectPaths, projectTokenRows, seriesPoints, splitText, viaTokenSplitText, xProfileUrl } from '../../lib/projects';
 import '../../styles/history.css';
 
 export async function getStaticPaths() {
@@ -25,7 +25,7 @@ const cardPath = `project/${project.slug}`;
 const week = project.totals['7d'];
 const tokens = projectTokenRows(project);
 ---
-<Base title={`${project.name} on CCIP`} description={`${project.name} on Chainlink CCIP: ${formatCount(week.messages)} messages in the last 7 days, with its chains, lanes and addresses.`} cardPath={cardPath}>
+<Base title={`${project.name} on CCIP`} description={projectDescription(project)} cardPath={cardPath}>
   <div class="page-head">
     <div>
       <p class="label">{kindLabel(project.kind)} · <a href="/projects/">Projects</a></p>

@@ -1,6 +1,6 @@
 import { PUBLIC_SCHEMAS } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { addressExplorerUrl, kindLabel, labelFileUrl, projectIndexRows, projectPaths, projectTokenRows, seriesPoints, splitText, viaTokenSplitText } from '../src/lib/projects';
+import { addressExplorerUrl, kindLabel, labelFileUrl, projectDescription, projectIndexRows, projectPaths, projectTokenRows, seriesPoints, splitText, viaTokenSplitText } from '../src/lib/projects';
 import fixture from './fixtures/projects.json';
 
 const FILE = PUBLIC_SCHEMAS['projects.json'].parse(fixture);
@@ -40,6 +40,18 @@ describe('project pages', () => {
       'Token issuer',
       'Project',
     ]);
+  });
+});
+
+describe('the project page description', () => {
+  it.each([
+    ['chains, lanes and addresses', XSTOCKS!, 'xStocks on Chainlink CCIP: 319 messages in the last 7 days, with its chains, lanes and addresses.'],
+    ['addresses only', IDLE!, 'Idle on Chainlink CCIP: 0 messages in the last 7 days, with its addresses.'],
+    ['chains only, its messages all via its token', { ...XSTOCKS!, lanes: [], addresses: [] }, 'xStocks on Chainlink CCIP: 319 messages in the last 7 days, with its chains.'],
+    ['nothing listed', { ...IDLE!, addresses: [] }, 'Idle on Chainlink CCIP: 0 messages in the last 7 days.'],
+  ])('names only what the page lists: %s', (_what, project, description) => {
+    // #then
+    expect(projectDescription(project)).toBe(description);
   });
 });
 

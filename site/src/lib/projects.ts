@@ -63,6 +63,19 @@ export function splitText(split: Project['split']): string | null {
   return data === null ? null : `${formatShare(data)} data messages · ${formatShare(100 - data)} token transfers`;
 }
 
+/** The page's meta description, naming its chains, lanes and addresses only when the page lists them. */
+export function projectDescription(project: Project): string {
+  const hasChains = project.chains.length > 0;
+  const listed = [
+    ...(hasChains ? ['chains'] : []),
+    ...(hasChains && project.lanes.length > 0 ? ['lanes'] : []),
+    ...(project.addresses.length > 0 ? ['addresses'] : []),
+  ];
+  const last = listed.pop();
+  const what = last === undefined ? '' : `, with its ${listed.length > 0 ? `${listed.join(', ')} and ${last}` : last}`;
+  return `${project.name} on Chainlink CCIP: ${formatCount(project.totals['7d'].messages)} messages in the last 7 days${what}.`;
+}
+
 /** "1,311 sent by its contracts · 689 via its token, by wallets bridging it"; null for a window with nothing via its token. */
 export function viaTokenSplitText(t: Project['totals']['7d']): string | null {
   const via = t.via_token_messages ?? 0;
