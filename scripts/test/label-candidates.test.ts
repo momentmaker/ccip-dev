@@ -323,7 +323,7 @@ describe('handle gaps', () => {
       claim: some.includes('| EL\\|ZA | elizaOS | ethereum-mainnet-base-1 | 0xe2 | g-eliza | 17 | 170 | [link](https://base.blockscout.com/token/0xe2) |'),
       loose: some.includes('| - | - | ethereum-mainnet | 0xloose | - | 4 | 40 | - |'),
       gap: some.includes('| T | Token | ethereum-mainnet | 0xccc | - | 1,235 | - |'),
-      rule: some.includes('USDC, LINK, cbBTC'),
+      rule: some.includes('USDC, USDT, LINK, cbBTC, WETH'),
       none: none.includes('No unclaimed direct sends this week.') && none.includes('Every busy token has a handle.'),
     }).toEqual({ heading: true, claim: true, loose: true, gap: true, rule: true, none: true });
   });

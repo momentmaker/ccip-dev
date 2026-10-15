@@ -330,9 +330,9 @@ Alerts arrive in the Telegram chat.
 
 The Worker's hourly run fills the `via_token` rows of the days rolled up before the dimension existed: 60 days a run, newest first, one statement a day, from the meta cursor `via_token_backfill:before` (the oldest day filled so far, then `done`). History takes about 20 hours after the deploy; until then, long windows count part of the via-token sends as their senders'. A failed run alerts `via-token-backfill` and resumes from the cursor the next hour. Progress: `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'via_token_backfill:before'"`.
 
-To fill the history again, the owner deletes that row (`DELETE FROM meta WHERE key = 'via_token_backfill:before'`, same command form) or resets it to a day after the newest to redo; the rows are upserted, so a second pass changes nothing that is already right. Do it after `backfill:fees:upload`, which does not refresh `via_token.fee_usd`.
+To fill the history again, the owner deletes that row (`DELETE FROM meta WHERE key = 'via_token_backfill:before'`, same command form) or sets it to a day after the newest rolled-up day; a full re-run takes about 20 hours. The rows are upserted, so a second pass changes nothing that is already right. Do it after `backfill:fees:upload`, which does not refresh `via_token.fee_usd`.
 
-The deploy workflow migrates before it deploys. A finalize by the old Worker during a deploy can miss a day's `via_token` rows until that day is finalized again, so avoid deploying near 00:07 and 06:00 UTC; if it happens, re-finalize the day.
+Days finalized by the old Worker get their `via_token` rows from this backfill, whose cursor starts at today on its first run. The only gap is a finalize running across the new Worker's first hourly run; reset the cursor or re-finalize that day to fix it.
 
 ### Re-finalize a day
 
