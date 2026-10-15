@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DASH, formatAgo, dataSharePct, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatLinkAmount, formatPct, formatPrice, formatShare, formatUsd, formatUsdDown, formatUsdFull, formatUtcDay, formatUtcTime, labelCoverageLine, linkShareText,
+  DASH, formatAgo, dataSharePct, formatBps, formatCompactCount, formatCount, formatCountdown, formatDuration, formatFee, formatFeeTotal, formatLink, formatLinkAmount, formatPct, formatPrice, formatShare, formatUsd, formatUsdDown, formatUsdFull, formatUtcDay, formatUtcTime, growthMultiple, labelCoverageLine, linkShareText,
 } from '../src/format';
 
 describe('formatUsd', () => {
@@ -211,5 +211,20 @@ describe('the coverage line', () => {
   ])('words %o as %j', (coverage, line) => {
     // #then
     expect(labelCoverageLine(coverage)).toBe(line);
+  });
+});
+
+describe('growthMultiple', () => {
+  it.each([
+    [2_749, 49, 56],
+    [490, 49, 10],
+    [489, 49, null],
+    [2_100, 1_400, null],
+    [700, 1_400, null],
+    [600, 0, null],
+    [600, null, null],
+  ])('%s against %s the week before is %s times', (now, before, multiple) => {
+    // #then
+    expect(growthMultiple(now, before)).toBe(multiple);
   });
 });

@@ -1,5 +1,5 @@
 import { addDays, kindPhrase, newcomerSpanWords } from '@ccip-dev/core';
-import { formatCount, formatFeeTotal, formatShare, formatUsd } from '@ccip-dev/core/format';
+import { formatCount, formatFeeTotal, formatShare, formatUsd, growthMultiple } from '@ccip-dev/core/format';
 import { calledShare, type BoardName, type Countdown } from '@ccip-dev/core/moments';
 import { formatProgressUsd, formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
 import type { Poll } from '@ccip-dev/core/public';
@@ -213,6 +213,8 @@ const kindClause = (f: ProjectSpotlightFacts) => {
 };
 
 const growth = (f: ProjectSpotlightFacts) => {
+  const multiple = growthMultiple(f.messages, f.previous);
+  if (multiple !== null) return ` (${formatCount(multiple)}× the week before)`;
   const change = arrow(pctOf(f.messages, f.previous));
   return change === null ? '' : ` (${change} vs the week before)`;
 };

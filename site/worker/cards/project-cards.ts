@@ -1,4 +1,4 @@
-import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
+import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUtcDay, growthMultiple } from '@ccip-dev/core/format';
 import { chainName, shortAddress } from '@ccip-dev/core/names';
 import { newcomerSpanWords, parseSenderKey, senderKeyAddress } from '@ccip-dev/core/senders';
 import { addDays } from '@ccip-dev/core/time';
@@ -53,12 +53,13 @@ export async function projectSpotlightTree(monday: string, inputs: BroadcastInpu
   const sky = skyFor(replay, names, monday, sunday, { gold: project.chains[0] ?? null, starFree: [TEXT_COLUMN] });
   const before = project.previous_messages;
   const pct = before === 0 ? null : ((project.messages - before) / before) * 100;
+  const multiple = growthMultiple(project.messages, before);
   const change: Child[] =
     pct === null
       ? ['none the week before']
       : [
           glyph(pct >= 0 ? 'up' : 'down', 18, pct >= 0 ? COLORS.up : COLORS.down, { right: 6 }),
-          project.messages >= before * 10 ? `${formatCount(Math.round(project.messages / before))}× the week before` : `${formatShare(Math.abs(pct))} vs the week before`,
+          multiple === null ? `${formatShare(Math.abs(pct))} vs the week before` : `${formatCount(multiple)}× the week before`,
         ];
   const insight: Child[] =
     project.usd > 0

@@ -87,6 +87,14 @@ export function formatPct(value: number | null | undefined, digits = 1): string 
   return `${value > 0 ? '+' : MINUS}${text}%`;
 }
 
+/**
+ * Growth of tenfold or more, as the rounded multiple a post says "56× the week before" with, where a percentage would
+ * read "▲5510%"; null below tenfold or with nothing to compare against.
+ */
+export function growthMultiple(now: number, before: number | null): number | null {
+  return before === null || before <= 0 || now < before * 10 ? null : Math.round(now / before);
+}
+
 export function formatLink(value: number | null | undefined): string {
   return usable(value) ? `${Math.round(value).toLocaleString('en-US')} LINK` : DASH;
 }

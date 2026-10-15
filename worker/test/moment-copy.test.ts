@@ -407,6 +407,27 @@ describe('the project spotlight', () => {
     );
   });
 
+  it('says a tenfold or bigger growth as a multiple on X, never a percentage', () => {
+    // #when
+    const figures = composeMomentCopy({ ...PROJECT, messages: 2_749, previous: 49 }).xText.split('\n')[1];
+    // #then
+    expect(figures).toBe('2,749 messages (56× the week before) · $525 in fees');
+  });
+
+  it('says a tenfold or bigger growth as a multiple on Telegram', () => {
+    // #when
+    const sentence = composeMomentCopy({ ...PROJECT, messages: 2_749, previous: 49 }).telegramHtml.split('\n')[1];
+    // #then
+    expect(sentence).toBe('xStocks, a protocol, grew the most on CCIP last week: <b>2,749</b> messages (56× the week before).');
+  });
+
+  it('keeps the percentage just under tenfold', () => {
+    // #when
+    const figures = composeMomentCopy({ ...PROJECT, messages: 489, previous: 49 }).xText.split('\n')[1];
+    // #then
+    expect(figures).toBe('489 messages (▲ 898% vs the week before) · $525 in fees');
+  });
+
   it('leaves out the kind it does not know, the change from a week with none, and a value of $0', () => {
     // #when
     const [title, figures] = composeMomentCopy({ ...PROJECT, project: p('Newco'), projectKind: 'unknown', previous: 0, feeUsd: null }).xText.split('\n');
