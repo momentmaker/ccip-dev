@@ -28,7 +28,7 @@ DISCORD_SERVERS = "all"
 # LinkMarines on Telegram (docs/runbook.md, "LinkMarines on Telegram"). The deploy sets TELEGRAM_BOT from the GitHub variable.
 TELEGRAM_BOT = "off"
 TELEGRAM_GATE_CHATS = "@ccipdev"
-TELEGRAM_STICKER_OWNER_ID = ""
+TELEGRAM_STICKER_OWNER_ID = "386349882"
 
 [observability]
 enabled = true
