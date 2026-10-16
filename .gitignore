@@ -15,3 +15,5 @@ site/linkmarine-cards/
 brand/src/render.js
 brand/src/*.json
 .worktrees/
+
+.DS_Store
