@@ -17,3 +17,4 @@ brand/src/*.json
 .worktrees/
 
 .DS_Store
+.superpowers/
