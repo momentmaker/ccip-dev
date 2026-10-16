@@ -1,0 +1,102 @@
+# Unattributed contracts kept as leads so the weekly candidates stop drafting them. Each is a private cross-chain
+# arbitrage or rebalancing bot: one to four callers, delivering to its own wallets or sibling contracts, no UI. No operator
+# is public, so they credit nobody. Researched 2026-10-16 (free explorers and the CCIP API's origin and receiver fields).
+name = "Unattributed bots (unconfirmed)"
+kind = "unknown"
+verified = false
+spread = false
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x63b2d3b0a26c1938bb0ae9779b96073946d4e4af"
+note = "arbitrage bot proxy, one main caller 0x3E0954d9…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x63b2d3b0a26c1938bb0ae9779b96073946d4e4af"
+note = "arbitrage bot proxy, one main caller 0x3E0954d9…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x63b2d3b0a26c1938bb0ae9779b96073946d4e4af"
+note = "arbitrage bot proxy, one main caller 0x3E0954d9…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x63b2d3b0a26c1938bb0ae9779b96073946d4e4af"
+note = "arbitrage bot proxy, one main caller 0x3E0954d9…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0x63b2d3b0a26c1938bb0ae9779b96073946d4e4af"
+note = "arbitrage bot proxy, one main caller 0x3E0954d9…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, deployer 0xe9c45beD…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, deployer 0xe9c45beD…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, deployer 0xe9c45beD…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, deployer 0xe9c45beD…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, deployer 0xe9c45beD…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, deployer 0xe9c45beD…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xb562add9d44790cde63fdc225ad4cae8204a8df5"
+note = "rebalancing bot, deployer 0xB4630AAb… (pairs with Base 0x719bfd0c…)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x7af7632562b6063e52788607ad56f7a60f57ce09"
+note = "rebalancing bot, unverified contract, few callers"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x719bfd0cfd376587a45939273fc9f32228ce0f0e"
+note = "rebalancing bot, same bytecode as Ethereum 0xb562add9…"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x0000000021526b5c055653a55df60b21b73da999"
+note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x0000000021526b5c055653a55df60b21b73da999"
+note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x0000000021526b5c055653a55df60b21b73da999"
+note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x0000000021526b5c055653a55df60b21b73da999"
+note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x0000000021526b5c055653a55df60b21b73da999"
+note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"

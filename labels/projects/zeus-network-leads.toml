@@ -1,0 +1,16 @@
+# Unconfirmed token kept as a lead. The BSC ZEUS is a Chainlink BurnMintERC20 whose CCIP pool (0x50056397…) names this exact Solana mint as its remote token, but no Zeus page names a ZEUS address with CCIP; Zeus's CCIP announcement covers zBTC only.
+name = "Zeus Network (unconfirmed)"
+x = "ZeusNetworkHQ"
+url = "https://zeusnetwork.xyz"
+kind = "protocol"
+verified = false
+
+[[tokens]]
+chain = "solana-mainnet"
+address = "ZEUS1aR7aX8DFFJf5QjWj2ftDDdNTroMNGo8YoQm3Gq"
+source = "https://l2beat.com/interop/tokens/zeus"
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0xa2be3e48170a60119b5f0400c65f65f3158fbeee"
+source = "https://l2beat.com/interop/tokens/zeus"

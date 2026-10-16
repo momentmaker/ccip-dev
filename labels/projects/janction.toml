@@ -1,0 +1,16 @@
+# Source: https://docs.janction.ai/token/tokenomics ("ERC20 token CA 0xC477B6dfd26EC2460b3b92de18837Fd476Ea7549 / BEP20 token CA 0xeA37A8DE1de2d9D10772EEB569e28Bfa5Cb17707") and https://medium.com/janction/janction-integrates-chainlink-ccip-to-enable-secure-cross-chain-transfers-of-jasmy-and-janction-55ea65243726
+name = "Janction"
+x = "JANCTION_Global"
+url = "https://www.janction.ai"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0xc477b6dfd26ec2460b3b92de18837fd476ea7549"
+source = "https://docs.janction.ai/token/tokenomics"
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0xea37a8de1de2d9d10772eeb569e28bfa5cb17707"
+source = "https://docs.janction.ai/token/tokenomics"

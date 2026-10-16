@@ -176,6 +176,21 @@
       }
     ]
   },
+  "bob": {
+    "name": "BOB",
+    "x": "build_on_bob",
+    "url": "https://www.gobob.xyz",
+    "kind": "issuer",
+    "source": "https://docs.gobob.xyz/docs/reference/bob-token (\"Bridging: Chainlink CCIP (lock/unlock on BOB, burn/mint on other chains)\"; BOB Mainnet 0xb0bd54846a92b214c04a63b26ad7dc5e19a60808)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "bitcoin-mainnet-bob-1",
+        "address": "0xb0bd54846a92b214c04a63b26ad7dc5e19a60808",
+        "source": "https://docs.gobob.xyz/docs/reference/bob-token"
+      }
+    ]
+  },
   "bungee": {
     "name": "Bungee (Socket)",
     "x": "SocketProtocol",
@@ -727,6 +742,26 @@
     ],
     "tokens": []
   },
+  "janction": {
+    "name": "Janction",
+    "x": "JANCTION_Global",
+    "url": "https://www.janction.ai",
+    "kind": "issuer",
+    "source": "https://docs.janction.ai/token/tokenomics (\"ERC20 token CA 0xC477B6dfd26EC2460b3b92de18837Fd476Ea7549 / BEP20 token CA 0xeA37A8DE1de2d9D10772EEB569e28Bfa5Cb17707\") and https://medium.com/janction/janction-integrates-chainlink-ccip-to-enable-secure-cross-chain-transfers-of-jasmy-and-janction-55ea65243726",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xc477b6dfd26ec2460b3b92de18837fd476ea7549",
+        "source": "https://docs.janction.ai/token/tokenomics"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0xea37a8de1de2d9d10772eeb569e28bfa5cb17707",
+        "source": "https://docs.janction.ai/token/tokenomics"
+      }
+    ]
+  },
   "kinetiq": {
     "name": "Kinetiq",
     "x": "kinetiq_xyz",
@@ -805,6 +840,11 @@
         "chain": "solana-mainnet",
         "address": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
         "source": "https://docs.lombard.finance/learn/products/assets"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0xecac9c5f704e954931349da37f60e39f515c11c1",
+        "source": "https://docs.lombard.finance/learn/transparency/smart-contracts"
       }
     ]
   },
@@ -840,6 +880,11 @@
         "chain": "solana-mainnet",
         "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
         "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+      },
+      {
+        "chain": "arc-mainnet",
+        "address": "0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39",
+        "source": "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
       }
     ]
   },
@@ -873,6 +918,21 @@
       }
     ]
   },
+  "non-playable-coin": {
+    "name": "Non-Playable Coin",
+    "x": "nonplayablecoin",
+    "url": "https://www.npc.com",
+    "kind": "issuer",
+    "source": "https://www.npc.com (its \"Uniswap ROBINHOOD\" button buys 0x241F3Caa…) and https://www.npc.com/blog/articles/support-the-current-chain (\"our recent integration with Chainlink's Cross-Chain Interoperability Protocol (CCIP)\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0x241f3caad03db31137f641bef005a32176530024",
+        "source": "https://www.npc.com/blog/articles/support-the-current-chain"
+      }
+    ]
+  },
   "overtime": {
     "name": "Overtime",
     "x": "overtime_io",
@@ -885,6 +945,21 @@
         "chain": "ethereum-mainnet-base-1",
         "address": "0x7750c092e284e2c7366f50c8306f43c7eb2e82a2",
         "source": "https://github.com/thales-markets/thales-io-dapp/blob/main/src/utils/contracts/overContract.ts"
+      }
+    ]
+  },
+  "paal-ai": {
+    "name": "PAAL AI",
+    "x": "PaalMind",
+    "url": "https://www.paal.ai",
+    "kind": "issuer",
+    "source": "https://x.com/PaalMind/status/1902804324909977950 (\"Proud to expand $PAAL on @BNBCHAIN via @chainlink CCIP\", linking the BSC token 0xbb1b031c…)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0xbb1b031c591235408755ff4e0739cb88c5cf2507",
+        "source": "https://x.com/PaalMind/status/1902804324909977950"
       }
     ]
   },
@@ -953,6 +1028,21 @@
     ],
     "tokens": []
   },
+  "re": {
+    "name": "Re",
+    "x": "re",
+    "url": "https://www.re.xyz",
+    "kind": "protocol",
+    "source": "https://docs.re.xyz/products/smart-contracts (reUSD on Ethereum 0x5086bf358635B81D8C47C66d1C8b9E567Db70c72; \"reUSD and reUSDe move between chains via Chainlink CCIP token pools\")",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+        "source": "https://docs.re.xyz/products/smart-contracts"
+      }
+    ]
+  },
   "ribbita": {
     "name": "Ribbita (TIBBIR)",
     "x": null,
@@ -967,6 +1057,21 @@
       }
     ],
     "tokens": []
+  },
+  "ripe-protocol": {
+    "name": "Ripe Protocol",
+    "x": "ripe_dao",
+    "url": "https://www.ripe.finance",
+    "kind": "protocol",
+    "source": "https://github.com/Ripe-Foundation/ripe-protocol/blob/09094179ee341de4e3374558cbbfb1b6bf4c4d1e/docs/chains/rh/evidence/ccip-live-snapshot-20260811.json (Ripe's CCIP snapshot: Robinhood RIPE token 0x4D3f37a9… and its BurnMintTokenPool)",
+    "addresses": [],
+    "tokens": [
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0x4d3f37a965b21ab4122e92dd41d2693e742c883b",
+        "source": "https://github.com/Ripe-Foundation/ripe-protocol/blob/09094179ee341de4e3374558cbbfb1b6bf4c4d1e/docs/chains/rh/evidence/ccip-live-snapshot-20260811.json"
+      }
+    ]
   },
   "rize": {
     "name": "RIZE",
@@ -1001,7 +1106,13 @@
         "note": "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
       }
     ],
-    "tokens": []
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x09b6a9e1dd102bd95b3dd5025bca3540ebf77982",
+        "source": "https://blog.roninchain.com/p/coinbase-is-listing-wrapped-ron"
+      }
+    ]
   },
   "rubicon": {
     "name": "Rubicon",

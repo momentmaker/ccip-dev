@@ -1,0 +1,11 @@
+# Source: https://docs.gobob.xyz/docs/reference/bob-token ("Bridging: Chainlink CCIP (lock/unlock on BOB, burn/mint on other chains)"; BOB Mainnet 0xb0bd54846a92b214c04a63b26ad7dc5e19a60808)
+name = "BOB"
+x = "build_on_bob"
+url = "https://www.gobob.xyz"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "bitcoin-mainnet-bob-1"
+address = "0xb0bd54846a92b214c04a63b26ad7dc5e19a60808"
+source = "https://docs.gobob.xyz/docs/reference/bob-token"
