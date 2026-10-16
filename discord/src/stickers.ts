@@ -1,7 +1,7 @@
 import { stickerPackName, stickerPackTitle, stickerPackUrl, stickerVolume } from '@ccip-dev/core/linkmarine';
 import { publicCard, reason } from './enlistment';
 import { loadMemes, stockMemes } from './memes';
-import { claimMeta, stickerQueue, type Marine } from './store';
+import { claimMeta, holdSticker, releaseSticker, stickerQueue, type Marine } from './store';
 import type { TelegramResult } from './telegram-api';
 import { TELEGRAM_PLATFORM, type TelegramBot } from './telegram-marines';
 
@@ -24,8 +24,8 @@ const NAME_TAKEN = /name is already occupied/i;
 /** Telegram's answer to reading a pack that was never created. */
 const PACK_UNKNOWN = /STICKERSET_INVALID/;
 
-/** added: recorded. limited: a 429, so the run ends quietly. failed: alert and go on. stalled: alert and end the run, to settle a Marine left marked before any other is touched, or for the owner to look. */
-type Outcome = { kind: 'added' } | { kind: 'limited' } | { kind: 'failed'; why: string } | { kind: 'stalled'; why: string };
+/** added: recorded. limited: a 429, so the run ends quietly. failed: alert and go on, and with `hold` the Marine waits an hour so a sticker that keeps failing never blocks the queue. stalled: alert and end the run, to settle a Marine left marked before any other is touched, or for the owner to look. */
+type Outcome = { kind: 'added' } | { kind: 'limited' } | { kind: 'failed'; why: string; hold: boolean } | { kind: 'stalled'; why: string };
 
 const isLimited = (r: TelegramResult<unknown>) => !r.ok && r.status === 429;
 /** Anything but a 4xx: Telegram may have acted. No answer came back (0), or a 200 or 3xx whose body could not be read, or a server or proxy error (5xx). */
@@ -65,7 +65,7 @@ async function settle(bot: TelegramBot, marine: Marine, set: string, justAdded: 
   if (!pack.ok) {
     if (justAdded || recorded > 0 || !PACK_UNKNOWN.test(pack.description)) return { kind: 'stalled', why: `getStickerSet ${set}: ${why(pack)}; the next run settles it` };
     await mark(bot.db, marine.serial, null);
-    return { kind: 'failed', why: `${set} was never created (${why(pack)}); it is due again` };
+    return { kind: 'failed', why: `${set} was never created (${why(pack)}); it is due again`, hold: false };
   }
   const { stickers } = pack.result;
   if (stickers.length === recorded + 1) {
@@ -78,7 +78,7 @@ async function settle(bot: TelegramBot, marine: Marine, set: string, justAdded: 
   if (stickers.length !== recorded) return { kind: 'stalled', why: `${holds}; the owner must reconcile it` };
   if (justAdded) return { kind: 'stalled', why: `${holds} right after an add` };
   await mark(bot.db, marine.serial, null);
-  return { kind: 'failed', why: `${holds}, so the sticker was never added; it is due again` };
+  return { kind: 'failed', why: `${holds}, so the sticker was never added; it is due again`, hold: false };
 }
 
 /** The sticker's PNG, or why it could not be drawn. */
@@ -94,9 +94,9 @@ async function drawSticker(bot: TelegramBot, marine: Marine): Promise<Uint8Array
 
 async function addSticker(bot: TelegramBot, marine: Marine, owner: number): Promise<Outcome> {
   const png = await drawSticker(bot, marine);
-  if (typeof png === 'string') return { kind: 'failed', why: png };
+  if (typeof png === 'string') return { kind: 'failed', why: png, hold: true };
   const upload = await bot.tg.upload<{ file_id: string }>('uploadStickerFile', { user_id: String(owner), sticker_format: 'static' }, { field: 'sticker', name: `marine-${marine.serial}.png`, type: 'image/png', bytes: png }, UPLOAD_TIMEOUT_MS);
-  if (!upload.ok) return isLimited(upload) ? { kind: 'limited' } : { kind: 'failed', why: `uploadStickerFile ${why(upload)}` };
+  if (!upload.ok) return isLimited(upload) ? { kind: 'limited' } : { kind: 'failed', why: `uploadStickerFile ${why(upload)}`, hold: true };
   const volume = stickerVolume(marine.serial);
   const set = stickerPackName(volume);
   const sticker = { sticker: upload.result.file_id, format: 'static', emoji_list: [STICKER_EMOJI] };
@@ -112,7 +112,7 @@ async function addSticker(bot: TelegramBot, marine: Marine, owner: number): Prom
   if (isUnknown(added)) return { kind: 'stalled', why: `adding to ${set}: ${why(added)}; the next run settles it` };
   if (!added.ok) {
     await mark(bot.db, marine.serial, null);
-    return isLimited(added) ? { kind: 'limited' } : { kind: 'failed', why: `adding to ${set}: ${why(added)}` };
+    return isLimited(added) ? { kind: 'limited' } : { kind: 'failed', why: `adding to ${set}: ${why(added)}`, hold: true };
   }
   return settle(bot, marine, set, true);
 }
@@ -128,7 +128,7 @@ export async function stickerJob(bot: TelegramBot): Promise<void> {
   const claim = await claimRun(bot.db, bot.now());
   if (!claim) return;
   try {
-    for (const { marine, set } of await stickerQueue(bot.db, STICKERS_PER_RUN)) {
+    for (const { marine, set } of await stickerQueue(bot.db, STICKERS_PER_RUN, bot.now())) {
       let outcome: Outcome;
       try {
         outcome = set ? await settle(bot, marine, set, false) : await addSticker(bot, marine, owner);
@@ -137,6 +137,8 @@ export async function stickerJob(bot: TelegramBot): Promise<void> {
       }
       if (outcome.kind === 'limited') break;
       if (outcome.kind === 'failed' || outcome.kind === 'stalled') await bot.alert(`telegram-sticker:${marine.serial}`, `Marine #${marine.serial}'s sticker: ${outcome.why}`);
+      if (outcome.kind === 'failed' && outcome.hold) await holdSticker(bot.db, marine.serial, bot.now());
+      if (outcome.kind === 'added') await releaseSticker(bot.db, marine.serial);
       if (outcome.kind === 'stalled') break;
     }
   } finally {

@@ -242,6 +242,21 @@ describe('the sticker job', () => {
     expect([bot.alerts.map((a) => a.signature), await stickers()]).toEqual([['telegram-sticker:1'], [[1, null, null]]]);
   });
 
+  it('holds a Marine whose sticker failed back for an hour, so the Marines after them go on, then tries them again', async () => {
+    // #given a full run's worth of Marines whose uploads fail, and one more behind them
+    for (let i = 0; i <= STICKERS_PER_RUN; i++) await insertMarine('discord', `u${i}`, `callsign-${i}`);
+    const { tg } = packs({ uploadStickerFile: (n) => (n <= STICKERS_PER_RUN ? tgError(400, 'Bad Request: file is too big') : null) });
+    const bot = fakeTelegramBot({ tg });
+    // #when
+    await stickerJob(bot);
+    await stickerJob(bot);
+    const behind = (await stickers()).filter(([, , fileId]) => fileId !== null).map(([serial]) => serial);
+    bot.clock.ms += 3_600_000;
+    await stickerJob(bot);
+    // #then
+    expect({ behind, after: (await stickers()).filter(([, , fileId]) => fileId !== null).length }).toEqual({ behind: [STICKERS_PER_RUN + 1], after: STICKERS_PER_RUN + 1 });
+  });
+
   it(`backfills oldest first, ${STICKERS_PER_RUN} a run`, async () => {
     // #given twelve Marines
     for (let i = 1; i <= 12; i++) await insertMarine('discord', `u${i}`, `marine-${i}`);

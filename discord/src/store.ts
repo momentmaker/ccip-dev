@@ -133,14 +133,30 @@ export async function claimMeta(db: D1Database, key: string, nowMs: number, ttlM
   return res.meta.changes > 0;
 }
 
+/** A Marine whose sticker failed waits this long before the job tries them again, so the Marines after them go on. */
+export const STICKER_HOLD = 'sticker-hold:';
+const STICKER_HOLD_MS = 3_600_000;
+
+export async function holdSticker(db: D1Database, serial: number, now: Date): Promise<void> {
+  await db.prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(`${STICKER_HOLD}${serial}`, new Date(now.getTime() + STICKER_HOLD_MS).toISOString()).run();
+}
+
+export async function releaseSticker(db: D1Database, serial: number): Promise<void> {
+  await db.prepare('DELETE FROM meta WHERE key = ?').bind(`${STICKER_HOLD}${serial}`).run();
+}
+
 /**
  * The sticker job's queue, at most `limit`: first a Marine a cut-short run left marked (sticker_set set, no file id),
  * then the Marines without a sticker, oldest serial first.
  */
-export async function stickerQueue(db: D1Database, limit: number): Promise<{ marine: Marine; set: string | null }[]> {
+export async function stickerQueue(db: D1Database, limit: number, now: Date): Promise<{ marine: Marine; set: string | null }[]> {
   const { results } = await db
-    .prepare('SELECT * FROM marines WHERE sticker_file_id IS NULL ORDER BY sticker_set IS NULL, serial LIMIT ?')
-    .bind(limit)
+    .prepare(
+      `SELECT * FROM marines WHERE sticker_file_id IS NULL
+         AND (sticker_set IS NOT NULL OR NOT EXISTS (SELECT 1 FROM meta WHERE meta.key = '${STICKER_HOLD}' || marines.serial AND meta.value > ?1))
+       ORDER BY sticker_set IS NULL, serial LIMIT ?2`,
+    )
+    .bind(now.toISOString(), limit)
     .all<MarineRow & { sticker_set: string | null }>();
   return results.map((r) => ({ marine: toMarine(r), set: r.sticker_set }));
 }

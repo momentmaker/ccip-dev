@@ -30,6 +30,8 @@ async function seedMeta(now: Date): Promise<void> {
     row('tg-update:2', at(1_000)),
     row('tg-stamp:7', at(DAY_MS + 1)),
     row('tg-stamp:8', at(1_000)),
+    row('sticker-hold:3', at(DAY_MS + 1)),
+    row('sticker-hold:4', at(-3_600_000)),
     row('sticker-run', '2020-01-01T00:00:00.000Z'),
     row('alert:telegram-update', '2020-01-01T00:00:00.000Z'),
   ]);
@@ -99,14 +101,14 @@ describe('the webhook', () => {
     expect(answers.map((r) => r.status)).toEqual([401, 200]);
   });
 
-  it('drops update and stamp claims older than a day, and nothing else', async () => {
+  it('drops update and stamp claims and sticker holds older than a day, and nothing else', async () => {
     // #given
     const now = new Date('2026-10-15T12:00:00.000Z');
     await seedMeta(now);
     // #when
     await pruneClaims(env.DB, now);
     // #then
-    expect(await metaKeys()).toEqual(['alert:telegram-update', 'sticker-run', 'tg-stamp:8', 'tg-update:2']);
+    expect(await metaKeys()).toEqual(['alert:telegram-update', 'sticker-hold:4', 'sticker-run', 'tg-stamp:8', 'tg-update:2']);
   });
 
   it('answers a request that is not a POST with 405', async () => {
@@ -365,7 +367,7 @@ describe('the cron', () => {
     // #when
     await cron(env, scheduledTime);
     // #then
-    expect(await metaKeys()).toEqual(['alert:telegram-update', 'sticker-run', 'tg-stamp:8', 'tg-update:2']);
+    expect(await metaKeys()).toEqual(['alert:telegram-update', 'sticker-hold:4', 'sticker-run', 'tg-stamp:8', 'tg-update:2']);
   });
 
   it('still runs the sticker job when the prune fails', async () => {

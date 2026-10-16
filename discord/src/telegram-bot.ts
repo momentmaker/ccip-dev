@@ -53,7 +53,7 @@ export async function claimUpdate(db: D1Database, updateId: number, now: Date): 
 /** A claim is only needed for a day; the cron drops it after that so meta stays small. */
 export async function pruneClaims(db: D1Database, now: Date): Promise<void> {
   const before = new Date(now.getTime() - CLAIM_KEEP_MS).toISOString();
-  await db.prepare("DELETE FROM meta WHERE (key LIKE 'tg-update:%' OR key LIKE 'tg-stamp:%') AND value < ?").bind(before).run();
+  await db.prepare("DELETE FROM meta WHERE (key LIKE 'tg-update:%' OR key LIKE 'tg-stamp:%' OR key LIKE 'sticker-hold:%') AND value < ?").bind(before).run();
 }
 
 const OWNER_UNSET = `TELEGRAM_STICKER_OWNER_ID is empty, so the sticker packs can't be made: set it in discord/wrangler.toml and deploy (runbook, "LinkMarines on Telegram", one-time setup step 3)`;
