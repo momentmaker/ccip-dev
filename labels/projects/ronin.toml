@@ -14,3 +14,8 @@ note = "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
 chain = "ronin-mainnet"
 address = "0xab5f1eb5b88c77651eed32104b19e34f36675893"
 note = "MultiLockMintERC721PoolProxy, Ronin's CCIP NFT bridge pool"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x09b6a9e1dd102bd95b3dd5025bca3540ebf77982"
+source = "https://blog.roninchain.com/p/coinbase-is-listing-wrapped-ron"

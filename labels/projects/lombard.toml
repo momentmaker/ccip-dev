@@ -20,3 +20,8 @@ source = "https://docs.lombard.finance/learn/products/assets"
 chain = "solana-mainnet"
 address = "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY"
 source = "https://docs.lombard.finance/learn/products/assets"
+
+[[tokens]]
+chain = "monad-mainnet"
+address = "0xecac9c5f704e954931349da37f60e39f515c11c1"
+source = "https://docs.lombard.finance/learn/transparency/smart-contracts"

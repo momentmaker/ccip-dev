@@ -58,6 +58,12 @@
       "x": "BitlayerLabs"
     },
     {
+      "chain": "bitcoin-mainnet-bob-1",
+      "address": "0xb0bd54846a92b214c04a63b26ad7dc5e19a60808",
+      "project": "BOB",
+      "x": "build_on_bob"
+    },
+    {
       "chain": "solana-mainnet",
       "address": "XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH",
       "project": "Dexlab",
@@ -100,6 +106,18 @@
       "x": "humafinance"
     },
     {
+      "chain": "ethereum-mainnet",
+      "address": "0xc477b6dfd26ec2460b3b92de18837fd476ea7549",
+      "project": "Janction",
+      "x": "JANCTION_Global"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0xea37a8de1de2d9d10772eeb569e28bfa5cb17707",
+      "project": "Janction",
+      "x": "JANCTION_Global"
+    },
+    {
       "chain": "hyperliquid-mainnet",
       "address": "0xfd739d4e423301ce9385c1fb8850539d657c296d",
       "project": "Kinetiq",
@@ -126,6 +144,12 @@
     {
       "chain": "solana-mainnet",
       "address": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+      "project": "Lombard",
+      "x": "Lombard_Finance"
+    },
+    {
+      "chain": "monad-mainnet",
+      "address": "0xecac9c5f704e954931349da37f60e39f515c11c1",
       "project": "Lombard",
       "x": "Lombard_Finance"
     },
@@ -160,16 +184,34 @@
       "x": "maplefinance"
     },
     {
+      "chain": "arc-mainnet",
+      "address": "0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
       "chain": "ethereum-mainnet",
       "address": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0",
       "project": "Memento",
       "x": "Memento_Bc"
     },
     {
+      "chain": "robinhood-mainnet",
+      "address": "0x241f3caad03db31137f641bef005a32176530024",
+      "project": "Non-Playable Coin",
+      "x": "nonplayablecoin"
+    },
+    {
       "chain": "ethereum-mainnet-base-1",
       "address": "0x7750c092e284e2c7366f50c8306f43c7eb2e82a2",
       "project": "Overtime",
       "x": "overtime_io"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0xbb1b031c591235408755ff4e0739cb88c5cf2507",
+      "project": "PAAL AI",
+      "x": "PaalMind"
     },
     {
       "chain": "ethereum-mainnet-base-1",
@@ -184,10 +226,28 @@
       "x": "GetRainCoin"
     },
     {
+      "chain": "ethereum-mainnet",
+      "address": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+      "project": "Re",
+      "x": "re"
+    },
+    {
+      "chain": "robinhood-mainnet",
+      "address": "0x4d3f37a965b21ab4122e92dd41d2693e742c883b",
+      "project": "Ripe Protocol",
+      "x": "ripe_dao"
+    },
+    {
       "chain": "binance_smart_chain-mainnet",
       "address": "0xaedaff046601beb063b647845dfb21841f32d6a4",
       "project": "RIZE",
       "x": "CarbonZeroCorp"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0x09b6a9e1dd102bd95b3dd5025bca3540ebf77982",
+      "project": "Ronin",
+      "x": "Ronin_Network"
     },
     {
       "chain": "ethereum-mainnet-base-1",

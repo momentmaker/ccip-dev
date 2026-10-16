@@ -1,27 +1,11 @@
-# Source: https://docs.re.xyz/products/smart-contracts (lists the AccessManager 0x3f0DA1C3… and the reUSD NAV oracle 0xb45AC37C… these broadcasters are wired to, but not the broadcasters)
+# Source: https://docs.re.xyz/products/smart-contracts (reUSD on Ethereum 0x5086bf358635B81D8C47C66d1C8b9E567Db70c72; "reUSD and reUSDe move between chains via Chainlink CCIP token pools")
 name = "Re"
 x = "re"
 url = "https://www.re.xyz"
 kind = "protocol"
-# Unverified: ReserveFeedBroadcaster contracts built on Re's documented AccessManager and NAV feeds; Re does not publish these addresses.
-verified = false
+verified = true
 
-[[addresses]]
+[[tokens]]
 chain = "ethereum-mainnet"
-address = "0xd3dc5432f952021a9c6f23928a4baaf81576db8f"
-note = "ReserveFeedBroadcaster, reUSD NAV (8 decimals) over CCIP"
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0x9a62b428f3f60837023bdad01f6daa160ec51aa7"
-note = "ReserveFeedBroadcaster, reUSD NAV (18 decimals) over CCIP"
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0xf2a0b61550b5a37ec9d4453ad59c685483d56c17"
-note = "ReserveFeedBroadcaster, reUSDe NAV (8 decimals) to Berachain over CCIP"
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2"
-note = "ReserveFeedBroadcaster, reUSDe NAV (18 decimals) to Berachain over CCIP"
+address = "0x5086bf358635b81d8c47c66d1c8b9e567db70c72"
+source = "https://docs.re.xyz/products/smart-contracts"

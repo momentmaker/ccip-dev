@@ -1,0 +1,11 @@
+# Unconfirmed token kept as a lead. Vision's white paper v1.1 says VSN is "natively distributed on Arbitrum ... BNB Chain and HyperEVM through cross-chain transfers via Chainlink's CCIP infrastructure", but no Vision page names this Arbitrum address.
+name = "Vision (unconfirmed)"
+x = "vsntoken"
+url = "https://vision.now"
+kind = "issuer"
+verified = false
+
+[[tokens]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x6fbbbd8bfb1cd3986b1d05e7861a0f62f87db74b"
+source = "https://docs.chain.link/ccip/directory/mainnet/token/VSN"

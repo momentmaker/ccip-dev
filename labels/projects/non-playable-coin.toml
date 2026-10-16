@@ -1,0 +1,11 @@
+# Source: https://www.npc.com (its "Uniswap ROBINHOOD" button buys 0x241F3Caa…) and https://www.npc.com/blog/articles/support-the-current-chain ("our recent integration with Chainlink's Cross-Chain Interoperability Protocol (CCIP)")
+name = "Non-Playable Coin"
+x = "nonplayablecoin"
+url = "https://www.npc.com"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "robinhood-mainnet"
+address = "0x241f3caad03db31137f641bef005a32176530024"
+source = "https://www.npc.com/blog/articles/support-the-current-chain"

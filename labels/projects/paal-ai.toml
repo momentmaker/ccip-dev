@@ -1,0 +1,11 @@
+# Source: https://x.com/PaalMind/status/1902804324909977950 ("Proud to expand $PAAL on @BNBCHAIN via @chainlink CCIP", linking the BSC token 0xbb1b031c…)
+name = "PAAL AI"
+x = "PaalMind"
+url = "https://www.paal.ai"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0xbb1b031c591235408755ff4e0739cb88c5cf2507"
+source = "https://x.com/PaalMind/status/1902804324909977950"

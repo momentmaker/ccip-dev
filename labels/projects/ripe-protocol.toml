@@ -1,0 +1,11 @@
+# Source: https://github.com/Ripe-Foundation/ripe-protocol/blob/09094179ee341de4e3374558cbbfb1b6bf4c4d1e/docs/chains/rh/evidence/ccip-live-snapshot-20260811.json (Ripe's CCIP snapshot: Robinhood RIPE token 0x4D3f37a9… and its BurnMintTokenPool)
+name = "Ripe Protocol"
+x = "ripe_dao"
+url = "https://www.ripe.finance"
+kind = "protocol"
+verified = true
+
+[[tokens]]
+chain = "robinhood-mainnet"
+address = "0x4d3f37a965b21ab4122e92dd41d2693e742c883b"
+source = "https://github.com/Ripe-Foundation/ripe-protocol/blob/09094179ee341de4e3374558cbbfb1b6bf4c4d1e/docs/chains/rh/evidence/ccip-live-snapshot-20260811.json"

@@ -28,3 +28,8 @@ source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
 chain = "solana-mainnet"
 address = "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj"
 source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "arc-mainnet"
+address = "0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
