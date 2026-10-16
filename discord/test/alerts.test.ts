@@ -34,6 +34,17 @@ describe('alerts', () => {
     ]);
   });
 
+  it('labels LinkMarines on Telegram alerts telegram, and the rest discord', async () => {
+    // #given
+    const t = telegram();
+    const alert = createAlerter(env.DB, { token: 'bot', chatId: '-100' }, { fetch: t.fetch, now: () => new Date('2026-10-13T10:00:00.000Z') });
+    // #when
+    await alert('telegram-sticker:7', "Marine #7's sticker: uploadStickerFile 400 Bad Request");
+    await alert('discord-command:enlist', '/enlist failed');
+    // #then
+    expect(t.sent.map((s) => s.body.text)).toEqual(["ccip.dev telegram alert: Marine #7's sticker: uploadStickerFile 400 Bad Request", 'ccip.dev discord alert: /enlist failed']);
+  });
+
   it('lets the next alert retry when Telegram fails, and only logs without the secrets', async () => {
     // #given
     const down = telegram(502);

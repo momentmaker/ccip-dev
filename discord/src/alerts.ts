@@ -38,7 +38,7 @@ export function createAlerter(db: D1Database, telegram: { token?: string; chatId
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
-        body: JSON.stringify({ chat_id: telegram.chatId, text: `ccip.dev discord alert: ${text}`.slice(0, MAX_TEXT_LENGTH) }),
+        body: JSON.stringify({ chat_id: telegram.chatId, text: `ccip.dev ${signature.startsWith('telegram') ? 'telegram' : 'discord'} alert: ${text}`.slice(0, MAX_TEXT_LENGTH) }),
       });
       if (!res.ok) failure = `Telegram returned HTTP ${res.status}`;
     } catch (err) {
