@@ -90,7 +90,7 @@ export function RosterPage({ roster, failed, now, telegram = false, tag = null }
       <MostWanted roster={roster} now={now} />
       <RarestTen roster={roster} />
       <PlankOwners roster={roster} />
-      <Wall roster={roster} query={query} onQuery={setQuery} />
+      <Wall roster={roster} query={query} onQuery={setQuery} telegram={telegram} />
       <Constellation roster={roster} onPickTag={pickTag} />
       <EnlistCta roster={roster} telegram={telegram} />
     </>

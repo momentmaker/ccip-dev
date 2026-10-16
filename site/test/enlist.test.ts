@@ -50,6 +50,22 @@ describe('enlisting from the site', () => {
     expect([text(off!).includes('Enlist yours'), off!.includes(TELEGRAM), text(on!).includes('Enlist on Discord Enlist on Telegram'), text(on!).includes('Enlist yours')]).toEqual([true, false, true, false]);
   });
 
+  it('offers both where no Marine is found', () => {
+    // #when
+    const [off, on] = [false, true].map((telegram) => renderToString(createElement(MarinePage, { roster: ROSTER_FIXTURE, failed: false, serial: 999, telegram })));
+    // #then
+    expect([off!.includes('href="/discord/">Enlist yours'), off!.includes(TELEGRAM), text(on!).includes('Enlist on Discord Enlist on Telegram'), text(on!).includes('Enlist yours')]).toEqual([true, false, true, false]);
+  });
+
+  it('names the Mini App beside /enlist on an empty roster', () => {
+    // #given
+    const empty: RosterFile = { ...ROSTER_FIXTURE, marines: [] };
+    // #when
+    const [off, on] = [false, true].map((telegram) => roster({ roster: empty, telegram }));
+    // #then
+    expect([text(off!).includes('Be #0001: /enlist'), off!.includes(TELEGRAM), text(on!).includes('Be #0001: /enlist on Discord, or enlist on Telegram'), on!.includes(TELEGRAM)]).toEqual([true, false, true, true]);
+  });
+
   it('reads the build’s TELEGRAM_BOT', () => {
     // #then
     expect([telegramOpen('on'), telegramOpen('off'), telegramOpen(undefined)]).toEqual([true, false, false]);

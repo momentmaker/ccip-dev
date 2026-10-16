@@ -47,20 +47,26 @@ function CopyLink({ url }: { url: string }) {
   );
 }
 
-function Missing({ label }: { label: string }) {
+function Missing({ label, telegram }: { label: string; telegram: boolean }) {
   return (
     <section className="mr-missing">
       <h1>{label}</h1>
-      <a className="mr-add" href="/discord/">
-        Enlist yours
-      </a>
+      {telegram ? (
+        <div className="mr-cta-buttons">
+          <EnlistButtons />
+        </div>
+      ) : (
+        <a className="mr-add" href="/discord/">
+          Enlist yours
+        </a>
+      )}
     </section>
   );
 }
 
 /** A Marine's page. `serial` is undefined until the browser has read it from the path, null when the path holds none. */
 export function MarinePage({ roster, failed, serial, telegram = false }: { roster: RosterFile | null; failed: boolean; serial: number | null | undefined; telegram?: boolean }) {
-  if (serial === null) return <Missing label="No Marine here." />;
+  if (serial === null) return <Missing label="No Marine here." telegram={telegram} />;
   if (serial === undefined || roster === null) {
     return failed ? (
       <p className="mr-state" role="status">
@@ -73,7 +79,7 @@ export function MarinePage({ roster, failed, serial, telegram = false }: { roste
     );
   }
   const marine = roster.marines.find((m) => m.serial === serial);
-  if (!marine) return <Missing label={`No Marine #${serialText(serial)} yet.`} />;
+  if (!marine) return <Missing label={`No Marine #${serialText(serial)} yet.`} telegram={telegram} />;
   const odds = marineOdds(marine.tier, marine.percentile);
   return (
     <article className="mr-profile">

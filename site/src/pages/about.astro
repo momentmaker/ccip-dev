@@ -1,6 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import { DISCLAIMER, REPO_URL, TELEGRAM_URL, X_URL } from '../config';
+import { TELEGRAM_ENLIST_URL, telegramOpen } from '../lib/telegram';
+
+const telegram = telegramOpen(process.env.TELEGRAM_BOT);
 ---
 <Base title="About" description="What ccip.dev is, where its numbers come from, and who runs it.">
   <article class="prose">
@@ -21,6 +24,6 @@ import { DISCLAIMER, REPO_URL, TELEGRAM_URL, X_URL } from '../config';
     <p>Chain icons: Chainlink documentation. Logos are trademarks of their respective owners.</p>
     <p><strong>{DISCLAIMER}.</strong> ccip.dev is a community project. The code is open source on <a href={REPO_URL}>GitHub</a>.</p>
     <p>Follow along on <a href={X_URL}>X @ccipdev</a> and the <a href={TELEGRAM_URL}>t.me/ccipdev</a> Telegram channel.</p>
-    <p>Add the ccip.dev bot to your Discord server for dog tags and live intel cards: <a href="/discord/">ccip.dev on Discord</a>. Every enlisted Marine is on the roster: <a href="/marines/">ccip.dev/marines</a>.</p>
+    <p>Add the ccip.dev bot to your Discord server for dog tags and live intel cards: <a href="/discord/">ccip.dev on Discord</a>.{telegram && <> On Telegram, enlist in the <a href={TELEGRAM_ENLIST_URL}>LinkMarines Mini App</a>.</>} Every enlisted Marine is on the roster: <a href="/marines/">ccip.dev/marines</a>.</p>
   </article>
 </Base>

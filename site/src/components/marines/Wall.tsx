@@ -2,6 +2,7 @@ import { serialText, type Tier } from '@ccip-dev/core/linkmarine';
 import { wallMarines, type RosterFile, type WallQuery } from '@ccip-dev/core/roster';
 import { useEffect, useState } from 'react';
 import { marinePath, tierName } from '../../lib/marines';
+import { TELEGRAM_ENLIST_URL } from '../../lib/telegram';
 import DogTag from './DogTag';
 
 export const WALL_PAGE = 60;
@@ -15,7 +16,7 @@ const PILLS: { label: string; tier: Tier | null; order: WallQuery['order'] }[] =
   { label: 'NEWEST', tier: null, order: 'newest' },
 ];
 
-export default function Wall({ roster, query, onQuery }: { roster: RosterFile; query: WallQuery; onQuery: (q: WallQuery) => void }) {
+export default function Wall({ roster, query, onQuery, telegram = false }: { roster: RosterFile; query: WallQuery; onQuery: (q: WallQuery) => void; telegram?: boolean }) {
   const [shown, setShown] = useState(WALL_PAGE);
   const marines = wallMarines(roster.marines, query);
   useEffect(() => setShown(WALL_PAGE), [query.text, query.tier, query.tag, query.order]);
@@ -49,6 +50,12 @@ export default function Wall({ roster, query, onQuery }: { roster: RosterFile; q
       {roster.marines.length === 0 ? (
         <p className="mr-empty">
           No Marines yet. Be #0001: <code>/enlist</code>
+          {telegram && (
+            <>
+              {' '}
+              on Discord, or <a href={TELEGRAM_ENLIST_URL}>enlist on Telegram</a>
+            </>
+          )}
         </p>
       ) : marines.length === 0 ? (
         <p className="mr-empty">No Marine matches that.</p>

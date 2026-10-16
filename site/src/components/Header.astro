@@ -2,6 +2,7 @@
 import { TAGLINE } from '../config';
 import StatusLight from './StatusLight';
 import { isCurrentPath } from '../lib/nav';
+import { TELEGRAM_ENLIST_URL, telegramOpen } from '../lib/telegram';
 
 const NAV = [
   { href: '/', match: '/', label: 'Live', icon: 'live' },
@@ -17,6 +18,7 @@ const MORE = [
   { href: '/projects/', label: 'Projects' },
   { href: '/methodology/', label: 'Methodology' },
   { href: '/discord/', label: 'Discord bot' },
+  ...(telegramOpen(process.env.TELEGRAM_BOT) ? [{ href: TELEGRAM_ENLIST_URL, label: 'Telegram app' }] : []),
   { href: '/marines/', label: 'LinkMarines' },
 ];
 const ICONS: Record<string, string> = {
