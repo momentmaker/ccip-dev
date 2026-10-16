@@ -43,7 +43,8 @@ async function enlist(bot: TelegramBot, user: TelegramUser, waitUntil: Waiter): 
     if (existing.cardKey === null) await stampLater(bot, existing, user, waitUntil);
     return json({ already: true, marine: marineSummary(bot, existing), banner: null } satisfies EnlistAnswer);
   }
-  if ((await checkGate(bot, user.id)) === 'join') return json({ gate: 'join' }, 403);
+  const gate = await checkGate(bot, user.id);
+  if (gate !== 'ok') return json({ gate }, 403);
   const result = await enlistMarine(bot, { platform: TELEGRAM_PLATFORM, userId: String(user.id), displayName: telegramName(user) });
   if (result.kind === 'clashed') {
     await bot.alert('telegram-draw', 'every one of 20 draws for a Telegram recruit clashed with a callsign already taken');

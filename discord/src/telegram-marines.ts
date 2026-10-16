@@ -200,5 +200,7 @@ export async function checkGate(bot: TelegramBot, userId: number): Promise<Gate>
   const alerts = answers.flatMap((a, i) => (!a.ok && !(a.status === 400 && NOT_IN_CHAT.test(a.description)) ? [bot.alert(`telegram-gate:${chats[i]}`, `gate chat ${chats[i]} could not be checked: ${a.description}`)] : []));
   if (chats.length === 0) alerts.push(bot.alert('telegram-gate', 'TELEGRAM_GATE_CHATS is empty, so nobody can enlist'));
   await Promise.all(alerts);
-  return answers.some((a) => a.ok && (MEMBER.has(a.result.status) || (a.result.status === 'restricted' && a.result.is_member === true))) ? 'ok' : 'join';
+  if (answers.some((a) => a.ok && (MEMBER.has(a.result.status) || (a.result.status === 'restricted' && a.result.is_member === true)))) return 'ok';
+  // A chat that could not be checked may be the one holding them: telling a member to join would be wrong.
+  return alerts.length > 0 ? 'retry' : 'join';
 }

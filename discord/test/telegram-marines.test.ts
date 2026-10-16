@@ -266,23 +266,23 @@ describe('the gate', () => {
     expect([gate, tg.calls.map((c) => c.body.chat_id)]).toEqual(['ok', ['@ccipdev', '-1001']]);
   });
 
-  it('fails closed and alerts telegram-gate:<chat> when the chat cannot be checked, as when the bot was removed from @ccipdev', async () => {
+  it('asks to try again, letting no one in, and alerts telegram-gate:<chat> when the chat cannot be checked, as when the bot was removed from @ccipdev', async () => {
     // #given
     const bot = fakeTelegramBot({ tg: fakeTelegram({ getChatMember: () => tgError(403, 'Forbidden: bot is not a member of the channel chat') }) });
     // #when
     const gate = await checkGate(bot, TG_USER.id);
     // #then
-    expect([gate, bot.alerts.map((a) => a.signature), bot.alerts[0]?.text.includes('@ccipdev')]).toEqual(['join', ['telegram-gate:@ccipdev'], true]);
+    expect([gate, bot.alerts.map((a) => a.signature), bot.alerts[0]?.text.includes('@ccipdev')]).toEqual(['retry', ['telegram-gate:@ccipdev'], true]);
   });
 
-  it('turns away and still alerts for the chat that fails when another chat answers that the user left', async () => {
+  it('asks to try again, and alerts for the chat that fails, when another chat answers that the user left: the failing one may hold them', async () => {
     // #given
     const tg = fakeTelegram({ getChatMember: (b) => (b.chat_id === '@ccipdev' ? tgError(0, 'request failed (TimeoutError)') : tgOk({ status: 'left' })) });
     const bot = fakeTelegramBot({ tg, settings: { ...TG_SETTINGS, gateChats: ['@ccipdev', '-1001'] } });
     // #when
     const gate = await checkGate(bot, TG_USER.id);
     // #then
-    expect([gate, bot.alerts.map((a) => a.signature)]).toEqual(['join', ['telegram-gate:@ccipdev']]);
+    expect([gate, bot.alerts.map((a) => a.signature)]).toEqual(['retry', ['telegram-gate:@ccipdev']]);
   });
 
   it('lets in a member of one chat and still alerts for another that fails', async () => {
@@ -304,13 +304,13 @@ describe('the gate', () => {
     expect(bot.alerts.map((a) => a.signature)).toEqual(['telegram-gate:@ccipdev', 'telegram-gate:-1001']);
   });
 
-  it('fails closed and alerts telegram-gate when there are no gate chats', async () => {
+  it('asks to try again, letting no one in, and alerts telegram-gate when there are no gate chats', async () => {
     // #given
     const bot = fakeTelegramBot({ settings: { ...TG_SETTINGS, gateChats: [] } });
     // #when
     const gate = await checkGate(bot, TG_USER.id);
     // #then
-    expect([gate, bot.alerts.map((a) => a.signature)]).toEqual(['join', ['telegram-gate']]);
+    expect([gate, bot.alerts.map((a) => a.signature)]).toEqual(['retry', ['telegram-gate']]);
   });
 });
 

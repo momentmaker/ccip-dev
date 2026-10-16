@@ -49,6 +49,13 @@ describe('screen 1: welcome and gate', () => {
     expect(text(welcome({ gate: 'join' }))).toContain('Not in @ccipdev yet? Join the channel to enlist, then Check again . Join Check again');
   });
 
+  it('asks to try again in a minute when membership could not be checked, without asking anyone to join', () => {
+    // #when
+    const out = text(welcome({ gate: 'retry' }));
+    // #then
+    expect([out.includes("Couldn't check your @ccipdev membership just now. Try again in a minute. Check again"), out.includes('Not in @ccipdev'), out.includes(' Join ')]).toEqual([true, false, false]);
+  });
+
   it('says it opens soon while the switch is off, and asks nobody to join', () => {
     // #when
     const out = text(welcome({ open: false, gate: 'join' }));

@@ -285,8 +285,8 @@ export interface MarineSummary {
   cardReady: boolean;
 }
 
-/** ok: a member of a gate chat, or already enlisted. join: not yet in one. */
-export type Gate = 'ok' | 'join';
+/** ok: a member of a gate chat, or already enlisted. join: not yet in one. retry: no gate chat could say, so ask again in a minute. */
+export type Gate = 'ok' | 'join' | 'retry';
 
 /** POST /tg/session. */
 export type SessionAnswer = { switch: 'off' } | { switch: 'on'; marine: MarineSummary | null; gate: Gate };

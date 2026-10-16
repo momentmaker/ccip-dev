@@ -87,7 +87,7 @@ function InTelegram({ app }: { app: TelegramWebApp }) {
       return;
     }
     if ('switch' in reply || 'gate' in reply) {
-      setSession('switch' in reply ? reply : { switch: 'on', marine: null, gate: 'join' });
+      setSession('switch' in reply ? reply : { switch: 'on', marine: null, gate: reply.gate });
       replaceStack([{ name: 'welcome' }]);
       return;
     }

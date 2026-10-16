@@ -1,4 +1,4 @@
-import { MINI_APP_LINK, parseStartParam, rarerThan, type EnlistAnswer, type MarineSummary, type SessionAnswer, type StartParam, type Tier } from '@ccip-dev/core/linkmarine';
+import { MINI_APP_LINK, parseStartParam, rarerThan, type EnlistAnswer, type Gate, type MarineSummary, type SessionAnswer, type StartParam, type Tier } from '@ccip-dev/core/linkmarine';
 import { BOT_ORIGIN } from '../config';
 import { marineTitle, marineUrl, shareLine } from './marines';
 import type { TelegramWebApp } from './telegram-webapp';
@@ -113,7 +113,7 @@ export function mainButton(screen: Screen['name'], session: SessionAnswer | null
   }
 }
 
-export type EnlistReply = EnlistAnswer | { gate: 'join' } | { switch: 'off' };
+export type EnlistReply = EnlistAnswer | { gate: Exclude<Gate, 'ok'> } | { switch: 'off' };
 
 /** The Mini App API. Every call carries the launch data in its body, never in the URL. */
 export function tgApi(initData: string, fetchFn: typeof fetch = (input, init) => fetch(input, init)) {

@@ -243,6 +243,18 @@ describe('the Mini App under React, against a Telegram that is as strict as the 
     expect({ failed, cleared: !app.text().includes("Couldn't enlist"), uncaught }).toEqual({ failed: true, cleared: true, uncaught: [] });
   });
 
+  it('goes back to the welcome screen asking to try again when the gate could not be checked at ENLIST', async () => {
+    // #given
+    const tg = strictTelegram();
+    stubApi({ session: json(NEW_RECRUIT), enlist: () => Response.json({ gate: 'retry' }, { status: 403 }) });
+    const app = await launch(tg);
+    // #when
+    tg.clickMain();
+    await settle();
+    // #then
+    expect({ retry: app.text().includes("Couldn't check your @ccipdev membership just now."), join: app.text().includes('Not in @ccipdev'), main: [tg.main.text, tg.main.active], uncaught }).toEqual({ retry: true, join: false, main: ['ENLIST', false], uncaught: [] });
+  });
+
   it('says on the welcome screen that LinkMarines is out of reach when Check again fails', async () => {
     // #given
     const tg = strictTelegram();

@@ -11,7 +11,7 @@ export function OpensSoon() {
   );
 }
 
-/** Screen 1: enlist, the plank-owner seats, the counts, the gate's notice when it fails, and a status line when the last enlist did not go through. */
+/** Screen 1: enlist, the plank-owner seats, the counts, the gate's notice when it fails or could not be checked, and a status line when the last enlist did not go through. */
 export default function Welcome({ roster, gate, open, notice, onJoin, onCheck }: { roster: RosterFile | null; gate: Gate; open: boolean; notice: string | null; onJoin: () => void; onCheck: () => void }) {
   const seats = roster ? plankSeats(roster.marines) : [];
   const left = seats.filter((s) => s === null).length;
@@ -50,6 +50,16 @@ export default function Welcome({ roster, gate, open, notice, onJoin, onCheck }:
             <button type="button" className="tg-btn2" onClick={onJoin}>
               Join
             </button>
+            <button type="button" className="tg-btn2" onClick={onCheck}>
+              Check again
+            </button>
+          </div>
+        </div>
+      )}
+      {open && gate === 'retry' && (
+        <div className="tg-gate" role="status">
+          <p>Couldn't check your @ccipdev membership just now. Try again in a minute.</p>
+          <div className="tg-gate-actions">
             <button type="button" className="tg-btn2" onClick={onCheck}>
               Check again
             </button>

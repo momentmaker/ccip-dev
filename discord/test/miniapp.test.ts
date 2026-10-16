@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import worker from '../src/index';
 import { createAlerter } from '../src/alerts';
 import { miniAppRoute } from '../src/miniapp';
-import { fakeRenderer, fakeTelegram, fakeTelegramBot, GIF_BYTES, PNG_BYTES, resetStorage, seedMarine, signedLaunch, SNAPSHOT, TG_SETTINGS, TG_USER, tgOk, type FakeTelegramBot } from './helpers';
+import { fakeRenderer, fakeTelegram, fakeTelegramBot, GIF_BYTES, PNG_BYTES, resetStorage, seedMarine, signedLaunch, SNAPSHOT, TG_SETTINGS, TG_USER, tgError, tgOk, type FakeTelegramBot } from './helpers';
 
 const OTHER = { id: 888000222, first_name: 'Grace' };
 
@@ -242,6 +242,20 @@ describe('the Mini App API: /tg/enlist', () => {
       alerts: ['telegram-api:enlist'],
       polls: [202, 200],
     });
+  });
+
+  it('asks to try again, taking no serial, when no gate chat can be checked', async () => {
+    // #given
+    const tg = faceless({ getChatMember: () => tgError(429, 'Too Many Requests: retry after 5') });
+    // #when
+    const [session, enlist] = [await ask(botWith({ tg }), '/tg/session'), await ask(botWith({ tg }), '/tg/enlist')];
+    // #then
+    expect([await body(session), enlist.status, await body(enlist), (await env.DB.prepare('SELECT COUNT(*) AS n FROM marines').first<{ n: number }>())?.n]).toEqual([
+      { switch: 'on', marine: null, gate: 'retry' },
+      403,
+      { gate: 'retry' },
+      0,
+    ]);
   });
 
   it('refuses someone outside the gate chats with 403, taking no serial', async () => {
