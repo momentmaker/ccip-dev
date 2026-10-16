@@ -71,7 +71,7 @@
     "ronin-mainnet": "https://api.roninchain.com/rpc",
     "rootstock-mainnet": "https://mycrypto.rsk.co",
     "sei-mainnet": "https://evm-rpc.sei-apis.com",
-    "shibarium-mainnet": "https://shibarium.drpc.org",
+    "shibarium-mainnet": "https://rpc.shibarium.shib.io",
     "solana-mainnet": "https://solana-rpc.publicnode.com",
     "soneium-mainnet": "https://rpc.soneium.org",
     "sonic-mainnet": "https://rpc.soniclabs.com",
@@ -105,6 +105,6 @@
   },
   "ethereumLogs": [
     "https://rpc-eth.blockmachine.io",
-    "https://ethereum-json-rpc.stakely.io"
+    "https://eth.api.pocket.network"
   ]
 }
