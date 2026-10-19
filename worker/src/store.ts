@@ -109,10 +109,11 @@ export async function knownIds(db: D1Database, ids: string[]): Promise<Set<strin
   return known;
 }
 
+/** Ingest asks this every minute, so it must read one index entry, never the table (messages_source_send_ts). */
+export const NEWEST_LIVE_ID_SQL = "SELECT message_id FROM messages WHERE source = 'live' ORDER BY send_ts DESC LIMIT 1";
+
 export async function newestLiveId(db: D1Database): Promise<string | null> {
-  const row = await db
-    .prepare("SELECT message_id FROM messages WHERE source = 'live' ORDER BY send_ts DESC LIMIT 1")
-    .first<{ message_id: string }>();
+  const row = await db.prepare(NEWEST_LIVE_ID_SQL).first<{ message_id: string }>();
   return row?.message_id ?? null;
 }
 

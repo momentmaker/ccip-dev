@@ -100,6 +100,13 @@ describe('messages', () => {
     );
     expect(await store.newestLiveId(env.DB)).toBe('new');
   });
+
+  it('finds the newest live message through the messages_source_send_ts index, not a scan and sort of every message', async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.NEWEST_LIVE_ID_SQL}`).all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail)).toEqual(['SEARCH messages USING INDEX messages_source_send_ts (source=?)']);
+  });
 });
 
 describe('claims', () => {
