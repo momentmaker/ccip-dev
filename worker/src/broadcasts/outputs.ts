@@ -63,8 +63,8 @@ export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'
   return mode === 'on' ? [...set.channel, ...(set.xPost?.length ? set.xPost : set.drafts)] : [...set.drafts, ...set.preview];
 }
 
-/** X carries only the daily stats and the monthly video, as the post or the owner's draft; every other broadcast is Telegram's alone. */
-const X_KINDS: ReadonlySet<PostTarget['kind']> = new Set(['daily', 'monthly']);
+/** X carries the reports, records, milestones, Reserve deposits and the monthly video, as the post or the owner's draft; moments are Telegram's alone. */
+const X_KINDS: ReadonlySet<PostTarget['kind']> = new Set(['daily', 'weekly', 'record', 'milestone', 'reserve', 'monthly']);
 const X_OUTPUT_NAMES = new Set(['x-post', 'x-draft']);
 
 export function outputsFor(outputs: readonly BroadcastOutput[], target: PostTarget): BroadcastOutput[] {

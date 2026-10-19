@@ -140,8 +140,8 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 
 - **Mode** (`BROADCASTS` under `[vars]` in `worker/wrangler.toml`; change it and push):
   - `off` (the default): nothing is posted, claimed or seeded.
-  - `drafts`: only the owner gets anything, in the drafts chat (`TELEGRAM_DRAFTS_CHAT_ID`, or `TELEGRAM_ALERT_CHAT_ID` when that is unset). The daily report and the monthly video arrive twice: the card with the ready-to-paste X text (`x-draft`), and the card with the caption the channel would get (`telegram-preview`), so both texts can be checked before `on`. Every other broadcast arrives once, as the preview.
-  - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`). The daily report and the monthly video also go to X (`x-post`, see "X posting"), or as the X draft to the owner without the X keys. Weekly reports, records, milestones, Reserve deposits and moments are Telegram only. Before switching to `on`, add the bot to @ccipdev as an administrator with "Post messages".
+  - `drafts`: only the owner gets anything, in the drafts chat (`TELEGRAM_DRAFTS_CHAT_ID`, or `TELEGRAM_ALERT_CHAT_ID` when that is unset). Each broadcast but a moment arrives twice: the card with the ready-to-paste X text (`x-draft`), and the card with the caption the channel would get (`telegram-preview`), so both texts can be checked before `on`. A moment arrives once, as the preview.
+  - `on`: the Telegram channel post (`TELEGRAM_CHANNEL_ID`, `@ccipdev`). The daily and weekly reports, records, milestones, Reserve deposits and the monthly video also go to X (`x-post`, see "X posting"), or as the X draft to the owner without the X keys. Moments are Telegram only. Before switching to `on`, add the bot to @ccipdev as an administrator with "Post messages".
 - **Drafts chat:** `TELEGRAM_DRAFTS_CHAT_ID` is optional. Either add it under `[vars]` in `worker/wrangler.toml`, or set it with `wrangler secret put TELEGRAM_DRAFTS_CHAT_ID`. When unset (or empty), drafts go to the alert chat.
 - **Before `drafts`:** do not switch to `drafts` until the card routes are deployed on the site; otherwise every broadcast alerts `broadcast-image` every hour.
 - **Testing with drafts:** set `drafts` and push. The next hourly run sends yesterday's daily to the drafts chat; the next 00:07 finalize sends the new one, and Monday's adds the weekly. Check the cards and the text for a few days, then set `on`.
@@ -161,7 +161,7 @@ The Worker posts yesterday's daily report after the 00:07 finalize, the weekly r
 
 ### X posting
 
-In `on` mode the Worker posts two things to X through the X API (pay-as-you-go): the daily report and the monthly video. Everything else (weekly reports, records, milestones, Reserve deposits, moments and the poll) stays on Telegram. Posts never contain a link, so each costs $0.015. The X text names projects and chains in plain text and tags no account. X's automation rules ban unsolicited @mentions.
+In `on` mode the Worker posts the card with the X text to X through the X API (pay-as-you-go): the daily and weekly reports, records, milestones, Reserve deposits and the monthly video. Moments (and the poll) stay on Telegram. Posts never contain a link, so each costs $0.015. The X text names projects and chains in plain text and tags no account, except `@chainlink` on Reserve deposits. X's automation rules ban unsolicited @mentions.
 
 - **Setup in the X developer console:**
   1. Under user authentication, set App permissions to "Read and write" and Type of App to "Web App, Automated App or Bot". Use `https://ccip.dev` for both the callback and the website.
@@ -172,7 +172,7 @@ In `on` mode the Worker posts two things to X through the X API (pay-as-you-go):
   `pnpm --filter @ccip-dev/worker exec wrangler secret put X_API_KEY`, and likewise `X_API_SECRET`, `X_ACCESS_TOKEN` and `X_ACCESS_SECRET`.
 - **What it does:** when all four keys are set and `X_POSTS` isn't `"off"`, `on` mode posts to X and the X draft to the owner stops. `X_POSTS = "off"` (under `[vars]`) stops X posting, and the drafts come back. `drafts` mode never posts to X.
 - **Cost:** $0.015 a post, with no links ever. When the balance is empty the post fails: the `broadcast-x-post:<key>` alert fires hourly and the hourly runs retry until credit is added.
-- **Re-post to X only:** delete `<key>` and `<key>#x-post`, after deleting the wrong X post by hand (X refuses identical text). It only works inside the hourly retry window: yesterday's daily, or the monthly video on the 1st to the 3rd. Older ones are not re-posted.
+- **Re-post to X only:** delete `<key>` and `<key>#x-post`, after deleting the wrong X post by hand (X refuses identical text). It only works inside the hourly retry window: yesterday's daily, weekly and record broadcasts, Reserve deposits after `broadcast:reserve:since` and within 3 days, or the monthly video on the 1st to the 3rd. Older ones are not re-posted.
   `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key = 'broadcast:daily:<day>' OR key = 'broadcast:daily:<day>#x-post'"`
 - **Stop X posting now:** `pnpm --filter @ccip-dev/worker exec wrangler secret delete X_ACCESS_TOKEN` stops it at once; `X_POSTS = "off"` needs a push. Either brings the X draft back.
 - **The first live post is the first real test** of OAuth 1.0a on X's v2 media upload. If it fails, it fails safe: `broadcast-x-post:<key>` alerts and nothing is posted to X. A duplicate-content refusal from X, or a post whose id could not be read, counts as sent, since the post is on X.

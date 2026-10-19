@@ -299,7 +299,7 @@ describe('runBroadcasts after finalize', () => {
     });
   });
 
-  it('sends only the daily to X: the weekly and a record reach the channel alone in on mode, and the preview alone in drafts mode', async () => {
+  it('sends the daily, the weekly and a record to X, as the post in on mode and the X draft in drafts mode', async () => {
     // #given a Monday whose finalize posts the daily, the weekly and a fee record
     await seedDays(DAY, { [DAY]: 5 });
     await finalizeRun({ days: [DAY] });
@@ -310,11 +310,12 @@ describe('runBroadcasts after finalize', () => {
     await env.DB.prepare("DELETE FROM meta WHERE key LIKE 'broadcast:%:2026-10-1%' OR key LIKE 'broadcast:weekly:%'").run();
     const drafts = await finalizeRun({ ...monday, mode: 'drafts' });
     // #then
+    const all = ['broadcast:daily:2026-10-11', 'broadcast:weekly:2026-10-05', 'broadcast:record:fees:2026-10-11'];
     expect({ onChannel: keys(on.channel), onX: keys(on.drafts), draftsX: keys(drafts.drafts), draftsPreview: keys(drafts.preview) }).toEqual({
-      onChannel: ['broadcast:daily:2026-10-11', 'broadcast:weekly:2026-10-05', 'broadcast:record:fees:2026-10-11'],
-      onX: ['broadcast:daily:2026-10-11'],
-      draftsX: ['broadcast:daily:2026-10-11'],
-      draftsPreview: ['broadcast:daily:2026-10-11', 'broadcast:weekly:2026-10-05', 'broadcast:record:fees:2026-10-11'],
+      onChannel: all,
+      onX: all,
+      draftsX: all,
+      draftsPreview: all,
     });
   });
 
@@ -477,7 +478,7 @@ describe('runBroadcasts for the Reserve', () => {
     return keys(channel.sent);
   };
 
-  it('posts a deposit to the channel alone, never to X', async () => {
+  it('posts a deposit to the channel and to X', async () => {
     // #given
     await store.setMeta(env.DB, RESERVE_SINCE_KEY, FIRST.ts);
     const channel = recorder('telegram-channel');
@@ -486,7 +487,7 @@ describe('runBroadcasts for the Reserve', () => {
     // #when
     await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 82_480, 12.5)]) }, { channel: [channel.output], xPost: [xPost.output], drafts: [], preview: [] });
     // #then
-    expect({ channel: keys(channel.sent), x: keys(xPost.sent) }).toEqual({ channel: [`broadcast:reserve:${TX2}`], x: [] });
+    expect({ channel: keys(channel.sent), x: keys(xPost.sent) }).toEqual({ channel: [`broadcast:reserve:${TX2}`], x: [`broadcast:reserve:${TX2}`] });
   });
 
   it('seeds the Reserve watermark on its first run and posts nothing', async () => {
