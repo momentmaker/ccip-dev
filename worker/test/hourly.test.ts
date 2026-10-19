@@ -116,10 +116,10 @@ describe('runHourly', () => {
     // #when two hourly runs
     await run();
     await run();
-    // #then one broadcast, to the channel and the drafts chat
+    // #then one broadcast, to the channel alone: a deposit never goes to X, so the owner gets no X draft
     const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => ((c.init?.body as FormData).get('photo') instanceof Blob ? 'uploaded' : 'missing'));
     const cards = f.calls.filter((c) => c.url.startsWith('https://ccip.dev/og/')).map((c) => c.url);
-    expect({ photos, cards }).toEqual({ photos: ['uploaded', 'uploaded'], cards: [`https://ccip.dev/og/broadcast/reserve/${TX2}.png`] });
+    expect({ photos, cards }).toEqual({ photos: ['uploaded'], cards: [`https://ccip.dev/og/broadcast/reserve/${TX2}.png`] });
   });
 
   it("posts yesterday's daily from the hourly run when the 00:07 attempt could not", async () => {

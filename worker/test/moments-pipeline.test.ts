@@ -352,7 +352,7 @@ describe('moments after finalize', () => {
     expect({ alerts, channel: channel.sent }).toEqual({ alerts: [`broadcast-run:${welcome(NEW[0]!)}`], channel: ['broadcast:daily:2026-10-12', welcome(NEW[1]!)] });
   });
 
-  it('posts no moment with MOMENTS off, and sends moments only to the owner with MOMENTS drafts, while the reports post', async () => {
+  it('posts no moment with MOMENTS off, and with MOMENTS drafts sends the owner only their channel preview, while the reports post', async () => {
     // #when
     const off = await momentRun({ moments: 'off' });
     await resetStorage();
@@ -362,7 +362,7 @@ describe('moments after finalize', () => {
     // #then
     expect({ off: [off.reports.length, off.channel, off.drafts], drafts: [drafts.reports.length, drafts.channel, drafts.drafts, drafts.preview] }).toEqual({
       off: [1, [], []],
-      drafts: [1, [], [welcome(NEW[0]!), welcome(NEW[1]!)], [welcome(NEW[0]!), welcome(NEW[1]!)]],
+      drafts: [1, [], [], [welcome(NEW[0]!), welcome(NEW[1]!)]],
     });
   });
 });
@@ -426,34 +426,29 @@ describe('moments on X', () => {
 
   beforeEach(seedBnbArrival);
 
-  it('posts a welcome to X in on mode, uploading its card and then posting, and tags only the welcomed chain', async () => {
+  it('keeps a welcome off X in on mode: the daily report posts to X, the welcome to the channel alone', async () => {
     // #when
     const r = await run('on');
-    const posted = r.posts().find((t) => t.startsWith('🎉 Welcome to #CCIP')) ?? '';
-    // #then the daily report posts first, then the welcome
+    // #then
     expect({
       x: r.xCalls(),
-      tags: posted.match(/@\w+/g),
-      ats: posted.split('@').length - 1,
       marks: [await store.getMeta(env.DB, `${BSC_WELCOME}#x-post`), await store.getMeta(env.DB, BSC_WELCOME)].map((m) => m?.split(':')[0]),
       chats: r.chats,
       alerts: r.alerts,
     }).toEqual({
-      x: ['https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets', 'https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets'],
-      tags: ['@BNBCHAIN'],
-      ats: 1,
-      marks: ['sent', 'sent'],
+      x: ['https://api.x.com/2/media/upload', 'https://api.x.com/2/tweets'],
+      marks: [undefined, 'sent'],
       chats: ['@ccipdev', '@ccipdev'],
       alerts: [],
     });
   });
 
-  it('keeps a moment off X in drafts mode, sending it to the owner as an X draft and a preview', async () => {
+  it('keeps a moment off X in drafts mode, sending the owner its channel preview alone', async () => {
     // #when the reports are on and the moments on drafts
     const r = await run('drafts');
     // #then only the daily report reaches X
     expect({ x: r.xCalls().length, welcomeOnX: await store.getMeta(env.DB, `${BSC_WELCOME}#x-post`), chats: r.chats }).toEqual({
-      x: 2, welcomeOnX: null, chats: ['@ccipdev', '99', '99'],
+      x: 2, welcomeOnX: null, chats: ['@ccipdev', '99'],
     });
   });
 });

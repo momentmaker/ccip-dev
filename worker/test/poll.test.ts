@@ -174,7 +174,7 @@ describe('the Monday poll and X', () => {
     await store.setMeta(env.DB, MOMENTS_SEED_KEY, 'seeded:2026-10-01T00:00:00.000Z');
   });
 
-  it('sends the reports to X but nothing for the poll card, whose X text is empty, and the card and poll still complete on Telegram', async () => {
+  it('sends only the daily report to X, and the weekly, the poll card and the poll complete on Telegram', async () => {
     // #given the card, the Telegram API and X all answer
     const telegram: string[] = [];
     const f = fakeFetch(
@@ -193,7 +193,7 @@ describe('the Monday poll and X', () => {
     // #when
     await runBroadcasts(h.c, { kind: 'finalize', days: ['2026-10-11'] });
     log.mockRestore();
-    // #then the daily and the weekly report post to X; the poll's card and poll go to the channel only, and the poll closes
+    // #then only the daily posts to X; the weekly, the poll's card and the poll go to the channel only, and the poll closes
     expect({
       xPosts: f.calls.filter((c) => c.url.endsWith('/2/tweets')).length,
       onX: [await mark('broadcast:daily:2026-10-11#x-post'), await mark('broadcast:weekly:2026-10-05#x-post'), await mark(`${POLL_KEY}#x-post`)],
@@ -201,8 +201,8 @@ describe('the Monday poll and X', () => {
       poll: [await mark(`${POLL_KEY}#telegram-channel`), await mark(`${POLL_KEY}#telegram-poll`), await mark(POLL_KEY)],
       alerts: h.alerts.map((a) => a.signature),
     }).toEqual({
-      xPosts: 2,
-      onX: ['sent', 'sent', null],
+      xPosts: 1,
+      onX: ['sent', null, null],
       telegram: ['sendPhoto', 'sendPhoto', 'sendPhoto', 'sendPoll'],
       poll: ['sent', 'sent', 'sent'],
       alerts: [],

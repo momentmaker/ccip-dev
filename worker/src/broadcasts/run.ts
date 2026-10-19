@@ -14,7 +14,7 @@ import { CARRY_DAYS, dueMoments, pickMoments, type DueMoment } from './moment-pl
 import { loadMonthlyFacts, type MonthlyFacts } from './monthly';
 import { composeMonthlyCopy } from './monthly-copy';
 import {
-  broadcastMode, broadcastOutputs, momentMode, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastMedia, type BroadcastOutput, type OutputSet,
+  broadcastMode, broadcastOutputs, momentMode, outputsFor, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastMedia, type BroadcastOutput, type OutputSet,
 } from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
@@ -270,8 +270,9 @@ async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array
  * `${key}#${name}`. The broadcast is marked sent only once all its outputs are, otherwise the claim is released and the next
  * run sends just the missing ones.
  */
-async function deliver(c: RunContext, p: Planned, outputs: readonly BroadcastOutput[]): Promise<void> {
+async function deliver(c: RunContext, p: Planned, enabled: readonly BroadcastOutput[]): Promise<void> {
   const db = c.env.DB;
+  const outputs = outputsFor(enabled, p.target);
   const key = broadcastKey(p.target);
   let copy: Copy;
   try {

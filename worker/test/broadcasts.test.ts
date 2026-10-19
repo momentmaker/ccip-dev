@@ -299,6 +299,25 @@ describe('runBroadcasts after finalize', () => {
     });
   });
 
+  it('sends only the daily to X: the weekly and a record reach the channel alone in on mode, and the preview alone in drafts mode', async () => {
+    // #given a Monday whose finalize posts the daily, the weekly and a fee record
+    await seedDays(DAY, { [DAY]: 5 });
+    await finalizeRun({ days: [DAY] });
+    await store.replaceDaily(env.DB, totals('2026-10-11', 6), [lane('2026-10-11')], NOW);
+    const monday = { now: '2026-10-12T00:07:00.000Z', days: ['2026-10-11'] };
+    // #when
+    const on = await finalizeRun(monday);
+    await env.DB.prepare("DELETE FROM meta WHERE key LIKE 'broadcast:%:2026-10-1%' OR key LIKE 'broadcast:weekly:%'").run();
+    const drafts = await finalizeRun({ ...monday, mode: 'drafts' });
+    // #then
+    expect({ onChannel: keys(on.channel), onX: keys(on.drafts), draftsX: keys(drafts.drafts), draftsPreview: keys(drafts.preview) }).toEqual({
+      onChannel: ['broadcast:daily:2026-10-11', 'broadcast:weekly:2026-10-05', 'broadcast:record:fees:2026-10-11'],
+      onX: ['broadcast:daily:2026-10-11'],
+      draftsX: ['broadcast:daily:2026-10-11'],
+      draftsPreview: ['broadcast:daily:2026-10-11', 'broadcast:weekly:2026-10-05', 'broadcast:record:fees:2026-10-11'],
+    });
+  });
+
   it('never posts a record for a day before live_start_day, or for a day a rewind finalizes again', async () => {
     // #given records were seeded already, and the 10th set a fees record
     await seedDays(DAY, { [DAY]: 5 });
@@ -457,6 +476,18 @@ describe('runBroadcasts for the Reserve', () => {
     await runBroadcasts(h.c, { kind: 'reserve', reserve }, { channel: [channel.output], drafts: [], preview: [] });
     return keys(channel.sent);
   };
+
+  it('posts a deposit to the channel alone, never to X', async () => {
+    // #given
+    await store.setMeta(env.DB, RESERVE_SINCE_KEY, FIRST.ts);
+    const channel = recorder('telegram-channel');
+    const xPost = recorder('x-post');
+    const h = harness({ now: '2026-10-08T17:00:00.000Z', fetch: card(), env: { BROADCASTS: 'on' } });
+    // #when
+    await runBroadcasts(h.c, { kind: 'reserve', reserve: body([FIRST, view('2026-10-08T15:35:00.000Z', TX2, 82_480, 12.5)]) }, { channel: [channel.output], xPost: [xPost.output], drafts: [], preview: [] });
+    // #then
+    expect({ channel: keys(channel.sent), x: keys(xPost.sent) }).toEqual({ channel: [`broadcast:reserve:${TX2}`], x: [] });
+  });
 
   it('seeds the Reserve watermark on its first run and posts nothing', async () => {
     expect({ sent: await reserveRun(body([FIRST])), since: await store.getMeta(env.DB, RESERVE_SINCE_KEY) }).toEqual({ sent: [], since: FIRST.ts });

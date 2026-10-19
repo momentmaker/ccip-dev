@@ -63,6 +63,14 @@ export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'
   return mode === 'on' ? [...set.channel, ...(set.xPost?.length ? set.xPost : set.drafts)] : [...set.drafts, ...set.preview];
 }
 
+/** X carries only the daily stats and the monthly video, as the post or the owner's draft; every other broadcast is Telegram's alone. */
+const X_KINDS: ReadonlySet<PostTarget['kind']> = new Set(['daily', 'monthly']);
+const X_OUTPUT_NAMES = new Set(['x-post', 'x-draft']);
+
+export function outputsFor(outputs: readonly BroadcastOutput[], target: PostTarget): BroadcastOutput[] {
+  return X_KINDS.has(target.kind) ? [...outputs] : outputs.filter((o) => !X_OUTPUT_NAMES.has(o.name));
+}
+
 /** The poll card and then the poll, to one chat. The poll has no X text, so it never goes to X: no X draft and no X post. */
 export function selectPollOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {
   return mode === 'on' ? [...set.channel, ...(set.channelPoll ?? [])] : [...set.preview, ...(set.draftsPoll ?? [])];
