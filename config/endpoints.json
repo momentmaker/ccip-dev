@@ -21,7 +21,7 @@
     "creditcoin-mainnet": "https://creditcoin.drpc.org",
     "cronos-mainnet": "https://evm.cronos.org",
     "cronos-zkevm-mainnet": "https://mainnet.zkevm.cronos.org",
-    "edge-mainnet": "https://edge.drpc.org",
+    "edge-mainnet": "https://edge-mainnet.g.alchemy.com/public",
     "ethereum-mainnet": "https://ethereum-rpc.publicnode.com",
     "ethereum-mainnet-arbitrum-1": "https://arb1.arbitrum.io/rpc",
     "ethereum-mainnet-base-1": "https://mainnet.base.org",
@@ -105,6 +105,7 @@
   },
   "ethereumLogs": [
     "https://rpc-eth.blockmachine.io",
-    "https://eth.api.pocket.network"
+    "https://eth.api.pocket.network",
+    "https://xrpc.cl/eth"
   ]
 }
