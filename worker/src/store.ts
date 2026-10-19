@@ -243,6 +243,9 @@ export async function chainRefs(db: D1Database): Promise<Map<string, ChainRef>> 
 
 const tokenKey = (chain: string, address: string) => `${chain}:${normalizeAddress(address)}`;
 
+/** `count` (chain, address) matches, bound as chain then lowercase address; tokens_chain_lower_address serves each one. */
+export const tokenAddressMatch = (count: number) => Array.from({ length: count }, () => '(chain = ? AND lower(address) = ?)').join(' OR ');
+
 /** Symbols by `${chain}:${address}`: the CCIP registry's first, then DefiLlama's for the token's price key. */
 export async function tokenSymbols(db: D1Database, tokens: { chain: string; address: string }[]): Promise<Map<string, string>> {
   const symbols = new Map<string, string>();
@@ -250,8 +253,7 @@ export async function tokenSymbols(db: D1Database, tokens: { chain: string; addr
   for (const chunk of chunks(wanted, PARAM_CHUNK / 2)) {
     const { results } = await db
       .prepare(
-        `SELECT chain, address, symbol FROM tokens
-         WHERE ${chunk.map(() => '(chain = ? AND lower(address) = ?)').join(' OR ')}`,
+        `SELECT chain, address, symbol FROM tokens WHERE ${tokenAddressMatch(chunk.length)}`,
       )
       .bind(...chunk.flatMap((t) => [t.chain, t.address.toLowerCase()]))
       .all<{ chain: string; address: string; symbol: string }>();
@@ -283,7 +285,7 @@ export async function tokenGroupIds(db: D1Database, tokens: { chain: string; add
   const wanted = [...new Map(tokens.map((t) => [tokenKey(t.chain, t.address), t])).values()];
   for (const chunk of chunks(wanted, PARAM_CHUNK / 2)) {
     const { results } = await db
-      .prepare(`SELECT chain, address, group_id FROM tokens WHERE ${chunk.map(() => '(chain = ? AND lower(address) = ?)').join(' OR ')}`)
+      .prepare(`SELECT chain, address, group_id FROM tokens WHERE ${tokenAddressMatch(chunk.length)}`)
       .bind(...chunk.flatMap((t) => [t.chain, t.address.toLowerCase()]))
       .all<{ chain: string; address: string; group_id: string | null }>();
     for (const r of results) groups.set(tokenKey(r.chain, r.address), r.group_id);
@@ -547,16 +549,17 @@ export async function insertArrivals(
   await runBatch(db, keys.map((key) => insert.bind(kind, key, nowIso, announcedAt)));
 }
 
+/**
+ * The recent days' lanes. D1 keeps no table statistics, so without INDEXED BY SQLite walked all of messages_sender for the
+ * GROUP BY: every message, every hour, to read two days.
+ */
+export const LANE_ARRIVALS_SQL = `INSERT INTO arrivals (kind, key, first_seen, announced_at)
+  SELECT 'lane', src_chain || '>' || dst_chain, MIN(send_ts), CASE WHEN ?1 = 1 THEN MIN(send_ts) ELSE NULL END
+  FROM messages INDEXED BY messages_day WHERE day >= ?2 GROUP BY src_chain, dst_chain
+  ON CONFLICT(kind, key) DO NOTHING`;
+
 export async function insertLaneArrivals(db: D1Database, sinceDay: string, baseline: boolean): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO arrivals (kind, key, first_seen, announced_at)
-       SELECT 'lane', src_chain || '>' || dst_chain, MIN(send_ts), CASE WHEN ?1 = 1 THEN MIN(send_ts) ELSE NULL END
-       FROM messages WHERE day >= ?2 GROUP BY src_chain, dst_chain
-       ON CONFLICT(kind, key) DO NOTHING`,
-    )
-    .bind(baseline ? 1 : 0, sinceDay)
-    .run();
+  await db.prepare(LANE_ARRIVALS_SQL).bind(baseline ? 1 : 0, sinceDay).run();
 }
 
 export async function insertReserve(db: D1Database, ts: string, linkBalance: string): Promise<void> {

@@ -101,6 +101,23 @@ describe('messages', () => {
     expect(await store.newestLiveId(env.DB)).toBe('new');
   });
 
+  it('finds new lanes from the recent days through the messages_day index, not a walk of every message', async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.LANE_ARRIVALS_SQL}`).bind(0, '2026-10-17').all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail)).toContain('SEARCH messages USING INDEX messages_day (day>?)');
+  });
+
+  it('looks tokens up by chain and lowercase address through the tokens_chain_lower_address index', async () => {
+    // #when
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN SELECT chain, address, group_id FROM tokens WHERE ${store.tokenAddressMatch(2)}`).bind('a', '0x1', 'b', '0x2').all<{ detail: string }>();
+    // #then
+    expect(plan.results.map((r) => r.detail).filter((d) => d.startsWith('SEARCH'))).toEqual([
+      'SEARCH tokens USING INDEX tokens_chain_lower_address (chain=? AND <expr>=?)',
+      'SEARCH tokens USING INDEX tokens_chain_lower_address (chain=? AND <expr>=?)',
+    ]);
+  });
+
   it('finds the newest live message through the messages_source_send_ts index, not a scan and sort of every message', async () => {
     // #when
     const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.NEWEST_LIVE_ID_SQL}`).all<{ detail: string }>();
