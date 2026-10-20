@@ -14,3 +14,9 @@ source = "https://docs.lido.fi/deployed-contracts/"
 chain = "ethereum-mainnet-base-1"
 address = "0x328de900860816d29d1367f6903a24d8ed40c997"
 note = "CCIP Direct Staking CustomSenderReferral (Lido docs, Base)"
+
+# Source: https://docs.lido.fi/deployed-contracts/ ("Direct Staking on Arbitrum": "CustomSenderReferral: 0x72229141D4B016682d3618ECe47c046f30Da4AD1 (proxy)")
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x72229141d4b016682d3618ece47c046f30da4ad1"
+note = "CCIP Direct Staking CustomSenderReferral (Lido docs, Arbitrum)"

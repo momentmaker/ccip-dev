@@ -1,6 +1,7 @@
 # Unattributed contracts kept as leads so the weekly candidates stop drafting them. Each is a private cross-chain
-# arbitrage or rebalancing bot: one to four callers, delivering to its own wallets or sibling contracts, no UI. No operator
-# is public, so they credit nobody. Researched 2026-10-16 (free explorers and the CCIP API's origin and receiver fields).
+# arbitrage or rebalancing bot (one to four callers, delivering to its own wallets or sibling contracts, no UI) or a private
+# strategy Safe. No operator is public, so they credit nobody. Researched 2026-10-16 and 2026-10-20 (free explorers and the
+# CCIP API's origin and receiver fields).
 name = "Unattributed bots (unconfirmed)"
 kind = "unknown"
 verified = false
@@ -100,3 +101,63 @@ note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
 chain = "ethereum-mainnet"
 address = "0x0000000021526b5c055653a55df60b21b73da999"
 note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xd7ca08ec1aee9cce8a8eda9365343ef197674e1a"
+note = "arbitrage bot proxy, same bytecode and caller as on its other chains"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xfdcb36127c3d4d188d3cbd127a3502e5369bc264"
+note = "rebalancing bot, next contract of the 0xB4630AAb… network"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x1c3ae5e2f440481e23436e00e5c28d6388f964f8"
+note = "rebalancing bot, pairs with Ethereum 0xfdcb3612…"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xfcf31a76f771547f751753f44014433952dfd7f8"
+note = "bot contract, admin calls from the 0x63b2d3b0… deployer"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xfcf31a76f771547f751753f44014433952dfd7f8"
+note = "bot contract, admin calls from the 0x63b2d3b0… deployer"
+
+[[addresses]]
+chain = "solana-mainnet"
+address = "9XQLDx1MV5Ssv48DfFfBwFErh8ds6jfXfHZBJKj1FqXY"
+note = "Solana wallet of the 0x63b2d3b0… bot operator"
+
+[[addresses]]
+chain = "solana-mainnet"
+address = "HnUWtV6vato6WPYeCx3wGQtxoMPQv4vqdvuJbQpiyTK"
+note = "Solana wallet of the Base 0x7af76325… bot operator"
+
+[[addresses]]
+chain = "solana-mainnet"
+address = "2XEcLb8wshCV3XCK2qBWsqGNdBqrYPHd7YyFctqv5kZX"
+note = "USELESS arbitrage wallet, every message to one BSC address"
+
+[[addresses]]
+chain = "solana-mainnet"
+address = "CMxGdVdpcUecFnSWGP1UwUhMxprt8QajpDeAZRWsYf9d"
+note = "USELESS arbitrage wallet, every message to one BSC address"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x25dafa406b2abf5c673326f988caff8243a24d3d"
+note = "private stablecoin-strategy Safe (shares owners with Ethereum 0x4f51aa6b…)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x4f51aa6bd1d18ea68947ceeb0cdcbe78c04cd92f"
+note = "private stablecoin-strategy Safe (shares owners with Monad 0x25dafa40…)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xa865956f14c60f66e92f01764f483e90d51bdd15"
+note = "private DeFi-strategy Safe (2-of-3, anonymous owners)"

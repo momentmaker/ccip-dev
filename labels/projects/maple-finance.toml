@@ -33,3 +33,28 @@ source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
 chain = "arc-mainnet"
 address = "0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39"
 source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "monad-mainnet"
+address = "0xab6e5a0c3799d020c790d34f7b2c02639e238af7"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x41ca7586cc1311807b4605fbb748a3b8862b42b5"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "ethereum-mainnet-base-1"
+address = "0x660975730059246a68521a3e2fbd4740173100f5"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x3c23e6fb09064e9a64829fa8fee27ad19a27bfa9"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"
+
+[[tokens]]
+chain = "tempo-mainnet"
+address = "0x20c0000000000000000000008191667423f70e67"
+source = "https://docs.maple.finance/integrate/crosschain/syrupusd-crosschain"

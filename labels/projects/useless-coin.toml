@@ -1,0 +1,16 @@
+# Source: https://theuselesscoin.com (its contract-address widget: SOL Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk, BSC 0xbA38B3C7…) and https://x.com/theuselesscoin/status/1945592505124204784 ("USELESS token is now officially bridged between @solana and @BNBCHAIN — powered by @chainlink CCIP")
+name = "Useless Coin"
+x = "theuselesscoin"
+url = "https://theuselesscoin.com"
+kind = "issuer"
+verified = true
+
+[[tokens]]
+chain = "solana-mainnet"
+address = "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk"
+source = "https://theuselesscoin.com"
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0xba38b3c706f7a515ff7c8db04daa0a134ec46d2b"
+source = "https://theuselesscoin.com"

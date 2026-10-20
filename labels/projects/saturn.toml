@@ -1,3 +1,4 @@
+# Source: https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses (USDat and sUSDat on Ethereum, BNB Chain and Monad) and https://saturnlabs.substack.com/p/saturn-adopts-chainlink-ccip-following ("Saturn has adopted Chainlink's Cross-Chain Interoperability Protocol (CCIP) as its official bridging infrastructure")
 name = "Saturn"
 x = "saturn_credit"
 url = "https://saturn.credit"
@@ -7,4 +8,29 @@ verified = true
 [[tokens]]
 chain = "ethereum-mainnet"
 address = "0x23238f20b894f29041f48D88eE91131C395Aaa71"
+source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0xd166337499e176bbc38a1fbd113ab144e5bd2df7"
+source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0x9cd57d3685e6868cacaa8bdcaaf52cbdebf4fa25"
+source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+
+[[tokens]]
+chain = "binance_smart_chain-mainnet"
+address = "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef"
+source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+
+[[tokens]]
+chain = "monad-mainnet"
+address = "0x9cd57d3685e6868cacaa8bdcaaf52cbdebf4fa25"
+source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
+
+[[tokens]]
+chain = "monad-mainnet"
+address = "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef"
 source = "https://saturncredit.gitbook.io/saturn-docs/operations-and-governance/key-addresses"
