@@ -8,28 +8,29 @@ A wallet that calls the CCIP router itself is the sender of its message, so its 
 
 | Token | Name | Chain | Address | Group | Direct sends (7d) | USD (7d) | Explorer |
 |---|---|---|---|---|---|---|---|
-| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 212 | 17,281,669 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
-| - | - | solana-mainnet | ZEUS1aR7aX8DFFJf5QjWj2ftDDdNTroMNGo8YoQm3Gq | - | 101 | 56,846 | - |
-| LINK | ChainLink Token | ethereum-mainnet | 0x514910771af9ca656af840dff83e8264ecf986ca | 6127beed-c032-54e4-a739-cce5313ff620 | 67 | 412,536 | [link](https://eth.blockscout.com/token/0x514910771af9ca656af840dff83e8264ecf986ca) |
-| cbBTC | Coinbase Wrapped BTC | ethereum-mainnet-base-1 | 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf | 347a5e6c-4b7b-53c7-819c-f809690e1051 | 64 | 9,383,403 | - |
-| - | - | binance_smart_chain-mainnet | 0xa2be3e48170a60119b5f0400c65f65f3158fbeee | - | 43 | 30,223 | - |
-| - | - | ronin-mainnet | 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5 | - | 34 | 22,965 | - |
-| NPC | Non-Playable Coin | robinhood-mainnet | 0x241f3caad03db31137f641bef005a32176530024 | b163c80e-704a-5b31-8758-a61df28eb7bb | 31 | 37,346 | - |
-| USD1 | World Liberty Financial USD | aptos-mainnet | 0x05fabd1b12e39967a3c24e91b7b8f67719a6dacee74f3c8b9fb7d93e855437d2 | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 29 | 580,795 | - |
-| VSN | Vision | ethereum-mainnet-arbitrum-1 | 0x6fbbbd8bfb1cd3986b1d05e7861a0f62f87db74b | 057f055f-7b04-5dfc-85f3-a96281e72a0c | 26 | 71,178 | - |
-| - | - | ethereum-mainnet | 0x5086bf358635b81d8c47c66d1c8b9e567db70c72 | - | 22 | 933,762 | [link](https://eth.blockscout.com/token/0x5086bf358635b81d8c47c66d1c8b9e567db70c72) |
-| - | - | monad-mainnet | 0xecac9c5f704e954931349da37f60e39f515c11c1 | - | 21 | 1,565,103 | - |
-| POWER | Power | ethereum-mainnet | 0x9dc44ae5be187eca9e2a67e33f27a4c91cea1223 | a7a7e18a-c8bb-5486-8b50-00f3223488b5 | 18 | 78,106 | [link](https://eth.blockscout.com/token/0x9dc44ae5be187eca9e2a67e33f27a4c91cea1223) |
-| - | - | bitcoin-mainnet-bob-1 | 0xb0bd54846a92b214c04a63b26ad7dc5e19a60808 | - | 17 | 29,599 | - |
-| WRON | Wrapped Ronin | ethereum-mainnet | 0x09b6a9e1dd102bd95b3dd5025bca3540ebf77982 | 4bee0c60-a925-5456-abaa-ddde51625968 | 16 | 231,877 | [link](https://eth.blockscout.com/token/0x09b6a9e1dd102bd95b3dd5025bca3540ebf77982) |
-| RIPE | Ripe DAO Governance Token | robinhood-mainnet | 0x4d3f37a965b21ab4122e92dd41d2693e742c883b | 9f1eafbf-1d62-5e06-928e-a942ada330fa | 16 | 4,788 | - |
+| - | - | solana-mainnet | Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk | - | 629 | 33,953 | - |
+| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 185 | 19,833,706 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
+| cbBTC | Coinbase Wrapped BTC | ethereum-mainnet-base-1 | 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf | 347a5e6c-4b7b-53c7-819c-f809690e1051 | 84 | 10,599,576 | - |
+| LINK | ChainLink Token | ethereum-mainnet | 0x514910771af9ca656af840dff83e8264ecf986ca | 6127beed-c032-54e4-a739-cce5313ff620 | 84 | 435,047 | [link](https://eth.blockscout.com/token/0x514910771af9ca656af840dff83e8264ecf986ca) |
+| - | - | solana-mainnet | ZEUS1aR7aX8DFFJf5QjWj2ftDDdNTroMNGo8YoQm3Gq | - | 56 | 38,440 | - |
+| - | - | binance_smart_chain-mainnet | 0xa2be3e48170a60119b5f0400c65f65f3158fbeee | - | 35 | 27,749 | - |
+| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 30 | 842,816 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
+| - | - | monad-mainnet | 0xab6e5a0c3799d020c790d34f7b2c02639e238af7 | - | 25 | 12,334,564 | - |
+| - | - | ronin-mainnet | 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5 | - | 21 | 12,330 | - |
+| - | - | tempo-mainnet | 0x20c00000000000000000000058d0b8b2cfdb358c | - | 18 | 5,462,405 | - |
+| xTAO | TAO | ethereum-mainnet-base-1 | 0xb99fbe68c8a0cc14be8c1af73dd4dfea8a76add7 | d6f0f71e-9e1a-5dea-a9a9-2369819037e7 | 17 | 9,923 | - |
+| - | - | sei-mainnet | 0xdf26208d8e2d7ead3ef4e9a5a3cad8a3c9143934 | - | 16 | 6,653 | - |
+| xSN44 | SUBNET 44 | ethereum-mainnet-base-1 | 0x2cd86cabfde8ffa81d7290be026b74931c4d1ae4 | 48908c05-7096-5e94-8576-131b67793855 | 16 | 0 | - |
+| BTC.b | Bitcoin | ethereum-mainnet | 0xb0f70c0bd6fd87dbeb7c10dc692a2a6106817072 | 2c83e0be-5dd6-57d1-a891-3da0a7c4c9e4 | 14 | 718,486 | [link](https://eth.blockscout.com/token/0xb0f70c0bd6fd87dbeb7c10dc692a2a6106817072) |
+| sUSDat | Staked USDat | ethereum-mainnet | 0xd166337499e176bbc38a1fbd113ab144e5bd2df7 | 18fcdabd-4653-5323-a622-74bd0dfe78ce | 12 | 257,271 | [link](https://eth.blockscout.com/token/0xd166337499e176bbc38a1fbd113ab144e5bd2df7) |
 
 ### By value, with no handle
 
 | Token | Name | Chain | Address | Group | USD (7d) | Explorer |
 |---|---|---|---|---|---|---|
-| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 13,665,002 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
-| - | - | arc-mainnet | 0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39 | - | 12,096,590 | - |
+| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 13,772,852 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
+| - | - | monad-mainnet | 0xab6e5a0c3799d020c790d34f7b2c02639e238af7 | - | 12,529,549 | - |
+| - | - | solana-mainnet | 3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7 | - | 8,447,068 | - |
 
 ## Handles to research
 
