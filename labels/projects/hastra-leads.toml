@@ -1,0 +1,11 @@
+# Unconfirmed token kept as a lead. https://help.hastra.io/defi-guides/how-to-bridge-prime-from-solana-to-tempo names PRIME on Tempo (0x20C0…358c) and routes it through Interport, but no Hastra page says CCIP; Tempo's blog (https://tempo.xyz/blog/tempo-earn-hastra-prime-wylds/) and Chainlink do, and Tempo's TokenAdminRegistry holds its BurnMintTokenPool.
+name = "Hastra (unconfirmed)"
+x = "HastraFi"
+url = "https://hastra.io"
+kind = "issuer"
+verified = false
+
+[[tokens]]
+chain = "tempo-mainnet"
+address = "0x20c00000000000000000000058d0b8b2cfdb358c"
+source = "https://help.hastra.io/defi-guides/how-to-bridge-prime-from-solana-to-tempo"

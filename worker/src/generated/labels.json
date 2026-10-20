@@ -483,11 +483,23 @@
     "kind": "issuer",
     "slug": "lido"
   },
+  "ethereum-mainnet-arbitrum-1:0x72229141d4b016682d3618ece47c046f30da4ad1": {
+    "name": "Lido",
+    "x": "lidofinance",
+    "kind": "issuer",
+    "slug": "lido"
+  },
   "ethereum-mainnet:0xe02cf8d7b3ce12fc0626346bca160b548525d807": {
     "name": "Mellow",
     "x": "Mellowprotocol",
     "kind": "protocol",
     "slug": "mellow"
+  },
+  "ethereum-mainnet:0x1be98ff2d1fb66abcb9809c6dc90dede1f97eec8": {
+    "name": "Mudwater",
+    "x": "BoredApeYC",
+    "kind": "app",
+    "slug": "mudwater"
   },
   "ethereum-mainnet:0x4d61b82eab6477c7b29e4190af5c906b923ef3ad": {
     "name": "Polkastarter",

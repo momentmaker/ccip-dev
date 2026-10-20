@@ -1,0 +1,11 @@
+# Source: https://mudwater.bayc.com/v1/release.json (Mudwater's signed release config: "evm": {"chainId": 1, "entitlementContract": "0x1Be98Ff2D1FB66Abcb9809c6dc90DEdE1f97eeC8"}, the "Production Solana mainnet receiver for Ethereum mainnet ape-bound totems"); operated by Yuga Labs per https://mudwater.bayc.com/terms
+name = "Mudwater"
+x = "BoredApeYC"
+url = "https://mudwater.bayc.com"
+kind = "app"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x1be98ff2d1fb66abcb9809c6dc90dede1f97eec8"
+note = "Mudwater Totems entitlement contract: pack claims to Solana over CCIP"

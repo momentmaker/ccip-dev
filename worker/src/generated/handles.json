@@ -155,6 +155,18 @@
     },
     {
       "chain": "ethereum-mainnet",
+      "address": "0xb0f70c0bd6fd87dbeb7c10dc692a2a6106817072",
+      "project": "Lombard",
+      "x": "Lombard_Finance"
+    },
+    {
+      "chain": "avalanche-mainnet",
+      "address": "0x152b9d0fdc40c096757f570a51e494bd4b943e50",
+      "project": "Lombard",
+      "x": "Lombard_Finance"
+    },
+    {
+      "chain": "ethereum-mainnet",
       "address": "0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b",
       "project": "Maple Finance",
       "x": "maplefinance"
@@ -186,6 +198,36 @@
     {
       "chain": "arc-mainnet",
       "address": "0x0dc6b79f3c3854e4d74514fd4d29be6c96beee39",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "monad-mainnet",
+      "address": "0xab6e5a0c3799d020c790d34f7b2c02639e238af7",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "ethereum-mainnet-arbitrum-1",
+      "address": "0x41ca7586cc1311807b4605fbb748a3b8862b42b5",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x660975730059246a68521a3e2fbd4740173100f5",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "ethereum-mainnet-ink-1",
+      "address": "0x3c23e6fb09064e9a64829fa8fee27ad19a27bfa9",
+      "project": "Maple Finance",
+      "x": "maplefinance"
+    },
+    {
+      "chain": "tempo-mainnet",
+      "address": "0x20c0000000000000000000008191667423f70e67",
       "project": "Maple Finance",
       "x": "maplefinance"
     },
@@ -256,8 +298,140 @@
       "x": "Rubicon_Bridge"
     },
     {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xb99fbe68c8a0cc14be8c1af73dd4dfea8a76add7",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x96c3a43918d30a7ca4fc195c7e93a959016a7c26",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xc995c19aadec7f9005b64e447baccda46f413ea1",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xe611e64af6efc07bd8697f95f6cf04341de91971",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x5663179054538cad0467db00b87d5650600a041e",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x150e673ec255e87a49ce0848216f07ebb107379e",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x38d50d6398dcbb03f334c4409f61117ad37c1a34",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x3abab2e0a24a66c1841716a738964ff757327e87",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x2cd86cabfde8ffa81d7290be026b74931c4d1ae4",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xdc338d54870bf0d93a3ef734b3b30d5ae0318a2e",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x6e352b77796857c01fac416cc18413a9cd09c1b4",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x88c23896a91e7f21cba56f4090193730630d5f04",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xdb3bc179ac3a78886e277cb83551cef2fd3e8728",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xa964973077675e7aea71744b05c1111e1a51ee36",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xbadd3f2d84605032c1b2ad8cbebb4700dcd9d7de",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0x31b85188f676125a66cbadda8482fe52ebd2905a",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
+      "chain": "ethereum-mainnet-base-1",
+      "address": "0xa3b335797bf5a2cc2fc21cc4286d2b3f40f0771e",
+      "project": "Rubicon",
+      "x": "Rubicon_Bridge"
+    },
+    {
       "chain": "ethereum-mainnet",
       "address": "0x23238f20b894f29041f48d88ee91131c395aaa71",
+      "project": "Saturn",
+      "x": "saturn_credit"
+    },
+    {
+      "chain": "ethereum-mainnet",
+      "address": "0xd166337499e176bbc38a1fbd113ab144e5bd2df7",
+      "project": "Saturn",
+      "x": "saturn_credit"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0x9cd57d3685e6868cacaa8bdcaaf52cbdebf4fa25",
+      "project": "Saturn",
+      "x": "saturn_credit"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+      "project": "Saturn",
+      "x": "saturn_credit"
+    },
+    {
+      "chain": "monad-mainnet",
+      "address": "0x9cd57d3685e6868cacaa8bdcaaf52cbdebf4fa25",
+      "project": "Saturn",
+      "x": "saturn_credit"
+    },
+    {
+      "chain": "monad-mainnet",
+      "address": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
       "project": "Saturn",
       "x": "saturn_credit"
     },
@@ -296,6 +470,18 @@
       "address": "0xbbb8ef3181661512ceab66e0b213c29211b24b6c",
       "project": "Unstable Coin",
       "x": "usduc_official"
+    },
+    {
+      "chain": "solana-mainnet",
+      "address": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+      "project": "Useless Coin",
+      "x": "theuselesscoin"
+    },
+    {
+      "chain": "binance_smart_chain-mainnet",
+      "address": "0xba38b3c706f7a515ff7c8db04daa0a134ec46d2b",
+      "project": "Useless Coin",
+      "x": "theuselesscoin"
     },
     {
       "chain": "robinhood-mainnet",
