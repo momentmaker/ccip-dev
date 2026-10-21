@@ -54,4 +54,5 @@ export const RegistryToken = z.object({
 });
 export type RegistryToken = z.output<typeof RegistryToken>;
 
-export const TokensPage = z.object({ data: z.array(RegistryToken), pagination: Pagination });
+/** Entries are checked one by one in the client, so one malformed registry token can't fail the whole page. */
+export const TokensPage = z.object({ data: z.array(z.unknown()), pagination: Pagination });

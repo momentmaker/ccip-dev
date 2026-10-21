@@ -1,5 +1,5 @@
 import { createThrottle, getJson, parseWith, type HttpDeps } from '../http';
-import { ChainsResponse, ListPage, TokensPage, type ListMessage, type NetworkInfo, type RegistryToken } from './schemas';
+import { ChainsResponse, ListPage, RegistryToken, TokensPage, type ListMessage, type NetworkInfo } from './schemas';
 
 export const CCIP_API_BASE = 'https://api.ccip.chain.link/v2';
 const TOKEN_PAGE = 500;
@@ -56,9 +56,18 @@ export function createCcipClient(deps: HttpDeps, options: CcipClientOptions = {}
       const query = new URLSearchParams({ environment: 'mainnet', limit: String(limit) });
       if (cursor) query.set('cursor', cursor);
       const page = parseWith(TokensPage, await get(`/tokens?${query}`, 'GET /tokens'), 'GET /tokens');
-      return { tokens: page.data, cursor: page.pagination.hasNextPage ? (page.pagination.cursor ?? null) : null };
+      return { tokens: page.data.flatMap(validRegistryToken), cursor: page.pagination.hasNextPage ? (page.pagination.cursor ?? null) : null };
     },
   };
+}
+
+function validRegistryToken(entry: unknown): RegistryToken[] {
+  const parsed = RegistryToken.safeParse(entry);
+  if (parsed.success) return [parsed.data];
+  const { symbol, address, chainSelector } = (entry ?? {}) as Record<string, unknown>;
+  const issue = parsed.error.issues[0];
+  console.warn(`[ccip] skipping registry token ${String(symbol)} ${String(address)} on ${String(chainSelector)}: ${issue?.path.join('.')} ${issue?.message}`);
+  return [];
 }
 
 /** Every page of the token registry. */

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createCcipClient, listAllTokens } from '../src/ccip/client';
 import { DetailMessage } from '../src/ccip/schemas';
 import { UpstreamSchemaError } from '../src/http';
@@ -84,6 +84,33 @@ describe('createCcipClient', () => {
     const client = createCcipClient(instantDeps(f), { minIntervalMs: 0 });
     expect(await client.listChains()).toEqual([chain]);
     expect(await client.listTokens({ limit: 1 })).toEqual({ tokens: [token], cursor: 'T2' });
+  });
+});
+
+describe('listTokens with a bad registry entry', () => {
+  const good = { chainSelector: '1', address: '0xA', symbol: 'LINK', name: 'Chainlink', decimals: 18, groupId: 'g' };
+  const xGold = { chainSelector: '3229138320728879060', address: '0x3FA41d2b29c69F8DA6E2D0bFc4f83C62D6582750', symbol: 'xGold', name: 'xGold', decimals: null, groupId: 'x' };
+
+  it('skips an entry that fails validation, as xGold with null decimals did, and keeps the rest of the page', async () => {
+    // #given
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = createCcipClient(instantDeps(fakeFetch(() => jsonResponse({ data: [good, xGold], pagination: { hasNextPage: false } }))), { minIntervalMs: 0 });
+    // #when
+    const page = await client.listTokens({ limit: 2 });
+    const warned = warn.mock.calls.map((c) => String(c[0]).includes('xGold') && String(c[0]).includes('0x3FA41d2b29c69F8DA6E2D0bFc4f83C62D6582750'));
+    warn.mockRestore();
+    // #then
+    expect({ tokens: page.tokens, warned }).toEqual({
+      tokens: [good],
+      warned: [true],
+    });
+  });
+
+  it('still fails when the page itself is malformed', async () => {
+    // #given
+    const client = createCcipClient(instantDeps(fakeFetch(() => jsonResponse({ data: [good] }))), { minIntervalMs: 0 });
+    // #then
+    await expect(client.listTokens({ limit: 1 })).rejects.toBeInstanceOf(UpstreamSchemaError);
   });
 });
 
