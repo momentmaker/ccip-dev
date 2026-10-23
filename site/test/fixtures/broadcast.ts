@@ -1,4 +1,4 @@
-import { PUBLIC_SCHEMAS, type ChainsFile, type DayLeadersFile, type HistoryFile, type PublicFile, type PublicFileName, type ReplayFile, type ReserveFile } from '@ccip-dev/core/public';
+import { PUBLIC_SCHEMAS, type ChainsFile, type DayLeadersFile, type HistoryFile, type PublicFile, type PublicFileName, type ReplayFile, type ReserveFile, type TopFile } from '@ccip-dev/core/public';
 
 export const ETH = '5009297550715157269';
 export const BASE = '15971525489660198786';
@@ -101,12 +101,21 @@ export const RESERVE: ReserveFile = {
   ],
 };
 
+/** The last 7 days' busiest lane by value, as top/lane.json publishes it. */
+export const TOP_LANE: TopFile = {
+  ...envelope,
+  dim: 'lane',
+  since: '2023-07-06',
+  windows: { '7d': [{ key: `${ETH}>${BASE}`, messages: 210, usd: 8_400_000 }], '30d': [], all: [] },
+};
+
 export const BROADCAST_FILES: Record<string, unknown> = {
   'history.json': HISTORY,
   'day-leaders.json': LEADERS,
   'replay.json': REPLAY,
   'chains.json': CHAINS,
   'reserve.json': RESERVE,
+  'top/lane.json': TOP_LANE,
 };
 
 export async function loadFixture<N extends PublicFileName>(name: N): Promise<PublicFile<N>> {

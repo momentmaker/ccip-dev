@@ -185,6 +185,30 @@ describe('handleOg', () => {
     expect(responses.map((r) => [r.status, r.headers.get('cache-control')])).toEqual([[500, 'no-store'], [500, 'no-store']]);
   });
 
+  it('draws the home page as the all-time card when its files are published', async () => {
+    // #given
+    const { get, renderPng } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
+    // #when
+    const res = await get('/og/home.png');
+    // #then
+    expect({ status: res.status, size: renderPng.mock.calls[0]![1], allTime: JSON.stringify(renderPng.mock.calls[0]![0]).includes('Every CCIP message') }).toEqual({
+      status: 200,
+      size: { width: 1200, height: 630 },
+      allTime: true,
+    });
+  });
+
+  it("falls back to today's classic card, not the default image, when the home card's files are not all there", async () => {
+    // #given replay.json is down
+    const { get, renderPng } = setup({}, ['replay.json'], { ...DATA, ...BROADCAST_FILES });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // #when
+    const res = await get('/og/home.png');
+    error.mockRestore();
+    // #then
+    expect({ status: res.status, today: JSON.stringify(renderPng.mock.calls[0]![0]).includes('CCIP TODAY') }).toEqual({ status: 200, today: true });
+  });
+
   it('renders the classic cards at 1200×630', async () => {
     const { get, renderPng } = setup();
     await get('/og/home.png');

@@ -11,6 +11,7 @@ import { cardMaxAge } from './cache';
 import { broadcastTree } from './cards/broadcast-cards';
 import { BROADCAST_SIZE } from './cards/broadcast-frame';
 import { coinIcon } from './cards/coin-icons';
+import { homeTree } from './cards/home-card';
 import { dayCard, flowCard, historyCard, homeCard, projectCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
 import { CARD_SIZE, cardTree, SPARK_H, SPARK_W, sparkSvg, type CardSize } from './cards/frame';
 import type { VNode } from './h';
@@ -163,6 +164,17 @@ async function broadcastCard(target: BroadcastTarget, route: CardRoute, url: URL
   }
 }
 
+/** The all-time home card, or null when it can't be drawn, so the home page falls back to today's classic card, not the default. */
+async function homePng(env: OgEnv, origin: string, deps: OgDeps): Promise<Uint8Array | null> {
+  try {
+    const tree = await homeTree({ load: (name) => fetchPublic(name, { fetch: deps.fetch }), icon: (selector) => coinIcon(env.ASSETS, origin, selector) });
+    return tree ? await deps.renderPng(tree, CARD_SIZE) : null;
+  } catch (err) {
+    console.error(`home card failed, drawing today's card instead: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
 async function fallback(env: OgEnv, origin: string): Promise<Response> {
   const asset = await env.ASSETS.fetch(new Request(`${origin}/og-default.png`));
   return new Response(asset.body, {
@@ -183,6 +195,14 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   try {
     const cached = await deps.cache?.match(cacheKey);
     if (cached) return cached;
+    if (route.kind === 'home') {
+      const png = await homePng(env, url.origin, deps);
+      if (png) {
+        const response = new Response(new Uint8Array(png), { headers: { 'content-type': 'image/png', 'cache-control': `public, max-age=${cardMaxAge(route, null)}` } });
+        if (deps.cache) ctx.waitUntil(deps.cache.put(cacheKey, response.clone()));
+        return response;
+      }
+    }
     const built = await build(route, deps, env, url.origin);
     if (!built) return route.kind === 'daily' ? fallback(env, url.origin) : new Response('Not found', { status: 404 });
     const spark = built.spec.spark ? sparkSvg(built.spec.spark, SPARK_W, SPARK_H) : null;
