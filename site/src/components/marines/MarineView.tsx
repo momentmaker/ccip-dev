@@ -1,7 +1,7 @@
 import { filledPips, marineOdds, serialText } from '@ccip-dev/core/linkmarine';
 import { marineTags, rankOf, type RosterFile, type RosterMarine } from '@ccip-dev/core/roster';
 import { useEffect, useState } from 'react';
-import { enlistedText, marineTitle, marineUrl, memeUrl, pipText, serialFromPath, shareLine, tierName, webCardUrl } from '../../lib/marines';
+import { enlistedText, marineTitle, marineUrl, memeUrl, memeverseUrl, pipText, serialFromPath, shareLine, tierName, webCardUrl } from '../../lib/marines';
 import { xIntentUrl } from '../../lib/share';
 import DogTag from './DogTag';
 import { EnlistButtons } from './Enlist';
@@ -122,6 +122,9 @@ export function MarinePage({ roster, failed, serial, telegram = false }: { roste
             Share on X
           </a>
           <CopyLink url={marineUrl(serial)} />
+          <a className="mr-btn mr-btn-verse" href={memeverseUrl(marine.callsign)} target="_blank" rel="noopener">
+            Fly your tags in the Memeverse
+          </a>
           {!telegram && (
             <a className="mr-btn mr-btn-discord" href="/discord/">
               Enlist yours
