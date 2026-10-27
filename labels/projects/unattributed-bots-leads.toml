@@ -1,7 +1,7 @@
 # Unattributed contracts kept as leads so the weekly candidates stop drafting them. Each is a private cross-chain
-# arbitrage or rebalancing bot (one to four callers, delivering to its own wallets or sibling contracts, no UI) or a private
-# strategy Safe. No operator is public, so they credit nobody. Researched 2026-10-16 and 2026-10-20 (free explorers and the
-# CCIP API's origin and receiver fields).
+# arbitrage or rebalancing bot (one to four callers, delivering to its own wallets or sibling contracts, no UI), a private
+# strategy Safe or a personal wallet. No operator is public, so they credit nobody. Researched 2026-10-16, 2026-10-20 and
+# 2026-10-27 (free explorers and the CCIP API's origin and receiver fields).
 name = "Unattributed bots (unconfirmed)"
 kind = "unknown"
 verified = false
@@ -161,3 +161,18 @@ note = "private stablecoin-strategy Safe (shares owners with Monad 0x25dafa40…
 chain = "ethereum-mainnet"
 address = "0xa865956f14c60f66e92f01764f483e90d51bdd15"
 note = "private DeFi-strategy Safe (2-of-3, anonymous owners)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x63b2d3b0a26c1938bb0ae9779b96073946d4e4af"
+note = "arbitrage bot proxy, one main caller 0x3E0954d9…; funded from 0x21a31Ee1…"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xbad504d10c9446513fc829baa482361f31a69aab"
+note = "rebalancing bot, BSC leg of the 0xB4630AAb… network: one caller 0x06893fF4…, trades with Ethereum 0xfdcb3612…"
+
+[[addresses]]
+chain = "aptos-mainnet"
+address = "0x4cd1ecb80e2745077c13c783d1903bd87c26d22997b225a2eddc51331e76d411"
+note = "personal wallet moving USD1, every message to one Ethereum address 0xe6Aa5F20…"

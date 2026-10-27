@@ -1,0 +1,15 @@
+# Unconfirmed address kept as a lead. WithdrawFactory bridges each user's withdraw escrow to the user's own address on another
+# chain (CCIP for kHYPE). Its deployer 0xde71be8f… owns Derive's WeeklyDrip (DRV to stDRV dividends) and SlowDeposit
+# (deposits into a user's subaccount), and its one caller 0x546caBdF… processes those SlowDeposits, but no Derive page
+# lists this address.
+name = "Derive (unconfirmed)"
+x = "DeriveXYZ"
+url = "https://www.derive.xyz"
+kind = "protocol"
+verified = false
+spread = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xfec48bbc648bd2284520d862ec67fc68f709915e"
+note = "WithdrawFactory, kHYPE withdrawals to HyperEVM; deployer 0xde71be8f…, caller 0x546caBdF…"
