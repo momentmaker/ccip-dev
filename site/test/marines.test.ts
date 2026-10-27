@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROSTER_FIXTURE } from '@ccip-dev/core/testing';
-import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, PLANET_LABEL_W, rarestBarPct, serialFromPath, shareLine, tierName, tipPosition, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
+import { enlistedText, marinePath, marineTitle, marineUrl, memeUrl, memeverseUrl, NARROW_FRAME, pipText, planetLayout, PLANET_LABEL_H, PLANET_LABEL_W, rarestBarPct, serialFromPath, shareLine, tierName, tipPosition, webCardUrl, WIDE_FRAME, type PlanetFrame } from '../src/lib/marines';
 
 describe('Marine URLs', () => {
   it('pads the page path, and keeps the web card on the bare serial', () => {
@@ -17,6 +17,11 @@ describe('Marine URLs', () => {
   it('escapes a meme file name for the bot', () => {
     // #then
     expect(memeUrl('b c#1.gif')).toBe('https://discord.ccip.dev/memes/b%20c%231.gif.png');
+  });
+
+  it('links a callsign into the chainlinkme.me memeverse', () => {
+    // #then
+    expect(memeverseUrl('painting-space-prophecy')).toBe('https://chainlinkme.me/verse/#callsign=painting-space-prophecy');
   });
 
   it('reads the serial from a Marine page path, and nothing else', () => {

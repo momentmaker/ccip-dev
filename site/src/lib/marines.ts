@@ -11,6 +11,8 @@ export const marineUrl = (serial: number) => `${SITE_URL}${marinePath(serial)}`;
 export const marineTitle = (serial: number) => `LINK MARINE #${serialText(serial)}`;
 export const webCardUrl = (serial: number) => `${BOT_ORIGIN}/web/${serial}.png`;
 export const memeUrl = (file: string) => `${BOT_ORIGIN}/memes/${encodeURIComponent(file)}.png`;
+/** The callsign's three tags lit up, one after another, in chainlinkme.me's 3D galaxy of the meme archive the tags come from. */
+export const memeverseUrl = (callsign: string) => `https://chainlinkme.me/verse/#callsign=${encodeURIComponent(callsign)}`;
 
 const MARINE_PATH = /^\/marines\/(\d{1,9})\/?$/;
 

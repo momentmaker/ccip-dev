@@ -139,6 +139,7 @@ a.mr-seat { color: #0c0f14; }
 .mr-profile-lore { font: 700 12px var(--font-mono); letter-spacing: 0.12em; color: var(--muted); margin: 16px 0 0; }
 .mr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .mr-btn { padding: 10px 14px; border-radius: 10px; font: 700 13px var(--font-sans); background: var(--card); border: 1px solid var(--border); color: var(--fg); text-decoration: none; cursor: pointer; }
+.mr-btn-verse { background: linear-gradient(135deg, #2f62df, #4a8eff); border-color: #6c9bff; color: #fff; }
 .mr-btn-x { background: #000; } .mr-btn-discord { background: #5865f2; border-color: #5865f2; color: #fff; } .mr-btn-telegram { background: #0077b6; border-color: #0077b6; color: #fff; }
 .mr-cta-buttons .mr-actions { justify-content: center; }
 .mr-packs { margin: 16px 0 0; color: #aab3c0; font-size: 14px; }

@@ -30,6 +30,11 @@ describe('a Marine’s page', () => {
     expect([text(out).includes('BLOOD O-LINK · FAITH SERGEY'), out.includes('https://x.com/intent/post?text=LINK%20MARINE%20%230002%20%C2%B7%20painting-space-prophecy%20%C2%B7%20LEGENDARY&amp;url=https%3A%2F%2Fccip.dev%2Fmarines%2F0002%2F')]).toEqual([true, true]);
   });
 
+  it('sends the callsign to fly through its tags in the memeverse', () => {
+    // #then
+    expect(html()).toMatch(/<a[^>]*href="https:\/\/chainlinkme\.me\/verse\/#callsign=painting-space-prophecy"[^>]*>Fly your tags in the Memeverse<\/a>/);
+  });
+
   it('says no Marine has the serial yet, and becomes the Marine once a refreshed roster has it', () => {
     // #given a roster without #5, then one with it
     const later = { ...ROSTER_FIXTURE, marines: [...ROSTER_FIXTURE.marines, { ...ROSTER_FIXTURE.marines[0]!, serial: 5, callsign: 'pepe-comfy-sergey' }] };
