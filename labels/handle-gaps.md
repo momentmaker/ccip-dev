@@ -8,29 +8,30 @@ A wallet that calls the CCIP router itself is the sender of its message, so its 
 
 | Token | Name | Chain | Address | Group | Direct sends (7d) | USD (7d) | Explorer |
 |---|---|---|---|---|---|---|---|
-| - | - | solana-mainnet | Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk | - | 629 | 33,953 | - |
-| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 185 | 19,833,706 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
-| cbBTC | Coinbase Wrapped BTC | ethereum-mainnet-base-1 | 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf | 347a5e6c-4b7b-53c7-819c-f809690e1051 | 84 | 10,599,576 | - |
-| LINK | ChainLink Token | ethereum-mainnet | 0x514910771af9ca656af840dff83e8264ecf986ca | 6127beed-c032-54e4-a739-cce5313ff620 | 84 | 435,047 | [link](https://eth.blockscout.com/token/0x514910771af9ca656af840dff83e8264ecf986ca) |
-| - | - | solana-mainnet | ZEUS1aR7aX8DFFJf5QjWj2ftDDdNTroMNGo8YoQm3Gq | - | 56 | 38,440 | - |
-| - | - | binance_smart_chain-mainnet | 0xa2be3e48170a60119b5f0400c65f65f3158fbeee | - | 35 | 27,749 | - |
-| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 30 | 842,816 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
-| - | - | monad-mainnet | 0xab6e5a0c3799d020c790d34f7b2c02639e238af7 | - | 25 | 12,334,564 | - |
-| - | - | ronin-mainnet | 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5 | - | 21 | 12,330 | - |
-| - | - | tempo-mainnet | 0x20c00000000000000000000058d0b8b2cfdb358c | - | 18 | 5,462,405 | - |
-| xTAO | TAO | ethereum-mainnet-base-1 | 0xb99fbe68c8a0cc14be8c1af73dd4dfea8a76add7 | d6f0f71e-9e1a-5dea-a9a9-2369819037e7 | 17 | 9,923 | - |
-| - | - | sei-mainnet | 0xdf26208d8e2d7ead3ef4e9a5a3cad8a3c9143934 | - | 16 | 6,653 | - |
-| xSN44 | SUBNET 44 | ethereum-mainnet-base-1 | 0x2cd86cabfde8ffa81d7290be026b74931c4d1ae4 | 48908c05-7096-5e94-8576-131b67793855 | 16 | 0 | - |
-| BTC.b | Bitcoin | ethereum-mainnet | 0xb0f70c0bd6fd87dbeb7c10dc692a2a6106817072 | 2c83e0be-5dd6-57d1-a891-3da0a7c4c9e4 | 14 | 718,486 | [link](https://eth.blockscout.com/token/0xb0f70c0bd6fd87dbeb7c10dc692a2a6106817072) |
-| sUSDat | Staked USDat | ethereum-mainnet | 0xd166337499e176bbc38a1fbd113ab144e5bd2df7 | 18fcdabd-4653-5323-a622-74bd0dfe78ce | 12 | 257,271 | [link](https://eth.blockscout.com/token/0xd166337499e176bbc38a1fbd113ab144e5bd2df7) |
+| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 118 | 2,611,422 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
+| PROS | Wrapped PROS | ethereum-mainnet-base-1 | 0x8b7dde054be9d180c1be7fae0874697374a49832 | 65a0fcc8-0990-5d51-bfcb-1727cf76daa4 | 94 | 72,614 | - |
+| TREE | Treehouse Token | ethereum-mainnet | 0x77146784315ba81904d654466968e3a7c196d1f3 | dc1d87c9-bbc7-5243-998e-93cd05661349 | 76 | 32,036 | [link](https://eth.blockscout.com/token/0x77146784315ba81904d654466968e3a7c196d1f3) |
+| cbBTC | Coinbase Wrapped BTC | ethereum-mainnet-base-1 | 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf | 347a5e6c-4b7b-53c7-819c-f809690e1051 | 59 | 7,613,035 | - |
+| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 39 | 10,197,514 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
+| LINK | ChainLink Token | ethereum-mainnet | 0x514910771af9ca656af840dff83e8264ecf986ca | 6127beed-c032-54e4-a739-cce5313ff620 | 37 | 123,673 | [link](https://eth.blockscout.com/token/0x514910771af9ca656af840dff83e8264ecf986ca) |
+| LYP | Lympid Token | ethereum-mainnet-base-1 | 0x4837b18a6d7af6159c8665505b90a2ed393255e0 | d6cb8db9-4d9f-545b-ab81-792d9d5d5637 | 35 | 892 | - |
+| - | - | binance_smart_chain-mainnet | 0x8457ca5040ad67fdebbcc8edce889a335bc0fbfb | - | 33 | 2,376,696 | - |
+| VSN | Vision | ethereum-mainnet | 0x699ccf919c1dfdfa4c374292f42cadc9899bf753 | 057f055f-7b04-5dfc-85f3-a96281e72a0c | 23 | 25,465 | [link](https://eth.blockscout.com/token/0x699ccf919c1dfdfa4c374292f42cadc9899bf753) |
+| - | - | tempo-mainnet | 0x20c00000000000000000000058d0b8b2cfdb358c | - | 22 | 6,894,540 | - |
+| syzUSD | Staked Yuzu USD | monad-mainnet | 0x484be0540ad49f351eaa04eeb35df0f937d4e73f | d56976e6-0694-5c0c-8aa4-102d4b625d51 | 19 | 4,640,660 | - |
+| - | - | polygon-mainnet | 0x1ca03ecf9bdcc9860c51745ba80968e34bcd00a4 | - | 19 | 0 | - |
+| TRADE | Polytrade | ethereum-mainnet | 0x6e5970dbd6fc7eb1f29c6d2edf2bc4c36124c0c1 | 52f5ca80-6eed-590c-8a7a-0084f525471e | 14 | 2,307 | [link](https://eth.blockscout.com/token/0x6e5970dbd6fc7eb1f29c6d2edf2bc4c36124c0c1) |
+| xPufETH | xPufETH | ethereum-mainnet-zircuit-1 | 0x9346a5043c590133fe900aec643d9622edddba57 | fdaa999a-9970-59a3-a8a3-5503d5c8382b | 12 | 2,270 | - |
+| - | - | solana-mainnet | XaVajZFTX6opvdu9j2CuJttZisQvR8puzXJx7Dz2dax | - | 12 | 0 | - |
 
 ### By value, with no handle
 
 | Token | Name | Chain | Address | Group | USD (7d) | Explorer |
 |---|---|---|---|---|---|---|
-| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 13,772,852 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
-| - | - | monad-mainnet | 0xab6e5a0c3799d020c790d34f7b2c02639e238af7 | - | 12,529,549 | - |
-| - | - | solana-mainnet | 3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7 | - | 8,447,068 | - |
+| - | - | solana-mainnet | 3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7 | - | 13,620,167 | - |
+| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 10,116,238 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
+| - | - | ethereum-mainnet-arbitrum-1 | 0xe1b0dc5a21b10f1634fbfbe9976fba2ee2e1c762 | - | 6,997,376 | - |
+| - | - | tempo-mainnet | 0x20c00000000000000000000058d0b8b2cfdb358c | - | 6,894,540 | - |
 
 ## Handles to research
 
@@ -38,4 +39,8 @@ Regenerated by the weekly label-candidates job.
 
 Add a chain's handle only with a source: the chain's own website or docs, on a page that links to the X account. Chains go in `labels/chain-x.json`. Leave out anything you cannot verify; it stays a plain name. See docs/runbook.md, "Labels and handles".
 
-Nothing to research this week.
+### Chains without an X handle
+
+| Chain | Selector |
+|---|---|
+| canton-mainnet | 2308837218439511688 |

@@ -1,0 +1,17 @@
+# Unattributed apps kept as leads so the weekly candidates stop drafting them. Each has many users but no public name: an
+# unverified contract set with one deployer, and no project page that lists it. They credit nobody. Researched 2026-10-27
+# (free explorers and the CCIP API's origin and receiver fields).
+name = "Unattributed apps (unconfirmed)"
+kind = "unknown"
+verified = false
+spread = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x5c32d9dac5d16ef5e0ff634da73934e27f1669cc"
+note = "USDC deposit spoke of the Avalanche 0xA9167757… hub, deployer 0xD52dac34…; ~30 user wallets"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xa916775778c109a96c65b2b639e60425ceacabe5"
+note = "USDC hub of the 0xD52dac34… app; spokes Ethereum 0x5c32d9da…, Base 0xA2E64BB1…, Arbitrum 0xcCE5c4DB…"
