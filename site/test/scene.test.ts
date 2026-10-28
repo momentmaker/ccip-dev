@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout } from '../src/sky/layout';
-import { ARRIVAL_FRESH_MS, ARRIVAL_REACH, ARRIVAL_RING_MS, CAPTION_MS, COMET_MS, cometKind, cometSize, LiveScene, MAX_COMETS } from '../src/sky/scene';
+import { ARRIVAL_FRESH_MS, ARRIVAL_REACH, ARRIVAL_RING_MS, CAPTION_MS, COMET_MS, cometKind, cometSize, LiveScene, MAX_COMETS, RING_MS, SHOCKWAVE } from '../src/sky/scene';
 
 const stars = buildLayout([{ selector: 'A', first_day: '2023-07-06' }, { selector: 'B', first_day: '2023-07-07' }]);
 const newScene = () => new LiveScene(stars, new Map([['A', 100], ['B', 25]]), [{ src: 'A', dst: 'B', usd: 50 }]);
@@ -57,6 +57,18 @@ describe('LiveScene', () => {
     scene.frame(CAPTION_MS);
     expect(scene.captions).toHaveLength(0);
     expect(scene.launch(msg('small', 10), 0, caption)).toBeNull();
+  });
+
+  it('sends a shockwave of two wider rings out after a $1M+ ring', () => {
+    const scene = newScene();
+    scene.launch(msg('whale', 4_200_000, 'USDC'), 0, caption);
+    const [first, second] = SHOCKWAVE;
+    expect(scene.frame(COMET_MS + first.delay).rings).toEqual([
+      { star: 1, progress: first.delay / RING_MS },
+      { star: 1, progress: 0, reach: first.reach },
+    ]);
+    expect(scene.frame(COMET_MS + second.delay).rings).toHaveLength(3);
+    expect(scene.frame(COMET_MS + second.delay + second.ms).rings).toEqual([]);
   });
 
   it('reports each landing once, with its destination and kind', () => {

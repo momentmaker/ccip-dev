@@ -12,6 +12,11 @@ export const FLASH_MS = 900;
 export const ARRIVAL_RING_MS = 700;
 export const ARRIVAL_REACH = 16;
 export const ARRIVAL_FRESH_MS = 500;
+/** After a $1M+ comet's ring, two wider rings follow it out: the shockwave. */
+export const SHOCKWAVE = [
+  { delay: 200, ms: 2_100, reach: 130 },
+  { delay: 420, ms: 2_700, reach: 220 },
+] as const;
 
 export interface Arrival {
   star: number;
@@ -107,6 +112,7 @@ export class LiveScene {
     if (this.comets.length > MAX_COMETS) this.comets.splice(0, this.comets.length - MAX_COMETS);
     if (kind !== 'gold') return null;
     this.rings.push({ star: to, start: now + COMET_MS, ms: RING_MS });
+    for (const wave of SHOCKWAVE) this.rings.push({ star: to, start: now + COMET_MS + wave.delay, ms: wave.ms, reach: wave.reach });
     const caption = { id: m.id, text: captionText(m), until: now + CAPTION_MS };
     this.captions.push(caption);
     return caption;
@@ -146,7 +152,7 @@ export class LiveScene {
         .map((c) => ({ from: c.from, to: c.to, progress: (now - c.start) / COMET_MS, size: c.size, kind: c.kind })),
       rings: this.rings
         .filter((r) => r.start <= now)
-        .map((r) => ({ star: r.star, progress: (now - r.start) / r.ms, ...(r.kind && { kind: r.kind, reach: r.reach }) })),
+        .map((r) => ({ star: r.star, progress: (now - r.start) / r.ms, ...(r.kind && { kind: r.kind }), ...(r.reach !== undefined && { reach: r.reach }) })),
     };
   }
 }

@@ -1,0 +1,107 @@
+---
+import type { MomentsFile, MomentsWeek, Poll } from '@ccip-dev/core/public';
+import ChainIcons from '../ChainIcons.astro';
+import { TELEGRAM_URL } from '../../config';
+import { moveLabel, moveText, rankMove, type ArrivalRow } from '../../lib/briefing';
+import { formatCount, formatUsd, formatUtcDay } from '../../lib/format';
+import { chainName, laneLabel, type ChainNames } from '../../lib/names';
+
+interface Props {
+  week: MomentsWeek;
+  network: MomentsFile['network'];
+  arrivals: ArrivalRow[];
+  poll: { open: Poll | null; last: Poll | null };
+  names: ChainNames;
+}
+
+const { week, network, arrivals, poll, names } = Astro.props;
+const ROWS = 5;
+const shortDay = (day: string) => formatUtcDay(day).replace(/, \d{4}$/, '');
+type Entry = MomentsWeek['boards']['fee_chains'][number];
+const boards: { title: string; href: string; rows: Entry[]; selectors: (e: Entry) => string[]; name: (e: Entry) => string }[] = [
+  { title: 'Fees by chain', href: '/top/chain/7d/fees/', rows: week.boards.fee_chains, selectors: (e) => [e.key], name: (e) => chainName(names, e.key) },
+  { title: 'Tokens by value', href: '/top/token/7d/', rows: week.boards.tokens, selectors: (e) => [e.key.split(':')[0]!], name: (e) => e.label ?? e.key.split(':').at(-1)!.slice(0, 8) },
+  { title: 'Lanes by value', href: '/top/lane/7d/', rows: week.boards.lanes, selectors: (e) => e.key.split('>'), name: (e) => laneLabel(names, e.key) },
+];
+const optionSelectors = (key: string) => (key.includes('>') ? key.split('>') : names.has(key) ? [key] : []);
+const last = poll.last;
+const answerIndex = last && last.answer !== null ? last.options.findIndex((o) => o.key === last.answer) : -1;
+/** The option that won, or the actual lane or chain when "another" did. */
+const answerText = last?.outcome ? (answerIndex >= 0 && last.options[answerIndex]!.key !== 'other' ? last.options[answerIndex]!.label : last.outcome.label) : null;
+const calledIt = last && last.votes && last.total_votes && answerIndex >= 0 ? Math.round(((last.votes[answerIndex] ?? 0) / last.total_votes) * 100) : null;
+---
+<section class="band" id="board" aria-labelledby="board-title">
+  <div class="band-head">
+    <div>
+      <p class="eyebrow">The Board · week of {shortDay(week.week)}</p>
+      <h2 id="board-title">Who's <span class="g">moving</span>.</h2>
+    </div>
+    <a class="more-link" href="/top/lane/7d/">All top lists →</a>
+  </div>
+  <div class="board">
+    {boards.map((b) => (
+      <div class="panel">
+        <div class="panel-head">
+          <span class="label">{b.title}</span>
+          <a class="more-link" href={b.href} aria-label={`${b.title}, the full list`}>→</a>
+        </div>
+        <ol class="rows">
+          {b.rows.slice(0, ROWS).map((e) => {
+            const move = rankMove(e.rank, e.previous_rank);
+            return (
+              <li>
+                <span class="rk mono">{e.rank}</span>
+                <span class="rows-name"><ChainIcons selectors={b.selectors(e)} size={18} /><span>{b.name(e)}</span></span>
+                <span class="mono">{formatUsd(e.value)}</span>
+                <span class={`mv mv-${move.kind}`} title={moveLabel(move)}>{moveText(move)}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    ))}
+  </div>
+  <div class="board-foot">
+    <div class="panel">
+      <span class="label">The network</span>
+      <div class="net">
+        <div><strong>{formatCount(network.chains)}</strong><span>chains</span></div>
+        <div><strong>{formatCount(network.lanes)}</strong><span>lanes</span></div>
+      </div>
+      {arrivals.length > 0 && (
+        <ul class="arrivals">
+          {arrivals.map((a) => (
+            <li>
+              <span class="newtag">New {a.kind}</span>
+              <ChainIcons selectors={a.selectors} size={18} />
+              <span class="arrivals-text">{a.label}{a.sub && <span class="muted"> {a.sub}</span>}</span>
+              <span class="arrivals-day mono">{shortDay(a.day)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+    {(poll.open || last) && (
+      <div class="panel poll">
+        {poll.open && (
+          <>
+            <span class="label">This week's call · week of {shortDay(poll.open.week)}</span>
+            <p class="poll-q">{poll.open.question}</p>
+            <ul class="poll-opts">
+              {poll.open.options.map((o) => (
+                <li><ChainIcons selectors={optionSelectors(o.key)} size={18} /><span>{o.label}</span></li>
+              ))}
+            </ul>
+            <a class="btn btn-primary poll-vote" href={TELEGRAM_URL}>Vote in the Telegram channel</a>
+          </>
+        )}
+        {last && last.outcome && (
+          <p class="poll-last">
+            <span class="label">Last week's call</span>
+            {last.question} <strong>{answerText}</strong>{calledIt !== null && last.total_votes ? `: ${calledIt}% of ${formatCount(last.total_votes)} voters called it.` : '.'}
+          </p>
+        )}
+      </div>
+    )}
+  </div>
+</section>

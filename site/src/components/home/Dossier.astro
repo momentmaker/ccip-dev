@@ -1,0 +1,100 @@
+---
+import type { ProjectSpotlight, Spotlight } from '@ccip-dev/core/public';
+import { weekChange } from '../../lib/briefing';
+import { iconHref } from '../../lib/chain-icons';
+import { formatCount, formatUsd } from '../../lib/format';
+import { chainName, type ChainNames } from '../../lib/names';
+import { projectHref, xProfileUrl } from '../../lib/projects';
+
+interface Props {
+  spotlight: Spotlight | null;
+  project: ProjectSpotlight | null;
+  names: ChainNames;
+  /** The replay page of each chain, by selector. */
+  chainHref: (selector: string) => string | null;
+  /** Whether projects.json has a page for the slug. */
+  hasProject: (slug: string) => boolean;
+}
+
+const { spotlight, project, names, chainHref, hasProject } = Astro.props;
+const C = 150;
+const hex = (cx: number, cy: number, r: number) =>
+  Array.from({ length: 6 }, (_, k) => {
+    const a = (Math.PI / 3) * k - Math.PI / 2;
+    return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`;
+  }).join(' ');
+const SPOTS = [[58, 56], [246, 70], [70, 246]] as const;
+const partners = (spotlight?.partners ?? []).slice(0, SPOTS.length);
+const icon = spotlight ? iconHref(spotlight.selector) : null;
+const href = spotlight ? chainHref(spotlight.selector) : null;
+const name = spotlight ? chainName(names, spotlight.selector) : '';
+const growth = project ? Math.min(1, project.previous_messages / Math.max(project.messages, 1)) : 0;
+---
+{(spotlight || project) && (
+  <section class="band" id="dossier" aria-labelledby="dossier-title">
+    <div class="band-head">
+      <div>
+        <p class="eyebrow">Dossier</p>
+        <h2 id="dossier-title">On the <span class="g">radar</span>.</h2>
+      </div>
+    </div>
+    <div class={spotlight && project ? 'dossier' : 'dossier dossier-one'}>
+      {spotlight && (
+        <article class="dcard">
+          <svg class="dcard-art" viewBox="0 0 300 300" role="img" aria-label={`${name} and the chains it moved the most with`}>
+            <defs>
+              <clipPath id="dossier-core"><circle cx={C} cy={C} r="30" /></clipPath>
+              {SPOTS.map(([x, y], i) => <clipPath id={`dossier-p${i}`}><circle cx={x} cy={y} r="14" /></clipPath>)}
+            </defs>
+            <polygon points={hex(C, C, 140)} class="d-ring" />
+            <polygon points={hex(C, C, 100)} class="d-ring d-ring-2" />
+            {partners.map((_, i) => <path d={`M${C},${C} Q${(C + SPOTS[i]![0]) / 2 + 22},${(C + SPOTS[i]![1]) / 2} ${SPOTS[i]![0]},${SPOTS[i]![1]}`} class="d-link" />)}
+            {partners.map((p, i) => {
+              const [x, y] = SPOTS[i]!;
+              const ph = iconHref(p);
+              return (
+                <g>
+                  <polygon points={hex(x, y, 26)} class="d-partner" />
+                  {ph && <image href={ph} x={x - 14} y={y - 14} width="28" height="28" clip-path={`url(#dossier-p${i})`} />}
+                  <text x={x} y={y + 42} class="d-label" text-anchor="middle">{chainName(names, p)}</text>
+                </g>
+              );
+            })}
+            <polygon points={hex(C, C, 64)} class="d-halo" />
+            <polygon points={hex(C, C, 56)} class="d-core" />
+            {icon && <image href={icon} x={C - 30} y={C - 30} width="60" height="60" clip-path="url(#dossier-core)" />}
+          </svg>
+          <div>
+            <span class="label">Chain of the week</span>
+            <p class="dname">{href ? <a href={href}>{name}</a> : name}</p>
+            <p class="drank mono">▲ Fastest grower this week · #{spotlight.rank} by messages</p>
+            <ul class="brief-facts">
+              <li><span class="hexb" aria-hidden="true">⬡</span>{formatCount(spotlight.messages)} messages, {weekChange(spotlight.messages, spotlight.previous_messages)}</li>
+              <li><span class="hexb" aria-hidden="true">⬡</span>{formatUsd(spotlight.usd)} moved, {weekChange(spotlight.usd, spotlight.previous_usd)}</li>
+              {spotlight.token && <li><span class="hexb" aria-hidden="true">⬡</span>top token {spotlight.token.label ?? 'unnamed'} · {formatUsd(spotlight.token.usd)}</li>}
+            </ul>
+            {href && <a class="more-link" href={href}>Watch {name} in the replay →</a>}
+          </div>
+        </article>
+      )}
+      {project && (
+        <article class="pcard">
+          <span class="label">Project of the week</span>
+          <p class="pname">{project.name}</p>
+          {project.x && <a class="px mono" href={xProfileUrl(project.x)}>@{project.x}</a>}
+          <p class="drank mono">▲ Fastest-growing project this week</p>
+          <ul class="brief-facts">
+            <li><span class="hexb" aria-hidden="true">⬡</span>{formatCount(project.messages)} messages, {weekChange(project.messages, project.previous_messages)}</li>
+            {project.fee_usd !== null && <li><span class="hexb" aria-hidden="true">⬡</span>{formatUsd(project.fee_usd)} in fees paid</li>}
+            {project.chains.length > 0 && <li><span class="hexb" aria-hidden="true">⬡</span>on {project.chains.slice(0, 3).map((c) => chainName(names, c)).join(', ')}{project.chains.length > 3 ? ` and ${project.chains.length - 3} more` : ''}</li>}
+          </ul>
+          <div class="wvw" role="img" aria-label={`${formatCount(project.messages)} messages this week against ${formatCount(project.previous_messages)} the week before`}>
+            <div><span>this week</span><i style="width:100%"></i><b class="mono">{formatCount(project.messages)}</b></div>
+            <div><span>week before</span><i style={`width:${(growth * 100).toFixed(1)}%`}></i><b class="mono">{formatCount(project.previous_messages)}</b></div>
+          </div>
+          {hasProject(project.slug) && <a class="more-link" href={projectHref(project.slug)}>{project.name} on CCIP →</a>}
+        </article>
+      )}
+    </div>
+  </section>
+)}

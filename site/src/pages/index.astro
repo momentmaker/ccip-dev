@@ -1,27 +1,41 @@
 ---
+import Board from '../components/home/Board.astro';
+import Briefed from '../components/home/Briefed.astro';
+import Dossier from '../components/home/Dossier.astro';
+import HallOfRecords from '../components/home/HallOfRecords.astro';
+import HomeCorps from '../components/home/HomeCorps';
 import HomeLive from '../components/home/HomeLive';
-import ReserveTeaser from '../components/home/ReserveTeaser';
-import SponsorCard from '../components/SponsorCard.astro';
+import HomeVault from '../components/home/HomeVault';
 import Base from '../layouts/Base.astro';
-import { buildData } from '../lib/build-data';
+import { allTimeBase, dailyPaces } from '../lib/all-time';
+import { arrivalRows, latestWeek, newestMedal, pollCards, recordMedals } from '../lib/briefing';
+import { buildData, buildDataIfPublished } from '../lib/build-data';
 import { newestFirst } from '../components/home/Feed';
+import { slugMap } from '../lib/chain-slug';
 import { iconHref } from '../lib/chain-icons';
 import { feeHistoryTotals } from '../lib/fee-revenue';
 import { chainNameMap } from '../lib/names';
-import { computeRecords } from '../lib/records';
+import { projectSlugs } from '../lib/projects';
+import { PULSE_DAYS } from '../lib/pulse';
+import { computeRecords, trackedMilestones } from '../lib/records';
+import { vaultFill } from '../lib/reserve-view';
+import { telegramOpen } from '../lib/telegram';
 import { COINS_WIDE } from '../sky/coins';
 import { buildLayout } from '../sky/layout';
 import { skySvg } from '../sky/svg';
 import { trailingWeights } from '../sky/weights';
+import '../styles/marines.css';
 import '../styles/home.css';
 
-const [live, today, history, replay, chains, reserve] = await Promise.all([
+const [live, today, history, replay, chains, reserve, moments, projects] = await Promise.all([
   buildData('live.json'),
   buildData('today.json'),
   buildData('history.json'),
   buildData('replay.json'),
   buildData('chains.json'),
   buildData('reserve.json'),
+  buildDataIfPublished('moments.json'),
+  buildDataIfPublished('projects.json'),
 ]);
 const stars = buildLayout(replay.chains);
 const weights = trailingWeights(replay, 30);
@@ -36,7 +50,22 @@ const fallbackSvg = skySvg({
   coins: { count: COINS_WIDE, href: iconHref },
   title: 'CCIP chains and lanes over the last 30 days',
 });
-const next = reserve.pace?.next_expected_deposit ?? null;
+
+const base = allTimeBase(history.days);
+const lastCrossed = Object.fromEntries(trackedMilestones(history.days).map((m) => [m.metric, { threshold: m.threshold, day: m.day }]));
+const fill = vaultFill(reserve.latest?.link);
+const reserveGoal =
+  fill && reserve.latest
+    ? { link: reserve.latest.link, previous: fill.target - 1_000_000, next: fill.target, eta: reserve.pace?.next_milestone?.link === fill.target ? reserve.pace.next_milestone.eta : null }
+    : null;
+const pulse = history.days.slice(-PULSE_DAYS).map(({ day, messages, usd_value, fee_usd }) => ({ day, messages, usd_value, fee_usd }));
+const vault = { latest: reserve.latest, link_price_usd: reserve.link_price_usd, cost_basis: reserve.cost_basis, pace: reserve.pace, weekly: reserve.weekly.slice(-30) };
+
+const week = latestWeek(moments);
+const slugs = slugMap(replay.chains);
+const projectSet = projectSlugs(projects);
+const medals = recordMedals(history.days, history.largest_fees ?? [], names);
+const telegram = telegramOpen(process.env.TELEGRAM_BOT);
 ---
 <Base title="ccip.dev" description="Every Chainlink CCIP message, live: today's totals, history, top lanes, tokens and senders, records and the Chainlink Reserve." cardPath="home">
   <h1 class="visually-hidden">Live Chainlink CCIP stats</h1>
@@ -52,28 +81,45 @@ const next = reserve.pace?.next_expected_deposit ?? null;
     recentDays={history.days.slice(-3)}
     records={records}
     feeTotals={feeHistoryTotals(history.days)}
+    base={base}
+    since={history.since}
+    paces={dailyPaces(moments, history.days)}
+    pulse={pulse}
+    reserveGoal={reserveGoal}
+    lastCrossed={lastCrossed}
   >
     <Fragment set:html={fallbackSvg} />
   </HomeLive>
-  <section class="home-below">
-    <ReserveTeaser
-      client:visible
-      link={reserve.latest?.link}
-      changePct={reserve.cost_basis?.change_pct ?? null}
-      next={next}
-      overdue={reserve.pace?.deposit_overdue ?? false}
-    />
-    <a class="card lift" href="/records/">
-      <span class="label">Records</span>
-      {records.slice(0, 3).map((r) => (
-        <p><strong>{r.title}:</strong> <span class="mono">{r.display}</span> <span class="muted">· {r.day}</span></p>
-      ))}
-    </a>
-    <SponsorCard />
-  </section>
-</Base>
 
-<style>
-  .home-below :global(a) { color: var(--fg); }
-  .home-below :global(a:hover) { text-decoration: none; }
-</style>
+  <section class="band" id="vault" aria-labelledby="vault-title">
+    <div class="band-head">
+      <div>
+        <p class="eyebrow">The Vault</p>
+        <h2 id="vault-title">Every message pays. <span class="g">The Reserve stacks.</span></h2>
+        <p class="lead">Every CCIP message pays a fee, and fees are part of the revenue behind the Chainlink Reserve.</p>
+      </div>
+      <a class="more-link" href="/reserve/">The Reserve →</a>
+    </div>
+    <HomeVault client:visible initial={vault} today={{ messages: today.totals.messages, usd: today.totals.usd_value, fees: today.totals.fee_usd }} />
+  </section>
+
+  {week && moments && <Board week={week} network={moments.network} arrivals={arrivalRows(moments.arrivals, names)} poll={pollCards(moments.polls)} names={names} />}
+
+  {week && (
+    <Dossier
+      spotlight={week.spotlight}
+      project={week.project ?? null}
+      names={names}
+      chainHref={(selector: string) => (slugs.has(selector) ? `/replay/${slugs.get(selector)}/` : null)}
+      hasProject={(slug: string) => projectSet.has(slug)}
+    />
+  )}
+
+  <HallOfRecords medals={medals} newest={newestMedal(medals)} totals={{ messages: base.messages, usd: base.usd, since: history.since, through: base.through }} />
+
+  <section class="corps-band mr-page" id="corps" aria-labelledby="corps-title">
+    <HomeCorps client:visible telegram={telegram} />
+  </section>
+
+  <Briefed />
+</Base>

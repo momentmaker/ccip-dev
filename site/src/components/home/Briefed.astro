@@ -1,0 +1,45 @@
+---
+import sponsor from '../../../sponsor.json';
+import { TELEGRAM_URL, X_URL } from '../../config';
+import { DISCORD_PATH, SOCIALS } from '../../lib/socials';
+import { sponsorView } from '../../lib/sponsor';
+
+const view = sponsorView(sponsor);
+const path = (name: string) => SOCIALS.find((s) => s.name === name)?.path ?? DISCORD_PATH;
+const CHANNELS = [
+  { href: X_URL, icon: path('X'), title: '@ccipdev on X', text: 'The daily report, the weekly board, records, milestones and the monthly video.' },
+  { href: TELEGRAM_URL, icon: path('Telegram'), title: 'Telegram channel', text: 'The same cards, and the weekly poll you can vote in.' },
+  { href: '/discord/', icon: DISCORD_PATH, title: 'Discord bot', text: 'Enlist for dog tags, and pull /cciptoday and /linkreserve cards. Free, no permissions.' },
+  { href: '/about/', icon: null, title: 'Free data API', text: 'Every number on this page as JSON at data.ccip.dev, free with credit.' },
+];
+---
+<section class="band" id="briefed" aria-labelledby="briefed-title">
+  <div class="band-head">
+    <div>
+      <p class="eyebrow">Stay briefed</p>
+      <h2 id="briefed-title">Get the SITREP <span class="g">every day</span>.</h2>
+    </div>
+  </div>
+  <div class="channels">
+    {CHANNELS.map((c) => (
+      <a class="chan" href={c.href}>
+        <span class="chan-hex" aria-hidden="true">
+          {c.icon ? (
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d={c.icon} /></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H6a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-2" /></svg>
+          )}
+        </span>
+        <strong>{c.title}</strong>
+        <span>{c.text}</span>
+      </a>
+    ))}
+  </div>
+  <aside class={`sponsor-strip sponsor-${view.kind}`} aria-label="Sponsor">
+    <a class="sponsor-body" href={view.card.href} rel={view.kind === 'sponsor' ? 'sponsored noopener' : undefined}>
+      {view.card.logo && <img src={view.card.logo} alt="" width="40" height="40" />}
+      <span>{view.card.name && <strong>{view.card.name} </strong>}<span class="muted">{view.card.text}</span></span>
+    </a>
+    <span class="label">Sponsor</span>
+  </aside>
+</section>
