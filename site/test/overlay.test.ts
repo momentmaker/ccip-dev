@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout, projector } from '../src/sky/layout';
 import { cardPosition, cardSize, skyOverlay } from '../src/sky/overlay';
+import { WHALE_H, WHALE_W, whalePosition } from '../src/sky/overlay';
 import { starRadius } from '../src/sky/weights';
 
 const stars = buildLayout([
@@ -151,5 +152,22 @@ describe('cardPosition', () => {
     expect(cardSize(300).width).toBe(284);
     expect(cardSize(390).width).toBe(340);
     expect(cardSize(1440).width).toBe(340);
+  });
+});
+
+describe('whalePosition', () => {
+  const size = { width: 1000, height: 700 };
+
+  it('sits up and to the right of the star when there is room', () => {
+    expect(whalePosition({ x: 400, y: 300 }, size)).toEqual({ left: 422, top: 300 - WHALE_H });
+  });
+
+  it('moves to the next corner that clears an overlay', () => {
+    const hud = { left: 0, top: 0, right: 450, bottom: 290 };
+    expect(whalePosition({ x: 400, y: 300 }, size, [hud])).toEqual({ left: 422, top: 316 });
+  });
+
+  it('flips left at the right edge and stays inside the sky', () => {
+    expect(whalePosition({ x: 990, y: 20 }, size)).toEqual({ left: 990 - 22 - WHALE_W, top: 8 });
   });
 });

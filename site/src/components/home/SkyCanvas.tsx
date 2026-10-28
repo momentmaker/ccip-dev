@@ -7,10 +7,10 @@ import { chainName, type ChainNames } from '../../lib/names';
 import { catchCoin, latestArrivals } from '../../sky/arrival';
 import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
-import { cardPosition, cardSize, skyOverlay, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
+import { cardPosition, cardSize, skyOverlay, whalePosition, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
-import { LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
+import { CAPTION_MS, COMET_MS, LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
 import { skyScale } from '../../sky/weights';
 
 interface Props {
@@ -38,6 +38,13 @@ function captionText(m: LaunchInput, names: ChainNames): string {
   return `${formatUsd(m.usd)}${m.token ? ` ${m.token}` : ''} · ${chainName(names, m.src)} → ${chainName(names, m.dst)}`;
 }
 
+interface Whale {
+  id: string;
+  dst: string;
+  amount: string;
+  lane: string;
+}
+
 export default function SkyCanvas(props: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<LiveScene | null>(null);
@@ -50,7 +57,10 @@ export default function SkyCanvas(props: Props) {
   const [labels, setLabels] = useState<{ selector: string; text: string; x: number; y: number; side: 'right' | 'left' }[]>([]);
   const [coins, setCoins] = useState<OverlayCoin[]>([]);
   const [hover, setHover] = useState<string | null>(null);
+  const [whales, setWhales] = useState<Whale[]>([]);
+  const whaleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pointsRef = useRef<OverlayPoint[]>([]);
+  const avoidRef = useRef<Rect[]>([]);
   const widthRef = useRef(0);
   const heightRef = useRef(0);
   const brokenRef = useRef(new Set<string>());
@@ -86,10 +96,11 @@ export default function SkyCanvas(props: Props) {
       renderer.resize(w, h);
       project = projector(w, h, scene.starPoints);
       sizeScale = skyScale(w, h);
+      avoidRef.current = avoidRects(wrap, latest.current.avoid);
       const overlay = skyOverlay(scene.starPoints, new Map(latest.current.chainValues), wrap.clientWidth, wrap.clientHeight, {
         coins: coinCount(wrap.clientWidth),
         labels: wrap.clientWidth < 640 ? 6 : 12,
-        avoid: avoidRects(wrap, latest.current.avoid),
+        avoid: avoidRef.current,
         labelWidth: (s) => chainName(latest.current.names, s).length * 7 + 4,
         hasIcon: (s) => hasIcon(s) && !brokenRef.current.has(s),
       });
@@ -112,7 +123,16 @@ export default function SkyCanvas(props: Props) {
           scene.flash(input, now);
           latest.current.onLaunch(message, null);
         } else {
-          latest.current.onLaunch(message, scene.launch(input, now, (m) => captionText(m, latest.current.names)));
+          const caption = scene.launch(input, now, (m) => captionText(m, latest.current.names));
+          latest.current.onLaunch(message, caption);
+          if (caption) {
+            const names = latest.current.names;
+            const whale = { id: input.id, dst: input.dst, amount: `${formatUsd(input.usd)}${input.token ? ` ${input.token}` : ''}`, lane: `${chainName(names, input.src)} → ${chainName(names, input.dst)}` };
+            whaleTimers.current.push(
+              setTimeout(() => setWhales((list) => [...list.filter((w) => w.id !== whale.id), whale]), COMET_MS),
+              setTimeout(() => setWhales((list) => list.filter((w) => w.id !== whale.id)), COMET_MS + CAPTION_MS),
+            );
+          }
         }
         if (scene.starPoints.length !== starsBefore) resize();
       }
@@ -162,6 +182,8 @@ export default function SkyCanvas(props: Props) {
 
     return () => {
       cancelAnimationFrame(raf);
+      whaleTimers.current.forEach(clearTimeout);
+      whaleTimers.current = [];
       resizeObserver.disconnect();
       intersection.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
@@ -242,6 +264,19 @@ export default function SkyCanvas(props: Props) {
             onError={() => dropCoin(c.selector)}
           />
         ))}
+      </div>
+      <div className="whales" aria-hidden="true">
+        {whales.map((w) => {
+          const star = pointsRef.current.find((p) => p.selector === w.dst);
+          if (!star) return null;
+          return (
+            <div key={w.id} className="whale" style={whalePosition(star, { width: widthRef.current, height: heightRef.current }, avoidRef.current)}>
+              <span className="whale-eyebrow">Whale · $1M+</span>
+              <span className="whale-amt">{w.amount}</span>
+              <span className="whale-lane">{w.lane}</span>
+            </div>
+          );
+        })}
       </div>
       <div className="sky-labels" aria-hidden="true">
         {labels.map((l) => (

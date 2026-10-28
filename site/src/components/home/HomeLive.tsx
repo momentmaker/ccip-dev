@@ -1,21 +1,29 @@
 import type { DayTotals, LiveMessage, TodayFile } from '@ccip-dev/core/public';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { crossedToday, landedSince, liveAllTime, metricTotal, milestoneGoal, nearestGoal, type AllTimeBase, type AllTimeTotals, type CountedDay, type Landed } from '../../lib/all-time';
 import { trackDataError, track } from '../../lib/analytics';
 import { heroFees, type FeeHistoryTotals } from '../../lib/fee-revenue';
 import { formatCount, formatUsd } from '../../lib/format';
 import { LiveScheduler, pruneStale, type Planned } from '../../lib/live-scheduler';
+import { publishToday } from '../../lib/live-store';
 import { laneLabel } from '../../lib/names';
 import { startPoller } from '../../lib/poller';
-import { liveRecordBreaks, type DayRecord } from '../../lib/records';
+import { liveRecordBreaks, type DayRecord, type MilestoneMetric } from '../../lib/records';
 import { type DaySnapshot, previousDay, rolloverSnapshot, yesterdayFor } from '../../lib/yesterday';
 import { SkySound } from '../../lib/sound';
 import type { StarPoint } from '../../sky/layout';
-import { GOLD_USD, type Caption } from '../../sky/scene';
+import { COMET_MS, GOLD_USD, type Caption } from '../../sky/scene';
 import FreshnessNote from '../FreshnessNote';
-import { useMotionPreference } from '../hooks';
+import { useMotionPreference, useNow } from '../hooks';
 import ShareButton from '../ShareButton';
-import Feed from './Feed';
-import Headline from './Headline';
+import Celebration from './Celebration';
+import Feed, { FEED_SIZE } from './Feed';
+import HomeTicker from './HomeTicker';
+import Hud from './Hud';
+import LanesToday from './LanesToday';
+import Milestones, { type LastCrossed, type ReserveGoal } from './Milestones';
+import OnWatch from './OnWatch';
+import PulseChart from './PulseChart';
 import SkyCanvas from './SkyCanvas';
 import TodayTiles from './TodayTiles';
 
@@ -30,10 +38,21 @@ export interface HomeLiveProps {
   recentDays: DayTotals[];
   records: DayRecord[];
   feeTotals: FeeHistoryTotals | null;
+  /** Every finalized day, summed. */
+  base: AllTimeBase;
+  since: string | null;
+  paces: Record<MilestoneMetric, number | null>;
+  /** The last 90 finalized days, for the chart. */
+  pulse: CountedDay[];
+  reserveGoal: ReserveGoal | null;
+  lastCrossed: LastCrossed;
   children?: ReactNode;
 }
 
 const ANNOUNCE_EVERY_MS = 5_000;
+/** The cards' order, value first: it moves fastest and reads biggest. */
+const METRICS: readonly MilestoneMetric[] = ['value', 'messages', 'fees'];
+const LOG_KEEP = 40;
 
 function safeStorage(): Storage | null {
   try {
@@ -43,25 +62,53 @@ function safeStorage(): Storage | null {
   }
 }
 
+/** Totals never step back on screen: a fresh today.json can price a message lower than the sky did. */
+function useRatchet(totals: AllTimeTotals): AllTimeTotals {
+  const shown = useRef(totals);
+  const next = { messages: Math.max(shown.current.messages, totals.messages), usd: Math.max(shown.current.usd, totals.usd), fees: Math.max(shown.current.fees, totals.fees) };
+  shown.current = next;
+  return next;
+}
+
+function ZuluClock() {
+  const now = useNow(30_000);
+  return <span className="mono">{now ? `${now.toISOString().slice(11, 16)}Z` : 'UTC'}</span>;
+}
+
 export default function HomeLive(props: HomeLiveProps) {
   const names = useMemo(() => new Map(props.chainNames), [props.chainNames]);
   const motion = useMotionPreference();
   const reducedMotion = motion === true;
   const [feed, setFeed] = useState<LiveMessage[]>(props.initialFeed);
+  const [log, setLog] = useState<LiveMessage[]>(props.initialFeed);
   const [liveUpdatedAt, setLiveUpdatedAt] = useState<string | null>(props.liveUpdatedAt);
   const [today, setToday] = useState(props.today);
   const [rolledOver, setRolledOver] = useState<DaySnapshot | null>(null);
   const [paused, setPaused] = useState({ live: false, today: false });
   const [arrived, setArrived] = useState({ count: 0, usd: 0 });
-  const [captions, setCaptions] = useState<Caption[]>([]);
+  const [landed, setLanded] = useState<ReadonlyMap<string, Landed>>(() => new Map());
   const [announcement, setAnnouncement] = useState('');
   const [skyReady, setSkyReady] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
+  const [celebrating, setCelebrating] = useState<{ metric: MilestoneMetric; threshold: number } | null>(null);
   const polledTodayRef = useRef<TodayFile | null>(null);
   const queueRef = useRef<Planned<LiveMessage>[]>([]);
   const schedulerRef = useRef(new LiveScheduler<LiveMessage>());
   const soundRef = useRef<SkySound | null>(null);
   const lastAnnounceRef = useRef(0);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** Where each message was first seen; the first poll's messages are in today.json already, so they map to nothing. */
+  const seenInRef = useRef(new Map<string, string>());
+
+  const land = (messages: readonly LiveMessage[]) => {
+    const counted = messages.filter((m) => seenInRef.current.has(m.id));
+    if (counted.length === 0) return;
+    setLanded((prev) => {
+      const next = new Map(prev);
+      for (const m of counted) next.set(m.id, { seenIn: seenInRef.current.get(m.id)!, usd: m.usd ?? 0 });
+      return next;
+    });
+  };
 
   useEffect(() => {
     const sound = new SkySound(safeStorage());
@@ -86,7 +133,10 @@ export default function HomeLive(props: HomeLiveProps) {
         queueRef.current = [...pruneStale(queueRef.current, now), ...comets].sort((a, b) => a.at - b.at);
         if (firstIngestDone) {
           const fresh = [...comets.map((c) => c.message), ...feedOnly];
+          for (const m of fresh) seenInRef.current.set(m.id, file.updated_at);
           setArrived((a) => ({ count: a.count + fresh.length, usd: a.usd + fresh.reduce((sum, m) => sum + (m.usd ?? 0), 0) }));
+          land(feedOnly);
+          if (feedOnly.length > 0) setLog((l) => [...feedOnly, ...l].slice(0, LOG_KEEP));
         }
         firstIngestDone = true;
       },
@@ -102,6 +152,7 @@ export default function HomeLive(props: HomeLiveProps) {
         if (snapshot) setRolledOver(snapshot);
         polledTodayRef.current = file;
         setToday(file);
+        setLanded((prev) => new Map([...prev].filter(([, m]) => m.seenIn > file.updated_at)));
         setPaused((p) => ({ ...p, today: false }));
       },
       onError: () => {
@@ -109,9 +160,11 @@ export default function HomeLive(props: HomeLiveProps) {
         trackDataError('today.json');
       },
     });
+    const timers = timersRef.current;
     return () => {
       stopLive();
       stopToday();
+      timers.forEach(clearTimeout);
     };
   }, []);
 
@@ -119,13 +172,16 @@ export default function HomeLive(props: HomeLiveProps) {
     document.title = `${formatCount(today.totals.messages)} today · ccip.dev`;
   }, [today.totals.messages]);
 
-  const onLaunch = (message: LiveMessage, caption: Caption | null) => {
+  useEffect(() => {
+    publishToday({ messages: today.totals.messages, usd: today.totals.usd_value, fees: today.totals.fee_usd });
+  }, [today]);
+
+  const onLaunch = (message: LiveMessage, _caption: Caption | null) => {
     const now = performance.now();
     soundRef.current?.play(message.usd, (message.usd ?? 0) >= GOLD_USD, now, document.hidden);
-    if (caption) {
-      setCaptions((list) => [...list, caption]);
-      setTimeout(() => setCaptions((list) => list.filter((c) => c.id !== caption.id)), 4_000);
-    }
+    setLog((l) => [message, ...l.filter((m) => m.id !== message.id)].slice(0, LOG_KEEP));
+    if (reducedMotion) land([message]);
+    else timersRef.current.push(setTimeout(() => land([message]), COMET_MS));
     if (now - lastAnnounceRef.current >= ANNOUNCE_EVERY_MS) {
       lastAnnounceRef.current = now;
       setAnnouncement(`${laneLabel(names, `${message.src}>${message.dst}`)}${message.usd ? `, ${formatUsd(message.usd)}` : ''}`);
@@ -145,8 +201,30 @@ export default function HomeLive(props: HomeLiveProps) {
     props.records,
   );
   const yesterday = yesterdayFor(props.recentDays, today.day) ?? (rolledOver && rolledOver.day === previousDay(today.day) ? rolledOver : null);
-  const allTime = heroFees(props.feeTotals, [yesterday, { day: today.day, fee_usd: today.totals.fee_usd }]);
+  const todayCounts: CountedDay = { day: today.day, messages: today.totals.messages, usd_value: today.totals.usd_value, fee_usd: today.totals.fee_usd };
+  const before = liveAllTime(props.base, [yesterday]);
+  const allTime = useRatchet(liveAllTime(props.base, [yesterday, todayCounts], landedSince(landed, today.updated_at)));
+  const goals = METRICS.map((m) => milestoneGoal(m, metricTotal(allTime, m), props.paces[m]));
+  const crossed =
+    METRICS.map((m) => {
+      const threshold = crossedToday(m, metricTotal(before, m), metricTotal(allTime, m));
+      return threshold === null ? null : { metric: m, threshold };
+    }).find((c) => c !== null) ?? null;
+  const crossedKey = crossed ? `ccip:milestone:${crossed.metric}:${crossed.threshold}` : null;
+  const fees = heroFees(props.feeTotals, [yesterday, { day: today.day, fee_usd: today.totals.fee_usd }]);
   const headline = `${formatCount(today.totals.messages)} CCIP messages today`;
+
+  useEffect(() => {
+    if (!crossed || !crossedKey) return;
+    const storage = safeStorage();
+    try {
+      if (storage?.getItem(crossedKey)) return;
+      storage?.setItem(crossedKey, '1');
+    } catch {
+      // Storage refused: celebrate anyway, once for this page.
+    }
+    setCelebrating(crossed);
+  }, [crossedKey]);
 
   return (
     <>
@@ -159,24 +237,16 @@ export default function HomeLive(props: HomeLiveProps) {
           names={names}
           queue={queueRef}
           reducedMotion={reducedMotion}
-          avoid=".hero-toolbar, .hero-overlay"
+          avoid=".hero-toolbar, .hero-overlay, .ticker, .burst"
           onLaunch={onLaunch}
           onReady={setSkyReady}
         />
-        <div className="captions" aria-hidden="true">
-          {captions.map((c) => (
-            <p key={c.id} className="caption">
-              {c.text}
-            </p>
-          ))}
-        </div>
         <div className="hero-overlay">
-          <Headline today={today} yesterday={yesterday} animate={motion === null ? null : !motion} allTime={allTime} />
+          <Hud today={today} yesterday={yesterday} allTime={allTime} since={props.since} goal={nearestGoal(goals)} crossed={crossed} fees={fees} animate={motion === null ? null : !motion} />
         </div>
+        {celebrating && <Celebration metric={celebrating.metric} threshold={celebrating.threshold} since={props.since} reducedMotion={reducedMotion} onClose={() => setCelebrating(null)} />}
         <div className="hero-toolbar">
-          <span className="arrived">
-            Since you arrived: <span className="mono">{formatCount(arrived.count)}</span> messages · <span className="mono">{formatUsd(arrived.usd)}</span>
-          </span>
+          <OnWatch count={arrived.count} usd={arrived.usd} />
           <button type="button" className="sound-btn btn-icon" aria-pressed={soundOn} aria-label="Sound" title={soundOn ? 'Sound on' : 'Sound off'} onClick={toggleSound}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 9h4l5-4v14l-5-4H4z" />
@@ -185,6 +255,7 @@ export default function HomeLive(props: HomeLiveProps) {
           </button>
           <ShareButton view="home" headline={headline} url="https://ccip.dev/" cardUrl="/og/home.png" iconOnly />
         </div>
+        <HomeTicker messages={feed.slice(0, FEED_SIZE)} names={names} />
       </section>
       {breaks[0] && (
         <div className="record-banner card" role="status">
@@ -192,15 +263,38 @@ export default function HomeLive(props: HomeLiveProps) {
           <ShareButton view="record" headline={breaks[0].text} url="https://ccip.dev/" cardUrl="/og/home.png" />
         </div>
       )}
-      <section className="live-grid">
-        <div className="card feed-panel">
-          <span className="label">Live feed · last 15 minutes · UTC</span>
-          <Feed messages={feed} names={names} />
-          <FreshnessNote updatedAt={liveUpdatedAt} paused={paused.live} />
+      <Milestones goals={goals} reserve={props.reserveGoal} last={props.lastCrossed} crossed={crossed} />
+      <section className="band" id="sitrep" aria-labelledby="sitrep-title">
+        <div className="band-head">
+          <div>
+            <p className="eyebrow">
+              SITREP · <ZuluClock />
+            </p>
+            <h2 id="sitrep-title">
+              Today, <span className="g">so far</span>.
+            </h2>
+          </div>
+          <a className="more-link" href="/history/30d/">
+            Full history →
+          </a>
         </div>
-        <div>
-          <TodayTiles totals={today.totals} />
-          <FreshnessNote updatedAt={today.updated_at} paused={paused.today} />
+        <div className="sitrep">
+          <div className="panel">
+            <PulseChart days={props.pulse} today={todayCounts} />
+            <TodayTiles totals={today.totals} yesterdaySenders={yesterday && 'unique_senders' in yesterday ? (yesterday as DayTotals).unique_senders : null} />
+            <LanesToday lanes={today.top.lane} names={names} />
+            <FreshnessNote updatedAt={today.updated_at} paused={paused.today} />
+          </div>
+          <div className="panel comms-panel">
+            <div className="panel-head">
+              <span className="label">COMMS log · live · UTC</span>
+              <a className="more-link" href="/top/lane/7d/">
+                Top lanes →
+              </a>
+            </div>
+            <Feed messages={log} names={names} />
+            <FreshnessNote updatedAt={liveUpdatedAt} paused={paused.live} />
+          </div>
         </div>
       </section>
       <p className="visually-hidden" aria-live="polite">

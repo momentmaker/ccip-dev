@@ -1,34 +1,40 @@
 import type { TodayFile } from '@ccip-dev/core/public';
 import { formatCount, formatDuration, formatUsd, linkShareText } from '../../lib/format';
+import type { MetricKey } from '../../lib/metric-anchors';
 import InfoLink from '../InfoLink';
 
-export default function TodayTiles({ totals }: { totals: TodayFile['totals'] }) {
-  const linkShare = totals.fee_link_share_pct === null ? null : linkShareText(totals.fee_link_share_pct);
+interface Stat {
+  label: string;
+  metric: MetricKey;
+  info: string;
+  value: string;
+  sub: string;
+}
+
+/** Today's figures beside the chart, as one strip. */
+export default function TodayTiles({ totals, yesterdaySenders = null }: { totals: TodayFile['totals']; yesterdaySenders?: number | null }) {
+  const stats: Stat[] = [
+    { label: 'Token transfers', metric: 'messages', info: 'token transfers', value: formatCount(totals.token_messages), sub: `of ${formatCount(totals.messages)} messages` },
+    { label: 'Unique senders', metric: 'senders', info: 'unique senders', value: formatCount(totals.unique_senders), sub: yesterdaySenders === null ? 'today so far' : `yesterday ${formatCount(yesterdaySenders)}` },
+    { label: 'Median delivery', metric: 'delivery', info: 'delivery time', value: formatDuration(totals.median_delivery_s), sub: 'send to execution' },
+    { label: 'Fees', metric: 'fees', info: 'fees', value: formatUsd(totals.fee_usd), sub: totals.fee_link_share_pct === null ? 'paid to Chainlink' : linkShareText(totals.fee_link_share_pct) },
+    { label: 'Unpriced', metric: 'unpriced', info: 'unpriced messages', value: formatCount(totals.unpriced_messages), sub: 'with a token we cannot price' },
+  ];
   return (
-    <div className="tiles">
-      <div className="tile">
-        <span className="label">Token transfers<InfoLink metric="messages" label="token transfers" /></span>
-        <p className="value">{formatCount(totals.token_messages)}</p>
-        <span className="sub">of {formatCount(totals.messages)} messages</span>
-      </div>
-      <div className="tile">
-        <span className="label">Unique senders<InfoLink metric="senders" label="unique senders" /></span>
-        <p className="value">{formatCount(totals.unique_senders)}</p>
-      </div>
-      <div className="tile">
-        <span className="label">Median delivery<InfoLink metric="delivery" label="delivery time" /></span>
-        <p className="value">{formatDuration(totals.median_delivery_s)}</p>
-      </div>
-      <div className="tile">
-        <span className="label">Fees<InfoLink metric="fees" label="fees" /></span>
-        <p className="value">{formatUsd(totals.fee_usd)}</p>
-        <span className="sub">{linkShare ?? ' '}</span>
-      </div>
-      <div className="tile">
-        <span className="label">Unpriced<InfoLink metric="unpriced" label="unpriced messages" /></span>
-        <p className="value">{formatCount(totals.unpriced_messages)}</p>
-        <span className="sub">messages with a token we cannot price</span>
-      </div>
+    <div className="stats">
+      {stats.map((s) => (
+        <div key={s.label} className="stat">
+          <span className="label">
+            <span className="hexb" aria-hidden="true">
+              ⬡
+            </span>
+            {s.label}
+            <InfoLink metric={s.metric} label={s.info} />
+          </span>
+          <p className="stat-value mono">{s.value}</p>
+          <span className="stat-sub">{s.sub}</span>
+        </div>
+      ))}
     </div>
   );
 }

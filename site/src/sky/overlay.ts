@@ -136,3 +136,22 @@ export function cardPosition(
   const top = below + card.height <= wrap.height - CARD_EDGE ? below : star.y - star.d / 2 - CARD_GAP - card.height;
   return { left: clamp(star.x - card.width / 2, CARD_EDGE, wrap.width - card.width - CARD_EDGE), top: clamp(top, CARD_EDGE, wrap.height - card.height - CARD_EDGE) };
 }
+
+export const WHALE_W = 250;
+export const WHALE_H = 86;
+
+/** Beside the star a $1M+ comet lands on: the first corner around it that stays inside the sky and clear of the overlays. */
+export function whalePosition(star: { x: number; y: number }, size: { width: number; height: number }, avoid: readonly Rect[] = []): { left: number; top: number } {
+  const corners: [number, number][] = [
+    [star.x + 22, star.y - WHALE_H],
+    [star.x - 22 - WHALE_W, star.y - WHALE_H],
+    [star.x + 22, star.y + 16],
+    [star.x - 22 - WHALE_W, star.y + 16],
+  ];
+  // A corner that fits across without being pushed back over its own star goes first.
+  const across = ([left]: [number, number]) => left >= 8 && left + WHALE_W <= size.width - 8;
+  const fit = ([left, top]: [number, number]) => ({ left: Math.max(8, Math.min(left, size.width - WHALE_W - 8)), top: Math.max(8, Math.min(top, size.height - WHALE_H - 64)) });
+  const spots = [...corners.filter(across), ...corners.filter((c) => !across(c))].map(fit);
+  const clear = (p: { left: number; top: number }) => avoid.every((r) => p.left >= r.right || p.left + WHALE_W <= r.left || p.top >= r.bottom || p.top + WHALE_H <= r.top);
+  return spots.find(clear) ?? spots[0]!;
+}
