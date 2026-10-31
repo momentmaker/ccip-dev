@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, stakerHref, tapeGrid, tapeMax, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
+import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, spaceForecast, stakePresets, stakerHref, tapeGrid, tapeMax, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
 
 const QUEUE = {
   unbonding: { stakers: 3, link: 300, stakelink_stakers: 1, stakelink_link: 15_000 },
@@ -72,6 +72,45 @@ describe('boardRows', () => {
       ['2026-10-29', 'STAYED', 10],
     ]);
     expect(boardRows(QUEUE, 1, 2).map((r) => r.status)).toEqual(['GATE OPEN', 'BOARDING', 'STAYED', 'DEPARTED']);
+  });
+});
+
+describe('spaceForecast', () => {
+  const NOW = new Date('2026-10-31T18:00:00Z');
+
+  it('expects each day’s opening windows outside stake.link to leave at the measured rate', () => {
+    const f = spaceForecast(QUEUE, NOW, 28)!;
+    expect([f.days.find((d) => d.day === '2026-11-01'), f.days.find((d) => d.day === '2026-11-10')]).toEqual([
+      { day: '2026-11-01', opening: 200, likely: 100 },
+      { day: '2026-11-10', opening: 100, likely: 50 },
+    ]);
+  });
+
+  it('lays out every day from today, quiet ones as zeros', () => {
+    const f = spaceForecast(QUEUE, NOW, 28)!;
+    expect([f.days.length, f.days[0], f.days.at(-1)?.day]).toEqual([28, { day: '2026-10-31', opening: 0, likely: 0 }, '2026-11-27']);
+  });
+
+  it('calls out the day most LINK is likely to leave', () => {
+    expect(spaceForecast(QUEUE, NOW, 28)?.peak?.day).toBe('2026-11-01');
+  });
+
+  it('counts what is likely to leave from the windows open now apart', () => {
+    expect(spaceForecast(QUEUE, NOW, 28)?.openNow).toBe(25);
+  });
+
+  it('has no forecast before any window has closed to measure the rate', () => {
+    expect(spaceForecast({ ...QUEUE, conversion: { others: { left: 0, total: 0 }, stakelink: { left: 0, total: 0 } } }, NOW, 28)).toBeNull();
+  });
+});
+
+describe('stakePresets', () => {
+  it('offers the minimum round stake, the median staker and the max', () => {
+    expect(stakePresets({ median: 1_951.6, max_stake: 15_000 }).map((p) => p.value)).toEqual([1_000, 1_952, 15_000]);
+  });
+
+  it('drops a median that matches another preset', () => {
+    expect(stakePresets({ median: 15_000, max_stake: 15_000 }).map((p) => p.value)).toEqual([1_000, 15_000]);
   });
 });
 

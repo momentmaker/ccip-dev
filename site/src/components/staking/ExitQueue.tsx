@@ -2,6 +2,7 @@ import type { StakingFile } from '@ccip-dev/core/public';
 import { Fragment } from 'react';
 import { formatCompactCount, formatCount, formatUtcDay } from '../../lib/format';
 import { boardRows, dialDots, onDial, sharePct } from '../../lib/staking-view';
+import SpaceForecast from './SpaceForecast';
 
 const R = 120;
 const SIZE = 320;
@@ -60,7 +61,7 @@ export default function ExitQueue({ staking, now }: { staking: StakingFile; now:
   const days = Math.round(staking.periods.unbonding_s / 86_400);
   const window = Math.round(staking.periods.claim_s / 86_400);
   return (
-    <section className="band" aria-labelledby="queue-title">
+    <section className="band" id="queue" aria-labelledby="queue-title">
       <div className="band-head">
         <div>
           <p className="eyebrow">The exit queue</p>
@@ -107,12 +108,8 @@ export default function ExitQueue({ staking, now }: { staking: StakingFile; now:
             ))}
           </div>
         </div>
+        <SpaceForecast staking={staking} now={now} />
         <div className="queue-facts">
-          <div className="panel qf qf-hot">
-            <span className="label">Likely to leave in the next {days} days</span>
-            <strong className="mono">≈ {formatCompactCount(q.likely_to_leave)} LINK</strong>
-            <span className="muted">the unbonding LINK outside stake.link × how often it really leaves</span>
-          </div>
           <div className="panel qf">
             <span className="label">Claim windows that ended in an exit</span>
             <div className="conv">

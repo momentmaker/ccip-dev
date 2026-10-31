@@ -1,15 +1,18 @@
 import type { StakingFile } from '@ccip-dev/core/public';
 import { useEffect, useRef, useState } from 'react';
-import { formatCount, formatUtcDay } from '../../lib/format';
-import { clampStake, daysUntil, yearlyReward } from '../../lib/staking-view';
+import { formatCount, formatPrice, formatUsd, formatUtcDay } from '../../lib/format';
+import { clampStake, daysUntil, stakePresets, yearlyReward } from '../../lib/staking-view';
 import { usePrefersReducedMotion } from '../hooks';
 
 const DAY_S = 86_400;
 const pct = (v: number | null) => (v === null ? '—' : `${v.toFixed(2)}%`);
 const link4 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-/** The reward vault's emission as a live counter, the yearly rates it pays, and what a stake would earn at them. */
-export default function RewardsTicker({ staking, now }: { staking: StakingFile; now: Date | null }) {
+/**
+ * The reward vault's emission as a live counter, the yearly rates it pays, and what a stake would earn at them, in
+ * dollars too at `linkPriceUsd`, the LINK price when the page was built.
+ */
+export default function RewardsTicker({ staking, now, linkPriceUsd }: { staking: StakingFile; now: Date | null; linkPriceUsd: number | null }) {
   const rewards = staking.rewards;
   const perSecond = rewards ? rewards.community_per_s + rewards.operator_per_s + rewards.delegated_per_s : 0;
   const reduced = usePrefersReducedMotion();
@@ -62,9 +65,10 @@ export default function RewardsTicker({ staking, now }: { staking: StakingFile; 
           <span>base + delegated</span>
         </div>
       </dl>
-      <label className="rewards-calc">
-        <span>If you staked</span>
+      <div className="rewards-calc">
+        <label htmlFor="rewards-calc-in">If you staked</label>
         <input
+          id="rewards-calc-in"
           type="number"
           name="stake"
           inputMode="decimal"
@@ -76,10 +80,18 @@ export default function RewardsTicker({ staking, now }: { staking: StakingFile; 
           aria-describedby="rewards-calc-out"
         />
         <span>LINK:</span>
-        <output id="rewards-calc-out" className="mono">
+        <output id="rewards-calc-out" htmlFor="rewards-calc-in" className="mono">
           {yearly === null ? '—' : `≈ ${yearly.toLocaleString('en-US', { maximumFractionDigits: 1 })} LINK a year · ${(yearly / 365).toLocaleString('en-US', { maximumFractionDigits: 3 })} a day`}
+          {yearly !== null && linkPriceUsd !== null && <span className="rewards-usd">{` · ~${formatUsd(yearly * linkPriceUsd)} a year at ${formatPrice(linkPriceUsd)}`}</span>}
         </output>
-      </label>
+        <div className="presets" role="group" aria-label="Try a stake">
+          {stakePresets(staking.community).map((p) => (
+            <button key={p.value} type="button" aria-pressed={amount === p.value} onClick={() => setStake(p.value)}>
+              {p.label === '1,000' ? p.label : `${p.label} · ${formatCount(p.value)}`}
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="foot">
         The vault's current emission over the pool's principal, not a promise: rates move as rewards are added or the pool changes.
         {staking.community.total >= staking.community.cap - 0.001 ? ' The pool is full, so a new stake waits for space to open.' : ''}

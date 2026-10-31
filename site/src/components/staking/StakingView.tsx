@@ -18,6 +18,27 @@ import Stakers from './Stakers';
 import Tape from './Tape';
 
 const FULL_TOLERANCE = 0.001;
+const SECTIONS = [
+  ['pool', 'The pool'],
+  ['queue', 'Exit queue'],
+  ['hunt', 'Gap hunt'],
+  ['stakers', 'Stakers'],
+  ['card', 'Your card'],
+  ['operators', 'Operators'],
+  ['tape', 'The tape'],
+] as const;
+
+function JumpNav() {
+  return (
+    <nav className="stk-nav" aria-label="On this page">
+      {SECTIONS.map(([id, label]) => (
+        <a key={id} href={`#${id}`}>
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 function Pending() {
   return (
@@ -31,7 +52,7 @@ function Pending() {
   );
 }
 
-export default function StakingView({ initial }: { initial: StakingFile | null }) {
+export default function StakingView({ initial, linkPriceUsd }: { initial: StakingFile | null; linkPriceUsd: number | null }) {
   const [staking, setStaking] = useState(initial);
   const [failed, setFailed] = useState(false);
   const now = useNow(60_000);
@@ -61,7 +82,7 @@ export default function StakingView({ initial }: { initial: StakingFile | null }
 
   return (
     <>
-      <section className="stake-hero">
+      <section className="stake-hero" id="pool">
         <div className="stake-hero-text">
           <div className="page-head">
             <div>
@@ -92,14 +113,15 @@ export default function StakingView({ initial }: { initial: StakingFile | null }
             <div><dt>Median stake</dt><dd className="mono">{formatCount(c.median)}</dd></div>
             <div><dt>In since month one</dt><dd className="mono">{firstPct === null ? '—' : `${Math.round(firstPct)}%`}</dd></div>
           </dl>
-          <RewardsTicker staking={staking} now={now} />
+          <RewardsTicker staking={staking} now={now} linkPriceUsd={linkPriceUsd} />
         </div>
         <Hive staking={staking} />
       </section>
+      <JumpNav />
       {now && <ExitQueue staking={staking} now={now} />}
       <GapHunt staking={staking} />
       <Stakers staking={staking} />
-      <div className="panel lookup-panel">
+      <div className="panel lookup-panel" id="card">
         <StakerLookup label="Your staker card: paste a staking address" />
       </div>
       <Operators staking={staking} />

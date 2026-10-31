@@ -57,7 +57,7 @@ export default function Operators({ staking }: { staking: StakingFile }) {
   // An unbonding event carries no amount: it covers the whole stake, which the roster has as it is now.
   const stakeNow = new Map(staking.operators.map((x) => [x.address, x.stake]));
   return (
-    <section className="band" aria-labelledby="ops-title">
+    <section className="band" id="operators" aria-labelledby="ops-title">
       <div className="band-head">
         <div>
           <p className="eyebrow">Two pools</p>

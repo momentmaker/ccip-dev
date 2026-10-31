@@ -241,9 +241,15 @@ The numbers on ccip.dev, and the JSON files behind them at `https://data.ccip.de
   the window (give or take an hour). stake.link's vaults unbond on a rolling schedule and almost never leave, so they are
   counted apart from everyone else. **Likely to leave** is the LINK unbonding now outside stake.link times the others'
   conversion. **Lapsed** counts claim windows that closed without an unstake.
+- **Space forecast:** the same estimate day by day: each coming UTC day's LINK whose claim window opens, outside
+  stake.link, times the others' conversion, plus the windows open now. Conversion is a share of windows, not of LINK,
+  and a leaver can unstake on any day of its window, so the days are an estimate of where space comes from, not when.
 - **Openings and refills:** once the community pool first filled, an opening starts when an event leaves it below its
   cap (within 0.001 LINK) and ends when it is full again. The gap is the most space open at once; the refill time runs
   from the event that opened the space to the one that filled it. A grab is a stake made while the pool was open.
+  **Hunter of the week** took space in the most openings of the last 7 days (of the week reported, in the Monday post),
+  and needs at least two; an opening refilled within a block counts as a grab within a block for everyone who took part
+  of it.
 - **Weeks:** UTC weeks starting Monday.
 - **Operators:** the roster is the operator pool's allowlist; an operator is removed once `OperatorRemoved` names it.
   Names come from `labels/staking-operators.json`, only where a public source ties the name to the staking address

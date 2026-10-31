@@ -1,13 +1,13 @@
 ---
 import StakingView from '../../components/staking/StakingView';
 import Base from '../../layouts/Base.astro';
-import { buildDataIfPublished } from '../../lib/build-data';
+import { buildData, buildDataIfPublished } from '../../lib/build-data';
 import '../../styles/staking.css';
 
-const staking = await buildDataIfPublished('staking.json');
+const [staking, reserve] = await Promise.all([buildDataIfPublished('staking.json'), buildData('reserve.json')]);
 ---
 <Base title="Chainlink Staking" description="Chainlink staking v0.2, live: the full community pool, the exit queue, who refills gaps in seconds, the node operators and the rewards streaming now." cardPath="staking">
   <div class="stk">
-    <StakingView client:load initial={staking} />
+    <StakingView client:load initial={staking} linkPriceUsd={reserve.link_price_usd} />
   </div>
 </Base>

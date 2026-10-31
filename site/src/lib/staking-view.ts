@@ -1,4 +1,5 @@
 import { HOLDER_KINDS, type HolderKind, type StakingFile } from '@ccip-dev/core/public';
+import { addDays, dayOf } from '@ccip-dev/core/time';
 
 export type HiveKind = HolderKind | 'open';
 
@@ -172,6 +173,51 @@ export function dialDots(queue: StakingFile['queue'], periods: StakingFile['peri
 export function onDial(fraction: number, r: number, cx = 0, cy = 0): { x: number; y: number } {
   const a = fraction * 2 * Math.PI - Math.PI / 2;
   return { x: Math.round((cx + r * Math.cos(a)) * 10) / 10, y: Math.round((cy + r * Math.sin(a)) * 10) / 10 };
+}
+
+export interface ForecastDay {
+  day: string;
+  /** LINK whose claim window opens that day, outside stake.link's ladder. */
+  opening: number;
+  /** Of that, LINK likely to leave at the rate windows have ended in an exit. */
+  likely: number;
+}
+
+export interface SpaceForecast {
+  days: ForecastDay[];
+  peak: ForecastDay | null;
+  /** LINK likely to leave from the windows open now. */
+  openNow: number;
+}
+
+/**
+ * Where the full pool's space is likely to come from over the next `count` days (UTC), from today: each day's claim
+ * windows outside stake.link, whose ladder almost never leaves, times the share of windows that have ended in an exit.
+ * Null until a window has closed to measure that share.
+ */
+export function spaceForecast(queue: StakingFile['queue'], now: Date, count: number): SpaceForecast | null {
+  const { left, total } = queue.conversion.others;
+  if (total <= 0) return null;
+  const rate = left / total;
+  const byDay = new Map(queue.days.map((d) => [d.day, d.link - d.stakelink_link]));
+  const today = dayOf(now);
+  const days = Array.from({ length: count }, (_, i) => {
+    const day = addDays(today, i);
+    const opening = Math.max(0, byDay.get(day) ?? 0);
+    return { day, opening, likely: opening * rate };
+  });
+  const peak = days.reduce<ForecastDay | null>((best, d) => (d.likely > 0 && (best === null || d.likely > best.likely) ? d : best), null);
+  return { days, peak, openNow: queue.claimable.link * rate };
+}
+
+/** Quick stakes for the rewards calculator: a round 1,000, the median staker's stake and the max, each once. */
+export function stakePresets(community: Pick<StakingFile['community'], 'median' | 'max_stake'>): { label: string; value: number }[] {
+  const presets = [
+    { label: '1,000', value: 1_000 },
+    { label: 'Median', value: Math.round(community.median) },
+    { label: 'Max', value: community.max_stake },
+  ];
+  return presets.filter((p, i) => presets.findIndex((q) => q.value === p.value) === i);
 }
 
 export function sharePct(part: number, whole: number): number | null {

@@ -31,7 +31,7 @@ export default function Tape({ weeks }: { weeks: StakingFile['weeks'] }) {
   const biggest = weeks.reduce((a, b) => (b.unstaked > a.unstaked ? b : a));
   const gridY = MID - up(grid);
   return (
-    <section className="band" aria-labelledby="tape-title">
+    <section className="band" id="tape" aria-labelledby="tape-title">
       <div className="band-head">
         <div>
           <p className="eyebrow">The tape · weekly since {formatUtcDay(weeks[0]!.week)}</p>

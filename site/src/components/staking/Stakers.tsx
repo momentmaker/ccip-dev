@@ -14,7 +14,7 @@ export default function Stakers({ staking }: { staking: StakingFile }) {
   const maxSize = Math.max(1, ...staking.sizes.map((s) => s.link));
   const totalHeld = staking.holders.reduce((a, h) => a + h.link, 0);
   return (
-    <section className="band" aria-labelledby="stakers-title">
+    <section className="band" id="stakers" aria-labelledby="stakers-title">
       <div className="band-head">
         <div>
           <p className="eyebrow">The stakers</p>
