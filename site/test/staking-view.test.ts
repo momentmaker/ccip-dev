@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, stakerHref, yearlyReward } from '../src/lib/staking-view';
+import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, stakerHref, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
 
 const QUEUE = {
   unbonding: { stakers: 3, link: 300, stakelink_stakers: 1, stakelink_link: 15_000 },
@@ -99,5 +99,13 @@ describe('rewards', () => {
 
   it('links a staker to its card by lowercase address', () => {
     expect(stakerHref('0xAbC')).toBe('/staking/0xabc/');
+  });
+});
+
+describe('timelapseFrames', () => {
+  it('runs the pool level and the stakers ever up week by week, within the cap', () => {
+    const week = (w: string, staked: number, unstaked: number, n: number) => ({ week: w, staked, unstaked, unbondings: 0, unbonding_link: 30, stakelink_unbonding_link: 10, new_stakers: n, openings: 0 });
+    const frames = timelapseFrames([week('2023-11-27', 80, 0, 5), week('2023-12-04', 40, 5, 3), week('2023-12-11', 10, 10, 1)], 100);
+    expect(frames.map((f) => [f.level, f.stakers, f.asked])).toEqual([[80, 5, 20], [100, 8, 20], [100, 9, 20]]);
   });
 });

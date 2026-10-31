@@ -28,6 +28,7 @@
     "report:top-senders": "tsx scripts/top-senders.ts",
     "video:smoke": "tsx scripts/video/smoke.ts",
     "video:monthly": "tsx scripts/video/monthly.ts",
+    "video:staking": "tsx scripts/video/staking.ts",
     "video:mux": "tsx scripts/video/mux.ts",
     "video:check": "tsx scripts/video/check.ts"
   },

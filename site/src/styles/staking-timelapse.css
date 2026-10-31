@@ -1,0 +1,19 @@
+/* The 1080x1080 stage `pnpm video:staking` records. */
+html, body { margin: 0; background: #070a10; color: #e8eaed; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; }
+.tl-stage { position: fixed; left: 0; top: 0; width: 1080px; height: 1080px; overflow: hidden; background: radial-gradient(60% 50% at 50% 46%, rgba(46, 211, 195, 0.14), transparent 70%), #070a10; }
+.tl-head { position: absolute; left: 56px; right: 56px; top: 44px; display: flex; justify-content: space-between; align-items: baseline; }
+.tl-brand { font-size: 36px; font-weight: 800; color: #4a7ff0; }
+.tl-kicker { font: 700 18px 'JetBrains Mono', monospace; letter-spacing: 0.16em; text-transform: uppercase; color: #8892a0; }
+.tl-hive { position: absolute; left: 140px; top: 120px; width: 800px; height: 620px; }
+.tl-cell { fill: rgba(46, 211, 195, 0.05); stroke: rgba(46, 211, 195, 0.18); stroke-width: 1; transition: fill 0.12s linear; }
+.tl-cell.on { fill: #2ed3c3; stroke: #070a10; opacity: 0.85; }
+.tl-cell.new { fill: #f4fffd; stroke: #070a10; }
+.tl-cell.out { fill: #0b1016; stroke: #ffcf5a; stroke-width: 2; }
+.tl-readout { position: absolute; left: 56px; right: 56px; bottom: 56px; }
+.tl-week { margin: 0; font: 700 22px 'JetBrains Mono', monospace; letter-spacing: 0.12em; text-transform: uppercase; color: #2ed3c3; }
+.tl-level { margin: 8px 0 0; font-size: 40px; font-weight: 700; color: #c9d3e6; }
+.tl-level b { font-size: 96px; font-weight: 800; color: #fff; letter-spacing: -0.03em; }
+.tl-full { margin-left: 12px; padding: 6px 14px; border-radius: 8px; background: #2ed3c3; color: #032a27; font: 800 26px 'JetBrains Mono', monospace; letter-spacing: 0.12em; vertical-align: 18px; }
+.tl-of { color: #8892a0; }
+.tl-stats { list-style: none; display: flex; gap: 40px; white-space: nowrap; margin: 14px 0 0; padding: 0; font-size: 20px; color: #8892a0; }
+.tl-stats b { color: #e8eaed; font-family: 'JetBrains Mono', monospace; }

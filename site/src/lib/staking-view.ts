@@ -210,3 +210,26 @@ export function tapeWeeks(weeks: StakingFile['weeks'], count: number): StakingFi
 export function daysUntil(iso: string, now: Date): number {
   return Math.max(0, Math.floor((Date.parse(iso) - now.getTime()) / 86_400_000));
 }
+
+export interface TimelapseFrame {
+  week: string;
+  /** LINK in the community pool at the week's end. */
+  level: number;
+  /** Everyone who had staked by the week's end. */
+  stakers: number;
+  staked: number;
+  unstaked: number;
+  /** LINK that asked to leave outside stake.link's ladder. */
+  asked: number;
+}
+
+/** The community pool week by week, from its running sums: what the timelapse plays. */
+export function timelapseFrames(weeks: StakingFile['weeks'], cap: number): TimelapseFrame[] {
+  let level = 0;
+  let stakers = 0;
+  return weeks.map((w) => {
+    level = Math.min(cap, Math.max(0, level + w.staked - w.unstaked));
+    stakers += w.new_stakers;
+    return { week: w.week, level, stakers, staked: w.staked, unstaked: w.unstaked, asked: Math.max(0, w.unbonding_link - w.stakelink_unbonding_link) };
+  });
+}
