@@ -14,6 +14,7 @@ describe('card paths', () => {
     ['flow/all', { kind: 'flow', window: 'all' }],
     ['reserve', { kind: 'reserve' }],
     ['staking', { kind: 'staking' }],
+    ['staker/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b', { kind: 'staker', address: '0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b' }],
     ['replay', { kind: 'replay' }],
     ['project/xstocks', { kind: 'project', slug: 'xstocks' }],
     ['records', { kind: 'records' }],
@@ -40,7 +41,7 @@ describe('card paths', () => {
     expect(cardPathOf(route)).toBe(path);
   });
 
-  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base', 'project/XStocks', 'project/a/b', 'project'])('rejects %j', (path) => {
+  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base', 'project/XStocks', 'project/a/b', 'project', 'staker/0x8D87cbd8c3632b7ef117a15f8100943a23b7d03b', 'staker/0x12'])('rejects %j', (path) => {
     expect(parseCardPath(path)).toBeNull();
   });
 

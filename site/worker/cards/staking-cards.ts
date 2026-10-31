@@ -1,8 +1,9 @@
 import { formatCompactCount, formatCount, formatDuration } from '@ccip-dev/core/format';
 import { shortAddress } from '@ccip-dev/core/names';
-import type { StakingFile } from '@ccip-dev/core/public';
+import { stakerShard, type StakingFile } from '@ccip-dev/core/public';
 import { operatorMomentFacts, stakingWeekFacts, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
-import { hiveCenters, hiveKinds, type HiveKind } from '../../src/lib/staking-view';
+import { findStaker, sizeText, stakerFacts, type StakerFacts } from '../../src/lib/staker';
+import { hiveCenters, hiveKinds, VIA_LABEL, type HiveKind } from '../../src/lib/staking-view';
 import { h, type Child, type VNode } from '../h';
 import { bold, broadcastFrame, cardDay, cardWeek, COLORS, dayNumber, eyebrow, row, TEXT_COLUMN, type BroadcastInputs } from './broadcast-frame';
 import type { Cta } from './cta';
@@ -104,7 +105,7 @@ function weekInsight(w: StakingWeekFacts): Child[] {
     const verb = { added: 'joined the operator pool', removed: 'left the operator pool', staked: `staked ${formatCount(e.amount)} LINK`, unstaked: `unstaked ${formatCount(e.amount)} LINK`, unbonding: 'started unbonding' }[e.kind];
     return ['Operator watch: ', bold(operatorName(e)), ` ${verb}`];
   }
-  return ['Likely to leave in the next 28 days: ', bold(`≈ ${formatCompactCount(w.likelyToLeave)} LINK`)];
+  return ['Likely to leave in the next 28 days: ', bold(`about ${formatCompactCount(w.likelyToLeave)} LINK`)];
 }
 
 /** Monday's report on the week before; null until staking.json covers that week, so the post waits. */
@@ -162,5 +163,63 @@ export async function operatorTree(address: string, at: number, inputs: Broadcas
     body: operatorBody(m),
     insight: ['Community pool: ', bold(`${formatCompactCount(staking.community.total)} LINK`), ` · ${formatCount(staking.community.stakers)} stakers`],
     cta: STAKING_CTA,
+  });
+}
+
+function stakerStatus(f: StakerFacts): Child[] {
+  const s = f.status;
+  switch (s.kind) {
+    case 'unbonding':
+      return ['Unbonding · claim window opens ', bold(MONTH_DAY_YEAR.format(new Date(s.opensAt)))];
+    case 'claimable':
+      return ['Claim window open · closes ', bold(MONTH_DAY_YEAR.format(new Date(s.closesAt)))];
+    case 'lapsed':
+      return ['Stayed: its claim window closed and the LINK is still staked'];
+    case 'staked':
+      return f.yearly === null ? ['Staked'] : ['Earning about ', bold(`${formatCount(f.yearly)} LINK`), ' a year at today\'s rate'];
+  }
+}
+
+const MONTH_DAY_YEAR = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+
+function stakerBody(f: StakerFacts): VNode {
+  const badges = [f.dayOne ? 'Day one' : null, f.grabs > 0 ? `Gap hunter ×${formatCount(f.grabs)}` : null, f.holder !== 'wallet' ? VIA_LABEL[f.holder] : null].filter((b): b is string => b !== null);
+  const name = f.operatorName ?? shortAddress(f.address);
+  return h(
+    'div',
+    { style: { position: 'absolute', left: 56, top: 118, width: 640, display: 'flex', flexDirection: 'column' } },
+    eyebrow(f.pool === 'operator' ? 'Node operator' : 'Community staker', { color: TEAL }),
+    h('div', { style: { display: 'flex', fontSize: 40, fontWeight: 800, marginTop: 8, fontFamily: f.operatorName ? 'Inter' : 'JetBrains Mono' } }, name),
+    h(
+      'div',
+      { style: { display: 'flex', alignItems: 'flex-end', marginTop: 10 } },
+      h('div', { style: { fontSize: 92, fontWeight: 800, letterSpacing: -3, lineHeight: 1 } }, formatCount(f.stake)),
+      h('div', { style: { fontSize: 40, fontWeight: 800, color: TEAL, marginLeft: 12, marginBottom: 6 } }, 'LINK'),
+    ),
+    f.atMax ? h('div', { style: { display: 'flex', marginTop: 12 } }, chip(`AT THE ${formatCount(f.maxStake)} MAX`, COLORS.gold, '#2a2116')) : null,
+    row(['Staking since ', bold(MONTH_DAY_YEAR.format(new Date(f.since))), ` · ${formatCount(f.days)} days`], { fontSize: 26, marginTop: 18, color: COLORS.soft }),
+    row([bold(`#${formatCount(f.sinceRank)}`), ` in line · ${sizeText(f)}`], { fontSize: 26, marginTop: 8, color: COLORS.soft }),
+    badges.length === 0
+      ? null
+      : h(
+          'div',
+          { style: { display: 'flex', marginTop: 22 } },
+          ...badges.map((b, i) => h('div', { style: { display: 'flex', fontSize: 18, fontWeight: 700, color: i === 0 && f.dayOne ? COLORS.gold : TEAL_2, border: `1px solid ${i === 0 && f.dayOne ? COLORS.gold : TEAL}`, borderRadius: 999, padding: '5px 14px', marginRight: 10 } }, b)),
+        ),
+  );
+}
+
+/** A staker's shareable card; null when the address holds no stake now. */
+export async function stakerTree(address: string, inputs: BroadcastInputs): Promise<VNode | null> {
+  const [stakers, staking] = await Promise.all([inputs.load(stakerShard(address)), inputs.load('staking.json')]);
+  const row = findStaker(stakers, address);
+  if (row === null) return null;
+  const f = stakerFacts(row, staking, new Date(staking.updated_at));
+  return broadcastFrame({
+    background: background(stakingHiveSvg(staking, dayNumber(f.since), { kind: 'one', color: f.atMax ? COLORS.gold : TEAL_2 })),
+    eyebrow: `Chainlink staking · #${formatCount(f.sinceRank)} of ${formatCount(f.poolStakers)}`,
+    body: stakerBody(f),
+    insight: stakerStatus(f),
+    cta: { lead: 'Your card:', path: 'ccip.dev/staking' },
   });
 }

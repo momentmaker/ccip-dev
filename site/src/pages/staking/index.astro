@@ -1,8 +1,8 @@
 ---
-import StakingView from '../components/staking/StakingView';
-import Base from '../layouts/Base.astro';
-import { buildDataIfPublished } from '../lib/build-data';
-import '../styles/staking.css';
+import StakingView from '../../components/staking/StakingView';
+import Base from '../../layouts/Base.astro';
+import { buildDataIfPublished } from '../../lib/build-data';
+import '../../styles/staking.css';
 
 const staking = await buildDataIfPublished('staking.json');
 ---

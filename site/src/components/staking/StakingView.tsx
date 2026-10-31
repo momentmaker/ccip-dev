@@ -13,6 +13,7 @@ import GapHunt from './GapHunt';
 import Hive from './Hive';
 import Operators from './Operators';
 import RewardsTicker from './RewardsTicker';
+import StakerLookup from './StakerLookup';
 import Stakers from './Stakers';
 import Tape from './Tape';
 
@@ -98,6 +99,9 @@ export default function StakingView({ initial }: { initial: StakingFile | null }
       {now && <ExitQueue staking={staking} now={now} />}
       <GapHunt staking={staking} />
       <Stakers staking={staking} />
+      <div className="panel lookup-panel">
+        <StakerLookup label="Your staker card: paste a staking address" />
+      </div>
       <Operators staking={staking} />
       <Tape weeks={staking.weeks} />
     </>

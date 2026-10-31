@@ -1,6 +1,7 @@
 import { STAKING_FIXTURE, STAKING_NEW_OPERATOR, STAKING_OPERATOR } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
 import { broadcastTree } from '../worker/cards/broadcast-cards';
+import { stakerTree } from '../worker/cards/staking-cards';
 import { stakingCard } from '../worker/cards/content';
 import { stakingHiveSvg } from '../worker/cards/staking-cards';
 import { texts } from './fixtures/broadcast';
@@ -53,5 +54,25 @@ describe('the /staking page card', () => {
       date: 'full since Dec 7, 2023',
       extra: ['8,528 stakers · gaps refill in 12s'],
     });
+  });
+});
+
+describe('the staker card', () => {
+  const A = '0x00000000000000000000000000000000000000aa';
+  const files = (rows: unknown[]) =>
+    ({ load: async (name: string) => (name === 'staking.json' ? STAKING_FIXTURE : { ...STAKING_FIXTURE, stakers: rows }), icon: async () => null }) as never;
+
+  it('shows the stake, tenure, place in line and the exit clock', async () => {
+    const tree = await stakerTree(A, files([[A, 'c', 15_000, '2023-12-01T00:00:00.000Z', '2026-10-10T00:00:00.000Z', 'wallet', 120, 1, 3]]));
+    const words = texts(tree).join('|');
+    expect(words).toContain('15,000|LINK');
+    expect(words).toContain('AT THE 15,000 MAX');
+    expect(words).toContain('#120| in line · one of 1,329 at the max');
+    expect(words).toContain('Day one|Gap hunter ×3');
+    expect(words).toContain('Unbonding · claim window opens |Nov 7, 2026');
+  });
+
+  it('has no card for an address with no stake', async () => {
+    expect(await stakerTree(A, files([]))).toBeNull();
   });
 });
