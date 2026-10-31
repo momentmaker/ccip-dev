@@ -10,6 +10,7 @@ import { cardMaxAge } from './cache';
 import { broadcastTree } from './cards/broadcast-cards';
 import { BROADCAST_SIZE, type BroadcastInputs } from './cards/broadcast-frame';
 import { stakerTree } from './cards/staking-cards';
+import { reservePageTree } from './cards/reserve-page-card';
 import { stakingPageTree } from './cards/staking-page-card';
 import { coinIcon } from './cards/coin-icons';
 import { homeTree } from './cards/home-card';
@@ -178,6 +179,17 @@ async function stakingPng(deps: OgDeps): Promise<Uint8Array | null> {
   }
 }
 
+/** The /reserve card, or null when it can't be drawn, so the page falls back to its classic card, not the default. */
+async function reservePng(deps: OgDeps): Promise<Uint8Array | null> {
+  try {
+    const tree = reservePageTree(await fetchPublic('reserve.json', { fetch: deps.fetch }));
+    return tree ? await deps.renderPng(tree, CARD_SIZE) : null;
+  } catch (err) {
+    console.error(`reserve card failed, drawing the classic card instead: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
 /** The all-time home card, or null when it can't be drawn, so the home page falls back to today's classic card, not the default. */
 async function homePng(env: OgEnv, origin: string, deps: OgDeps): Promise<Uint8Array | null> {
   try {
@@ -210,8 +222,8 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   try {
     const cached = await deps.cache?.match(cacheKey);
     if (cached) return cached;
-    if (route.kind === 'home' || route.kind === 'staking') {
-      const png = route.kind === 'home' ? await homePng(env, url.origin, deps) : await stakingPng(deps);
+    if (route.kind === 'home' || route.kind === 'staking' || route.kind === 'reserve') {
+      const png = route.kind === 'home' ? await homePng(env, url.origin, deps) : route.kind === 'staking' ? await stakingPng(deps) : await reservePng(deps);
       if (png) {
         const response = new Response(new Uint8Array(png), { headers: { 'content-type': 'image/png', 'cache-control': `public, max-age=${cardMaxAge(route, null)}` } });
         if (deps.cache) ctx.waitUntil(deps.cache.put(cacheKey, response.clone()));

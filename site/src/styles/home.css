@@ -110,8 +110,6 @@
 .more-link { font-size: 13px; font-weight: 600; white-space: nowrap; }
 .panel { min-width: 0; padding: 18px; border-radius: 12px; background: var(--card); border: 1px solid var(--border-soft); }
 .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.hexb { color: var(--gold); margin-right: 7px; }
-.brief-facts { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 7px; font: 400 14px var(--font-mono); color: #c9cfda; }
 
 /* milestones */
 .ms-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
@@ -199,36 +197,6 @@
 .flow-link path { fill: none; stroke: rgba(245, 196, 81, 0.6); stroke-width: 2; }
 .flow-link path:first-child { stroke-dasharray: 3 7; animation: flow-dash 1s linear infinite; }
 @keyframes flow-dash { to { stroke-dashoffset: -10; } }
-.vault { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 36px; align-items: center; padding: 30px; border-radius: 16px; border: 1px solid rgba(245, 196, 81, 0.28); background: radial-gradient(ellipse 50% 70% at 22% 50%, rgba(245, 196, 81, 0.12), transparent 70%), radial-gradient(ellipse 60% 80% at 100% 0%, rgba(47, 98, 223, 0.18), transparent 70%), linear-gradient(135deg, #0e1424, #0a0f1c); }
-.vault-art { display: block; width: 100%; max-width: 420px; height: auto; margin: 0 auto; }
-.vault-ring { fill: none; stroke: rgba(245, 196, 81, 0.18); }
-.vault-ring-2 { stroke: rgba(245, 196, 81, 0.28); }
-.vault-floor { fill: #0b1020; }
-.vault-wave { animation: vault-wave 3.5s linear infinite; }
-@keyframes vault-wave { to { transform: translateX(140px); } }
-.vault-mark { stroke: rgba(255, 246, 207, 0.35); stroke-dasharray: 3 5; }
-.vault-mark-text { fill: rgba(255, 246, 207, 0.6); font: 11px var(--font-mono); }
-.vault-core { fill: none; stroke: var(--blue-2); stroke-width: 12; stroke-linejoin: round; }
-.vault-core-edge { fill: none; stroke: #8fb0ff; stroke-width: 3; stroke-linejoin: round; }
-.vault-frame { fill: none; stroke: url(#vault-gold); stroke-width: 12; stroke-linejoin: round; }
-.vault-rivet { fill: url(#vault-gold); stroke: #5a3d08; }
-.vault-pct { fill: #fff6cf; font: 800 22px var(--font-sans); }
-.vault-pct-sub { fill: rgba(255, 246, 207, 0.7); font: 11px var(--font-mono); }
-.vault-copy p { margin: 0; }
-.vault-big { margin-top: 8px !important; font: 800 clamp(44px, 6.2vw, 82px)/1 var(--font-sans); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, #fff6cf 5%, var(--gold) 55%, var(--gold-deep)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.vault-sub { margin-top: 8px !important; font-size: 17px; color: #c9cfda; }
-.vault-sub strong { color: #fff; }
-.deposit { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 18px; padding: 14px 16px; border-radius: 10px; background: rgba(8, 11, 18, 0.6); border: 1px solid var(--border-soft); }
-.deposit-wheels { display: flex; gap: 8px; }
-.deposit-wheels span { min-width: 54px; display: grid; justify-items: center; padding: 6px 4px; border-radius: 6px; background: #121826; border: 1px solid rgba(245, 196, 81, 0.25); font: 600 9px var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.deposit-wheels strong { font-size: 24px; line-height: 1.1; color: #fff3cf; letter-spacing: 0; }
-.deposit-state { font: 600 15px var(--font-mono); color: var(--warn); }
-.vault-bars svg { display: block; width: 100%; height: auto; max-width: 100%; margin-top: 18px; }
-.vault-bars .bar { fill: url(#vault-bar); opacity: 0.7; }
-.vault-bars .bar-last { opacity: 1; }
-.vault-bars .bar-due { fill: none; stroke: var(--gold); stroke-dasharray: 3 3; }
-.vault-bars-cap { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px !important; font: 600 11px var(--font-mono); letter-spacing: 0.08em; color: var(--muted); }
-
 /* pool: the Vault's teal twin, its art on the right */
 .eyebrow-teal { color: var(--teal); }
 .band-head h2 .t { color: var(--teal); }
@@ -375,8 +343,6 @@
   .sitrep, .dossier, .board { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 900px) {
-  .vault { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 20px; }
-  .vault-art { max-width: 300px; }
   .pool { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 20px; }
   .pool .hive { order: -1; }
   .pool .hive svg { max-width: 280px; }

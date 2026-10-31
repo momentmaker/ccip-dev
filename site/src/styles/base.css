@@ -14,6 +14,9 @@ a:hover { text-decoration: underline; }
 .page { max-width: 1280px; margin: 0 auto; padding: 16px 20px 80px; }
 .mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
+/* A short list of facts, each behind a gold hex bullet. */
+.brief-facts { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 7px; font: 400 14px var(--font-mono); color: #c9cfda; }
+.hexb { color: var(--gold); margin-right: 7px; }
 .label { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .up { color: var(--up); }
 .down { color: var(--down); }

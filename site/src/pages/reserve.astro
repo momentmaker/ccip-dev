@@ -6,12 +6,15 @@ import { buildData } from '../lib/build-data';
 import { feesBesideDeposits, linkDemandTiles, mixCoverageNote, mixWeeks, weeklyFees } from '../lib/fee-mix';
 import { DASH, formatLink, formatUtcDay, linkShareText } from '../lib/format';
 import '../styles/history.css';
+import '../styles/reserve.css';
+import '../styles/vault.css';
 
 const [reserve, history] = await Promise.all([buildData('reserve.json'), buildData('history.json')]);
 const weeks = weeklyFees(history.days);
 const tiles = linkDemandTiles(history.days);
 ---
-<Base title="Chainlink Reserve" description="The Chainlink Reserve's LINK: cost basis vs value now, weekly deposit cadence, pace, every transfer, and the LINK paid in CCIP fees." cardPath="reserve">
+<Base title="Chainlink Reserve" description="The Chainlink Reserve's LINK, live: the vault, the road to 10M, its weekly deposit streak, what it paid vs what it's worth now, every transfer, and the LINK paid in CCIP fees." cardPath="reserve">
+  <div class="rsv">
   <ReserveView client:load initial={reserve} />
   <section class="link-demand" aria-labelledby="link-demand">
     <h2 id="link-demand">LINK demand</h2>
@@ -35,20 +38,10 @@ const tiles = linkDemandTiles(history.days);
     </div>
     <LinkDemandCharts client:visible mix={mixWeeks(weeks)} beside={feesBesideDeposits(weeks, reserve.weekly)} mixFrom={mixCoverageNote(history.days, weeks)} />
   </section>
+  </div>
 </Base>
 
 <style>
-  :global(.reserve-grid) { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 16px; align-items: center; margin-top: 12px; }
-  :global(.reserve-tiles) { margin-top: 16px; }
-  :global(.perf) { margin-top: 16px; }
-  :global(.vault) { margin: 0; text-align: center; }
-  :global(.vault svg) { width: 100%; max-width: 260px; }
-  :global(.vault-shell) { fill: var(--card); stroke: var(--blue); stroke-width: 2; }
-  :global(.vault-level) { transition: transform 1.4s var(--ease); }
-  :global(.coin) { fill: #c9d6f5; opacity: 0; animation: coin-drop 1.1s var(--ease) both; animation-delay: calc(var(--i) * 80ms); }
-  @keyframes coin-drop { from { transform: translateY(-260px); opacity: 0; } 30% { opacity: 1; } 80% { opacity: 1; } to { transform: translateY(0); opacity: 0; } }
-  :global(.countdown-overdue) { color: var(--warn); }
-  .link-demand { margin-top: 32px; }
+  .link-demand { margin-top: 72px; }
   .link-demand .tiles { margin: 12px 0 16px; }
-  @media (max-width: 640px) { :global(.reserve-grid) { grid-template-columns: 1fr; } }
 </style>
