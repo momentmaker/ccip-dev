@@ -90,6 +90,35 @@ describe('classifyStakers', () => {
     const kinds = await classifyStakers({ fetch: f }, ['https://rpc.one'], addrs);
     expect(Object.fromEntries(kinds)).toEqual({ '0xaa': 'wallet', '0xbb': 'smart', '0xcc': 'stakelink', '0xdd': 'contract' });
   });
+
+  it('reads a contract whose owner() reverts as a plain contract, and leaves the rest of the batch standing', async () => {
+    const f = fakeFetch((_url, init) => {
+      const calls = JSON.parse(String(init?.body)) as { id: number; method: string; params: [any] }[];
+      return jsonResponse(
+        calls.map((c) =>
+          c.method === 'eth_getCode'
+            ? { jsonrpc: '2.0', id: c.id, result: '0x6080' }
+            : c.params[0].to === '0xcc'
+              ? { jsonrpc: '2.0', id: c.id, result: `0x${'0'.repeat(24)}ac12290b097f6893322f5430627e472131fbc1b5` }
+              : { jsonrpc: '2.0', id: c.id, error: { code: 3, message: 'execution reverted' } },
+        ),
+      );
+    });
+    expect(Object.fromEntries(await classifyStakers({ fetch: f }, ['https://rpc.one'], ['0xcc', '0xdd']))).toEqual({ '0xcc': 'stakelink', '0xdd': 'contract' });
+  });
+
+  it('never guesses when an endpoint limits or fails an owner() read: it tries the next endpoint, then gives up', async () => {
+    const limited = (calls: { id: number; method: string }[]) =>
+      calls.map((c) => (c.method === 'eth_getCode' ? { jsonrpc: '2.0', id: c.id, result: '0x6080' } : { jsonrpc: '2.0', id: c.id, error: { code: 429, message: 'Too many requests' } }));
+    const next = fakeFetch((url, init) => {
+      const calls = JSON.parse(String(init?.body)) as { id: number; method: string }[];
+      if (url === 'https://rpc.one') return jsonResponse(limited(calls));
+      return jsonResponse(calls.map((c) => ({ jsonrpc: '2.0', id: c.id, result: c.method === 'eth_getCode' ? '0x6080' : `0x${'0'.repeat(24)}ac12290b097f6893322f5430627e472131fbc1b5` })));
+    });
+    expect(Object.fromEntries(await classifyStakers({ fetch: next }, ['https://rpc.one', 'https://rpc.two'], ['0xcc']))).toEqual({ '0xcc': 'stakelink' });
+    const down = fakeFetch((_url, init) => jsonResponse(limited(JSON.parse(String(init?.body)))));
+    await expect(classifyStakers({ fetch: down }, ['https://rpc.one'], ['0xcc'])).rejects.toThrow(/Too many requests/);
+  });
 });
 
 // A small pool to check the stats by hand: cap 100, at most 40 a staker, a 28-day unbonding and a 7-day claim window.

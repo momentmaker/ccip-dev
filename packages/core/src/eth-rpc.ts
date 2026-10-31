@@ -40,6 +40,35 @@ export async function ethRpcBatch(deps: Fetcher, url: string, calls: readonly { 
   return calls.map((_, id) => byId.get(id));
 }
 
+export type Settled = { ok: true; result: unknown } | { ok: false; message: string };
+
+/**
+ * Several calls in one batch, each call's own result or error in call order: one call's error does not fail the rest. The
+ * whole request still fails on HTTP errors, a non-batch answer or a call left unanswered.
+ */
+export async function ethRpcBatchSettled(deps: Fetcher, url: string, calls: readonly { method: string; params: unknown[] }[]): Promise<Settled[]> {
+  if (calls.length === 0) return [];
+  const res = await deps.fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-agent': USER_AGENT },
+    body: JSON.stringify(calls.map((c, id) => ({ jsonrpc: '2.0', id, method: c.method, params: c.params }))),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = (await res.json()) as unknown;
+  if (!Array.isArray(body)) throw new Error('batch answered with a single response');
+  const byId = new Map<number, Settled>();
+  for (const item of body as { id?: number; result?: unknown; error?: { message?: string } }[]) {
+    if (typeof item?.id !== 'number') continue;
+    if (item.error !== undefined && item.error !== null) byId.set(item.id, { ok: false, message: String(item.error.message ?? 'error') });
+    else if (item.result !== undefined && item.result !== null) byId.set(item.id, { ok: true, result: item.result });
+  }
+  if (byId.size !== calls.length) throw new Error(`batch answered ${byId.size} of ${calls.length} calls`);
+  return calls.map((_, id) => byId.get(id)!);
+}
+
+/** A JSON-RPC error that means the call itself reverted, as opposed to the endpoint failing or limiting the caller. */
+export const isRevert = (message: string) => /revert/i.test(message);
+
 export function hexQuantity(value: unknown): bigint {
   if (typeof value !== 'string' || !HEX_QUANTITY.test(value)) throw new Error('malformed result');
   return BigInt(value);

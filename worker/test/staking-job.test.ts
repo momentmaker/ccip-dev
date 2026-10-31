@@ -168,3 +168,15 @@ describe('scanStaking', () => {
     expect(await store.getMeta(env.DB, 'staking_scan_failures')).toBe('0');
   });
 });
+
+describe('classifying stakers', () => {
+  it('keeps the batches it classified when a later one fails, and checks a contract again once its row is dropped', async () => {
+    const rpc = stakingRpc({ head: FIRST + 100, logs: LOGS });
+    await runStaking(harness({ now: NOW, fetch: rpc }).c);
+    await env.DB.prepare("DELETE FROM staking_holders WHERE kind = 'contract'").run();
+    expect(await store.hasUnclassifiedStakers(env.DB)).toBe(true);
+    await runStaking(harness({ now: NOW, fetch: rpc }).c);
+    expect((await store.stakingHolders(env.DB)).get(SAFE)).toBe('contract');
+    expect(await store.hasUnclassifiedStakers(env.DB)).toBe(false);
+  });
+});

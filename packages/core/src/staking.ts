@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ethRpc, ethRpcBatch, onFirstEndpoint, toHex, type Fetcher } from './eth-rpc';
+import { ethRpc, ethRpcBatch, ethRpcBatchSettled, isRevert, onFirstEndpoint, toHex, type Fetcher } from './eth-rpc';
 import type { HolderKind } from './public';
 
 /** Chainlink Staking v0.2 on Ethereum (https://blog.chain.link/chainlink-staking-v0-2-now-live). */
@@ -194,13 +194,15 @@ export async function classifyStakers(deps: Fetcher, rpcUrls: string[], addresse
       else contracts.push(a);
     });
     if (contracts.length === 0) continue;
+    // owner() reverts on a contract without one, which makes it a plain contract. Any other error is the endpoint's (a rate
+    // limit, an outage), so the read fails and the next endpoint, or the next run, tries again: a guess would stick for 30 days.
     const owners = await onFirstEndpoint(rpcUrls, 'Staker owner read', async (url) => {
-      // owner() reverts on contracts without one; read those one at a time so one revert cannot fail the batch.
-      try {
-        return await ethRpcBatch(deps, url, contracts.map((a) => ({ method: 'eth_call', params: [{ to: a, data: SELECTORS.owner }, 'latest'] })));
-      } catch {
-        return Promise.all(contracts.map((a) => ethRpc(deps, url, 'eth_call', [{ to: a, data: SELECTORS.owner }, 'latest']).catch(() => '0x')));
-      }
+      const settled = await ethRpcBatchSettled(deps, url, contracts.map((a) => ({ method: 'eth_call', params: [{ to: a, data: SELECTORS.owner }, 'latest'] })));
+      return settled.map((r) => {
+        if (r.ok) return String(r.result);
+        if (isRevert(r.message)) return '0x';
+        throw new Error(`owner() failed: ${r.message}`);
+      });
     });
     contracts.forEach((a, j) => {
       const value = String(owners[j]);
