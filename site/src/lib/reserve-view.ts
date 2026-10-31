@@ -1,10 +1,9 @@
 import type { ReserveFile } from '@ccip-dev/core/public';
 import { dayOf } from '@ccip-dev/core/time';
-import { formatCountdown, formatUsd } from './format';
+import { formatCountdown } from './format';
 
 export const DEPOSIT_PAST_DUE = 'Deposit expected — watching';
 export const OVERDUE_GRACE_MS = 24 * 3_600_000;
-export const MAX_COINS = 24;
 const MILLION = 1_000_000;
 
 export type Countdown =
@@ -27,18 +26,6 @@ export function countdown(nextIso: string | null, overdueFlag: boolean, nowMs: n
   }
   if (nowMs >= due) return { kind: 'expected', text: DEPOSIT_PAST_DUE };
   return { kind: 'counting', text: formatCountdown(due - nowMs) };
-}
-
-export function depositCoins(weekly: ReserveFile['weekly']): { week: string; link: number; usd: number }[] {
-  return weekly
-    .filter((w) => w.deposits > 0)
-    .slice(-MAX_COINS)
-    .map((w) => ({ week: w.week, link: w.link, usd: w.usd }));
-}
-
-export function valueAtPriceText(valueUsd: number | null | undefined, priceUsd: number | null | undefined): string {
-  if (valueUsd == null || priceUsd == null) return '';
-  return `≈ ${formatUsd(valueUsd)} at $${priceUsd.toFixed(2)} per LINK`;
 }
 
 export interface DepositWeek {

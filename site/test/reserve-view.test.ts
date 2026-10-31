@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, DEPOSIT_PAST_DUE, depositCoins, depositWeeks, DUST_LINK, MAX_COINS, millionCrossings, roadTo, shownTransfers, stackWithReserve, timeToStack, valueAtPriceText, vaultFill } from '../src/lib/reserve-view';
+import { countdown, DEPOSIT_PAST_DUE, depositWeeks, DUST_LINK, millionCrossings, roadTo, shownTransfers, stackWithReserve, timeToStack, vaultFill } from '../src/lib/reserve-view';
 
 const HOUR = 3_600_000;
 const DUE = '2026-10-08T15:35:00.000Z';
@@ -53,32 +53,6 @@ describe('vaultFill at a milestone', () => {
     expect(vaultFill(1_000_000)).toEqual({ target: 2_000_000, fraction: 0.5 });
     expect(vaultFill(0)).toEqual({ target: 1_000_000, fraction: 0 });
     expect(vaultFill(999_999)).toEqual({ target: 1_000_000, fraction: 0.999999 });
-  });
-});
-
-describe('depositCoins', () => {
-  it('keeps only weeks with deposits, newest last, capped', () => {
-    const weekly = Array.from({ length: 30 }, (_, i) => ({ week: `w${String(i).padStart(2, '0')}`, deposits: i === 3 ? 0 : 1, link: 10 * i, usd: 100 * i }));
-    const coins = depositCoins(weekly);
-    expect(coins).toHaveLength(MAX_COINS);
-    expect(coins.at(-1)).toEqual({ week: 'w29', link: 290, usd: 2900 });
-    expect(coins.some((c) => c.week === 'w03')).toBe(false);
-  });
-});
-
-describe('valueAtPriceText', () => {
-  it('states the value at the LINK price', () => {
-    expect(valueAtPriceText(1_234_567, 18.456)).toBe('≈ $1.2M at $18.46 per LINK');
-  });
-
-  it('states a LINK price of zero rather than hiding it', () => {
-    expect(valueAtPriceText(0, 0)).toBe('≈ $0 at $0.00 per LINK');
-  });
-
-  it('says nothing without a price or a value', () => {
-    expect(valueAtPriceText(1_234_567, null)).toBe('');
-    expect(valueAtPriceText(1_234_567, undefined)).toBe('');
-    expect(valueAtPriceText(null, 18.4)).toBe('');
   });
 });
 

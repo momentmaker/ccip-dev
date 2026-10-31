@@ -1,0 +1,99 @@
+/* /reserve: the Vault on top, then the road, the price paid, the streak, the calculator and the transfers. Gold is the Reserve's color. */
+.rsv { --rsv-line: rgba(245, 196, 81, 0.16); --rsv-more: #1fa89b; --rsv-less: #d4722e; }
+.rsv .g { color: var(--gold); }
+.rsv .band { margin-top: 72px; }
+.rsv .band-head { margin-bottom: 20px; }
+.rsv .band-head h2 { margin: 8px 0 0; font-size: clamp(26px, 3.4vw, 40px); font-weight: 800; line-height: 1.08; letter-spacing: -0.025em; text-wrap: balance; }
+.rsv .eyebrow { margin: 0; font: 700 11px var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
+.rsv .lead { margin: 8px 0 0; max-width: 66ch; color: #aeb7c5; }
+.rsv .panel { min-width: 0; padding: 18px; border-radius: 12px; background: var(--card); border: 1px solid var(--rsv-line); }
+.rsv .foot { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+.rsv .nw { white-space: nowrap; }
+.reserve-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.rsv .vault-big { margin: 8px 0 0; }
+
+/* road */
+.road { list-style: none; position: relative; display: grid; grid-template-columns: repeat(var(--stops), minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; }
+.road::before { content: ''; position: absolute; left: 0; right: 0; top: 22px; height: 2px; background: linear-gradient(90deg, var(--gold) var(--done), rgba(245, 196, 81, 0.18) var(--done)); }
+.road li { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; min-width: 0; padding: 0 4px; }
+.road-hex { position: relative; display: grid; place-items: center; width: 40px; height: 46px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: rgba(245, 196, 81, 0.16); font: 800 13px var(--font-mono); color: var(--gold); }
+.road li.reached .road-hex { background: linear-gradient(180deg, #fff1c2, var(--gold) 55%, var(--gold-deep)); color: #2a2116; }
+.road li.goal .road-hex { background: transparent; outline: none; box-shadow: none; }
+.road li.goal .road-hex::before { content: ''; position: absolute; inset: 0; clip-path: inherit; background: linear-gradient(180deg, var(--blue-2), #1d3f8f); }
+.road li.goal .road-hex span { position: relative; color: #fff; }
+.road-day { font: 600 12px var(--font-mono); color: #c9cfda; }
+.road-sub { font-size: 11px; color: var(--muted); }
+.road li.ahead .road-day { color: var(--muted); }
+.road .road-here { position: absolute; padding: 0; top: -6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.road-here i { width: 12px; height: 12px; border-radius: 50%; margin-top: 22px; background: #fff6cf; box-shadow: 0 0 0 3px var(--card), 0 0 14px var(--gold); }
+.road-here span { position: absolute; top: -18px; white-space: nowrap; font: 700 11px var(--font-mono); color: #fff6cf; }
+.road-panel { padding-top: 34px; }
+
+/* bought low, bought high */
+.bought-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 16px; align-items: stretch; }
+.bought-chart { position: relative; }
+.bought-chart svg { display: block; width: 100%; height: 280px; overflow: visible; }
+.bl-grid { stroke: rgba(232, 234, 237, 0.07); stroke-width: 1; }
+.bl-tick { font: 600 10px var(--font-mono); fill: var(--muted); }
+.bl-ref { stroke: rgba(232, 234, 237, 0.55); stroke-width: 1; }
+.bl-ref.cost { stroke-dasharray: 4 4; stroke: rgba(245, 196, 81, 0.7); }
+.bl-ref-label { font: 600 10px var(--font-mono); fill: #c9cfda; }
+.bl-dot { stroke: var(--card); stroke-width: 2; }
+.bl-dot.more { fill: var(--rsv-more); }
+.bl-dot.less { fill: var(--card); stroke: var(--rsv-less); stroke-width: 2.4; }
+.bl-dot.on { stroke: #fff; }
+.bl-hit { fill: transparent; cursor: default; }
+.bl-callout { font: 700 11px var(--font-sans); fill: #e8eaed; }
+.bl-key { list-style: none; display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 0 0 8px; padding: 0; font-size: 12px; color: #c9cfda; }
+.bl-key i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: 0; }
+.bl-key .more { background: var(--rsv-more); }
+.bl-key .less { border: 2px solid var(--rsv-less); }
+.bl-key .ref { width: 16px; height: 0; border-radius: 0; border-top: 1px solid rgba(232, 234, 237, 0.55); vertical-align: 3px; }
+.bl-key .ref.cost { border-top: 1px dashed rgba(245, 196, 81, 0.8); }
+.bl-tip { position: absolute; z-index: 2; pointer-events: none; transform: translate(-50%, calc(-100% - 12px)); min-width: 150px; padding: 8px 10px; border-radius: 8px; background: #0f141d; border: 1px solid var(--border); box-shadow: 0 10px 30px #000a; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.bl-tip strong { display: block; font: 700 15px var(--font-mono); color: var(--fg); }
+.paid { display: flex; flex-direction: column; gap: 14px; }
+.paid-row { display: grid; gap: 4px; }
+.paid-row span { font-size: 12px; color: var(--muted); }
+.paid-row b { font: 700 20px var(--font-mono); }
+.paid-bar { height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.paid-bar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, #8a5e10, var(--gold)); }
+.paid-bar.now i { background: linear-gradient(90deg, #0d5652, var(--rsv-more)); }
+.paid-bar.now.down i { background: linear-gradient(90deg, #6b3410, var(--rsv-less)); }
+.paid-change { font: 800 26px var(--font-mono); }
+
+/* streak */
+.streak { display: grid; grid-template-columns: repeat(var(--weeks), minmax(0, 1fr)); gap: 3px; }
+.streak i { aspect-ratio: 0.87; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: var(--gold); opacity: var(--a); }
+.streak i.miss { background: rgba(255, 255, 255, 0.08); opacity: 1; }
+.streak i.last { opacity: 1; box-shadow: 0 0 10px var(--gold); }
+.streak-ends { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; font: 600 11px var(--font-mono); color: var(--muted); }
+
+/* stack with the Reserve */
+.stack-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stack-in { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 15px; }
+.stack-in input { width: 120px; padding: 7px 9px; border-radius: 6px; border: 1px solid rgba(245, 196, 81, 0.4); background: #0e141c; color: var(--fg); font: 600 15px var(--font-mono); }
+.stack-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.stack-presets button { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(245, 196, 81, 0.35); background: transparent; color: #c9cfda; font: 600 12px var(--font-sans); cursor: pointer; }
+.stack-presets button:hover { border-color: var(--gold); color: var(--fg); }
+.stack-presets button[aria-pressed='true'] { background: rgba(245, 196, 81, 0.14); border-color: var(--gold); color: #fff3cf; }
+.stack-out { margin: 16px 0 0; font-size: 15px; color: #c9cfda; }
+.stack-out b { font: 800 clamp(26px, 3vw, 34px) var(--font-mono); color: #fff3cf; }
+
+/* transfers */
+.transfer-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.transfer-tools button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: #c9cfda; font: 600 12px var(--font-sans); cursor: pointer; }
+.transfer-tools button:hover { border-color: var(--blue-2); color: var(--fg); }
+
+@media (max-width: 900px) {
+  .bought-grid, .stack-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .road { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .road::before { left: 19px; right: auto; top: 0; bottom: 0; width: 2px; height: auto; background: linear-gradient(180deg, var(--gold) var(--done), rgba(245, 196, 81, 0.18) var(--done)); }
+  .road li { flex-direction: row; align-items: center; text-align: left; gap: 12px; padding: 0; }
+  .road .road-here { display: none; }
+  .streak { grid-template-columns: repeat(13, minmax(0, 1fr)); }
+  .road-panel { padding-top: 18px; }
+  .rsv .band { margin-top: 56px; }
+}
