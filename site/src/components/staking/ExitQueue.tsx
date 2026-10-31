@@ -1,4 +1,5 @@
 import type { StakingFile } from '@ccip-dev/core/public';
+import { Fragment } from 'react';
 import { formatCompactCount, formatCount, formatUtcDay } from '../../lib/format';
 import { boardRows, dialDots, onDial, sharePct } from '../../lib/staking-view';
 
@@ -26,7 +27,7 @@ function Dial({ staking, now }: { staking: StakingFile; now: Date }) {
       <path d={arc(split + 0.004, 0.996, R)} className="dial-track dial-claim" />
       {Array.from({ length: Math.round(total / 7) + 1 }, (_, w) => {
         const f = (w * 7) / total;
-        const a = onDial(f, R + 16, C, C);
+        const a = onDial(f, R + 30, C, C);
         const t1 = onDial(f, R - 9, C, C);
         const t2 = onDial(f, R + 9, C, C);
         return (
@@ -53,6 +54,7 @@ const STATUS_CLASS: Record<string, string> = { 'GATE OPEN': 'gate', BOARDING: 'b
 export default function ExitQueue({ staking, now }: { staking: StakingFile; now: Date }) {
   const q = staking.queue;
   const rows = boardRows(q);
+  const firstPast = rows.findIndex((r) => r.status === 'DEPARTED' || r.status === 'STAYED');
   const others = sharePct(q.conversion.others.left, q.conversion.others.total);
   const ladder = sharePct(q.conversion.stakelink.left, q.conversion.stakelink.total);
   const days = Math.round(staking.periods.unbonding_s / 86_400);
@@ -87,21 +89,28 @@ export default function ExitQueue({ staking, now }: { staking: StakingFile; now:
               <span role="columnheader">Status</span>
             </div>
             {rows.map((r, i) => (
-              <div className="board-row" role="row" key={i} style={{ ['--i' as string]: i }}>
-                <span role="cell" className="mono">{r.day ? formatUtcDay(r.day).replace(/, \d{4}$/, '') : 'NOW'}</span>
-                <span role="cell" className="num mono">{formatCount(r.link)}</span>
-                <span role="cell">
-                  <b className={`flap ${STATUS_CLASS[r.status]}`}>{r.status}</b>
-                  <span className="board-note">{r.note}</span>
-                </span>
-              </div>
+              <Fragment key={i}>
+                {i === firstPast && (
+                  <div className="board-divider" role="row">
+                    <span role="cell">Windows that closed · last 7 days</span>
+                  </div>
+                )}
+                <div className="board-row" role="row" style={{ ['--i' as string]: i }}>
+                  <span role="cell" className="mono">{r.day ? formatUtcDay(r.day).replace(/, \d{4}$/, '') : 'NOW'}</span>
+                  <span role="cell" className="num mono">{formatCount(r.link)}</span>
+                  <span role="cell">
+                    <b className={`flap ${STATUS_CLASS[r.status]}`}>{r.status}</b>
+                    <span className="board-note">{r.note}</span>
+                  </span>
+                </div>
+              </Fragment>
             ))}
           </div>
         </div>
         <div className="queue-facts">
           <div className="panel qf qf-hot">
             <span className="label">Likely to leave in the next {days} days</span>
-            <strong className="mono">≈ {formatCount(q.likely_to_leave)} LINK</strong>
+            <strong className="mono">≈ {formatCompactCount(q.likely_to_leave)} LINK</strong>
             <span className="muted">the unbonding LINK outside stake.link × how often it really leaves</span>
           </div>
           <div className="panel qf">

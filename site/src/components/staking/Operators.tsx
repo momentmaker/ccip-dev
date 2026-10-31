@@ -54,6 +54,8 @@ export default function Operators({ staking }: { staking: StakingFile }) {
   const named = active.filter((x) => x.name !== null).length;
   const slShare = sharePct(sl.operator_link, o.total);
   const events = staking.operator_events.slice(0, EVENTS);
+  // An unbonding event carries no amount: it covers the whole stake, which the roster has as it is now.
+  const stakeNow = new Map(staking.operators.map((x) => [x.address, x.stake]));
   return (
     <section className="band" aria-labelledby="ops-title">
       <div className="band-head">
@@ -117,6 +119,7 @@ export default function Operators({ staking }: { staking: StakingFile }) {
                 <b>{opName(e)}</b> {VERB[e.kind]}
                 {e.amount !== null && e.kind !== 'removed' ? ` ${formatCount(e.amount)} LINK` : ''}
                 {e.kind === 'removed' && e.amount !== null ? ` with ${formatCount(e.amount)} LINK staked` : ''}
+                {e.kind === 'unbonding' && (stakeNow.get(e.address) ?? 0) > 0 ? <span className="muted"> · {formatCount(stakeNow.get(e.address)!)} LINK staked now</span> : null}
               </span>
             </li>
           ))}

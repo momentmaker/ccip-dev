@@ -14,6 +14,7 @@
 .stk .chip-open { background: var(--gold); color: #2a2116; }
 .stk .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .stk .table-wrap { overflow-x: auto; }
+.stk .nw { white-space: nowrap; }
 .stk table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .stk th { text-align: left; font: 700 10px var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--stk-line); }
 .stk td { padding: 9px 10px; border-bottom: 1px solid rgba(46, 211, 195, 0.07); }
@@ -24,7 +25,7 @@
 .stake-total { margin: 4px 0 2px; font-size: clamp(44px, 7vw, 84px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; background: linear-gradient(180deg, #ffffff 15%, var(--teal-2) 70%, var(--teal)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .stake-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 0; font-size: 14px; color: #c9cfda; }
 .stake-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0 0; }
-.stake-stats div { padding: 12px; border-radius: 10px; background: rgba(46, 211, 195, 0.05); border: 1px solid var(--stk-line); }
+.stake-stats div { display: flex; flex-direction: column; justify-content: space-between; padding: 12px; border-radius: 10px; background: rgba(46, 211, 195, 0.05); border: 1px solid var(--stk-line); }
 .stake-stats dt { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .stake-stats dd { margin: 4px 0 0; font-size: 22px; font-weight: 700; }
 
@@ -32,8 +33,8 @@
 .hive { margin: 0; }
 .hive svg { display: block; width: 100%; max-width: 560px; margin: 0 auto; overflow: visible; }
 .cell { stroke: rgba(12, 15, 20, 0.9); stroke-width: 1.2; transition: fill 0.35s var(--ease), opacity 0.35s var(--ease); }
-.cell-wallet { fill: var(--teal); opacity: 0.82; }
-.cell-smart { fill: var(--teal-2); opacity: 0.9; }
+.cell-wallet { fill: var(--teal); opacity: 0.72; }
+.cell-smart { fill: var(--teal-2); opacity: 1; }
 .cell-stakelink { fill: var(--blue-2); opacity: 0.85; }
 .cell-contract { fill: #5d6b82; opacity: 0.85; }
 .cell-open { fill: transparent; stroke: var(--gold); stroke-dasharray: 3 3; }
@@ -101,6 +102,7 @@
 .flap.departed { color: var(--down); }
 .flap.stayed { color: var(--up); }
 .board-note { font: 400 12px var(--font-sans); color: var(--muted); }
+.board-divider { padding: 7px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); background: #121821; font: 700 10px var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 @keyframes flap-in { from { opacity: 0; transform: rotateX(70deg); } to { opacity: 1; transform: none; } }
 .qf { display: flex; flex-direction: column; gap: 6px; }
 .qf strong { font-size: clamp(26px, 3vw, 34px); font-weight: 800; }
@@ -119,11 +121,12 @@
 .hunt-stats b { font-size: 26px; color: var(--teal-2); }
 .hunt-stats span { font-size: 12px; color: var(--muted); }
 .hunt-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+.hunt-table a { white-space: nowrap; }
 .hunt-table tr.champ td { color: var(--gold); }
 .hunt-table tr.champ a { color: var(--gold); }
 .hunt-feed { list-style: none; margin: 10px 0 0; padding: 0; }
 .hunt-feed li { display: grid; grid-template-columns: 100px 100px 64px minmax(0, 1fr); gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(46, 211, 195, 0.07); font-size: 13px; }
-.hunt-feed .when { color: var(--muted); font-size: 12px; }
+.hunt-feed .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .hunt-feed .took { color: var(--teal-2); }
 .hunt-feed .took.fast { color: var(--gold); font-weight: 700; }
 .hunt-feed .who { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; }
@@ -132,7 +135,7 @@
 .stakers-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .tenure-big { margin: 6px 0 12px; }
 .tenure-big .mono { font-size: 44px; font-weight: 800; color: var(--teal-2); letter-spacing: -0.03em; }
-.tenure-big small { color: var(--muted); }
+.tenure-big small { margin-left: 8px; color: var(--muted); }
 .ribbons, .bars { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .ribbons li { display: grid; grid-template-columns: 44px minmax(0, 1fr) 54px; align-items: center; gap: 10px; font-size: 13px; }
 .ribbon { display: block; height: 14px; border-radius: 3px; background: linear-gradient(90deg, var(--teal-deep), var(--teal)); clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%); min-width: 10px; }
@@ -176,13 +179,18 @@
 .key-in { background: var(--teal); }
 .key-out { background: var(--down); }
 .key-trace { height: 2px !important; background: var(--gold); vertical-align: 3px !important; }
-.tape { display: block; width: 100%; height: 270px; }
-.tape-axis { stroke: rgba(232, 234, 237, 0.2); stroke-width: 1; }
+.tape-wrap { position: relative; }
+/* Drawn 1:1 vertically, so the gridline label can sit at its viewBox y in pixels. */
+.tape { display: block; width: 100%; height: 260px; }
+.tape-grid { stroke: rgba(245, 196, 81, 0.22); stroke-width: 1; stroke-dasharray: 4 6; vector-effect: non-scaling-stroke; }
+.tape-grid-label { position: absolute; right: 0; transform: translateY(-120%); font-size: 10px; color: rgba(245, 196, 81, 0.7); }
+.tape-years { position: relative; height: 16px; margin-top: 4px; }
+.tape-years span { position: absolute; top: 0; font-size: 11px; font-weight: 600; color: var(--muted); }
+.tape-axis { stroke: rgba(232, 234, 237, 0.2); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .tape-in { fill: var(--teal); opacity: 0.85; }
 .tape-out { fill: var(--down); opacity: 0.8; }
 .tape-clip { fill: var(--gold); }
 .tape-trace { fill: none; stroke: var(--gold); stroke-width: 1.6; vector-effect: non-scaling-stroke; opacity: 0.9; }
-.tape-year { font: 600 11px var(--font-mono); fill: var(--muted); }
 
 /* staker cards */
 .lookup label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
@@ -238,7 +246,8 @@
   .hunt-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .board-row { grid-template-columns: 58px 92px minmax(0, 1fr); gap: 8px; padding: 8px 12px; font-size: 13px; }
   .board-note { display: none; }
-  .hunt-feed li { grid-template-columns: 86px 1fr 52px; }
+  .hunt-feed li { grid-template-columns: auto 1fr 52px; }
+  .stk th, .stk td { padding-inline: 6px; }
   .hunt-feed .who { grid-column: 1 / -1; }
   .stk .band { margin-top: 56px; }
 }

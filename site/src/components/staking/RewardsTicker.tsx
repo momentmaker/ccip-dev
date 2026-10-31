@@ -46,8 +46,8 @@ export default function RewardsTicker({ staking, now }: { staking: StakingFile; 
           <span ref={out}>{link4(0)}</span> <small>LINK</small>
         </p>
         <p className="muted rewards-rate">
-          {formatCount(perSecond * DAY_S)} LINK a day · funded to {formatUtcDay(rewards.ends_at)}
-          {now ? ` (${formatCount(daysUntil(rewards.ends_at, now))} days)` : ''}
+          {formatCount(perSecond * DAY_S)} LINK a day · funded to <span className="nw">{formatUtcDay(rewards.ends_at)}</span>
+          {now ? <span className="nw">{` (${formatCount(daysUntil(rewards.ends_at, now))} days)`}</span> : ''}
         </p>
       </div>
       <dl className="rewards-rates">
@@ -66,6 +66,7 @@ export default function RewardsTicker({ staking, now }: { staking: StakingFile; 
         <span>If you staked</span>
         <input
           type="number"
+          name="stake"
           inputMode="decimal"
           min={staking.community.min_stake}
           max={staking.community.max_stake}

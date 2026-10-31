@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, stakerHref, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
+import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, stakerHref, tapeGrid, tapeMax, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
 
 const QUEUE = {
   unbonding: { stakers: 3, link: 300, stakelink_stakers: 1, stakelink_link: 15_000 },
@@ -102,6 +102,23 @@ describe('rewards', () => {
 
   it('links a staker to its card by lowercase address', () => {
     expect(stakerHref('0xAbC')).toBe('/staking/0xabc/');
+  });
+});
+
+describe('the tape', () => {
+  const week = (staked: number, asked: number, unstaked = staked) => ({ week: '2026-01-05', staked, unstaked, unbondings: 1, unbonding_link: asked + 5_000, stakelink_unbonding_link: 5_000, new_stakers: 0, openings: 0 });
+  const ordinary = Array.from({ length: 60 }, () => week(100_000, 200_000));
+
+  it('never lets the LINK that asked to leave run off the top', () => {
+    expect(tapeMax([...ordinary, week(150_000, 1_550_000)])).toBeGreaterThanOrEqual(1_550_000);
+  });
+
+  it('lets the launch weeks run off rather than flatten every other week', () => {
+    expect(tapeMax([week(21_000_000, 0, 0), week(12_000_000, 0, 0), ...ordinary])).toBeLessThan(1_000_000);
+  });
+
+  it('draws a round gridline below the top', () => {
+    expect([tapeGrid(1_670_000), tapeGrid(430_000), tapeGrid(90_000)]).toEqual([1_000_000, 200_000, 50_000]);
   });
 });
 

@@ -202,6 +202,26 @@ export function shortHex(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+/** LINK that started unbonding in a week outside stake.link's ladder: the tape's trace. */
+export const tapeAsked = (w: StakingFile['weeks'][number]) => Math.max(0, w.unbonding_link - w.stakelink_unbonding_link);
+
+/**
+ * The tape's top in LINK a week: the busiest ordinary week in or out, or the most LINK that asked to leave in a week,
+ * whichever is higher, so the trace always fits. The launch weeks moved the whole pool, so they run off the top.
+ */
+export function tapeMax(weeks: StakingFile['weeks']): number {
+  const flows = weeks.flatMap((w) => [w.staked, w.unstaked]).sort((a, b) => a - b);
+  const busiest = flows[Math.floor(flows.length * 0.97)] ?? 0;
+  return Math.max(1, busiest, ...weeks.map(tapeAsked)) * 1.08;
+}
+
+const TAPE_GRIDS = [5_000_000, 2_000_000, 1_000_000, 500_000, 200_000, 100_000, 50_000, 20_000, 10_000];
+
+/** The tape's gridline: the largest round amount that sits well below its top. */
+export function tapeGrid(max: number): number {
+  return TAPE_GRIDS.find((g) => g <= max * 0.85) ?? TAPE_GRIDS.at(-1)!;
+}
+
 /** Weekly tape bars, newest last, up to `weeks` of them. */
 export function tapeWeeks(weeks: StakingFile['weeks'], count: number): StakingFile['weeks'] {
   return weeks.slice(-count);

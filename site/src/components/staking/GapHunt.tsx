@@ -18,7 +18,8 @@ export default function GapHunt({ staking }: { staking: StakingFile }) {
           </h2>
           <p className="lead">
             The community pool has been full since {staking.community.full_since ? formatUtcDay(staking.community.full_since) : '—'}. Every time
-            someone leaves, hunters race to take the space: half the gaps close within {formatDuration(r.median_s)}, and 90% within {formatDuration(r.p90_s)}.
+            someone leaves, hunters race to take the space: half the gaps close within <span className="nw">{formatDuration(r.median_s)}</span>, and 90% within{' '}
+            <span className="nw">{formatDuration(r.p90_s)}</span>.
           </p>
         </div>
       </div>
