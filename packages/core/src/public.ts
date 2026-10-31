@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MILESTONE_METRICS } from './records';
+import { HOLDER_KINDS } from './staking';
 
 const envelope = {
   schema_version: z.literal(1),
@@ -379,6 +380,64 @@ export const ProjectSchema = z.object({
 
 export const ProjectsFileSchema = z.object({ ...envelope, from: z.string(), to: z.string(), projects: z.array(ProjectSchema) });
 
+const QueueSplitSchema = z.object({ stakers: z.number(), link: z.number(), stakelink_stakers: z.number(), stakelink_link: z.number() });
+const RatioSchema = z.object({ left: z.number(), total: z.number() });
+const HolderKindSchema = z.enum(HOLDER_KINDS);
+
+export const StakingFileSchema = z.object({
+  ...envelope,
+  as_of_block: z.number(),
+  /** The first staking event's time. */
+  since: z.string(),
+  periods: z.object({ unbonding_s: z.number(), claim_s: z.number() }),
+  community: z.object({
+    total: z.number(), cap: z.number(), min_stake: z.number(), max_stake: z.number(), stakers: z.number(), ever: z.number(),
+    at_max: z.number(), median: z.number(), mean: z.number(), full_since: z.string().nullable(),
+  }),
+  operator: z.object({
+    total: z.number(), cap: z.number(), min_stake: z.number(), max_stake: z.number(), stakers: z.number(), allowlisted: z.number(), removed: z.number(), at_max: z.number(),
+  }),
+  /** The reward vault's emission, in LINK a second, and the yearly rate it pays on each pool's principal. */
+  rewards: z
+    .object({
+      community_per_s: z.number(), operator_per_s: z.number(), delegated_per_s: z.number(), ends_at: z.string(),
+      community_rate_pct: z.number().nullable(), operator_rate_pct: z.number().nullable(),
+    })
+    .nullable(),
+  holders: z.array(z.object({ kind: HolderKindSchema, stakers: z.number(), link: z.number() })),
+  sizes: z.array(z.object({ min: z.number(), max: z.number().nullable(), stakers: z.number(), link: z.number() })),
+  tenure: z.object({ first_month: z.number(), median_days: z.number(), by_year: z.array(z.object({ year: z.string(), stakers: z.number() })) }),
+  queue: z.object({
+    unbonding: QueueSplitSchema,
+    claimable: QueueSplitSchema,
+    /** LINK from stakers in their unbonding period, by the day their claim window opens (UTC). */
+    days: z.array(z.object({ day: z.string(), link: z.number(), stakelink_link: z.number(), stakers: z.number() })),
+    /** Claim windows that closed in the last 7 days, by the day they closed. */
+    closed: z.array(z.object({ day: z.string(), left: z.number(), stayed: z.number(), stakelink_stayed: z.number() })),
+    conversion: z.object({ others: RatioSchema, stakelink: RatioSchema }),
+    likely_to_leave: z.number(),
+    lapsed: z.number(),
+  }),
+  refills: z.object({
+    openings: z.number(), median_s: z.number(), p90_s: z.number(), same_block: z.number(), next_block: z.number(), hunters: z.number(),
+    leaders: z.array(z.object({ address: z.string(), grabs: z.number(), link: z.number(), fastest_s: z.number() })),
+    recent: z.array(z.object({ opened_at: z.string(), gap: z.number(), seconds: z.number().nullable(), blocks: z.number().nullable(), grabs: z.array(z.string()) })),
+  }),
+  weeks: z.array(z.object({ week: z.string(), staked: z.number(), unstaked: z.number(), unbondings: z.number(), unbonding_link: z.number(), new_stakers: z.number(), openings: z.number() })),
+  operators: z.array(z.object({ address: z.string(), name: z.string().nullable(), via: HolderKindSchema, stake: z.number(), since: z.string().nullable(), status: z.enum(['active', 'removed']) })),
+  operator_events: z.array(
+    z.object({ ts: z.string(), kind: z.enum(['added', 'removed', 'staked', 'unstaked', 'unbonding']), address: z.string(), name: z.string().nullable(), amount: z.number().nullable(), stake: z.number().nullable() }),
+  ),
+  stakelink: z.object({ community_vaults: z.number(), community_link: z.number(), operator_vaults: z.number(), operator_link: z.number() }),
+});
+
+/** Every current staker: address, pool (c or o), principal, first stake, unbonding start, holder. */
+export const StakersFileSchema = z.object({
+  ...envelope,
+  as_of_block: z.number(),
+  stakers: z.array(z.tuple([z.string(), z.enum(['c', 'o']), z.number(), z.string(), z.string().nullable(), HolderKindSchema])),
+});
+
 export const PUBLIC_SCHEMAS = {
   'status.json': StatusFileSchema,
   'live.json': LiveFileSchema,
@@ -397,6 +456,8 @@ export const PUBLIC_SCHEMAS = {
   'day-leaders.json': DayLeadersFileSchema,
   'moments.json': MomentsFileSchema,
   'projects.json': ProjectsFileSchema,
+  'staking.json': StakingFileSchema,
+  'staking-stakers.json': StakersFileSchema,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
@@ -433,3 +494,5 @@ export type MomentsFile = z.infer<typeof MomentsFileSchema>;
 export type SenderArrival = z.infer<typeof SenderArrivalSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type ProjectsFile = z.infer<typeof ProjectsFileSchema>;
+export type StakingFile = z.infer<typeof StakingFileSchema>;
+export type StakersFile = z.infer<typeof StakersFileSchema>;

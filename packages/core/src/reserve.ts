@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { USER_AGENT, type HttpDeps } from './http';
+import { ethRpc as rpc, HEX_QUANTITY, hexQuantity as quantity, onFirstEndpoint, toHex, type Fetcher } from './eth-rpc';
 
 export const LINK_TOKEN = '0x514910771AF9Ca656af840dff83E8264EcF986CA';
 export const LINK_TOKEN_CHAIN_SELECTOR = '5009297550715157269';
@@ -40,7 +40,6 @@ export const RESERVE_FIRST_BLOCK = 23_039_541;
 const BALANCE_OF = '0x70a08231';
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const RESERVE_TOPIC = `0x${LINK_RESERVE.slice(2).toLowerCase().padStart(64, '0')}`;
-const HEX_QUANTITY = /^0x[0-9a-fA-F]+$/;
 
 export interface ReserveTransfer {
   txHash: string;
@@ -65,39 +64,6 @@ const RpcLogs = z.array(
   }),
 );
 const RpcBlock = z.object({ timestamp: Quantity });
-
-type Fetcher = Pick<HttpDeps, 'fetch'>;
-
-const toHex = (n: number) => `0x${n.toString(16)}`;
-
-async function rpc(deps: Fetcher, url: string, method: string, params: unknown[]): Promise<unknown> {
-  const res = await deps.fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'user-agent': USER_AGENT },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { result?: unknown; error?: { message?: string } };
-  if (body.result === undefined || body.result === null) throw new Error(body.error?.message ?? 'no result');
-  return body.result;
-}
-
-function quantity(value: unknown): bigint {
-  if (typeof value !== 'string' || !HEX_QUANTITY.test(value)) throw new Error('malformed result');
-  return BigInt(value);
-}
-
-async function onFirstEndpoint<T>(rpcUrls: string[], what: string, attempt: (url: string) => Promise<T>): Promise<T> {
-  const failures: string[] = [];
-  for (const [index, url] of rpcUrls.entries()) {
-    try {
-      return await attempt(url);
-    } catch (err) {
-      failures.push(`endpoint ${index + 1}: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-  throw new Error(`${what} failed on every RPC endpoint (${failures.join('; ')})`);
-}
 
 export async function readLinkBalance(deps: Fetcher, rpcUrls: string[], block: number | 'latest' = 'latest'): Promise<bigint> {
   const data = `${BALANCE_OF}${RESERVE_TOPIC.slice(2)}`;
