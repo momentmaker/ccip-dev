@@ -229,6 +229,25 @@
 .vault-bars .bar-due { fill: none; stroke: var(--gold); stroke-dasharray: 3 3; }
 .vault-bars-cap { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px !important; font: 600 11px var(--font-mono); letter-spacing: 0.08em; color: var(--muted); }
 
+/* pool: the Vault's teal twin, its art on the right */
+.eyebrow-teal { color: var(--teal); }
+.band-head h2 .t { color: var(--teal); }
+.more-teal { color: var(--teal); }
+.pool { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 36px; align-items: center; padding: 30px; border-radius: 16px; border: 1px solid rgba(46, 211, 195, 0.28); background: radial-gradient(ellipse 50% 70% at 78% 50%, rgba(46, 211, 195, 0.12), transparent 70%), radial-gradient(ellipse 60% 80% at 0% 0%, rgba(47, 98, 223, 0.18), transparent 70%), linear-gradient(225deg, #0e1424, #0a0f1c); }
+.pool-copy { min-width: 0; }
+.pool-copy p { margin: 0; }
+.pool-big { margin-top: 8px !important; font: 800 clamp(44px, 6.2vw, 82px)/1 var(--font-sans); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, #ffffff 5%, var(--teal-2) 55%, var(--teal)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pool-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px !important; font-size: 17px; color: #c9cfda; }
+.pool-chip { font: 700 11px var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 9px; border-radius: 4px; background: var(--teal); color: #032a27; box-shadow: 0 0 18px rgba(46, 211, 195, 0.45); }
+.pool-chip.open { background: var(--gold); color: #2a2116; box-shadow: none; }
+.pool .hexb { color: var(--teal); }
+.pool-stream { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin-top: 18px; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(46, 211, 195, 0.3); background: rgba(46, 211, 195, 0.06); }
+.pool-stream .label { display: inline-flex; align-items: center; gap: 8px; white-space: normal; }
+.pool-stream strong { margin-left: auto; font-size: 20px; color: var(--teal-2); }
+.pool-stream small { font-size: 12px; color: var(--muted); }
+.pool .lookup { margin-top: 18px; }
+.pool .hive svg { max-width: 460px; }
+
 /* board */
 .board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .rows { list-style: none; margin: 0; padding: 0; }
@@ -358,6 +377,10 @@
 @media (max-width: 900px) {
   .vault { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 20px; }
   .vault-art { max-width: 300px; }
+  .pool { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 20px; }
+  .pool .hive { order: -1; }
+  .pool .hive svg { max-width: 280px; }
+  .pool .hive-key { display: none; }
   .flow { grid-template-columns: minmax(0, 1fr); }
   .flow-link { width: 40px; justify-self: center; transform: rotate(90deg); }
   .board-foot, .corps-grid { grid-template-columns: minmax(0, 1fr); }

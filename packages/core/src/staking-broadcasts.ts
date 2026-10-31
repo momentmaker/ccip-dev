@@ -10,6 +10,32 @@ export const WEEK_OPERATOR_EVENTS = 4;
 
 type OperatorEvent = StakingFile['operator_events'][number];
 type Week = StakingFile['weeks'][number];
+type Opening = StakingFile['refills']['recent'][number];
+
+export interface Hunter {
+  address: string;
+  /** Openings it took space in. */
+  grabs: number;
+  /** Of those, the ones refilled within a block, which makes its grab that quick too. */
+  withinABlock: number;
+}
+
+/** A top hunter with a single grab is no story, so the weekly post and card name one from this many. */
+export const HUNTER_MIN_GRABS = 2;
+
+/** Who took space in the most of these openings, a tie going to the lower address; null when nobody took any. */
+export function topHunter(openings: readonly Opening[]): Hunter | null {
+  const hunters = new Map<string, Hunter>();
+  for (const o of openings) {
+    for (const address of new Set(o.grabs)) {
+      const h = hunters.get(address) ?? { address, grabs: 0, withinABlock: 0 };
+      h.grabs += 1;
+      if (o.blocks !== null && o.blocks <= 1) h.withinABlock += 1;
+      hunters.set(address, h);
+    }
+  }
+  return [...hunters.values()].sort((a, b) => b.grabs - a.grabs || (a.address < b.address ? -1 : 1))[0] ?? null;
+}
 
 export interface StakingWeekFacts {
   monday: string;
@@ -25,7 +51,7 @@ export interface StakingWeekFacts {
   openings: number;
   /** The quickest refill of an opening in the week, and who took the most space. */
   fastestRefillS: number | null;
-  topHunter: { address: string; grabs: number } | null;
+  topHunter: Hunter | null;
   conversionPct: number | null;
   likelyToLeave: number;
   communityRatePct: number | null;
@@ -48,9 +74,6 @@ export function stakingWeekFacts(staking: StakingFile, monday: string): StakingW
   };
   const recent = staking.refills.recent.filter((r) => inWeek(r.opened_at, monday));
   const refills = recent.flatMap((r) => (r.seconds === null ? [] : [r.seconds]));
-  const grabs = new Map<string, number>();
-  for (const r of recent) for (const g of r.grabs) grabs.set(g, (grabs.get(g) ?? 0) + 1);
-  const top = [...grabs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
   const conv = staking.queue.conversion.others;
   return {
     monday,
@@ -63,7 +86,7 @@ export function stakingWeekFacts(staking: StakingFile, monday: string): StakingW
     askedToLeave: Math.max(0, week.unbonding_link - week.stakelink_unbonding_link),
     openings: week.openings,
     fastestRefillS: refills.length === 0 ? null : Math.min(...refills),
-    topHunter: top === undefined ? null : { address: top[0], grabs: top[1] },
+    topHunter: topHunter(recent),
     conversionPct: conv.total > 0 ? (conv.left * 100) / conv.total : null,
     likelyToLeave: staking.queue.likely_to_leave,
     communityRatePct: staking.rewards?.community_rate_pct ?? null,

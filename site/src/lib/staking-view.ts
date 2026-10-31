@@ -1,4 +1,5 @@
 import { HOLDER_KINDS, type HolderKind, type StakingFile } from '@ccip-dev/core/public';
+import { addDays, dayOf } from '@ccip-dev/core/time';
 
 export type HiveKind = HolderKind | 'open';
 
@@ -174,6 +175,51 @@ export function onDial(fraction: number, r: number, cx = 0, cy = 0): { x: number
   return { x: Math.round((cx + r * Math.cos(a)) * 10) / 10, y: Math.round((cy + r * Math.sin(a)) * 10) / 10 };
 }
 
+export interface ForecastDay {
+  day: string;
+  /** LINK whose claim window opens that day, outside stake.link's ladder. */
+  opening: number;
+  /** Of that, LINK likely to leave at the rate windows have ended in an exit. */
+  likely: number;
+}
+
+export interface SpaceForecast {
+  days: ForecastDay[];
+  peak: ForecastDay | null;
+  /** LINK likely to leave from the windows open now. */
+  openNow: number;
+}
+
+/**
+ * Where the full pool's space is likely to come from over the next `count` days (UTC), from today: each day's claim
+ * windows outside stake.link, whose ladder almost never leaves, times the share of windows that have ended in an exit.
+ * Null until a window has closed to measure that share.
+ */
+export function spaceForecast(queue: StakingFile['queue'], now: Date, count: number): SpaceForecast | null {
+  const { left, total } = queue.conversion.others;
+  if (total <= 0) return null;
+  const rate = left / total;
+  const byDay = new Map(queue.days.map((d) => [d.day, d.link - d.stakelink_link]));
+  const today = dayOf(now);
+  const days = Array.from({ length: count }, (_, i) => {
+    const day = addDays(today, i);
+    const opening = Math.max(0, byDay.get(day) ?? 0);
+    return { day, opening, likely: opening * rate };
+  });
+  const peak = days.reduce<ForecastDay | null>((best, d) => (d.likely > 0 && (best === null || d.likely > best.likely) ? d : best), null);
+  return { days, peak, openNow: queue.claimable.link * rate };
+}
+
+/** Quick stakes for the rewards calculator: a round 1,000, the median staker's stake and the max, each once. */
+export function stakePresets(community: Pick<StakingFile['community'], 'median' | 'max_stake'>): { label: string; value: number }[] {
+  const presets = [
+    { label: '1,000', value: 1_000 },
+    { label: 'Median', value: Math.round(community.median) },
+    { label: 'Max', value: community.max_stake },
+  ];
+  return presets.filter((p, i) => presets.findIndex((q) => q.value === p.value) === i);
+}
+
 export function sharePct(part: number, whole: number): number | null {
   return whole > 0 ? (part * 100) / whole : null;
 }
@@ -202,9 +248,35 @@ export function shortHex(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+/** LINK that started unbonding in a week outside stake.link's ladder: the tape's trace. */
+export const tapeAsked = (w: StakingFile['weeks'][number]) => Math.max(0, w.unbonding_link - w.stakelink_unbonding_link);
+
+/**
+ * The tape's top in LINK a week: the busiest ordinary week in or out, or the most LINK that asked to leave in a week,
+ * whichever is higher, so the trace always fits. The launch weeks moved the whole pool, so they run off the top.
+ */
+export function tapeMax(weeks: StakingFile['weeks']): number {
+  const flows = weeks.flatMap((w) => [w.staked, w.unstaked]).sort((a, b) => a - b);
+  const busiest = flows[Math.floor(flows.length * 0.97)] ?? 0;
+  return Math.max(1, busiest, ...weeks.map(tapeAsked)) * 1.08;
+}
+
+const TAPE_GRIDS = [5_000_000, 2_000_000, 1_000_000, 500_000, 200_000, 100_000, 50_000, 20_000, 10_000];
+
+/** The tape's gridline: the largest round amount that sits well below its top. */
+export function tapeGrid(max: number): number {
+  return TAPE_GRIDS.find((g) => g <= max * 0.85) ?? TAPE_GRIDS.at(-1)!;
+}
+
 /** Weekly tape bars, newest last, up to `weeks` of them. */
 export function tapeWeeks(weeks: StakingFile['weeks'], count: number): StakingFile['weeks'] {
   return weeks.slice(-count);
+}
+
+/** Whole days the community pool has been full; null while it has space, or before the page has read the clock. */
+export function daysFull(community: Pick<StakingFile['community'], 'full_since'>, now: Date | null): number | null {
+  if (community.full_since === null || now === null) return null;
+  return Math.floor((now.getTime() - Date.parse(community.full_since)) / 86_400_000);
 }
 
 /** Days until an ISO time, rounded down, never negative. */

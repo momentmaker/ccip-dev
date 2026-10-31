@@ -1,0 +1,41 @@
+/* Staking pieces shared by /staking and the home page's pool band: the hive, the rewards stream and the staker lookup. */
+/* hive */
+.hive { margin: 0; }
+.hive svg { display: block; width: 100%; max-width: 560px; margin: 0 auto; overflow: visible; }
+.cell { stroke: rgba(12, 15, 20, 0.9); stroke-width: 1.2; transition: fill 0.35s var(--ease), opacity 0.35s var(--ease); }
+.cell-wallet { fill: var(--teal); opacity: 0.72; }
+.cell-smart { fill: var(--teal-2); opacity: 1; }
+.cell-stakelink { fill: var(--blue-2); opacity: 0.85; }
+.cell-contract { fill: #5d6b82; opacity: 0.85; }
+.cell-open { fill: transparent; stroke: var(--gold); stroke-dasharray: 3 3; }
+.cell.cell-gap { fill: #0b1016; stroke: var(--gold); stroke-width: 1.6; opacity: 1; }
+.cell.cell-fill { fill: #f4fffd; opacity: 1; filter: drop-shadow(0 0 6px var(--teal)); }
+.key-wallet { background: var(--teal); }
+.key-smart { background: var(--teal-2); }
+.key-stakelink { background: var(--blue-2); }
+.key-contract { background: #5d6b82; }
+.key-open { border: 1px dashed var(--gold); }
+.hive-key { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin: 12px 0 0; padding: 0; font-size: 12px; color: #c9cfda; }
+.hive-key .mono { color: var(--muted); }
+.hive-replay { height: 3em; margin: 10px auto 0; max-width: 520px; text-align: center; font-size: 13px; line-height: 1.5; color: #c9cfda; }
+.replay-line { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hive-replay b { color: var(--teal-2); }
+.replay-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--teal-deep); vertical-align: 0; }
+.replay-dot.on { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+.hive-key .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* rewards stream */
+.stream-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 0 rgba(46, 211, 195, 0.6); animation: stream-pulse 1.8s infinite; }
+@keyframes stream-pulse { 70% { box-shadow: 0 0 0 9px rgba(46, 211, 195, 0); } 100% { box-shadow: 0 0 0 0 rgba(46, 211, 195, 0); } }
+
+/* staker lookup */
+.lookup label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.lookup-row { display: flex; gap: 8px; margin-top: 8px; }
+.lookup input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(46, 211, 195, 0.4); background: #0e141c; color: var(--fg); font-size: 14px; }
+.lookup button { padding: 10px 16px; border-radius: 8px; border: none; background: var(--teal); color: #032a27; font-weight: 800; cursor: pointer; }
+.lookup-error { margin: 8px 0 0; color: var(--down); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-dot { animation: none; }
+  .cell { transition: none; }
+}

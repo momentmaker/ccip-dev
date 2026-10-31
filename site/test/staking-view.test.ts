@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, stakerHref, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
+import { apportion, boardRows, clampStake, daysFull, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, spaceForecast, stakePresets, stakerHref, tapeGrid, tapeMax, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
 
 const QUEUE = {
   unbonding: { stakers: 3, link: 300, stakelink_stakers: 1, stakelink_link: 15_000 },
@@ -75,6 +75,55 @@ describe('boardRows', () => {
   });
 });
 
+describe('spaceForecast', () => {
+  const NOW = new Date('2026-10-31T18:00:00Z');
+
+  it('expects each day’s opening windows outside stake.link to leave at the measured rate', () => {
+    const f = spaceForecast(QUEUE, NOW, 28)!;
+    expect([f.days.find((d) => d.day === '2026-11-01'), f.days.find((d) => d.day === '2026-11-10')]).toEqual([
+      { day: '2026-11-01', opening: 200, likely: 100 },
+      { day: '2026-11-10', opening: 100, likely: 50 },
+    ]);
+  });
+
+  it('lays out every day from today, quiet ones as zeros', () => {
+    const f = spaceForecast(QUEUE, NOW, 28)!;
+    expect([f.days.length, f.days[0], f.days.at(-1)?.day]).toEqual([28, { day: '2026-10-31', opening: 0, likely: 0 }, '2026-11-27']);
+  });
+
+  it('calls out the day most LINK is likely to leave', () => {
+    expect(spaceForecast(QUEUE, NOW, 28)?.peak?.day).toBe('2026-11-01');
+  });
+
+  it('counts what is likely to leave from the windows open now apart', () => {
+    expect(spaceForecast(QUEUE, NOW, 28)?.openNow).toBe(25);
+  });
+
+  it('has no forecast before any window has closed to measure the rate', () => {
+    expect(spaceForecast({ ...QUEUE, conversion: { others: { left: 0, total: 0 }, stakelink: { left: 0, total: 0 } } }, NOW, 28)).toBeNull();
+  });
+});
+
+describe('daysFull', () => {
+  it('counts whole days since the pool filled', () => {
+    expect(daysFull({ full_since: '2023-12-07T23:13:35.000Z' }, new Date('2026-10-31T20:00:00Z'))).toBe(1_058);
+  });
+
+  it('has no count while the pool has space or before the clock is read', () => {
+    expect([daysFull({ full_since: null }, new Date('2026-10-31T20:00:00Z')), daysFull({ full_since: '2023-12-07T23:13:35.000Z' }, null)]).toEqual([null, null]);
+  });
+});
+
+describe('stakePresets', () => {
+  it('offers the minimum round stake, the median staker and the max', () => {
+    expect(stakePresets({ median: 1_951.6, max_stake: 15_000 }).map((p) => p.value)).toEqual([1_000, 1_952, 15_000]);
+  });
+
+  it('drops a median that matches another preset', () => {
+    expect(stakePresets({ median: 15_000, max_stake: 15_000 }).map((p) => p.value)).toEqual([1_000, 15_000]);
+  });
+});
+
 describe('dialDots', () => {
   it('places each cohort by how far into its 35 days it is', () => {
     const dots = dialDots(QUEUE, { unbonding_s: 28 * 86_400, claim_s: 7 * 86_400 }, new Date('2026-10-31T18:00:00Z'));
@@ -102,6 +151,23 @@ describe('rewards', () => {
 
   it('links a staker to its card by lowercase address', () => {
     expect(stakerHref('0xAbC')).toBe('/staking/0xabc/');
+  });
+});
+
+describe('the tape', () => {
+  const week = (staked: number, asked: number, unstaked = staked) => ({ week: '2026-01-05', staked, unstaked, unbondings: 1, unbonding_link: asked + 5_000, stakelink_unbonding_link: 5_000, new_stakers: 0, openings: 0 });
+  const ordinary = Array.from({ length: 60 }, () => week(100_000, 200_000));
+
+  it('never lets the LINK that asked to leave run off the top', () => {
+    expect(tapeMax([...ordinary, week(150_000, 1_550_000)])).toBeGreaterThanOrEqual(1_550_000);
+  });
+
+  it('lets the launch weeks run off rather than flatten every other week', () => {
+    expect(tapeMax([week(21_000_000, 0, 0), week(12_000_000, 0, 0), ...ordinary])).toBeLessThan(1_000_000);
+  });
+
+  it('draws a round gridline below the top', () => {
+    expect([tapeGrid(1_670_000), tapeGrid(430_000), tapeGrid(90_000)]).toEqual([1_000_000, 200_000, 50_000]);
   });
 });
 

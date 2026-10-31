@@ -1,4 +1,5 @@
 import type { StakingFile } from '@ccip-dev/core/public';
+import { HUNTER_MIN_GRABS, topHunter } from '@ccip-dev/core/staking-broadcasts';
 import { formatCount, formatDuration, formatUtcDay, formatUtcTime } from '../../lib/format';
 import { shortHex, stakerHref } from '../../lib/staking-view';
 
@@ -8,8 +9,10 @@ const RECENT = 10;
 export default function GapHunt({ staking }: { staking: StakingFile }) {
   const r = staking.refills;
   const recent = [...r.recent].reverse().slice(0, RECENT);
+  const found = topHunter(r.recent);
+  const hunter = found !== null && found.grabs >= HUNTER_MIN_GRABS ? found : null;
   return (
-    <section className="band" aria-labelledby="hunt-title">
+    <section className="band" id="hunt" aria-labelledby="hunt-title">
       <div className="band-head">
         <div>
           <p className="eyebrow">The gap hunt</p>
@@ -18,7 +21,8 @@ export default function GapHunt({ staking }: { staking: StakingFile }) {
           </h2>
           <p className="lead">
             The community pool has been full since {staking.community.full_since ? formatUtcDay(staking.community.full_since) : '—'}. Every time
-            someone leaves, hunters race to take the space: half the gaps close within {formatDuration(r.median_s)}, and 90% within {formatDuration(r.p90_s)}.
+            someone leaves, hunters race to take the space: half the gaps close within <span className="nw">{formatDuration(r.median_s)}</span>, and 90% within{' '}
+            <span className="nw">{formatDuration(r.p90_s)}</span>.
           </p>
         </div>
       </div>
@@ -52,6 +56,15 @@ export default function GapHunt({ staking }: { staking: StakingFile }) {
         </div>
         <div className="panel">
           <span className="label">Openings this week</span>
+          {hunter && (
+            <p className="hunter-week">
+              <span className="chip">Hunter of the week</span>
+              <span>
+                <a className="mono" href={stakerHref(hunter.address)}>{shortHex(hunter.address)}</a> took {formatCount(hunter.grabs)} of {formatCount(r.recent.length)} openings
+                {hunter.withinABlock === hunter.grabs ? ', every one within a block' : ''}.
+              </span>
+            </p>
+          )}
           {recent.length === 0 ? (
             <p className="muted">No space opened in the last 7 days.</p>
           ) : (
@@ -63,7 +76,7 @@ export default function GapHunt({ staking }: { staking: StakingFile }) {
                   <span className={`mono took${o.seconds !== null && o.seconds <= 12 ? ' fast' : ''}`}>{o.seconds === null ? 'still open' : formatDuration(o.seconds)}</span>
                   <span className="who">
                     {o.grabs.slice(0, 2).map((g) => (
-                      <a key={g} className="mono" href={stakerHref(g)}>{shortHex(g)}</a>
+                      <a key={g} className={g === hunter?.address ? 'mono top' : 'mono'} href={stakerHref(g)}>{shortHex(g)}</a>
                     ))}
                     {o.grabs.length > 2 ? <span className="muted"> +{o.grabs.length - 2}</span> : null}
                   </span>

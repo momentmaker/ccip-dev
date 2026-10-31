@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { trackDataError } from '../../lib/analytics';
 import { fetchPublic } from '../../lib/data';
 import { formatCount, formatUtcDay } from '../../lib/format';
-import { sharePct } from '../../lib/staking-view';
+import { daysFull, sharePct } from '../../lib/staking-view';
 import FreshnessNote from '../FreshnessNote';
 import { useNow } from '../hooks';
 import InfoLink from '../InfoLink';
@@ -18,6 +18,27 @@ import Stakers from './Stakers';
 import Tape from './Tape';
 
 const FULL_TOLERANCE = 0.001;
+const SECTIONS = [
+  ['pool', 'The pool'],
+  ['queue', 'Exit queue'],
+  ['hunt', 'Gap hunt'],
+  ['stakers', 'Stakers'],
+  ['card', 'Your card'],
+  ['operators', 'Operators'],
+  ['tape', 'The tape'],
+] as const;
+
+function JumpNav() {
+  return (
+    <nav className="stk-nav" aria-label="On this page">
+      {SECTIONS.map(([id, label]) => (
+        <a key={id} href={`#${id}`}>
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 function Pending() {
   return (
@@ -31,7 +52,7 @@ function Pending() {
   );
 }
 
-export default function StakingView({ initial }: { initial: StakingFile | null }) {
+export default function StakingView({ initial, linkPriceUsd }: { initial: StakingFile | null; linkPriceUsd: number | null }) {
   const [staking, setStaking] = useState(initial);
   const [failed, setFailed] = useState(false);
   const now = useNow(60_000);
@@ -56,12 +77,12 @@ export default function StakingView({ initial }: { initial: StakingFile | null }
   const c = staking.community;
   const full = c.total >= c.cap - FULL_TOLERANCE;
   const firstPct = sharePct(staking.tenure.first_month, c.stakers);
-  const fullDays = c.full_since && now ? Math.floor((now.getTime() - Date.parse(c.full_since)) / 86_400_000) : null;
+  const fullDays = daysFull(c, now);
   const headline = `${formatCount(c.total)} LINK staked in the Chainlink community pool${full ? ', full' : ''} · ${formatCount(c.stakers)} stakers`;
 
   return (
     <>
-      <section className="stake-hero">
+      <section className="stake-hero" id="pool">
         <div className="stake-hero-text">
           <div className="page-head">
             <div>
@@ -92,14 +113,15 @@ export default function StakingView({ initial }: { initial: StakingFile | null }
             <div><dt>Median stake</dt><dd className="mono">{formatCount(c.median)}</dd></div>
             <div><dt>In since month one</dt><dd className="mono">{firstPct === null ? '—' : `${Math.round(firstPct)}%`}</dd></div>
           </dl>
-          <RewardsTicker staking={staking} now={now} />
+          <RewardsTicker staking={staking} now={now} linkPriceUsd={linkPriceUsd} />
         </div>
         <Hive staking={staking} />
       </section>
+      <JumpNav />
       {now && <ExitQueue staking={staking} now={now} />}
       <GapHunt staking={staking} />
       <Stakers staking={staking} />
-      <div className="panel lookup-panel">
+      <div className="panel lookup-panel" id="card">
         <StakerLookup label="Your staker card: paste a staking address" />
       </div>
       <Operators staking={staking} />

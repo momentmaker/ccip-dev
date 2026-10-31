@@ -31,11 +31,11 @@ async function stakingRun(now: string, staking = STAKING_FIXTURE) {
 }
 
 describe('the weekly staking report', () => {
-  it('posts last week on Monday from 14:00 UTC, to the channel and X, once', async () => {
+  it('posts last week on Monday from 02:00 UTC, to the channel and X, once', async () => {
     await store.setMeta(env.DB, OPERATOR_SINCE_KEY, '2026-11-01T09:00:00.000Z');
-    const early = await stakingRun('2026-11-02T13:00:00.000Z');
-    const due = await stakingRun('2026-11-02T14:00:00.000Z');
-    const again = await stakingRun('2026-11-02T15:00:00.000Z');
+    const early = await stakingRun('2026-11-02T01:00:00.000Z');
+    const due = await stakingRun('2026-11-02T02:00:00.000Z');
+    const again = await stakingRun('2026-11-02T03:00:00.000Z');
     expect({ early: early.channel, due: [due.channel, due.x], again: again.channel }).toEqual({
       early: [],
       due: [['broadcast:staking:2026-10-26'], ['broadcast:staking:2026-10-26']],
@@ -69,6 +69,18 @@ describe('operator watch', () => {
 });
 
 describe('staking copy', () => {
+  it('names a top hunter only when one took more than one gap', () => {
+    const facts = stakingWeekFacts(STAKING_FIXTURE, '2026-10-26')!;
+    const lone = composeCopy({ kind: 'staking', week: { ...facts, topHunter: { address: '0xaa', grabs: 1, withinABlock: 1 } } });
+    expect(lone.telegramHtml).not.toContain('Top hunter');
+  });
+
+  it('says when every gap the top hunter took was refilled within a block', () => {
+    const facts = stakingWeekFacts(STAKING_FIXTURE, '2026-10-26')!;
+    const quick = composeCopy({ kind: 'staking', week: { ...facts, topHunter: { address: '0x5474d4de11e60bfc843404dc1b5dc1aef7776dda', grabs: 11, withinABlock: 11 } } });
+    expect(quick.xText).toContain('Top hunter: 0x5474…6dda took 11 of them, every one within a block');
+  });
+
   it('fits X and Telegram, with one cashtag on X', () => {
     const week = composeCopy({ kind: 'staking', week: stakingWeekFacts(STAKING_FIXTURE, '2026-10-26')! });
     const joined = composeCopy({ kind: 'operator', moment: operatorMomentFacts(STAKING_FIXTURE, STAKING_NEW_OPERATOR, JOINED)! });
@@ -78,10 +90,12 @@ describe('staking copy', () => {
       expect(c.telegramHtml.length).toBeLessThanOrEqual(TELEGRAM_CAPTION_MAX);
       expect(c.xText.match(/\$LINK/g)?.length ?? 0).toBeLessThanOrEqual(1);
     }
-    expect(week.xText.split('\n').slice(0, 3)).toEqual([
+    expect(week.xText.split('\n').slice(0, 5)).toEqual([
       'Chainlink staking, week of Oct 26 – Nov 1',
       'Community pool full for 1,060 days: 40.9M $LINK · 8,528 stakers',
-      'In 120.0K · out 110.0K LINK · 12 new stakers',
+      '9 gaps opened; the fastest refilled in 12s',
+      'Top hunter: 0xaa took 2 of them',
+      '260.0K LINK asked to leave; 59% of askers go',
     ]);
     expect(joined.xText.split('\n')[0]).toBe('New in the Chainlink staking operator pool: Deepbase');
     expect(unstaked.telegramHtml.split('\n').slice(0, 3)).toEqual([

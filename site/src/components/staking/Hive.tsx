@@ -1,7 +1,7 @@
 import type { StakingFile } from '@ccip-dev/core/public';
 import { useEffect, useMemo, useState } from 'react';
 import { formatCount, formatDuration, formatUtcDay } from '../../lib/format';
-import { HIVE_RINGS, HOLDER_LABEL, hiveCenters, hiveKinds, replaySteps, shortHex, type HiveKind } from '../../lib/staking-view';
+import { HIVE_RINGS, HOLDER_LABEL, hiveCenters, hiveKinds, replaySteps, shortHex, type HiveKind, type ReplayStep } from '../../lib/staking-view';
 import { usePrefersReducedMotion } from '../hooks';
 
 const CELL = 12;
@@ -18,10 +18,45 @@ const FILL_MS = 900;
 type Phase = 'gap' | 'fill' | null;
 
 /**
+ * The opening on replay, always two lines, each cut short rather than wrapped, so the hive and whatever sits beside or
+ * under it never move as the replay steps through gaps and fills.
+ */
+export function ReplayCaption({ step, phase }: { step: ReplayStep | undefined; phase: Phase }) {
+  if (!step) {
+    return (
+      <p className="hive-replay" aria-live="off">
+        <span className="replay-line">No space opened in the last 7 days.</span>
+        <span className="replay-line" />
+      </p>
+    );
+  }
+  const others = step.grabs.length > 1 ? ` +${step.grabs.length - 1}` : '';
+  return (
+    <p className="hive-replay" aria-live="off">
+      <span className="replay-line">
+        <span className={`replay-dot${phase === 'gap' ? ' on' : ''}`} aria-hidden="true" />
+        <span className="mono">{formatUtcDay(step.openedAt)}</span> · {formatCount(step.gap)} LINK opened
+      </span>
+      <span className="replay-line">
+        {phase === 'gap' ? (
+          <span className="muted">hunters racing…</span>
+        ) : (
+          <>
+            → filled in <b>{formatDuration(step.seconds)}</b>
+            {step.blocks !== null ? ` (${step.blocks} block${step.blocks === 1 ? '' : 's'})` : ''} by <span className="mono">{shortHex(step.grabs[0] ?? '')}</span>
+            {others}
+          </>
+        )}
+      </span>
+    </p>
+  );
+}
+
+/**
  * The community pool as a honeycomb: each cell an equal share of the cap, colored by who holds it. Real openings from
  * the last week replay on it: a cell goes dark when someone leaves, and lights up when a hunter takes the space.
  */
-export default function Hive({ staking }: { staking: StakingFile }) {
+export default function Hive({ staking }: { staking: Pick<StakingFile, 'community' | 'holders' | 'refills'> }) {
   const kinds = useMemo(() => hiveKinds(staking, CENTERS.length), [staking]);
   const linkPerCell = staking.community.cap / CENTERS.length;
   const steps = useMemo(() => replaySteps(staking.refills.recent, linkPerCell), [staking.refills.recent, linkPerCell]);
@@ -96,17 +131,7 @@ export default function Hive({ staking }: { staking: StakingFile }) {
             </li>
           )}
         </ul>
-        <p className="hive-replay" aria-live="off">
-          {current ? (
-            <>
-              <span className={`replay-dot${phase === 'gap' ? ' on' : ''}`} aria-hidden="true" />
-              <span className="mono">{formatUtcDay(current.openedAt)}</span> · {formatCount(current.gap)} LINK opened{' '}
-              {phase === 'gap' ? '…' : <>→ filled in <b>{formatDuration(current.seconds)}</b>{current.blocks !== null ? ` (${current.blocks} block${current.blocks === 1 ? '' : 's'})` : ''} by <span className="mono">{shortHex(current.grabs[0] ?? '')}</span>{current.grabs.length > 1 ? ` +${current.grabs.length - 1}` : ''}</>}
-            </>
-          ) : (
-            'No space opened in the last 7 days.'
-          )}
-        </p>
+        <ReplayCaption step={current} phase={phase} />
       </figcaption>
     </figure>
   );

@@ -29,8 +29,11 @@ export const RESERVE_SINCE_KEY = 'broadcast:reserve:since';
 /** A deposit older than this is never posted, so a pause or a long card outage cannot release a flood of stale ones. */
 export const RESERVE_MAX_AGE_DAYS = 3;
 export const MOMENTS_SEED_KEY = 'broadcast:moments:seeded';
-/** The weekly staking report posts on Mondays from this hour (UTC), apart from the 00:07 CCIP posts, and retries through Tuesday. */
-export const STAKING_REPORT_HOUR_UTC = 14;
+/**
+ * The weekly staking report posts on Mondays from this hour (UTC), apart from the 00:07 CCIP posts, and retries through
+ * Tuesday. It reads the week's openings from the file's last 7 days, so posting early keeps nearly all of the week in them.
+ */
+export const STAKING_REPORT_HOUR_UTC = 2;
 export const OPERATOR_SINCE_KEY = 'broadcast:operator:since';
 /** An operator event older than this is never posted, like a Reserve deposit. */
 export const OPERATOR_MAX_AGE_DAYS = 3;
