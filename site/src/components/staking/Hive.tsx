@@ -21,7 +21,7 @@ type Phase = 'gap' | 'fill' | null;
  * The community pool as a honeycomb: each cell an equal share of the cap, colored by who holds it. Real openings from
  * the last week replay on it: a cell goes dark when someone leaves, and lights up when a hunter takes the space.
  */
-export default function Hive({ staking }: { staking: StakingFile }) {
+export default function Hive({ staking }: { staking: Pick<StakingFile, 'community' | 'holders' | 'refills'> }) {
   const kinds = useMemo(() => hiveKinds(staking, CENTERS.length), [staking]);
   const linkPerCell = staking.community.cap / CENTERS.length;
   const steps = useMemo(() => replaySteps(staking.refills.recent, linkPerCell), [staking.refills.recent, linkPerCell]);

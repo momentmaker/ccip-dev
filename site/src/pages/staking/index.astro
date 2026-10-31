@@ -2,6 +2,7 @@
 import StakingView from '../../components/staking/StakingView';
 import Base from '../../layouts/Base.astro';
 import { buildData, buildDataIfPublished } from '../../lib/build-data';
+import '../../styles/staking-common.css';
 import '../../styles/staking.css';
 
 const [staking, reserve] = await Promise.all([buildDataIfPublished('staking.json'), buildData('reserve.json')]);

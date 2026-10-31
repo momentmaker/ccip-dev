@@ -273,6 +273,12 @@ export function tapeWeeks(weeks: StakingFile['weeks'], count: number): StakingFi
   return weeks.slice(-count);
 }
 
+/** Whole days the community pool has been full; null while it has space, or before the page has read the clock. */
+export function daysFull(community: Pick<StakingFile['community'], 'full_since'>, now: Date | null): number | null {
+  if (community.full_since === null || now === null) return null;
+  return Math.floor((now.getTime() - Date.parse(community.full_since)) / 86_400_000);
+}
+
 /** Days until an ISO time, rounded down, never negative. */
 export function daysUntil(iso: string, now: Date): number {
   return Math.max(0, Math.floor((Date.parse(iso) - now.getTime()) / 86_400_000));

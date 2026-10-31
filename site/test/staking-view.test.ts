@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apportion, boardRows, clampStake, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, spaceForecast, stakePresets, stakerHref, tapeGrid, tapeMax, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
+import { apportion, boardRows, clampStake, daysFull, dialDots, hiveCenters, hiveKinds, onDial, replaySteps, spaceForecast, stakePresets, stakerHref, tapeGrid, tapeMax, timelapseFrames, yearlyReward } from '../src/lib/staking-view';
 
 const QUEUE = {
   unbonding: { stakers: 3, link: 300, stakelink_stakers: 1, stakelink_link: 15_000 },
@@ -101,6 +101,16 @@ describe('spaceForecast', () => {
 
   it('has no forecast before any window has closed to measure the rate', () => {
     expect(spaceForecast({ ...QUEUE, conversion: { others: { left: 0, total: 0 }, stakelink: { left: 0, total: 0 } } }, NOW, 28)).toBeNull();
+  });
+});
+
+describe('daysFull', () => {
+  it('counts whole days since the pool filled', () => {
+    expect(daysFull({ full_since: '2023-12-07T23:13:35.000Z' }, new Date('2026-10-31T20:00:00Z'))).toBe(1_058);
+  });
+
+  it('has no count while the pool has space or before the clock is read', () => {
+    expect([daysFull({ full_since: null }, new Date('2026-10-31T20:00:00Z')), daysFull({ full_since: '2023-12-07T23:13:35.000Z' }, null)]).toEqual([null, null]);
   });
 });
 

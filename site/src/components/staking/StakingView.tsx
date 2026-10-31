@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { trackDataError } from '../../lib/analytics';
 import { fetchPublic } from '../../lib/data';
 import { formatCount, formatUtcDay } from '../../lib/format';
-import { sharePct } from '../../lib/staking-view';
+import { daysFull, sharePct } from '../../lib/staking-view';
 import FreshnessNote from '../FreshnessNote';
 import { useNow } from '../hooks';
 import InfoLink from '../InfoLink';
@@ -77,7 +77,7 @@ export default function StakingView({ initial, linkPriceUsd }: { initial: Stakin
   const c = staking.community;
   const full = c.total >= c.cap - FULL_TOLERANCE;
   const firstPct = sharePct(staking.tenure.first_month, c.stakers);
-  const fullDays = c.full_since && now ? Math.floor((now.getTime() - Date.parse(c.full_since)) / 86_400_000) : null;
+  const fullDays = daysFull(c, now);
   const headline = `${formatCount(c.total)} LINK staked in the Chainlink community pool${full ? ', full' : ''} · ${formatCount(c.stakers)} stakers`;
 
   return (

@@ -5,6 +5,7 @@ import Dossier from '../components/home/Dossier.astro';
 import HallOfRecords from '../components/home/HallOfRecords.astro';
 import HomeCorps from '../components/home/HomeCorps';
 import HomeLive from '../components/home/HomeLive';
+import HomePool from '../components/home/HomePool';
 import HomeVault from '../components/home/HomeVault';
 import Base from '../layouts/Base.astro';
 import { allTimeBase, dailyPaces } from '../lib/all-time';
@@ -14,6 +15,7 @@ import { newestFirst } from '../components/home/Feed';
 import { slugMap } from '../lib/chain-slug';
 import { iconHref } from '../lib/chain-icons';
 import { feeHistoryTotals } from '../lib/fee-revenue';
+import { formatDuration, formatUtcDay } from '../lib/format';
 import { chainNameMap } from '../lib/names';
 import { projectSlugs } from '../lib/projects';
 import { PULSE_DAYS } from '../lib/pulse';
@@ -25,9 +27,10 @@ import { buildLayout } from '../sky/layout';
 import { skySvg } from '../sky/svg';
 import { trailingWeights } from '../sky/weights';
 import '../styles/marines.css';
+import '../styles/staking-common.css';
 import '../styles/home.css';
 
-const [live, today, history, replay, chains, reserve, moments, projects] = await Promise.all([
+const [live, today, history, replay, chains, reserve, moments, projects, staking] = await Promise.all([
   buildData('live.json'),
   buildData('today.json'),
   buildData('history.json'),
@@ -36,6 +39,7 @@ const [live, today, history, replay, chains, reserve, moments, projects] = await
   buildData('reserve.json'),
   buildDataIfPublished('moments.json'),
   buildDataIfPublished('projects.json'),
+  buildDataIfPublished('staking.json'),
 ]);
 const stars = buildLayout(replay.chains);
 const weights = trailingWeights(replay, 30);
@@ -59,6 +63,8 @@ const reserveGoal =
     ? { link: reserve.latest.link, previous: fill.target - 1_000_000, next: fill.target, eta: reserve.pace?.next_milestone?.link === fill.target ? reserve.pace.next_milestone.eta : null }
     : null;
 const pulse = history.days.slice(-PULSE_DAYS).map(({ day, messages, usd_value, fee_usd }) => ({ day, messages, usd_value, fee_usd }));
+const pool = staking && { community: staking.community, holders: staking.holders, refills: staking.refills, queue: staking.queue, rewards: staking.rewards };
+const poolFull = staking !== null && staking.community.total >= staking.community.cap - 0.001 && staking.community.full_since !== null;
 const vault = { latest: reserve.latest, link_price_usd: reserve.link_price_usd, cost_basis: reserve.cost_basis, pace: reserve.pace, weekly: reserve.weekly.slice(-30) };
 
 const week = latestWeek(moments);
@@ -102,6 +108,30 @@ const telegram = telegramOpen(process.env.TELEGRAM_BOT);
     </div>
     <HomeVault client:visible initial={vault} today={{ messages: today.totals.messages, usd: today.totals.usd_value, fees: today.totals.fee_usd }} />
   </section>
+
+  {pool && (
+    <section class="band" id="pool" aria-labelledby="pool-title">
+      <div class="band-head">
+        <div>
+          <p class="eyebrow eyebrow-teal">The Pool</p>
+          <h2 id="pool-title">
+            {poolFull ? (
+              <Fragment>Every seat staked. <span class="t">Space lasts {formatDuration(pool.refills.median_s)}.</span></Fragment>
+            ) : (
+              <Fragment>Chainlink staking. <span class="t">Space is open.</span></Fragment>
+            )}
+          </h2>
+          <p class="lead">
+            {poolFull
+              ? `Chainlink staking's community pool has been full since ${formatUtcDay(pool.community.full_since!)}. When a staker leaves, hunters take the space within seconds.`
+              : "Chainlink staking's community pool has room: anyone can stake from 1 LINK, up to its cap."}
+          </p>
+        </div>
+        <a class="more-link more-teal" href="/staking/">Staking →</a>
+      </div>
+      <HomePool client:visible initial={pool} />
+    </section>
+  )}
 
   {week && moments && <Board week={week} network={moments.network} arrivals={arrivalRows(moments.arrivals, names)} poll={pollCards(moments.polls)} names={names} />}
 
