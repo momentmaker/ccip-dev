@@ -13,6 +13,7 @@ describe('card paths', () => {
     ['top/chain/30d/fees', { kind: 'top', dim: 'chain', window: '30d', order: 'fees' }],
     ['flow/all', { kind: 'flow', window: 'all' }],
     ['reserve', { kind: 'reserve' }],
+    ['staking', { kind: 'staking' }],
     ['replay', { kind: 'replay' }],
     ['project/xstocks', { kind: 'project', slug: 'xstocks' }],
     ['records', { kind: 'records' }],
@@ -29,6 +30,11 @@ describe('card paths', () => {
     ['broadcast/roundup/2026-10-05', { kind: 'broadcast', target: { kind: 'roundup', monday: '2026-10-05' } }],
     ['broadcast/project/2026-10-05', { kind: 'broadcast', target: { kind: 'project', monday: '2026-10-05' } }],
     ['broadcast/newcomer/project/xstocks', { kind: 'broadcast', target: { kind: 'newcomer', key: 'project:xstocks' } }],
+    ['broadcast/staking/2026-10-26', { kind: 'broadcast', target: { kind: 'staking', monday: '2026-10-26' } }],
+    [
+      'broadcast/operator/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b/1793000000',
+      { kind: 'broadcast', target: { kind: 'operator', address: '0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b', at: 1_793_000_000 } },
+    ],
   ] as [string, CardRoute][])('parses %s and prints it back', (path, route) => {
     expect(parseCardPath(path)).toEqual(route);
     expect(cardPathOf(route)).toBe(path);

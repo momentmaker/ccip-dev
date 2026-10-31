@@ -137,6 +137,8 @@ An automated post tags only its subject, with an X handle kept in `labels/`: the
 
 ## Broadcasts
 
+**Staking.** The hourly staking job, after it publishes `staking.json`, posts the weekly staking sitrep (`broadcast:staking:<monday>`, the week before, on Mondays from 14:00 UTC and retried through Tuesday) and Operator watch posts (`broadcast:operator:<address>:<unix time>`) for an operator joining, being removed or unstaking. Top-ups and unbondings go only in the weekly post. Both follow `BROADCASTS` and go to the channel and X. The first run only sets `broadcast:operator:since` to the newest such event, and an event more than 3 days old never posts.
+
 The Worker posts yesterday's daily report after the 00:07 finalize, the weekly report on Mondays (the Monday–Sunday week just ended), a post for each record or milestone a new live day sets, and one for each new Reserve deposit. Each post is a card from the site (`https://ccip.dev/og/broadcast/…png`) with a caption and no link. Spec: `docs/superpowers/specs/2026-10-11-broadcasts-design.md`.
 
 - **Mode** (`BROADCASTS` under `[vars]` in `worker/wrangler.toml`; change it and push):

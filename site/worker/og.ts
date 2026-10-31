@@ -12,7 +12,7 @@ import { broadcastTree } from './cards/broadcast-cards';
 import { BROADCAST_SIZE } from './cards/broadcast-frame';
 import { coinIcon } from './cards/coin-icons';
 import { homeTree } from './cards/home-card';
-import { dayCard, flowCard, historyCard, homeCard, projectCard, recordsCard, replayCard, replayChainCard, reserveCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
+import { dayCard, flowCard, historyCard, homeCard, projectCard, recordsCard, replayCard, replayChainCard, reserveCard, stakingCard, topCard, type CardSpec, type ReplayCardEntry } from './cards/content';
 import { CARD_SIZE, cardTree, SPARK_H, SPARK_W, sparkSvg, type CardSize } from './cards/frame';
 import type { VNode } from './h';
 
@@ -122,6 +122,8 @@ async function build(route: Exclude<CardRoute, { kind: 'broadcast' }>, deps: OgD
     }
     case 'reserve':
       return { spec: reserveCard(await load('reserve.json')), maxAge: cardMaxAge(route, null) };
+    case 'staking':
+      return { spec: stakingCard(await load('staking.json')), maxAge: cardMaxAge(route, null) };
     case 'replay':
       return { spec: replayCard(await load('history.json')), maxAge: cardMaxAge(route, null) };
     case 'project': {

@@ -73,7 +73,7 @@ export default function StakingView({ initial }: { initial: StakingFile | null }
                 of {formatCount(c.cap)} LINK in the community pool · plus {formatCount(staking.operator.total)} from node operators
               </p>
             </div>
-            <ShareButton view="staking" headline={headline} url="https://ccip.dev/staking/" cardUrl={null} />
+            <ShareButton view="staking" headline={headline} url="https://ccip.dev/staking/" cardUrl="/og/staking.png" />
           </div>
           <FreshnessNote updatedAt={staking.updated_at} paused={failed} />
           <p className="stake-status">

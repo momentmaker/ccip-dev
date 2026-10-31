@@ -12,6 +12,7 @@ export function cardMaxAge(route: CardRoute, lastFinalizeDay: string | null): nu
     case 'day':
       return lastFinalizeDay !== null && route.day < addDays(lastFinalizeDay, -1) ? 604_800 : 600;
     case 'reserve':
+    case 'staking':
       return 900;
     case 'broadcast':
       return BROADCAST_MAX_AGE;

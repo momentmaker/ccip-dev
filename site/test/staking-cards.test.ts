@@ -1,0 +1,57 @@
+import { STAKING_FIXTURE, STAKING_NEW_OPERATOR, STAKING_OPERATOR } from '@ccip-dev/core/testing';
+import { describe, expect, it } from 'vitest';
+import { broadcastTree } from '../worker/cards/broadcast-cards';
+import { stakingCard } from '../worker/cards/content';
+import { stakingHiveSvg } from '../worker/cards/staking-cards';
+import { texts } from './fixtures/broadcast';
+
+const inputs = (staking = STAKING_FIXTURE) => ({ load: async () => staking, icon: async () => null }) as never;
+const at = (iso: string) => Date.parse(iso) / 1000;
+
+describe('the staking sitrep card', () => {
+  it('reports the week with its pool, flows, asks to leave and the newest operator event', async () => {
+    const words = texts(await broadcastTree({ kind: 'staking', monday: '2026-10-26' }, inputs())).join('');
+    expect(words).toContain('Chainlink staking · Oct 26 – Nov 1, 2026');
+    expect(words).toContain('40.9MLINK staked');
+    expect(words).toContain('POOL FULL FOR 1,060 DAYS');
+    expect(words).toContain('260.0K LINK asked to leave · 59% of askers go');
+    expect(words).toContain('Operator watch: Deepbase joined the operator pool');
+    expect(words).toContain('ccip.dev/staking');
+  });
+
+  it('has no card until staking.json covers the week', async () => {
+    expect(await broadcastTree({ kind: 'staking', monday: '2026-11-02' }, inputs())).toBeNull();
+  });
+
+  it('marks the week’s openings as dark cells on the hive', () => {
+    const svg = stakingHiveSvg(STAKING_FIXTURE, 1, { kind: 'gap', cells: 3 });
+    expect(svg.match(/fill="#070a10" stroke="#ffcf5a"/g)).toHaveLength(3);
+  });
+});
+
+describe('the operator watch card', () => {
+  it('names the operator and what it did', async () => {
+    const joined = texts(await broadcastTree({ kind: 'operator', address: STAKING_NEW_OPERATOR, at: at('2026-11-01T09:00:00.000Z') }, inputs())).join('|');
+    const unstaked = texts(await broadcastTree({ kind: 'operator', address: STAKING_OPERATOR, at: at('2026-10-27T12:00:00.000Z') }, inputs())).join('|');
+    expect(joined).toContain('Deepbase|joined the node operator pool');
+    expect(unstaked).toContain('LinkPool|unstaked 7,221 LINK|Staking through a stake.link vault');
+    expect(unstaked).toContain('67,779');
+  });
+
+  it('has no card for an event the file does not list, or one that only goes in the weekly report', async () => {
+    expect(await broadcastTree({ kind: 'operator', address: STAKING_OPERATOR, at: at('2026-10-28T16:42:59.000Z') }, inputs())).toBeNull();
+    expect(await broadcastTree({ kind: 'operator', address: STAKING_OPERATOR, at: 1_700_000_000 }, inputs())).toBeNull();
+  });
+});
+
+describe('the /staking page card', () => {
+  it('shows the pool, how long it has been full and how fast gaps refill', () => {
+    expect(stakingCard(STAKING_FIXTURE)).toMatchObject({
+      eyebrow: 'CHAINLINK STAKING',
+      big: '40,875,000 LINK',
+      label: 'staked · the community pool is full',
+      date: 'full since Dec 7, 2023',
+      extra: ['8,528 stakers · gaps refill in 12s'],
+    });
+  });
+});

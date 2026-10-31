@@ -17,7 +17,8 @@
     "./roster": "./src/roster.ts",
     "./senders": "./src/senders.ts",
     "./staking": "./src/staking.ts",
-    "./staking-stats": "./src/staking-stats.ts"
+    "./staking-stats": "./src/staking-stats.ts",
+    "./staking-broadcasts": "./src/staking-broadcasts.ts"
   },
   "scripts": {
     "test": "vitest run",

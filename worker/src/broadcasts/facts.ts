@@ -4,6 +4,7 @@ import {
   type DayTotalsFacts, type RecordDriver, type ReserveDepositFacts, type WeekTotalsFacts,
 } from '@ccip-dev/core/broadcasts';
 import { shortAddress } from '@ccip-dev/core/names';
+import type { OperatorMomentFacts, StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { DayLeaders, DayTotals, LargestFee, Leader, ReserveFile } from '@ccip-dev/core/public';
 import { recordsSetOn, type MilestoneSet, type RecordSet } from '@ccip-dev/core/records';
 import type { RunContext } from '../context';
@@ -87,7 +88,17 @@ export interface ReserveFacts {
   deposit: ReserveDepositFacts;
 }
 
-export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts;
+export interface StakingFacts {
+  kind: 'staking';
+  week: StakingWeekFacts;
+}
+
+export interface OperatorFacts {
+  kind: 'operator';
+  moment: OperatorMomentFacts;
+}
+
+export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts | StakingFacts | OperatorFacts;
 
 export interface FactsSource {
   history: DayTotals[];

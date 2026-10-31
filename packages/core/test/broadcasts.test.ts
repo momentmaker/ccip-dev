@@ -25,6 +25,12 @@ describe('broadcast keys and card paths', () => {
     [{ kind: 'roundup', monday: '2026-10-05' }, 'broadcast:roundup:2026-10-05', 'broadcast/roundup/2026-10-05'],
     [{ kind: 'project', monday: '2026-10-05' }, 'broadcast:project:2026-10-05', 'broadcast/project/2026-10-05'],
     [{ kind: 'newcomer', key: 'project:xstocks' }, 'broadcast:newcomer:project:xstocks', 'broadcast/newcomer/project/xstocks'],
+    [{ kind: 'staking', monday: '2026-10-26' }, 'broadcast:staking:2026-10-26', 'broadcast/staking/2026-10-26'],
+    [
+      { kind: 'operator', address: '0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b', at: 1_793_000_000 },
+      'broadcast:operator:0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b:1793000000',
+      'broadcast/operator/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b/1793000000',
+    ],
     [
       { kind: 'newcomer', key: 'address:0x671be08d6d3c826c2f6d76915f1b54af484d4077' },
       'broadcast:newcomer:address:0x671be08d6d3c826c2f6d76915f1b54af484d4077',
@@ -44,6 +50,8 @@ describe('broadcast keys and card paths', () => {
     'broadcast/record/fees/2026-07-09/x', 'broadcast/milestone/fees/0', 'broadcast/milestone/fees/1e6', 'broadcast/reserve/0xABC', 'daily/2026-10-10',
     'broadcast/welcome/0123', 'broadcast/welcome/base', 'broadcast/countdown/link_share/100', 'broadcast/countdown/fees/0', 'broadcast/movers/2026-10-06', 'broadcast/project/2026-10-06',
     'broadcast/poll/2026-10-12/x', 'broadcast/roundup/2026-02-30',
+    'broadcast/staking/2026-10-27', 'broadcast/operator/0x8D87cbd8c3632b7ef117a15f8100943a23b7d03b/1793000000', 'broadcast/operator/0x8d87/1793000000',
+    'broadcast/operator/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b/0', 'broadcast/operator/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b',
     'broadcast/newcomer/project/XStocks', 'broadcast/newcomer/robot/x', 'broadcast/newcomer/address/a_b', 'broadcast/newcomer/project',
   ])('rejects %s', (path) => {
     expect(parseBroadcastPath(path.split('/'))).toBeNull();

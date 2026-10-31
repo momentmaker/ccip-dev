@@ -1,8 +1,9 @@
 import { classifyStakers, readBlockNumber, readStakingChain, readStakingEvents, STAKING_FIRST_BLOCK, stakerRows, stakingStats } from '@ccip-dev/core';
-import { STAKER_SHARDS, stakerShard, type StakersFile } from '@ccip-dev/core/public';
+import { STAKER_SHARDS, stakerShard, type StakersFile, type StakingFile } from '@ccip-dev/core/public';
+import { broadcastStaking } from '../broadcasts/run';
 import type { RunContext } from '../context';
 import operatorNames from '../generated/staking-operators.json';
-import { putJson, TTL } from '../publish';
+import { ATTRIBUTION, putJson, SCHEMA_VERSION, TTL } from '../publish';
 import { logRpcUrls } from '../rpc';
 import * as store from '../store';
 import { CHUNK_BLOCKS, CONFIRMATIONS, SCAN_BUDGET_MS } from './reserve';
@@ -26,7 +27,7 @@ export async function runStaking(c: RunContext): Promise<void> {
     console.warn('Staking files wait for every staker to be classified');
     return;
   }
-  await publishStaking(c, scannedTo);
+  await broadcastStaking(c, await publishStaking(c, scannedTo));
 }
 
 /** The block the events are complete to, or null while backfilling or after a failed scan. */
@@ -78,13 +79,16 @@ export async function classifyNewStakers(c: RunContext): Promise<void> {
   }
 }
 
-export async function publishStaking(c: RunContext, asOfBlock: number): Promise<void> {
+/** Publishes staking.json and the stakers files, and returns staking.json as published. */
+export async function publishStaking(c: RunContext, asOfBlock: number): Promise<StakingFile> {
   const db = c.env.DB;
   const now = c.deps.now();
   const [events, holders, chain] = await Promise.all([store.stakingEvents(db), store.stakingHolders(db), readStakingChain(c.deps, logRpcUrls(c.env))]);
   if (events.length === 0) throw new Error('The staking scan is complete but found no events');
-  await putJson(c.env.PUBLIC, 'staking.json', stakingStats({ events, chain, holders, names: STAKING_OPERATOR_NAMES, now, asOfBlock }), TTL.staking, now);
+  const body = stakingStats({ events, chain, holders, names: STAKING_OPERATOR_NAMES, now, asOfBlock });
+  await putJson(c.env.PUBLIC, 'staking.json', body, TTL.staking, now);
   const shards = new Map<string, StakersFile['stakers']>(STAKER_SHARDS.map((h) => [`stakers/${h}.json`, []]));
   for (const row of stakerRows({ events, holders, chain })) shards.get(stakerShard(row[0]))!.push(row);
   for (const [name, stakers] of shards) await putJson(c.env.PUBLIC, name, { as_of_block: asOfBlock, stakers }, TTL.staking, now);
+  return { schema_version: SCHEMA_VERSION, updated_at: now.toISOString(), attribution: ATTRIBUTION, ...body };
 }

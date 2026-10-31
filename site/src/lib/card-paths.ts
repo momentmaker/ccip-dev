@@ -7,7 +7,7 @@ export const TOP_DIMS = ['lane', 'token', 'sender', 'chain'] as const;
 export const FEE_TOP_DIMS = ['lane', 'sender', 'chain'] as const;
 export const TOP_ORDERS = ['value', 'fees'] as const;
 export const WINDOWS = ['7d', '30d', 'all'] as const;
-const SIMPLE = ['home', 'daily', 'reserve', 'replay', 'records'] as const;
+const SIMPLE = ['home', 'daily', 'reserve', 'staking', 'replay', 'records'] as const;
 
 export type HistoryRange = (typeof HISTORY_RANGES)[number];
 export type TopDim = (typeof TOP_DIMS)[number];

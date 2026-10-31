@@ -4,6 +4,7 @@ import type { ListMessage, NetworkInfo, RegistryToken } from './ccip/schemas';
 import type { CoingeckoClient, CoingeckoLists } from './coingecko';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
+import type { StakingFile } from './public';
 import type { Label, LabelIndex } from './labels';
 import type { SenderChain, SenderRow } from './senders';
 import type { DailyBreakdown, DailyTotals, PriceInfo } from './types';
@@ -318,3 +319,49 @@ export const XSTOCKS_TOTALS: DailyTotals = {
 };
 
 export const xstocksBreakdown = (day = XSTOCKS_DAY): DailyBreakdown[] => XSTOCKS_SENDER_ROWS.map((r) => ({ day, dim: 'sender', ...r }));
+
+/** LinkPool's staking address, and Deepbase's: an operator that stakes and one that joins in the fixture's week. */
+export const STAKING_OPERATOR = '0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b';
+export const STAKING_NEW_OPERATOR = '0xcb3396ee80f304f979d7305731ff9264d60298b3';
+
+/** staking.json as published on Monday, Nov 2, 2026 at 14:00 UTC, with the real pool's figures and a made-up week of Oct 26. */
+export const STAKING_FIXTURE = {
+  schema_version: 1,
+  updated_at: '2026-11-02T14:00:00.000Z',
+  attribution: '',
+  as_of_block: 1,
+  since: '2023-11-28T16:58:23.000Z',
+  periods: { unbonding_s: 2_419_200, claim_s: 604_800 },
+  community: { total: 40_875_000, cap: 40_875_000, min_stake: 1, max_stake: 15_000, stakers: 8_528, ever: 10_485, at_max: 1_329, median: 1_946, mean: 4_793, full_since: '2023-12-07T23:13:35.000Z' },
+  operator: { total: 1_646_261, cap: 4_125_000, min_stake: 1_000, max_stake: 75_000, stakers: 35, allowlisted: 41, removed: 14, at_max: 19 },
+  rewards: { community_per_s: 0.056, operator_per_s: 0.0059, delegated_per_s: 0.0023, ends_at: '2027-03-17T04:55:34.000Z', community_rate_pct: 4.32, operator_rate_pct: 15.74 },
+  holders: [],
+  sizes: [],
+  tenure: { first_month: 7_084, median_days: 1_063, by_year: [] },
+  queue: {
+    unbonding: { stakers: 156, link: 1_367_907, stakelink_stakers: 322, stakelink_link: 4_829_950 },
+    claimable: { stakers: 23, link: 86_797, stakelink_stakers: 77, stakelink_link: 1_155_000 },
+    days: [],
+    closed: [],
+    conversion: { others: { left: 3_101, total: 5_300 }, stakelink: { left: 1, total: 4_844 } },
+    likely_to_leave: 800_355,
+    lapsed: 496,
+  },
+  refills: {
+    openings: 3_272, median_s: 12, p90_s: 504, same_block: 268, next_block: 1_378, hunters: 1_937, leaders: [],
+    recent: [
+      { opened_at: '2026-10-25T10:00:00.000Z', gap: 500, seconds: 0, blocks: 0, grabs: ['0xold'] },
+      { opened_at: '2026-10-27T10:00:00.000Z', gap: 1_000, seconds: 24, blocks: 2, grabs: ['0xaa', '0xbb'] },
+      { opened_at: '2026-10-29T10:00:00.000Z', gap: 2_000, seconds: 12, blocks: 1, grabs: ['0xaa'] },
+    ],
+  },
+  weeks: [{ week: '2026-10-26', staked: 120_000, unstaked: 110_000, unbondings: 40, unbonding_link: 1_400_000, stakelink_unbonding_link: 1_140_000, new_stakers: 12, openings: 9 }],
+  operators: [{ address: STAKING_OPERATOR, name: 'LinkPool', via: 'stakelink', stake: 75_000, since: '2023-11-28T16:58:23.000Z', status: 'active' }],
+  operator_events: [
+    { ts: '2026-11-01T09:00:00.000Z', kind: 'added', address: STAKING_NEW_OPERATOR, name: 'Deepbase', amount: null, stake: null },
+    { ts: '2026-10-28T16:42:59.000Z', kind: 'unbonding', address: STAKING_OPERATOR, name: 'LinkPool', amount: null, stake: null },
+    { ts: '2026-10-27T12:00:00.000Z', kind: 'unstaked', address: STAKING_OPERATOR, name: 'LinkPool', amount: 7_221, stake: 67_779 },
+    { ts: '2026-10-20T12:00:00.000Z', kind: 'staked', address: STAKING_OPERATOR, name: 'LinkPool', amount: 100, stake: 75_000 },
+  ],
+  stakelink: { community_vaults: 408, community_link: 6_116_488, operator_vaults: 15, operator_link: 1_125_000 },
+} satisfies StakingFile;

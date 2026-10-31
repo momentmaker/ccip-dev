@@ -19,6 +19,7 @@ import { countdownTree, welcomeTree } from './moment-cards';
 import { skyNodes } from './orbit-sky';
 import { newcomerTree, projectSpotlightTree } from './project-cards';
 import { reserveTree } from './reserve-card';
+import { operatorTree, stakingTree } from './staking-cards';
 import { pollTree, roundupTree } from './week-cards';
 
 export const RECORD_TITLES: Record<RecordKind, string> = {
@@ -269,5 +270,9 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return roundupTree(target.monday, inputs);
     case 'poll':
       return pollTree(target.monday, inputs);
+    case 'staking':
+      return stakingTree(target.monday, inputs);
+    case 'operator':
+      return operatorTree(target.address, target.at, inputs);
   }
 }
