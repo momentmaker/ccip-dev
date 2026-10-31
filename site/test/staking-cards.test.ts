@@ -4,6 +4,7 @@ import { broadcastTree } from '../worker/cards/broadcast-cards';
 import { stakerTree } from '../worker/cards/staking-cards';
 import { stakingCard } from '../worker/cards/content';
 import { stakingHiveSvg } from '../worker/cards/staking-cards';
+import { stakingPageSvg, stakingPageTree } from '../worker/cards/staking-page-card';
 import { texts } from './fixtures/broadcast';
 
 const inputs = (staking = STAKING_FIXTURE) => ({ load: async () => staking, icon: async () => null }) as never;
@@ -74,5 +75,22 @@ describe('the staker card', () => {
 
   it('has no card for an address with no stake', async () => {
     expect(await stakerTree(A, files([]))).toBeNull();
+  });
+});
+
+describe('the /staking share card', () => {
+  it('shows the pool, how long it has been full, the four stats and the page', () => {
+    const words = texts(stakingPageTree(STAKING_FIXTURE, new Date('2026-11-02T14:00:00.000Z'))).join('|');
+    expect(words).toContain('40,875,000');
+    expect(words).toContain('FULL|LINK staked · full since Dec 7, 2023, 1,060 days');
+    expect(words).toContain('Stakers|8,528|At the max|1,329|Gaps refill|12s|Rewards|4.32%');
+    expect(words).toContain('ccip.dev/staking');
+  });
+
+  it('draws every cell of the honeycomb, one gap and one refill among them', () => {
+    const svg = stakingPageSvg(STAKING_FIXTURE);
+    expect(svg).not.toContain('undefined');
+    expect(svg.match(/stroke="#ffcf5a" stroke-width="2"/g)).toHaveLength(1);
+    expect(svg.match(/filter="url\(#glow\)"/g)).toHaveLength(1);
   });
 });
