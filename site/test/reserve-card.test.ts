@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { reservePageSvg, reservePageTree } from '../worker/cards/reserve-page-card';
 import { RESERVE, texts } from './fixtures/broadcast';
 
-const NOW = new Date('2026-10-31T20:00:00.000Z');
-
 /** The Reserve as reserve.json had it on Oct 31, 2026: 65 weekly deposits in a row, the next due Nov 5. */
 const HELD: ReserveFile = {
   ...RESERVE,
@@ -32,7 +30,7 @@ const HELD: ReserveFile = {
 describe('the /reserve share card', () => {
   it('shows the LINK held, its value, the streak, the four stats and the page', () => {
     // #when
-    const words = texts(reservePageTree(HELD, NOW)).join('|');
+    const words = texts(reservePageTree(HELD)!).join('|');
     // #then
     expect(words).toContain('6,475,076');
     expect(words).toContain('65-WEEK DEPOSIT STREAK|LINK held · $76.9M at $11.87');
@@ -42,7 +40,7 @@ describe('the /reserve share card', () => {
 
   it('labels the vault with how far it is to the next million, and the last million’s mark', () => {
     // #when
-    const words = texts(reservePageTree(HELD, NOW)).join('|');
+    const words = texts(reservePageTree(HELD)!).join('|');
     // #then
     expect(words).toContain('92.5%|OF 7,000,000|6M');
   });
@@ -51,7 +49,7 @@ describe('the /reserve share card', () => {
     // #given
     const overdue = { ...HELD, pace: { ...HELD.pace!, deposit_overdue: true } };
     // #when
-    const words = texts(reservePageTree(overdue, NOW)).join('|');
+    const words = texts(reservePageTree(overdue)!).join('|');
     // #then
     expect(words).toContain('Deposit due|Now');
   });
@@ -63,11 +61,18 @@ describe('the /reserve share card', () => {
     expect(svg.match(/<rect class="bar"/g)).toHaveLength(3);
   });
 
-  it('still draws, without empty tiles, when there is no balance, pace or cost basis yet', () => {
+  it('still draws, without empty tiles, when there is no pace or cost basis yet', () => {
+    // #given
+    const bare = { ...HELD, pace: null, cost_basis: null };
     // #when
-    const words = texts(reservePageTree(RESERVE, NOW)).join('|');
-    const svg = reservePageSvg(RESERVE);
+    const words = texts(reservePageTree(bare)!).join('|');
+    const svg = reservePageSvg(bare);
     // #then
     expect([words, svg].join('|')).not.toMatch(/undefined|NaN|—|STREAK|Deposit due/);
+  });
+
+  it('leaves the page to the classic card until there is a balance', () => {
+    // #then
+    expect(reservePageTree({ ...RESERVE, latest: null })).toBeNull();
   });
 });

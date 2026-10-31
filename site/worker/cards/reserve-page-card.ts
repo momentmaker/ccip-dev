@@ -172,8 +172,9 @@ function heldLine(reserve: ReserveFile): string {
 }
 
 /** The /reserve share card: the home page's Vault in one frame. */
-export function reservePageTree(reserve: ReserveFile, _now: Date): VNode {
-  const link = reserve.latest?.link ?? null;
+export function reservePageTree(reserve: ReserveFile): VNode | null {
+  if (reserve.latest === null) return null;
+  const link = reserve.latest.link;
   const streak = reserve.pace?.deposit_streak ?? 0;
   const bars = reserve.weekly.filter((w) => w.deposits > 0).slice(-BARS.weeks).length;
   return h(
@@ -194,7 +195,7 @@ export function reservePageTree(reserve: ReserveFile, _now: Date): VNode {
             backgroundImage: `linear-gradient(180deg, ${GOLD_PALE} 8%, ${GOLD} 58%, ${GOLD_DEEP})`, backgroundClip: 'text', color: 'transparent',
           },
         },
-        link === null ? '0' : formatCount(link),
+        formatCount(link),
       ),
       h(
         'div',

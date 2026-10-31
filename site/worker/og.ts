@@ -182,8 +182,8 @@ async function stakingPng(deps: OgDeps): Promise<Uint8Array | null> {
 /** The /reserve card, or null when it can't be drawn, so the page falls back to its classic card, not the default. */
 async function reservePng(deps: OgDeps): Promise<Uint8Array | null> {
   try {
-    const reserve = await fetchPublic('reserve.json', { fetch: deps.fetch });
-    return await deps.renderPng(reservePageTree(reserve, new Date()), CARD_SIZE);
+    const tree = reservePageTree(await fetchPublic('reserve.json', { fetch: deps.fetch }));
+    return tree ? await deps.renderPng(tree, CARD_SIZE) : null;
   } catch (err) {
     console.error(`reserve card failed, drawing the classic card instead: ${err instanceof Error ? err.message : String(err)}`);
     return null;
