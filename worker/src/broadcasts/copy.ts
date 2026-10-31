@@ -1,8 +1,10 @@
 import { addDays } from '@ccip-dev/core';
 import { recordValueText } from '@ccip-dev/core/broadcasts';
-import { formatCompactCount, formatCount, formatFeeTotal, formatLinkAmount, formatPct, formatShare, formatUsd } from '@ccip-dev/core/format';
+import { formatCompactCount, formatCount, formatDuration, formatFeeTotal, formatLinkAmount, formatPct, formatShare, formatUsd } from '@ccip-dev/core/format';
+import { shortAddress } from '@ccip-dev/core/names';
+import type { OperatorMomentFacts, StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RecordKind } from '@ccip-dev/core/records';
-import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, RecordFacts, ReserveFacts, SenderFacts, WeeklyFacts } from './facts';
+import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -259,6 +261,83 @@ function reserveTg(f: ReserveFacts): Line[] {
   ];
 }
 
+const STAKING_DROP = { hunt: 1, operators: 2, rewards: 3, asked: 4, closing: 5 } as const;
+const operatorName = (o: { name: string | null; address: string }) => o.name ?? shortAddress(o.address);
+const OPERATOR_VERB: Record<StakingWeekFacts['operatorEvents'][number]['kind'], (amount: number | null) => string> = {
+  added: () => 'joined',
+  removed: () => 'was removed',
+  staked: (a) => `staked ${formatCount(a)}`,
+  unstaked: (a) => `unstaked ${formatCount(a)}`,
+  unbonding: () => 'started unbonding',
+};
+
+function poolLine(w: StakingWeekFacts, link: string): string {
+  const people = `${formatCount(w.stakers)} stakers`;
+  if (!w.full) return `Community pool: ${formatCompactCount(w.total)} ${link} staked, ${formatCompactCount(w.cap - w.total)} LINK of space open · ${people}`;
+  return `Community pool full${w.fullDays === null ? '' : ` for ${formatCount(w.fullDays)} days`}: ${formatCompactCount(w.total)} ${link} · ${people}`;
+}
+
+function stakingLines(f: StakingFacts, name: (s: string) => string, link: string): Line[] {
+  const w = f.week;
+  const conv = w.conversionPct === null ? '' : `; ${Math.round(w.conversionPct)}% of those asks end in an exit`;
+  const ops = w.operatorEvents.map((e) => `${name(operatorName(e))} ${OPERATOR_VERB[e.kind](e.amount)}`);
+  return [
+    { text: poolLine(w, link) },
+    { text: `In ${formatCompactCount(w.week.staked)} · out ${formatCompactCount(w.week.unstaked)} LINK · ${plural(w.week.new_stakers, 'new staker')}` },
+    { text: `${formatCompactCount(w.askedToLeave)} LINK started unbonding outside stake.link${conv}`, drop: STAKING_DROP.asked },
+    ...(w.openings > 0 && w.fastestRefillS !== null ? [{ text: `${plural(w.openings, 'gap')} opened; the fastest refilled in ${formatDuration(w.fastestRefillS)}`, drop: STAKING_DROP.hunt }] : []),
+    ...(ops.length > 0 ? [{ text: `Operator watch: ${ops.join(' · ')}`, drop: STAKING_DROP.operators }] : []),
+    ...(w.communityRatePct === null ? [] : [{ text: `Rewards: ${w.communityRatePct.toFixed(2)}% a year for the community${w.operatorRatePct === null ? '' : `, ${w.operatorRatePct.toFixed(2)}% for operators`}`, drop: STAKING_DROP.rewards }]),
+  ];
+}
+
+function stakingX(f: StakingFacts): Line[] {
+  return [
+    { text: `Chainlink staking, week of ${weekRange(f.week.monday)}` },
+    ...stakingLines(f, noLinks, '$LINK'),
+    { text: '#Chainlink #Staking', drop: STAKING_DROP.closing },
+  ];
+}
+
+function stakingTg(f: StakingFacts): Line[] {
+  return [
+    { text: bold(`Chainlink staking · week of ${weekRange(f.week.monday)}`) },
+    ...stakingLines(f, tgText, 'LINK'),
+    { text: '' },
+    { text: '#Chainlink #Staking $LINK', drop: STAKING_DROP.closing },
+  ];
+}
+
+function operatorHeadline(m: OperatorMomentFacts, name: string, link: string): string {
+  const via = m.via === 'stakelink' ? ', through a stake.link vault' : '';
+  switch (m.kind) {
+    case 'added':
+      return `New in the Chainlink staking operator pool: ${name}${via}`;
+    case 'removed':
+      return `${name} was removed from the Chainlink staking operator pool${m.amount !== null && m.amount > 0 ? ` with ${formatCount(m.amount)} ${link} staked` : ''}`;
+    case 'unstaked':
+      return `Node operator ${name} unstaked ${formatCount(m.amount)} ${link} from Chainlink staking${via}`;
+  }
+}
+
+function operatorLines(f: OperatorFacts, name: (s: string) => string, link: string): Line[] {
+  const m = f.moment;
+  return [
+    { text: operatorHeadline(m, name(operatorName(m)), link) },
+    ...(m.kind === 'unstaked' && m.stake !== null ? [{ text: m.stake > 0 ? `It still stakes ${formatCount(m.stake)} LINK` : 'Its stake is now 0' }] : []),
+    { text: `The operator pool: ${plural(m.operators, 'operator')} staking ${formatCompactCount(m.operatorTotal)} LINK` },
+  ];
+}
+
+function operatorX(f: OperatorFacts): Line[] {
+  return [...operatorLines(f, noLinks, '$LINK'), { text: '#Chainlink #Staking', drop: STAKING_DROP.closing }];
+}
+
+function operatorTg(f: OperatorFacts): Line[] {
+  const [headline, ...rest] = operatorLines(f, tgText, 'LINK');
+  return [{ text: bold('Operator watch') }, headline!, ...rest, { text: '' }, { text: '#Chainlink #Staking $LINK', drop: STAKING_DROP.closing }];
+}
+
 function xLines(f: BroadcastFacts): Line[] {
   switch (f.kind) {
     case 'daily':
@@ -271,6 +350,10 @@ function xLines(f: BroadcastFacts): Line[] {
       return milestoneX(f);
     case 'reserve':
       return reserveX(f);
+    case 'staking':
+      return stakingX(f);
+    case 'operator':
+      return operatorX(f);
   }
 }
 
@@ -286,6 +369,10 @@ function telegramLines(f: BroadcastFacts): Line[] {
       return milestoneTg(f);
     case 'reserve':
       return reserveTg(f);
+    case 'staking':
+      return stakingTg(f);
+    case 'operator':
+      return operatorTg(f);
   }
 }
 

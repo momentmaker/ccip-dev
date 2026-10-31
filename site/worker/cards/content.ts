@@ -1,9 +1,9 @@
-import type { HistoryFile, ProjectsFile, ReserveFile, TodayFile, TopEntry, TopFile } from '@ccip-dev/core/public';
+import type { HistoryFile, ProjectsFile, ReserveFile, StakingFile, TodayFile, TopEntry, TopFile } from '@ccip-dev/core/public';
 import { mostlyViaToken } from '@ccip-dev/core/senders';
 import type { HistoryRange, TopDim, TopOrder, Window } from '../../src/lib/card-paths';
 import { rangeRows, rangeTotals } from '../../src/lib/charts';
 import { addDays } from '../../src/lib/days';
-import { formatCount, formatFeeTotal, formatLink, formatPct, formatShare, formatUsd, formatUtcDay } from '../../src/lib/format';
+import { formatCount, formatDuration, formatFeeTotal, formatLink, formatPct, formatShare, formatUsd, formatUtcDay } from '../../src/lib/format';
 import { senderEntries, viaTokenMark } from '../../src/lib/senders';
 import { chainName, laneLabel, senderLabel, tokenLabel, type ChainNames } from '../../src/lib/names';
 import { topEntries } from '../../src/lib/top';
@@ -148,6 +148,19 @@ export function reserveCard(reserve: ReserveFile): CardSpec {
     date: reserve.latest ? formatUtcDay(reserve.latest.ts) : '',
     extra: next ? [`Next deposit expected ${formatUtcDay(next)}`] : [],
     spark: sparkPoints(reserve.series.map((s) => s.link)),
+  };
+}
+
+export function stakingCard(staking: StakingFile): CardSpec {
+  const c = staking.community;
+  const full = c.total >= c.cap - 0.001;
+  return {
+    eyebrow: 'CHAINLINK STAKING',
+    big: formatLink(c.total),
+    label: full ? `staked · the community pool is full` : `staked · ${formatCount(c.cap - c.total)} LINK of space open`,
+    date: c.full_since && full ? `full since ${formatUtcDay(c.full_since)}` : '',
+    extra: [`${formatCount(c.stakers)} stakers · gaps refill in ${formatDuration(staking.refills.median_s)}`],
+    spark: sparkPoints(staking.weeks.slice(-52).map((w) => w.unbonding_link - w.stakelink_unbonding_link)),
   };
 }
 

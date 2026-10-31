@@ -1,7 +1,9 @@
 import { addDays, dayOf, weekStart } from '@ccip-dev/core';
 import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarget, type PostTarget } from '@ccip-dev/core/broadcasts';
 import { MONTHLY_VIDEO, monthLabel, monthlyDue, monthlyVideoKey } from '@ccip-dev/core/month';
+import type { StakingFile } from '@ccip-dev/core/public';
 import { milestonesOn, RECORD_KINDS, recordsSetOn, recordValue, trackedMilestones } from '@ccip-dev/core/records';
+import { operatorMomentFacts, operatorMoments, stakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RunContext } from '../context';
 import type { ReserveBody } from '../publish';
 import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
@@ -27,10 +29,19 @@ export const RESERVE_SINCE_KEY = 'broadcast:reserve:since';
 /** A deposit older than this is never posted, so a pause or a long card outage cannot release a flood of stale ones. */
 export const RESERVE_MAX_AGE_DAYS = 3;
 export const MOMENTS_SEED_KEY = 'broadcast:moments:seeded';
+/** The weekly staking report posts on Mondays from this hour (UTC), apart from the 00:07 CCIP posts, and retries through Tuesday. */
+export const STAKING_REPORT_HOUR_UTC = 14;
+export const OPERATOR_SINCE_KEY = 'broadcast:operator:since';
+/** An operator event older than this is never posted, like a Reserve deposit. */
+export const OPERATOR_MAX_AGE_DAYS = 3;
 /** The workflow records last month's video at 01:15 on the 1st; one still missing from this hour on alerts. */
 export const MONTHLY_MISSING_HOUR_UTC = 6;
 
-export type BroadcastRequest = { kind: 'finalize'; days: readonly string[] } | { kind: 'reserve'; reserve: ReserveBody } | { kind: 'monthly' };
+export type BroadcastRequest =
+  | { kind: 'finalize'; days: readonly string[] }
+  | { kind: 'reserve'; reserve: ReserveBody }
+  | { kind: 'staking'; staking: StakingFile }
+  | { kind: 'monthly' };
 
 interface Planned {
   target: PostTarget;
@@ -48,7 +59,8 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
     console.warn(`[broadcast] BROADCASTS is ${mode} but no output is configured`);
     return;
   }
-  const planned = request.kind === 'finalize' ? await planFinalize(c, request.days) : await planReserve(c, request.reserve);
+  const planned =
+    request.kind === 'finalize' ? await planFinalize(c, request.days) : request.kind === 'reserve' ? await planReserve(c, request.reserve) : await planStaking(c, request.staking);
   for (const p of planned) await deliver(c, p, enabled);
   if (request.kind === 'finalize') await broadcastMoments(c, request.days, outputs);
 }
@@ -227,6 +239,38 @@ async function planReserve(c: RunContext, reserve: ReserveBody): Promise<Planned
       const facts = reserveFacts(reserve, d.tx);
       return facts === null ? [] : [{ target: { kind: 'reserve' as const, tx: d.tx }, facts }];
     });
+}
+
+/** The staking job's broadcasts, after it publishes staking.json: the weekly report and new operator events. */
+export async function broadcastStaking(c: RunContext, staking: StakingFile): Promise<void> {
+  await broadcastSafely(c, { kind: 'staking', staking });
+}
+
+async function planStaking(c: RunContext, staking: StakingFile): Promise<Planned[]> {
+  const db = c.env.DB;
+  const now = c.deps.now();
+  const today = dayOf(now);
+  const thisMonday = weekStart(today);
+  const planned: Planned[] = [];
+  if ((today === thisMonday && now.getUTCHours() >= STAKING_REPORT_HOUR_UTC) || today === addDays(thisMonday, 1)) {
+    const monday = addDays(thisMonday, -7);
+    const week = stakingWeekFacts(staking, monday);
+    if (week !== null) planned.push({ target: { kind: 'staking', monday }, facts: { kind: 'staking', week } });
+  }
+  // As with deposits, the first run only sets the watermark, so switching broadcasts on posts no old operator events.
+  const moments = operatorMoments(staking);
+  const since = await store.getMeta(db, OPERATOR_SINCE_KEY);
+  if (since === null) {
+    await store.setMeta(db, OPERATOR_SINCE_KEY, moments[0]?.ts ?? '');
+    return planned;
+  }
+  const oldest = new Date(now.getTime() - OPERATOR_MAX_AGE_DAYS * 86_400_000).toISOString();
+  for (const m of [...moments].reverse()) {
+    if (m.ts <= since || m.ts < oldest) continue;
+    const moment = operatorMomentFacts(staking, m.address, m.at);
+    if (moment !== null) planned.push({ target: { kind: 'operator', address: m.address, at: m.at }, facts: { kind: 'operator', moment } });
+  }
+  return planned;
 }
 
 type Media = { media: BroadcastMedia } | { alert: string; problem: string; missing?: boolean };

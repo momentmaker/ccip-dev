@@ -13,6 +13,8 @@ describe('card paths', () => {
     ['top/chain/30d/fees', { kind: 'top', dim: 'chain', window: '30d', order: 'fees' }],
     ['flow/all', { kind: 'flow', window: 'all' }],
     ['reserve', { kind: 'reserve' }],
+    ['staking', { kind: 'staking' }],
+    ['staker/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b', { kind: 'staker', address: '0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b' }],
     ['replay', { kind: 'replay' }],
     ['project/xstocks', { kind: 'project', slug: 'xstocks' }],
     ['records', { kind: 'records' }],
@@ -29,12 +31,17 @@ describe('card paths', () => {
     ['broadcast/roundup/2026-10-05', { kind: 'broadcast', target: { kind: 'roundup', monday: '2026-10-05' } }],
     ['broadcast/project/2026-10-05', { kind: 'broadcast', target: { kind: 'project', monday: '2026-10-05' } }],
     ['broadcast/newcomer/project/xstocks', { kind: 'broadcast', target: { kind: 'newcomer', key: 'project:xstocks' } }],
+    ['broadcast/staking/2026-10-26', { kind: 'broadcast', target: { kind: 'staking', monday: '2026-10-26' } }],
+    [
+      'broadcast/operator/0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b/1793000000',
+      { kind: 'broadcast', target: { kind: 'operator', address: '0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b', at: 1_793_000_000 } },
+    ],
   ] as [string, CardRoute][])('parses %s and prints it back', (path, route) => {
     expect(parseCardPath(path)).toEqual(route);
     expect(cardPathOf(route)).toBe(path);
   });
 
-  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base', 'project/XStocks', 'project/a/b', 'project'])('rejects %j', (path) => {
+  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base', 'project/XStocks', 'project/a/b', 'project', 'staker/0x8D87cbd8c3632b7ef117a15f8100943a23b7d03b', 'staker/0x12'])('rejects %j', (path) => {
     expect(parseCardPath(path)).toBeNull();
   });
 

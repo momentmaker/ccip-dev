@@ -7,6 +7,7 @@ import { runFinalize } from './jobs/finalize';
 import { runHourly } from './jobs/hourly';
 import { runIngest } from './jobs/ingest';
 import { runPrices } from './jobs/prices';
+import { runStaking } from './jobs/staking';
 import { LATE_FINALIZE_HOUR_UTC } from './schedule';
 
 export type Job = [name: string, run: (c: RunContext) => Promise<void>];
@@ -17,7 +18,10 @@ export const JOBS: Readonly<Record<string, Job[]>> = {
     ['details', (c) => runDetails(c, { limit: 10 })],
   ],
   '*/5 * * * *': [['prices', runPrices]],
-  '0 * * * *': [['hourly', runHourly]],
+  '0 * * * *': [
+    ['hourly', runHourly],
+    ['staking', runStaking],
+  ],
   '7 0 * * *': [['finalize', (c) => runFinalize(c, 'early')]],
   [`0 ${LATE_FINALIZE_HOUR_UTC} * * *`]: [['finalize', (c) => runFinalize(c, 'late')]],
 };

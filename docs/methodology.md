@@ -216,6 +216,40 @@ The numbers on ccip.dev, and the JSON files behind them at `https://data.ccip.de
 - **Pace:** the 4-week figures average the last four complete weeks. The milestone date assumes that pace continues.
 - **Cadence:** the average gap between deposits; the next deposit is expected at the last deposit plus the median gap, and is flagged overdue 24 hours after that; the streak counts consecutive deposits no more than 8 days apart.
 
+## Chainlink staking
+- **Events:** every `Staked`, `Unstaked`, `UnbondingPeriodStarted`, `UnbondingPeriodReset`, `OperatorAdded` and
+  `OperatorRemoved` log of the two staking v0.2 pools on Ethereum since the first one (block 18,621,067, the pools' deployment on 2023-11-21; the first stake was 2023-11-28):
+  the community pool `0xBc10f2E862ED4502144c7d632a3459F49DFCDB5e` and the operator pool
+  `0xa1d76A7cA72128541E9FCAcafBdA3a92EF94fDc5`. They come from free public RPC endpoints, 12 blocks behind the chain
+  head, every hour. `staking.json` and the stakers files are published only once the scan has reached the head and
+  every staker is classified.
+- **Pool state:** each pool's cap, staking limits, unbonding and claim periods and principal are read from the pools
+  every hour, and the three reward streams from the reward vault `0x996913C8c08472f584Ab8834E925b06D0eb1D813`.
+- **Rewards:** the yearly rate is a stream's LINK a second times a 365-day year over the pool's principal. Operators
+  earn their base stream and the delegated stream, so their rate counts both. This is what the vault pays out now,
+  not a promise: the streams end when their funding runs out (`ends_at`) and change when Chainlink adds rewards.
+- **Holders:** an address with no code is a wallet; one whose code starts `0xef0100` is an EIP-7702 wallet ("smart");
+  a contract whose `owner()` is one of stake.link's two vault controllers
+  (`0xac12290b097f6893322f5430627e472131fbc1b5` for community vaults, `0x4852e48215a4785ee99b640caced5378cc39d2a4`
+  for operator vaults) is a stake.link vault; any other contract (mostly multisigs) is a contract. Holders are
+  checked again every 30 days.
+- **Stakers and at max:** a staker holds more than 0 LINK; at max means within 0.01 LINK of the pool's maximum stake.
+- **Exit queue:** a staker is unbonding from its `UnbondingPeriodStarted` until its claim window opens 28 days later,
+  then claimable for the 7 days of the window. An unstake ends it, and so does `UnbondingPeriodReset` (staking more
+  while unbonding resets the clock). The queue counts each staker's principal now.
+- **Conversion:** of the unbonding periods whose claim window has closed, the share that ended in an unstake inside
+  the window (give or take an hour). stake.link's vaults unbond on a rolling schedule and almost never leave, so they are
+  counted apart from everyone else. **Likely to leave** is the LINK unbonding now outside stake.link times the others'
+  conversion. **Lapsed** counts claim windows that closed without an unstake.
+- **Openings and refills:** once the community pool first filled, an opening starts when an event leaves it below its
+  cap (within 0.001 LINK) and ends when it is full again. The gap is the most space open at once; the refill time runs
+  from the event that opened the space to the one that filled it. A grab is a stake made while the pool was open.
+- **Weeks:** UTC weeks starting Monday.
+- **Operators:** the roster is the operator pool's allowlist; an operator is removed once `OperatorRemoved` names it.
+  Names come from `labels/staking-operators.json`, only where a public source ties the name to the staking address
+  (Chainlink's reference data directory, Dune's spellbook or stake.link's app config). Unnamed operators show their
+  address.
+
 ## Cross-check
 @CCIPMetrics posts its "#CCIP today" totals just after midnight UTC. Each post is dated the day it is posted and
 covers the previous UTC day: on every day below, its transaction count equals our message count for the previous

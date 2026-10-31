@@ -17,7 +17,9 @@ export type BroadcastTarget =
   | { kind: 'movers'; monday: string }
   | { kind: 'spotlight'; monday: string }
   | { kind: 'project'; monday: string }
-  | { kind: 'roundup'; monday: string };
+  | { kind: 'roundup'; monday: string }
+  | { kind: 'staking'; monday: string }
+  | { kind: 'operator'; address: string; at: number };
 
 /** The moments the daily budget counts, in the order they take its places. The poll is not among them: it always posts. */
 export const BUDGETED_MOMENTS = ['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'project', 'roundup'] as const;
@@ -58,7 +60,10 @@ export function broadcastKey(t: PostTarget): string {
     case 'spotlight':
     case 'project':
     case 'roundup':
+    case 'staking':
       return `broadcast:${t.kind}:${t.monday}`;
+    case 'operator':
+      return `broadcast:operator:${t.address}:${t.at}`;
   }
 }
 
@@ -86,7 +91,10 @@ export function broadcastCardPath(t: BroadcastTarget): string {
     case 'spotlight':
     case 'project':
     case 'roundup':
+    case 'staking':
       return `broadcast/${t.kind}/${t.monday}`;
+    case 'operator':
+      return `broadcast/operator/${t.address}/${t.at}`;
   }
 }
 
@@ -96,6 +104,8 @@ const SELECTOR_RE = /^[1-9]\d{0,19}$/;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** EVM and base58 addresses; an address of another shape gets no newcomer card. */
 const NEWCOMER_ADDRESS_RE = /^[0-9A-Za-z]{1,128}$/;
+const EVM_ADDRESS_RE = /^0x[0-9a-f]{40}$/;
+const UNIX_RE = /^[1-9]\d{8,10}$/;
 const WEEKLY_MOMENTS = ['poll', 'movers', 'spotlight', 'project', 'roundup'] as const;
 const oneOf = <T extends string>(list: readonly T[], value: string | undefined): value is T => value !== undefined && (list as readonly string[]).includes(value);
 
@@ -112,6 +122,8 @@ export function parseBroadcastPath(parts: readonly string[]): BroadcastTarget | 
   if (kind === 'countdown' && oneOf(MILESTONE_METRICS, a) && b !== undefined && THRESHOLD_RE.test(b)) return { kind: 'countdown', metric: a, threshold: Number(b) };
   if (kind === 'newcomer' && b !== undefined && ((a === 'project' && SLUG_RE.test(b)) || (a === 'address' && NEWCOMER_ADDRESS_RE.test(b)))) return { kind: 'newcomer', key: `${a}:${b}` };
   if (oneOf(WEEKLY_MOMENTS, kind) && b === undefined && isDay(a) && weekStart(a) === a) return { kind, monday: a };
+  if (kind === 'staking' && b === undefined && isDay(a) && weekStart(a) === a) return { kind: 'staking', monday: a };
+  if (kind === 'operator' && EVM_ADDRESS_RE.test(a) && b !== undefined && UNIX_RE.test(b)) return { kind: 'operator', address: a, at: Number(b) };
   return null;
 }
 

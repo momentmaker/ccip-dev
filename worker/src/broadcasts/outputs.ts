@@ -64,7 +64,7 @@ export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'
 }
 
 /** X carries the reports, records, milestones, Reserve deposits and the monthly video, as the post or the owner's draft; moments are Telegram's alone. */
-const X_KINDS: ReadonlySet<PostTarget['kind']> = new Set(['daily', 'weekly', 'record', 'milestone', 'reserve', 'monthly']);
+const X_KINDS: ReadonlySet<PostTarget['kind']> = new Set(['daily', 'weekly', 'record', 'milestone', 'reserve', 'monthly', 'staking', 'operator']);
 const X_OUTPUT_NAMES = new Set(['x-post', 'x-draft']);
 
 export function outputsFor(outputs: readonly BroadcastOutput[], target: PostTarget): BroadcastOutput[] {

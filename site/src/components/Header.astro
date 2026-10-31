@@ -7,10 +7,13 @@ import { TELEGRAM_ENLIST_URL, telegramOpen } from '../lib/telegram';
 const NAV = [
   { href: '/', match: '/', label: 'Live', icon: 'live' },
   { href: '/history/30d/', match: '/history/', label: 'History', icon: 'history' },
-  { href: '/top/lane/7d/', match: '/top/', label: 'Top', icon: 'top' },
+  { href: '/top/lane/7d/', match: '/top/', label: 'Top', icon: 'top', narrow: false },
   { href: '/reserve/', match: '/reserve/', label: 'Reserve', icon: 'reserve' },
-  { href: '/replay/', match: '/replay/', label: 'Replay', icon: 'replay' },
+  { href: '/staking/', match: '/staking/', label: 'Staking', icon: 'staking' },
+  { href: '/replay/', match: '/replay/', label: 'Replay', icon: 'replay', narrow: false },
 ];
+/** Nav items that move into the More menu on phones, where seven buttons crowd the wordmark. */
+const FOLDED = NAV.filter((item) => item.narrow === false);
 const MORE = [
   { href: '/records/', label: 'Records' },
   { href: '/flow/30d/', label: 'Flow' },
@@ -26,6 +29,7 @@ const ICONS: Record<string, string> = {
   history: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   top: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/>',
   reserve: '<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M16 8V6a4 4 0 0 0-8 0v2"/>',
+  staking: '<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5l8 4.5 8-4.5"/>',
   replay: '<path d="M6 4l14 8-14 8V4z"/>',
   more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
 };
@@ -49,7 +53,7 @@ const isCurrent = (match: string) => isCurrentPath(path, match);
     <StatusLight client:load />
     <nav class="nav" aria-label="Main">
       {NAV.map((item) => (
-        <a class="hex-btn" href={item.href} aria-label={item.label} title={item.label} aria-current={isCurrent(item.match) ? 'page' : undefined}>
+        <a class:list={['hex-btn', { 'wide-only': item.narrow === false }]} href={item.href} aria-label={item.label} title={item.label} aria-current={isCurrent(item.match) ? 'page' : undefined}>
           <span class="hex-btn-label">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS[item.icon]} />
           </span>
@@ -62,6 +66,7 @@ const isCurrent = (match: string) => isCurrentPath(path, match);
           </span>
         </summary>
         <ul class="more-menu">
+          {FOLDED.map((item) => <li class="narrow-only"><a href={item.href} aria-current={isCurrent(item.match) ? 'page' : undefined}>{item.label}</a></li>)}
           {MORE.map((item) => <li><a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a></li>)}
         </ul>
       </details>
@@ -92,6 +97,11 @@ const isCurrent = (match: string) => isCurrentPath(path, match);
 </script>
 
 <style>
+  .narrow-only { display: none; }
+  @media (max-width: 420px) {
+    .wide-only { display: none; }
+    .narrow-only { display: list-item; }
+  }
   .wordmark { white-space: nowrap; flex: none; }
   .mark { width: 0.95em; height: 0.95em; margin-right: 0.3em; vertical-align: -0.14em; overflow: visible; }
   .mark-spin, .mark-ring, .mark-fill { transform-box: fill-box; transform-origin: center; }

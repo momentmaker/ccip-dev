@@ -1,7 +1,7 @@
 import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
-  type ReserveTransfer, type SenderChain, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
+  type HolderKind, type ReserveTransfer, type SenderChain, type StakingEvent, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
   SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
@@ -1077,4 +1077,73 @@ export async function chainDisplayNames(db: D1Database): Promise<Map<string, Cha
     .prepare('SELECT selector, name, display_name FROM chains')
     .all<{ selector: string; name: string | null; display_name: string | null }>();
   return new Map(results.map((r) => [r.selector, { name: r.name, display_name: r.display_name }]));
+}
+
+const STAKING_EVENT_COLUMNS = 10;
+
+export async function insertStakingEvents(db: D1Database, events: StakingEvent[]): Promise<void> {
+  const statements = chunks(events, Math.floor(PARAM_CHUNK / STAKING_EVENT_COLUMNS)).map((chunk) =>
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO staking_events (block_number, log_index, pool, kind, staker, tx_hash, ts, amount, stake, total)
+         VALUES ${chunk.map(() => `(${placeholders(STAKING_EVENT_COLUMNS)})`).join(', ')}`,
+      )
+      .bind(...chunk.flatMap((e) => [e.blockNumber, e.logIndex, e.pool, e.kind, e.staker, e.txHash, e.ts, e.amount, e.stake, e.total])),
+  );
+  await runBatch(db, statements);
+}
+
+interface StakingEventRow {
+  block_number: number;
+  log_index: number;
+  pool: StakingEvent['pool'];
+  kind: StakingEvent['kind'];
+  staker: string;
+  tx_hash: string;
+  ts: string;
+  amount: string | null;
+  stake: string | null;
+  total: string | null;
+}
+
+export async function stakingEvents(db: D1Database): Promise<StakingEvent[]> {
+  const { results } = await db.prepare('SELECT * FROM staking_events ORDER BY block_number, log_index').all<StakingEventRow>();
+  return results.map((r) => ({
+    pool: r.pool, kind: r.kind, staker: r.staker, blockNumber: r.block_number, logIndex: r.log_index, txHash: r.tx_hash, ts: r.ts,
+    amount: r.amount, stake: r.stake, total: r.total,
+  }));
+}
+
+/** Stakers never classified, then those last classified before `staleBefore`: a wallet can take EIP-7702 code later. */
+export async function stakersToClassify(db: D1Database, staleBefore: string, limit: number): Promise<string[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT e.staker AS address, h.checked_at FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker
+       WHERE e.kind = 'staked' AND (h.address IS NULL OR h.checked_at < ?) ORDER BY h.checked_at IS NOT NULL, h.checked_at LIMIT ?`,
+    )
+    .bind(staleBefore, limit)
+    .all<{ address: string }>();
+  return results.map((r) => r.address);
+}
+
+export async function upsertStakingHolders(db: D1Database, kinds: ReadonlyMap<string, HolderKind>, checkedAt: string): Promise<void> {
+  const upsert = db.prepare(
+    'INSERT INTO staking_holders (address, kind, checked_at) VALUES (?, ?, ?) ON CONFLICT(address) DO UPDATE SET kind = excluded.kind, checked_at = excluded.checked_at',
+  );
+  await runBatch(db, [...kinds].map(([address, kind]) => upsert.bind(address, kind, checkedAt)));
+}
+
+export async function stakingHolders(db: D1Database): Promise<Map<string, HolderKind>> {
+  const { results } = await db.prepare('SELECT address, kind FROM staking_holders').all<{ address: string; kind: HolderKind }>();
+  return new Map(results.map((r) => [r.address, r.kind]));
+}
+
+/** Whether any staker has never been classified. */
+export async function hasUnclassifiedStakers(db: D1Database): Promise<boolean> {
+  const row = await db
+    .prepare(
+      "SELECT 1 AS missing FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker WHERE e.kind = 'staked' AND h.address IS NULL LIMIT 1",
+    )
+    .first<{ missing: number }>();
+  return row !== null;
 }

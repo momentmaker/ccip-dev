@@ -45,7 +45,7 @@ export const SNAPSHOT: CallsignSnapshot = {
 };
 
 export async function resetStorage(): Promise<void> {
-  await env.DB.batch([env.DB.prepare('DELETE FROM marines'), env.DB.prepare('DELETE FROM meta'), env.DB.prepare("DELETE FROM sqlite_sequence WHERE name = 'marines'")]);
+  await env.DB.batch([env.DB.prepare('DELETE FROM marines'), env.DB.prepare('DELETE FROM meta'), env.DB.prepare('DELETE FROM stake_watch'), env.DB.prepare("DELETE FROM sqlite_sequence WHERE name = 'marines'")]);
   const listed = await env.MARINES.list();
   await Promise.all(listed.objects.map((o) => env.MARINES.delete(o.key)));
 }

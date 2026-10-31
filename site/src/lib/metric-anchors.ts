@@ -10,6 +10,7 @@ export const METRIC_ANCHORS = {
   unpriced: 'what-is-counted',
   since: 'coverage',
   reserve: 'chainlink-reserve',
+  staking: 'chainlink-staking',
   labels: 'senders-and-projects',
   status: 'data-sources',
 } as const;

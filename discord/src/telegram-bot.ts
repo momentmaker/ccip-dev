@@ -1,10 +1,12 @@
 import { MINI_APP_URL, miniAppLink, parseStartParam, TELEGRAM_BOT_USERNAME } from '@ccip-dev/core/linkmarine';
 import { cappedBody } from './body';
 import { reason } from './enlistment';
+import { stakeWatchCommand } from './stake-watch';
 import type { TelegramBot } from './telegram-marines';
 
 // The thin bot behind @ccipdevbot's webhook, POST /telegram: /start opens the Mini App, /id names a chat for the owner or
-// a gate chat, and the bot leaves a group unless the owner added it, it is on the gate list or it is the alert chat. Everything else happens in the Mini App.
+// a gate chat, /watch, /unwatch and /watching keep claim-window reminders for a staking address (private chats only),
+// and the bot leaves a group unless the owner added it, it is on the gate list or it is the alert chat. Everything else happens in the Mini App.
 
 export interface TelegramChat {
   id: number;
@@ -104,6 +106,10 @@ export async function handleUpdate(bot: TelegramBot, update: TelegramUpdate): Pr
   if (command.name === 'start') await start(bot, message.chat, command.payload);
   const mayAskId = (owner !== null && message.from?.id === owner) || (message.chat.type !== 'private' && onGateList(message.chat, bot.settings.gateChats));
   if (command.name === 'id' && mayAskId) await callOrWarn(bot, 'sendMessage', { chat_id: message.chat.id, text: `This chat's ID: ${message.chat.id}` });
+  // Claim-window reminders are private: an address watched in a group would tie it to everyone there.
+  if ((command.name === 'watch' || command.name === 'unwatch' || command.name === 'watching') && message.chat.type === 'private') {
+    await stakeWatchCommand(bot, message.chat.id, command.name, command.payload);
+  }
 }
 
 async function processUpdate(bot: TelegramBot, update: TelegramUpdate): Promise<void> {
