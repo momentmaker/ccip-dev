@@ -2,7 +2,7 @@ import { addDays } from '@ccip-dev/core';
 import { recordValueText } from '@ccip-dev/core/broadcasts';
 import { formatCompactCount, formatCount, formatDuration, formatFeeTotal, formatLinkAmount, formatPct, formatShare, formatUsd } from '@ccip-dev/core/format';
 import { shortAddress } from '@ccip-dev/core/names';
-import type { OperatorMomentFacts, StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
+import { HUNTER_MIN_GRABS, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RecordKind } from '@ccip-dev/core/records';
 import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
 import type { Player } from './tags';
@@ -261,7 +261,8 @@ function reserveTg(f: ReserveFacts): Line[] {
   ];
 }
 
-const STAKING_DROP = { hunt: 1, operators: 2, rewards: 3, asked: 4, closing: 5 } as const;
+/** X keeps the pool, the gap hunt and its top hunter; the card carries the rest. */
+const STAKING_DROP = { operators: 1, rewards: 2, flows: 3, asked: 4, hunter: 5, closing: 6 } as const;
 const operatorName = (o: { name: string | null; address: string }) => o.name ?? shortAddress(o.address);
 const OPERATOR_VERB: Record<StakingWeekFacts['operatorEvents'][number]['kind'], (amount: number | null) => string> = {
   added: () => 'joined',
@@ -277,15 +278,23 @@ function poolLine(w: StakingWeekFacts, link: string): string {
   return `Community pool full${w.fullDays === null ? '' : ` for ${formatCount(w.fullDays)} days`}: ${formatCompactCount(w.total)} ${link} · ${people}`;
 }
 
+function hunterLine(w: StakingWeekFacts): Line[] {
+  const h = w.topHunter;
+  if (h === null || h.grabs < HUNTER_MIN_GRABS) return [];
+  const quick = h.withinABlock === h.grabs ? ', every one within a block' : '';
+  return [{ text: `Top hunter: ${shortAddress(h.address)} took ${formatCount(h.grabs)} of them${quick}`, drop: STAKING_DROP.hunter }];
+}
+
 function stakingLines(f: StakingFacts, name: (s: string) => string, link: string): Line[] {
   const w = f.week;
-  const conv = w.conversionPct === null ? '' : `; ${Math.round(w.conversionPct)}% of those asks end in an exit`;
+  const conv = w.conversionPct === null ? '' : `; ${Math.round(w.conversionPct)}% of askers go`;
   const ops = w.operatorEvents.map((e) => `${name(operatorName(e))} ${OPERATOR_VERB[e.kind](e.amount)}`);
+  const hunt = w.openings > 0 && w.fastestRefillS !== null;
   return [
     { text: poolLine(w, link) },
-    { text: `In ${formatCompactCount(w.week.staked)} · out ${formatCompactCount(w.week.unstaked)} LINK · ${plural(w.week.new_stakers, 'new staker')}` },
-    { text: `${formatCompactCount(w.askedToLeave)} LINK started unbonding outside stake.link${conv}`, drop: STAKING_DROP.asked },
-    ...(w.openings > 0 && w.fastestRefillS !== null ? [{ text: `${plural(w.openings, 'gap')} opened; the fastest refilled in ${formatDuration(w.fastestRefillS)}`, drop: STAKING_DROP.hunt }] : []),
+    ...(hunt ? [{ text: `${plural(w.openings, 'gap')} opened; the fastest refilled in ${formatDuration(w.fastestRefillS)}` }, ...hunterLine(w)] : []),
+    { text: `${formatCompactCount(w.askedToLeave)} LINK asked to leave${conv}`, drop: STAKING_DROP.asked },
+    { text: `In ${formatCompactCount(w.week.staked)} · out ${formatCompactCount(w.week.unstaked)} LINK · ${plural(w.week.new_stakers, 'new staker')}`, drop: STAKING_DROP.flows },
     ...(ops.length > 0 ? [{ text: `Operator watch: ${ops.join(' · ')}`, drop: STAKING_DROP.operators }] : []),
     ...(w.communityRatePct === null ? [] : [{ text: `Rewards: ${w.communityRatePct.toFixed(2)}% a year for the community${w.operatorRatePct === null ? '' : `, ${w.operatorRatePct.toFixed(2)}% for operators`}`, drop: STAKING_DROP.rewards }]),
   ];

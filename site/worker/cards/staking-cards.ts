@@ -1,7 +1,7 @@
 import { formatCompactCount, formatCount, formatDuration } from '@ccip-dev/core/format';
 import { shortAddress } from '@ccip-dev/core/names';
 import { stakerShard, type StakingFile } from '@ccip-dev/core/public';
-import { operatorMomentFacts, stakingWeekFacts, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
+import { HUNTER_MIN_GRABS, operatorMomentFacts, stakingWeekFacts, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import { findStaker, sizeText, stakerFacts, type StakerFacts } from '../../src/lib/staker';
 import { hiveCenters, hiveKinds, VIA_LABEL, type HiveKind } from '../../src/lib/staking-view';
 import { h, type Child, type VNode } from '../h';
@@ -65,6 +65,13 @@ function chip(text: string, color: string, ink: string): VNode {
   return h('div', { style: { display: 'flex', fontSize: 19, fontWeight: 800, letterSpacing: 3, color: ink, backgroundColor: color, borderRadius: 6, padding: '6px 12px' } }, text);
 }
 
+function hunterRow(w: StakingWeekFacts): VNode | null {
+  const hunter = w.topHunter;
+  if (hunter === null || hunter.grabs < HUNTER_MIN_GRABS) return null;
+  const quick = hunter.withinABlock === hunter.grabs ? ', each within a block' : '';
+  return row(['Top hunter: ', bold(shortAddress(hunter.address)), ` took ${formatCount(hunter.grabs)} gaps${quick}`], { fontSize: 26, marginTop: 8, color: COLORS.soft });
+}
+
 function weekBody(w: StakingWeekFacts): VNode {
   return h(
     'div',
@@ -81,11 +88,12 @@ function weekBody(w: StakingWeekFacts): VNode {
       { style: { display: 'flex', marginTop: 14 } },
       w.full ? chip(w.fullDays === null ? 'POOL FULL' : `POOL FULL FOR ${formatCount(w.fullDays)} DAYS`, TEAL, '#032a27') : chip(`${formatCompactCount(w.cap - w.total)} LINK OF SPACE OPEN`, COLORS.gold, '#2a2116'),
     ),
-    row(['In ', bold(formatCompactCount(w.week.staked)), ' · out ', bold(formatCompactCount(w.week.unstaked)), ` LINK · ${formatCount(w.week.new_stakers)} new stakers`], { fontSize: 26, marginTop: 20, color: COLORS.soft }),
+    row(['In ', bold(formatCompactCount(w.week.staked)), ' · out ', bold(formatCompactCount(w.week.unstaked)), ` LINK · ${formatCount(w.week.new_stakers)} new staker${w.week.new_stakers === 1 ? '' : 's'}`], { fontSize: 26, marginTop: 20, color: COLORS.soft }),
     row(
       [bold(formatCompactCount(w.askedToLeave)), ' LINK asked to leave', ...(w.conversionPct === null ? [] : [' · ', bold(`${Math.round(w.conversionPct)}%`), ' of askers go'])],
       { fontSize: 26, marginTop: 8, color: COLORS.soft },
     ),
+    hunterRow(w),
     h(
       'div',
       { style: { display: 'flex', marginTop: 28, paddingTop: 22, borderTop: '1px solid #1f2a3c' } },

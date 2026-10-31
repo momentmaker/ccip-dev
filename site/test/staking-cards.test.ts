@@ -17,8 +17,15 @@ describe('the staking sitrep card', () => {
     expect(words).toContain('40.9MLINK staked');
     expect(words).toContain('POOL FULL FOR 1,060 DAYS');
     expect(words).toContain('260.0K LINK asked to leave · 59% of askers go');
+    expect(words).toContain('Top hunter: 0xaa took 2 gaps');
     expect(words).toContain('Operator watch: Deepbase joined the operator pool');
     expect(words).toContain('ccip.dev/staking');
+  });
+
+  it('counts a lone new staker in the singular', async () => {
+    const week = { ...STAKING_FIXTURE.weeks[0]!, new_stakers: 1 };
+    const words = texts(await broadcastTree({ kind: 'staking', monday: '2026-10-26' }, inputs({ ...STAKING_FIXTURE, weeks: [week] }))).join('');
+    expect(words).not.toContain('1 new stakers');
   });
 
   it('has no card until staking.json covers the week', async () => {
