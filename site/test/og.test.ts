@@ -185,6 +185,19 @@ describe('handleOg', () => {
     expect(responses.map((r) => [r.status, r.headers.get('cache-control')])).toEqual([[500, 'no-store'], [500, 'no-store']]);
   });
 
+  it('draws /reserve as the Vault card from reserve.json', async () => {
+    // #given
+    const { get, renderPng } = setup();
+    // #when
+    const res = await get('/og/reserve.png');
+    // #then
+    expect({ status: res.status, size: renderPng.mock.calls[0]![1], vault: JSON.stringify(renderPng.mock.calls[0]![0]).includes('Chainlink Reserve · Ethereum') }).toEqual({
+      status: 200,
+      size: { width: 1200, height: 630 },
+      vault: true,
+    });
+  });
+
   it('draws the home page as the all-time card when its files are published', async () => {
     // #given
     const { get, renderPng } = setup({}, [], { ...DATA, ...BROADCAST_FILES });
