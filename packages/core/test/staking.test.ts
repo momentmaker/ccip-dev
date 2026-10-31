@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { classifyStakers, decodeStakingLog, linkUnits, readStakingChain, readStakingEvents, STAKING_COMMUNITY_POOL, type StakingChain, type StakingEvent } from '../src/staking';
 import { stakerRows, stakingStats } from '../src/staking-stats';
 import { fakeFetch, jsonResponse } from '../src/testing';
+import { PUBLIC_SCHEMAS, stakerShard, StakersFileSchema } from '../src/public';
 
 // Real logs from mainnet: an unbonding start and a 10.61 LINK unstake in the community pool, and an operator's top-up.
 const UNBONDING = { address: '0xbc10f2e862ed4502144c7d632a3459f49dfcdb5e', blockNumber: '0x18ff99c', transactionHash: '0xE0C5', logIndex: '0xdf', topics: ['0x5b9cd1c6f24b416d2354b7b7ad07d92bc1c662a403180e84fac2782414a5f4ed', '0x00000000000000000000000096913c8f98273f8836ce6d25a720dd98ceca1909'], data: '0x' };
@@ -41,11 +42,11 @@ describe('decodeStakingLog', () => {
 });
 
 describe('readStakingEvents', () => {
-  it('asks both pools for every staking event and dates each log, reading a block only when the log has no time', async () => {
+  it('asks both pools for every staking event and dates each log, reading blocks in one batch only for logs with no time', async () => {
     const f = fakeFetch((_url, init) => {
       const body = JSON.parse(String(init?.body));
-      if (body.method === 'eth_getLogs') return jsonResponse({ jsonrpc: '2.0', id: 1, result: [{ ...UNSTAKED, blockTimestamp: '0x10' }, UNBONDING] });
-      return jsonResponse({ jsonrpc: '2.0', id: 1, result: { timestamp: '0x20' } });
+      if (!Array.isArray(body)) return jsonResponse({ jsonrpc: '2.0', id: 1, result: [{ ...UNSTAKED, blockTimestamp: '0x10' }, UNBONDING] });
+      return jsonResponse(body.map((c: { id: number }) => ({ jsonrpc: '2.0', id: c.id, result: { timestamp: '0x20' } })));
     });
     const events = await readStakingEvents({ fetch: f }, ['https://rpc.one'], 26_000_000, 26_009_999);
     const filter = JSON.parse(String(f.calls[0]!.init?.body)).params[0];
@@ -55,6 +56,7 @@ describe('readStakingEvents', () => {
       ['unbonding', new Date(0x20 * 1000).toISOString()],
       ['unstaked', new Date(0x10 * 1000).toISOString()],
     ]);
+    expect(JSON.parse(String(f.calls[1]!.init?.body))).toEqual([{ jsonrpc: '2.0', id: 0, method: 'eth_getBlockByNumber', params: ['0x18ff99c', false] }]);
     expect(f.calls).toHaveLength(2);
   });
 });
@@ -162,13 +164,20 @@ describe('stakingStats', () => {
 });
 
 describe('stakerRows', () => {
-  it('lists every current staker with its first stake and unbonding clock, oldest first', () => {
+  it('lists every current staker with its first stake, unbonding clock, places in its pool and grabs, oldest first', () => {
     expect(stakerRows({ events, holders, chain })).toEqual([
-      ['0xop1', 'o', 10, at(0, 30), null, 'wallet'],
-      ['0xa', 'c', 20, at(0), null, 'wallet'],
-      ['0xb', 'c', 40, at(0, 60), at(50), 'wallet'],
-      ['0xvault', 'c', 20, at(1), at(2), 'stakelink'],
-      ['0xd', 'c', 20, at(30, 12), null, 'wallet'],
-    ].sort((x, y) => (x[3]! < y[3]! ? -1 : x[3]! > y[3]! ? 1 : x[0]! < y[0]! ? -1 : 1)));
+      ['0xa', 'c', 20, at(0), null, 'wallet', 1, 2, 0],
+      ['0xop1', 'o', 10, at(0, 30), null, 'wallet', 1, 1, 0],
+      ['0xb', 'c', 40, at(0, 60), at(50), 'wallet', 2, 1, 0],
+      ['0xvault', 'c', 20, at(1), at(2), 'stakelink', 3, 2, 0],
+      ['0xd', 'c', 20, at(30, 12), null, 'wallet', 4, 2, 1],
+    ]);
+  });
+});
+
+describe('stakerShard', () => {
+  it('files an address by its first hex digit', () => {
+    expect(stakerShard('0xAB12')).toBe('stakers/a.json');
+    expect(PUBLIC_SCHEMAS['stakers/f.json']).toBe(StakersFileSchema);
   });
 });

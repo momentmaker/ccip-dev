@@ -65,6 +65,8 @@ The JSON behind every page is public at `https://data.ccip.dev/v1/`. Main files:
 | `live.json`, `today.json` | the live feed and today so far |
 | `history.json` | daily history |
 | `reserve.json` | the Chainlink Reserve |
+| `staking.json` | Chainlink staking v0.2: both pools, the exit queue, refills, rewards and the operators |
+| `stakers/<0-f>.json` | every current staker, filed by the first hex digit of its address |
 | `chains.json`, `tokens.json` | the chain and token registries |
 | `replay.json` | the data behind the replay |
 

@@ -11,7 +11,7 @@ export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'a
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
-export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, replay: 300, cost: 300, leaders: 300, moments: 300, projects: 300, chains: 3600, tokens: 3600 } as const;
+export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, staking: 300, replay: 300, cost: 300, leaders: 300, moments: 300, projects: 300, chains: 3600, tokens: 3600 } as const;
 
 const LIVE_WINDOW_MINUTES = 15;
 

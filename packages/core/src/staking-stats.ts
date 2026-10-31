@@ -378,12 +378,24 @@ export function stakingStats(input: StakingStatsInput): StakingBody {
 /** Every current staker in both pools: address, pool, principal, first stake, unbonding start and holder, for the staker cards and reminders. */
 export function stakerRows(input: Pick<StakingStatsInput, 'events' | 'holders' | 'chain'>): StakersFile['stakers'] {
   const r = replay(input.events, input.chain.community.maxPoolSize);
+  const grabs = new Map<string, number>();
+  for (const o of r.openings) for (const g of o.grabs) grabs.set(g.staker, (grabs.get(g.staker) ?? 0) + 1);
   const rows: StakersFile['stakers'] = [];
   for (const [pool, tag] of [['community', 'c'], ['operator', 'o']] as const) {
-    for (const [address, s] of r.pools[pool]) {
-      if (s.stake <= 0 || s.first === null) continue;
-      rows.push([address, tag, round(s.stake, 4), s.first, s.unbondingAt, kindOf(input.holders, address)]);
-    }
+    const current = [...r.pools[pool]].flatMap(([address, s]) => (s.stake > 0 && s.first !== null ? [{ address, s, first: s.first }] : []));
+    const byFirst = [...current].sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : a.address < b.address ? -1 : 1));
+    const stakes = current.map((c) => c.s.stake).sort((a, b) => b - a);
+    byFirst.forEach(({ address, s, first }, i) => {
+      // The place by principal is one more than the number of stakers holding more, so equal stakes share a place.
+      let lo = 0;
+      let hi = stakes.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (stakes[mid]! > s.stake) lo = mid + 1;
+        else hi = mid;
+      }
+      rows.push([address, tag, round(s.stake, 4), first, s.unbondingAt, kindOf(input.holders, address), i + 1, lo + 1, grabs.get(address) ?? 0]);
+    });
   }
   return rows.sort((a, b) => (a[3] < b[3] ? -1 : a[3] > b[3] ? 1 : a[0] < b[0] ? -1 : 1));
 }

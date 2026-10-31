@@ -88,23 +88,22 @@ export function decodeStakingLog(log: RpcLog, seconds: number): StakingEvent | n
   };
 }
 
-/** Both pools' staking events in a block range, in chain order. A log without blockTimestamp costs one block read per block. */
+const BLOCK_BATCH = 100;
+
+/** Both pools' staking events in a block range, in chain order. Logs without blockTimestamp are dated by block reads, batched. */
 export async function readStakingEvents(deps: Fetcher, rpcUrls: string[], fromBlock: number, toBlock: number): Promise<StakingEvent[]> {
   const filter = { address: [STAKING_COMMUNITY_POOL, STAKING_OPERATOR_POOL], fromBlock: toHex(fromBlock), toBlock: toHex(toBlock), topics: [Object.values(TOPICS)] };
   return onFirstEndpoint(rpcUrls, `Staking scan of blocks ${fromBlock}-${toBlock}`, async (url) => {
     const logs = z.array(RpcLog).parse(await ethRpc(deps, url, 'eth_getLogs', [filter]));
     const times = new Map<string, number>();
-    const out: StakingEvent[] = [];
-    for (const log of logs) {
-      let seconds = log.blockTimestamp === undefined ? times.get(log.blockNumber) : Number(BigInt(log.blockTimestamp));
-      if (seconds === undefined) {
-        const block = z.object({ timestamp: Quantity }).parse(await ethRpc(deps, url, 'eth_getBlockByNumber', [log.blockNumber, false]));
-        seconds = Number(BigInt(block.timestamp));
-        times.set(log.blockNumber, seconds);
-      }
-      const event = decodeStakingLog(log, seconds);
-      if (event) out.push(event);
+    for (const log of logs) if (log.blockTimestamp !== undefined) times.set(log.blockNumber, Number(BigInt(log.blockTimestamp)));
+    const undated = [...new Set(logs.filter((l) => !times.has(l.blockNumber)).map((l) => l.blockNumber))];
+    for (let i = 0; i < undated.length; i += BLOCK_BATCH) {
+      const blocks = undated.slice(i, i + BLOCK_BATCH);
+      const read = await ethRpcBatch(deps, url, blocks.map((b) => ({ method: 'eth_getBlockByNumber', params: [b, false] })));
+      blocks.forEach((b, j) => times.set(b, Number(BigInt(z.object({ timestamp: Quantity }).parse(read[j]).timestamp))));
     }
+    const out = logs.flatMap((log) => decodeStakingLog(log, times.get(log.blockNumber)!) ?? []);
     return out.sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
   });
 }
@@ -213,3 +212,25 @@ export async function classifyStakers(deps: Fetcher, rpcUrls: string[], addresse
   return out;
 }
 
+
+const OperatorLabel = z.object({ name: z.string().trim().min(1), source: z.string().url() }).strict();
+
+/** labels/staking-operators.json: node operator names by staking address, each with the public source that ties them. */
+export function validateStakingOperators(text: string): { names: Record<string, string>; errors: string[] } {
+  const file = 'labels/staking-operators.json';
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return { names: {}, errors: [`${file}: not JSON`] };
+  }
+  const parsed = z.record(z.string(), OperatorLabel).safeParse(body);
+  if (!parsed.success) return { names: {}, errors: parsed.error.issues.map((i) => `${file}: ${i.path.join('.')}: ${i.message}`) };
+  const names: Record<string, string> = {};
+  const errors: string[] = [];
+  for (const [address, label] of Object.entries(parsed.data)) {
+    if (!/^0x[0-9a-f]{40}$/.test(address)) errors.push(`${file}: ${address} is not a lowercase address`);
+    else names[address] = label.name;
+  }
+  return { names, errors };
+}

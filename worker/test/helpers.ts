@@ -13,7 +13,7 @@ import * as store from '../src/store';
 
 const TABLES = [
   'messages', 'message_tokens', 'daily_totals', 'daily_breakdown', 'chains', 'tokens', 'arrivals',
-  'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids', 'reserve_transfers',
+  'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids', 'reserve_transfers', 'staking_events', 'staking_holders',
 ];
 
 export async function resetStorage(): Promise<void> {

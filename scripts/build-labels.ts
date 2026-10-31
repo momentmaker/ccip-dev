@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, validateChainHandles, validateRegistry } from '@ccip-dev/core';
+import { buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, validateChainHandles, validateRegistry, validateStakingOperators } from '@ccip-dev/core';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -14,14 +14,16 @@ const { projects, errors } = validateRegistry(files, chainNames);
 
 const chainFile = await readFile(path.join(ROOT, 'labels/chain-x.json'), 'utf8');
 const { handles: chainHandles, errors: chainErrors } = validateChainHandles(chainFile, chainNames);
-const allErrors = [...errors, ...chainErrors];
+const operatorFile = await readFile(path.join(ROOT, 'labels/staking-operators.json'), 'utf8');
+const { names: operatorNames, errors: operatorErrors } = validateStakingOperators(operatorFile);
+const allErrors = [...errors, ...chainErrors, ...operatorErrors];
 
 if (allErrors.length > 0) {
   for (const e of allErrors) console.error(e);
   process.exit(1);
 }
 if (process.argv.includes('--check')) {
-  console.log(`labels ok: ${projects.length} project file(s), ${Object.keys(chainHandles).length} chain handle(s)`);
+  console.log(`labels ok: ${projects.length} project file(s), ${Object.keys(chainHandles).length} chain handle(s), ${Object.keys(operatorNames).length} staking operator(s)`);
 } else {
   const generated = path.join(ROOT, 'worker/src/generated');
   await mkdir(generated, { recursive: true });
@@ -37,4 +39,6 @@ if (process.argv.includes('--check')) {
   const handles = buildHandles(projects, chainHandles);
   await writeFile(path.join(generated, 'handles.json'), `${JSON.stringify(handles, null, 2)}\n`);
   console.log(`wrote ${Object.keys(handles.chains).length} chain handle(s) and ${handles.tokens.length} token handle(s) to worker/src/generated/handles.json`);
+  await writeFile(path.join(generated, 'staking-operators.json'), `${JSON.stringify(operatorNames, null, 2)}\n`);
+  console.log(`wrote ${Object.keys(operatorNames).length} staking operator name(s) to worker/src/generated/staking-operators.json`);
 }

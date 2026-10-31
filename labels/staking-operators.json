@@ -1,0 +1,18 @@
+{
+  "0x7a30e4b6307c0db7aef247a656b44d888b23a2dc": {"name": "01Node", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0xfa3430d84324abc9ac8aaf30b2d26260f5172ad0": {"name": "Alpha Chain", "source": "https://github.com/duneanalytics/spellbook/blob/main/dbt_subprojects/daily_spellbook/models/chainlink/ethereum/chainlink_ethereum_ocr_operator_admin_meta.sql"},
+  "0xcb3396ee80f304f979d7305731ff9264d60298b3": {"name": "Deepbase", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0x95c98112bd9635a3159518401ae227d5a296e994": {"name": "Figment Networks", "source": "https://github.com/duneanalytics/spellbook/blob/main/dbt_subprojects/daily_spellbook/models/chainlink/ethereum/chainlink_ethereum_ocr_operator_admin_meta.sql"},
+  "0x7d96bd72cef72dc1f8cf55bed7ab8f03b97557ea": {"name": "Framework Ventures", "source": "https://reference-data-directory.vercel.app/nodes-bsc-mainnet.json"},
+  "0xe6b12850b3979c50d221fb84d40fb94aefbab867": {"name": "Infura", "source": "https://github.com/duneanalytics/spellbook/blob/main/dbt_subprojects/daily_spellbook/models/chainlink/ethereum/chainlink_ethereum_ocr_operator_admin_meta.sql"},
+  "0x8d87cbd8c3632b7ef117a15f8100943a23b7d03b": {"name": "LinkPool", "source": "https://stake.link/assets/js/useApi-BkqjQn10.js"},
+  "0xda8531e75a80f553f556da767db46f514222c83f": {"name": "Matrixed.Link", "source": "https://github.com/duneanalytics/spellbook/blob/main/dbt_subprojects/daily_spellbook/models/chainlink/ethereum/chainlink_ethereum_ocr_operator_admin_meta.sql"},
+  "0x9e788de47d7bcfa3e6f4ef1ceca3161a5339594c": {"name": "On-chain Tech", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0x6df26ae1cd755ef743e7b02bf7ef808eb1c26a4b": {"name": "Orion Staking", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0xda80050ed4f50033949608208f79ee43ab91df55": {"name": "RHINO", "source": "https://github.com/duneanalytics/spellbook/blob/main/dbt_subprojects/daily_spellbook/models/chainlink/ethereum/chainlink_ethereum_ocr_operator_admin_meta.sql"},
+  "0xa7c576ef7b2742fd92edcdf83a03b5f23055facc": {"name": "Simply Staking", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0x7c9998a91aea813ea8340b47b27259d74896d136": {"name": "The Network Firm", "source": "https://github.com/duneanalytics/spellbook/blob/main/dbt_subprojects/daily_spellbook/models/chainlink/ethereum/chainlink_ethereum_ocr_operator_admin_meta.sql"},
+  "0xc96d6382b9000f5a1f815a6ab6fcfc9befb6394c": {"name": "Tiingo", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0x7d0f8dd25135047967ba6c50309b567957dd52c3": {"name": "Vulcan Link", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"},
+  "0x41edd305eabfd3497c98341f8d0849f3c520b896": {"name": "Ztake", "source": "https://reference-data-directory.vercel.app/nodes-mainnet.json"}
+}

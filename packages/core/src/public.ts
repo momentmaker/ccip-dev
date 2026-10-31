@@ -431,12 +431,24 @@ export const StakingFileSchema = z.object({
   stakelink: z.object({ community_vaults: z.number(), community_link: z.number(), operator_vaults: z.number(), operator_link: z.number() }),
 });
 
-/** Every current staker: address, pool (c or o), principal, first stake, unbonding start, holder. */
+/**
+ * Every current staker whose address starts 0x<shard>: address, pool (c or o), principal, first stake, unbonding start,
+ * holder, place by first stake and by principal among the pool's current stakers (1 is the earliest and the largest),
+ * and how many times it took space that opened in the full community pool.
+ */
 export const StakersFileSchema = z.object({
   ...envelope,
   as_of_block: z.number(),
-  stakers: z.array(z.tuple([z.string(), z.enum(['c', 'o']), z.number(), z.string(), z.string().nullable(), HolderKindSchema])),
+  stakers: z.array(
+    z.tuple([z.string(), z.enum(['c', 'o']), z.number(), z.string(), z.string().nullable(), HolderKindSchema, z.number(), z.number(), z.number()]),
+  ),
 });
+
+export const STAKER_SHARDS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'] as const;
+export type StakerShardName = `stakers/${(typeof STAKER_SHARDS)[number]}.json`;
+/** The stakers file that holds an address. */
+export const stakerShard = (address: string): StakerShardName => `stakers/${address.slice(2, 3).toLowerCase() as (typeof STAKER_SHARDS)[number]}.json`;
+const STAKER_SHARD_SCHEMAS = Object.fromEntries(STAKER_SHARDS.map((h) => [`stakers/${h}.json`, StakersFileSchema])) as Record<StakerShardName, typeof StakersFileSchema>;
 
 export const PUBLIC_SCHEMAS = {
   'status.json': StatusFileSchema,
@@ -457,7 +469,7 @@ export const PUBLIC_SCHEMAS = {
   'moments.json': MomentsFileSchema,
   'projects.json': ProjectsFileSchema,
   'staking.json': StakingFileSchema,
-  'staking-stakers.json': StakersFileSchema,
+  ...STAKER_SHARD_SCHEMAS,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
