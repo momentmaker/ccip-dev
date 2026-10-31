@@ -17,7 +17,8 @@
 .key-open { border: 1px dashed var(--gold); }
 .hive-key { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin: 12px 0 0; padding: 0; font-size: 12px; color: #c9cfda; }
 .hive-key .mono { color: var(--muted); }
-.hive-replay { min-height: 2.6em; margin: 10px auto 0; max-width: 520px; text-align: center; font-size: 13px; color: #c9cfda; }
+.hive-replay { height: 3em; margin: 10px auto 0; max-width: 520px; text-align: center; font-size: 13px; line-height: 1.5; color: #c9cfda; }
+.replay-line { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .hive-replay b { color: var(--teal-2); }
 .replay-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--teal-deep); vertical-align: 0; }
 .replay-dot.on { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
