@@ -13,7 +13,7 @@ const [reserve, history] = await Promise.all([buildData('reserve.json'), buildDa
 const weeks = weeklyFees(history.days);
 const tiles = linkDemandTiles(history.days);
 ---
-<Base title="Chainlink Reserve" description="The Chainlink Reserve's LINK: cost basis vs value now, weekly deposit cadence, pace, every transfer, and the LINK paid in CCIP fees." cardPath="reserve">
+<Base title="Chainlink Reserve" description="The Chainlink Reserve's LINK, live: the vault, the road to 10M, its weekly deposit streak, what it paid vs what it's worth now, every transfer, and the LINK paid in CCIP fees." cardPath="reserve">
   <div class="rsv">
   <ReserveView client:load initial={reserve} />
   <section class="link-demand" aria-labelledby="link-demand">
