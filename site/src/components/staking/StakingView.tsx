@@ -1,0 +1,105 @@
+import type { StakingFile } from '@ccip-dev/core/public';
+import { useEffect, useState } from 'react';
+import { trackDataError } from '../../lib/analytics';
+import { fetchPublic } from '../../lib/data';
+import { formatCount, formatUtcDay } from '../../lib/format';
+import { sharePct } from '../../lib/staking-view';
+import FreshnessNote from '../FreshnessNote';
+import { useNow } from '../hooks';
+import InfoLink from '../InfoLink';
+import ShareButton from '../ShareButton';
+import ExitQueue from './ExitQueue';
+import GapHunt from './GapHunt';
+import Hive from './Hive';
+import Operators from './Operators';
+import RewardsTicker from './RewardsTicker';
+import Stakers from './Stakers';
+import Tape from './Tape';
+
+const FULL_TOLERANCE = 0.001;
+
+function Pending() {
+  return (
+    <div className="page-head">
+      <div>
+        <p className="label">Chainlink Staking v0.2 · Ethereum</p>
+        <h1>Scanning the pools</h1>
+        <p className="muted">Every staking event since November 2023 is being read from Ethereum. This page fills in once the scan reaches today.</p>
+      </div>
+    </div>
+  );
+}
+
+export default function StakingView({ initial }: { initial: StakingFile | null }) {
+  const [staking, setStaking] = useState(initial);
+  const [failed, setFailed] = useState(false);
+  const now = useNow(60_000);
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublic('staking.json').then(
+      (fresh) => {
+        if (!cancelled) setStaking(fresh);
+      },
+      () => {
+        if (cancelled) return;
+        setFailed(true);
+        trackDataError('staking.json');
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!staking) return <Pending />;
+  const c = staking.community;
+  const full = c.total >= c.cap - FULL_TOLERANCE;
+  const firstPct = sharePct(staking.tenure.first_month, c.stakers);
+  const fullDays = c.full_since && now ? Math.floor((now.getTime() - Date.parse(c.full_since)) / 86_400_000) : null;
+  const headline = `${formatCount(c.total)} LINK staked in the Chainlink community pool${full ? ', full' : ''} · ${formatCount(c.stakers)} stakers`;
+
+  return (
+    <>
+      <section className="stake-hero">
+        <div className="stake-hero-text">
+          <div className="page-head">
+            <div>
+              <p className="label">
+                Chainlink Staking v0.2 · Ethereum
+                <InfoLink metric="staking" label="the staking figures" />
+              </p>
+              <h1 className="stake-total mono">{formatCount(c.total)}</h1>
+              <p className="muted">
+                of {formatCount(c.cap)} LINK in the community pool · plus {formatCount(staking.operator.total)} from node operators
+              </p>
+            </div>
+            <ShareButton view="staking" headline={headline} url="https://ccip.dev/staking/" cardUrl={null} />
+          </div>
+          <FreshnessNote updatedAt={staking.updated_at} paused={failed} />
+          <p className="stake-status">
+            {full ? <span className="chip chip-full">Full</span> : <span className="chip chip-open">{formatCount(c.cap - c.total)} LINK open</span>}
+            {full && c.full_since ? (
+              <span>
+                since {formatUtcDay(c.full_since)}
+                {fullDays !== null ? ` · ${formatCount(fullDays)} days` : ''}
+              </span>
+            ) : null}
+          </p>
+          <dl className="stake-stats">
+            <div><dt>Stakers</dt><dd className="mono">{formatCount(c.stakers)}</dd></div>
+            <div><dt>At the {formatCount(c.max_stake)} max</dt><dd className="mono">{formatCount(c.at_max)}</dd></div>
+            <div><dt>Median stake</dt><dd className="mono">{formatCount(c.median)}</dd></div>
+            <div><dt>In since month one</dt><dd className="mono">{firstPct === null ? '—' : `${Math.round(firstPct)}%`}</dd></div>
+          </dl>
+          <RewardsTicker staking={staking} now={now} />
+        </div>
+        <Hive staking={staking} />
+      </section>
+      {now && <ExitQueue staking={staking} now={now} />}
+      <GapHunt staking={staking} />
+      <Stakers staking={staking} />
+      <Operators staking={staking} />
+      <Tape weeks={staking.weeks} />
+    </>
+  );
+}

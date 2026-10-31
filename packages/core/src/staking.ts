@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { ethRpc, ethRpcBatch, onFirstEndpoint, toHex, type Fetcher } from './eth-rpc';
+import type { HolderKind } from './public';
 
 /** Chainlink Staking v0.2 on Ethereum (https://blog.chain.link/chainlink-staking-v0-2-now-live). */
 export const STAKING_COMMUNITY_POOL = '0xbc10f2e862ed4502144c7d632a3459f49dfcdb5e';
 export const STAKING_OPERATOR_POOL = '0xa1d76a7ca72128541e9fcacafbda3a92ef94fdc5';
-/** The block of the first v0.2 event, the priority migration from v0.1 on 2023-11-28. */
+/** The block of the first v0.2 event, the pools' deployment on 2023-11-21. The first stake came on 2023-11-28. */
 export const STAKING_FIRST_BLOCK = 18_621_067;
 /**
  * stake.link's vault controllers. Every stake.link vault in the pools reports one of these as owner(): its community
@@ -23,9 +24,7 @@ const TOPICS = {
 
 export type StakingEventKind = keyof typeof TOPICS;
 export type StakingPool = 'community' | 'operator';
-/** wallet: an address with no code; smart: an EIP-7702 wallet; stakelink: a stake.link vault; contract: anything else, mostly multisigs. */
-export const HOLDER_KINDS = ['wallet', 'smart', 'stakelink', 'contract'] as const;
-export type HolderKind = (typeof HOLDER_KINDS)[number];
+export { HOLDER_KINDS, type HolderKind } from './public';
 
 const KIND_BY_TOPIC = new Map<string, StakingEventKind>(Object.entries(TOPICS).map(([k, t]) => [t, k as StakingEventKind]));
 

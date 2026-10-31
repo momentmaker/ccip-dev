@@ -11,6 +11,8 @@ const MAX_TOLERANCE = 0.01;
 /** Openings, closed claim windows and leaders look back this far. */
 export const RECENT_DAYS = 7;
 export const LEADERS = 10;
+/** The newest operator pool events kept in staking.json. */
+export const OPERATOR_EVENTS = 100;
 const SIZE_EDGES = [100, 1_000, 5_000] as const;
 
 export type StakingBody = Omit<StakingFile, 'schema_version' | 'updated_at' | 'attribution'>;
@@ -148,7 +150,8 @@ export function stakingStats(input: StakingStatsInput): StakingBody {
   const r = replay(input.events, cap);
   const community = [...r.pools.community].filter(([, s]) => s.stake > 0);
   const stakes = community.map(([, s]) => s.stake);
-  const launch = input.events[0]?.ts ?? now.toISOString();
+  // The pools were deployed a week before the first stake; tenure counts from the first stake.
+  const launch = input.events.find((e) => e.kind === 'staked')?.ts ?? now.toISOString();
   const maxStake = chain.community.maxStake;
 
   const holderRows = HOLDER_KINDS.map((kind) => {
@@ -241,12 +244,12 @@ export function stakingStats(input: StakingStatsInput): StakingBody {
   const recentFrom = nowS - RECENT_DAYS * DAY_S;
 
   // Weeks, by Monday (UTC).
-  const weeks = new Map<string, { staked: number; unstaked: number; unbondings: number; unbonding_link: number; new_stakers: number; openings: number }>();
+  const weeks = new Map<string, { staked: number; unstaked: number; unbondings: number; unbonding_link: number; stakelink_unbonding_link: number; new_stakers: number; openings: number }>();
   const week = (iso: string) => {
     const w = weekStart(iso);
     let row = weeks.get(w);
     if (!row) {
-      row = { staked: 0, unstaked: 0, unbondings: 0, unbonding_link: 0, new_stakers: 0, openings: 0 };
+      row = { staked: 0, unstaked: 0, unbondings: 0, unbonding_link: 0, stakelink_unbonding_link: 0, new_stakers: 0, openings: 0 };
       weeks.set(w, row);
     }
     return row;
@@ -259,6 +262,7 @@ export function stakingStats(input: StakingStatsInput): StakingBody {
   for (const st of r.starts) {
     week(st.at).unbondings += 1;
     week(st.at).unbonding_link += st.link;
+    if (kindOf(holders, st.staker) === 'stakelink') week(st.at).stakelink_unbonding_link += st.link;
   }
   for (const [, s] of r.pools.community) if (s.first) week(s.first).new_stakers += 1;
   for (const o of r.openings) week(o.openedAt).openings += 1;
@@ -281,6 +285,7 @@ export function stakingStats(input: StakingStatsInput): StakingBody {
       amount: e.amount === null ? null : round(linkUnits(e.amount)),
       stake: e.stake === null ? null : round(linkUnits(e.stake)),
     }))
+    .slice(-OPERATOR_EVENTS)
     .reverse();
 
   const slCommunity = community.filter(([who]) => kindOf(holders, who) === 'stakelink');
@@ -363,7 +368,7 @@ export function stakingStats(input: StakingStatsInput): StakingBody {
           grabs: [...new Set(o.grabs.map((g) => g.staker))],
         })),
     },
-    weeks: [...weeks].sort(([a], [b]) => (a < b ? -1 : 1)).map(([w, x]) => ({ week: w, staked: round(x.staked), unstaked: round(x.unstaked), unbondings: x.unbondings, unbonding_link: round(x.unbonding_link), new_stakers: x.new_stakers, openings: x.openings })),
+    weeks: [...weeks].sort(([a], [b]) => (a < b ? -1 : 1)).map(([w, x]) => ({ week: w, staked: round(x.staked), unstaked: round(x.unstaked), unbondings: x.unbondings, unbonding_link: round(x.unbonding_link), stakelink_unbonding_link: round(x.stakelink_unbonding_link), new_stakers: x.new_stakers, openings: x.openings })),
     operators,
     operator_events: operatorEvents,
     stakelink: {

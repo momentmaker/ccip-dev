@@ -218,7 +218,7 @@ The numbers on ccip.dev, and the JSON files behind them at `https://data.ccip.de
 
 ## Chainlink staking
 - **Events:** every `Staked`, `Unstaked`, `UnbondingPeriodStarted`, `UnbondingPeriodReset`, `OperatorAdded` and
-  `OperatorRemoved` log of the two staking v0.2 pools on Ethereum since the first one (block 18,621,067, 2023-11-28):
+  `OperatorRemoved` log of the two staking v0.2 pools on Ethereum since the first one (block 18,621,067, the pools' deployment on 2023-11-21; the first stake was 2023-11-28):
   the community pool `0xBc10f2E862ED4502144c7d632a3459F49DFCDB5e` and the operator pool
   `0xa1d76A7cA72128541E9FCAcafBdA3a92EF94fDc5`. They come from free public RPC endpoints, 12 blocks behind the chain
   head, every hour. `staking.json` and the stakers files are published only once the scan has reached the head and

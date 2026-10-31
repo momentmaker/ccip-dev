@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { MILESTONE_METRICS } from './records';
-import { HOLDER_KINDS } from './staking';
 
 const envelope = {
   schema_version: z.literal(1),
@@ -380,6 +379,10 @@ export const ProjectSchema = z.object({
 
 export const ProjectsFileSchema = z.object({ ...envelope, from: z.string(), to: z.string(), projects: z.array(ProjectSchema) });
 
+/** wallet: an address with no code; smart: an EIP-7702 wallet; stakelink: a stake.link vault; contract: anything else, mostly multisigs. */
+export const HOLDER_KINDS = ['wallet', 'smart', 'stakelink', 'contract'] as const;
+export type HolderKind = (typeof HOLDER_KINDS)[number];
+
 const QueueSplitSchema = z.object({ stakers: z.number(), link: z.number(), stakelink_stakers: z.number(), stakelink_link: z.number() });
 const RatioSchema = z.object({ left: z.number(), total: z.number() });
 const HolderKindSchema = z.enum(HOLDER_KINDS);
@@ -387,7 +390,7 @@ const HolderKindSchema = z.enum(HOLDER_KINDS);
 export const StakingFileSchema = z.object({
   ...envelope,
   as_of_block: z.number(),
-  /** The first staking event's time. */
+  /** The first stake's time. */
   since: z.string(),
   periods: z.object({ unbonding_s: z.number(), claim_s: z.number() }),
   community: z.object({
@@ -423,8 +426,12 @@ export const StakingFileSchema = z.object({
     leaders: z.array(z.object({ address: z.string(), grabs: z.number(), link: z.number(), fastest_s: z.number() })),
     recent: z.array(z.object({ opened_at: z.string(), gap: z.number(), seconds: z.number().nullable(), blocks: z.number().nullable(), grabs: z.array(z.string()) })),
   }),
-  weeks: z.array(z.object({ week: z.string(), staked: z.number(), unstaked: z.number(), unbondings: z.number(), unbonding_link: z.number(), new_stakers: z.number(), openings: z.number() })),
+  /** Community pool, by UTC week starting Monday; unbonding_link includes stake.link's, which stakelink_unbonding_link also gives alone. */
+  weeks: z.array(
+    z.object({ week: z.string(), staked: z.number(), unstaked: z.number(), unbondings: z.number(), unbonding_link: z.number(), stakelink_unbonding_link: z.number(), new_stakers: z.number(), openings: z.number() }),
+  ),
   operators: z.array(z.object({ address: z.string(), name: z.string().nullable(), via: HolderKindSchema, stake: z.number(), since: z.string().nullable(), status: z.enum(['active', 'removed']) })),
+  /** The newest 100, newest first. */
   operator_events: z.array(
     z.object({ ts: z.string(), kind: z.enum(['added', 'removed', 'staked', 'unstaked', 'unbonding']), address: z.string(), name: z.string().nullable(), amount: z.number().nullable(), stake: z.number().nullable() }),
   ),

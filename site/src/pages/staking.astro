@@ -1,0 +1,13 @@
+---
+import StakingView from '../components/staking/StakingView';
+import Base from '../layouts/Base.astro';
+import { buildDataIfPublished } from '../lib/build-data';
+import '../styles/staking.css';
+
+const staking = await buildDataIfPublished('staking.json');
+---
+<Base title="Chainlink Staking" description="Chainlink staking v0.2, live: the full community pool, the exit queue, who refills gaps in seconds, the node operators and the rewards streaming now.">
+  <div class="stk">
+    <StakingView client:load initial={staking} />
+  </div>
+</Base>

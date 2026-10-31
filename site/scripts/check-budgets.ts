@@ -7,6 +7,7 @@ export const BUDGETS = [
   { page: 'index.html', maxGzipBytes: 150 * 1024 },
   { page: 'replay/index.html', maxGzipBytes: 200 * 1024 },
   { page: 'tg/index.html', maxGzipBytes: 130 * 1024 },
+  { page: 'staking/index.html', maxGzipBytes: 120 * 1024 },
 ];
 
 export function entryScripts(html: string): string[] {

@@ -158,6 +158,7 @@ describe('stakingStats', () => {
   });
 
   it('counts each week by Monday', () => {
+    expect(stats.weeks.find((w) => w.week === '2025-12-29')).toMatchObject({ unbondings: 2, unbonding_link: 60, stakelink_unbonding_link: 20 });
     const week = stats.weeks.find((w) => w.week === '2026-01-26')!;
     expect(week).toMatchObject({ staked: 20, unstaked: 20, new_stakers: 1, openings: 1 });
   });
