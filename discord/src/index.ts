@@ -7,6 +7,7 @@ import { deferred, InteractionType, json, privateReply, ResponseType, type Inter
 import { dogtagCommand, enlistCommand, replyBudget, TEXT } from './marines';
 import { miniAppRoute } from './miniapp';
 import { publicRoute, type PublicDeps } from './public';
+import { stakeWatchJob } from './stake-watch';
 import { stickerJob } from './stickers';
 import { alertTelegramSetup, pruneClaims, telegramWebhook } from './telegram-bot';
 import { createTelegramBot } from './telegram-marines';
@@ -145,6 +146,7 @@ export default {
   async scheduled(controller, env, ctx) {
     const bot = createTelegramBot(env);
     ctx.waitUntil(stickerJob(bot));
+    ctx.waitUntil(stakeWatchJob(bot));
     ctx.waitUntil(alertTelegramSetup(bot, env.TELEGRAM_WEBHOOK_SECRET ?? ''));
     ctx.waitUntil(pruneClaims(env.DB, new Date(controller.scheduledTime)));
   },

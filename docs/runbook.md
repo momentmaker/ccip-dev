@@ -280,6 +280,8 @@ After deleting R2 `web/` and `story/`, also purge the edge copies: Cloudflare da
 
 ## LinkMarines on Telegram
 
+**Claim-window reminders.** In a private chat with the bot, `/watch 0x…` watches a staking address (up to 5 a chat), `/watching` lists them and `/unwatch [0x…]` drops one or all; in a group the bot ignores them, so an address is never tied to a group's members. The 10-minute cron reads `staking.json` and the address's `stakers/<digit>.json` and messages the chat once when the claim window opens and once in its last 24 hours (`stake_watch.opened_for` and `closing_for` hold the unbonding each was sent for; a refused send is retried next run). It runs only while `TELEGRAM_BOT` is on, and alerts as `stake-watch` if a pass fails. Migration `0003_stake_watch.sql` adds the table. Discord has no reminders: the bot answers slash commands through interaction webhooks and has no bot token to send a DM with.
+
 LinkMarines as a Telegram Mini App on @ccipdevbot: enlisting, your dog tag and the roster inside Telegram, a thin bot behind it, and every Marine, from either platform, as a sticker. Spec: `docs/superpowers/specs/2026-10-15-linkmarine-telegram-design.md`.
 
 - **How it runs:**
