@@ -46,7 +46,8 @@ export function apportion(weights: readonly number[], count: number): number[] {
   const exact = weights.map((w) => (Math.max(0, w) * count) / total);
   const out = exact.map(Math.floor);
   const order = exact.map((e, i) => [e - Math.floor(e), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-  for (let k = 0; k < count - out.reduce((a, b) => a + b, 0); k++) out[order[k]![1]]! += 1;
+  const short = count - out.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < short; k++) out[order[k]![1]]! += 1;
   return out;
 }
 

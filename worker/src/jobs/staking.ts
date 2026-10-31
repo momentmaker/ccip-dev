@@ -1,4 +1,4 @@
-import { classifyStakers, readBlockNumber, readStakingChain, readStakingEvents, STAKING_FIRST_BLOCK, stakerRows, stakingStats } from '@ccip-dev/core';
+import { CLASSIFY_BATCH, classifyStakers, readBlockNumber, readStakingChain, readStakingEvents, STAKING_FIRST_BLOCK, stakerRows, stakingStats } from '@ccip-dev/core';
 import { STAKER_SHARDS, stakerShard, type StakersFile, type StakingFile } from '@ccip-dev/core/public';
 import { broadcastStaking } from '../broadcasts/run';
 import type { RunContext } from '../context';
@@ -66,14 +66,16 @@ async function recordScanFailure(c: RunContext, err: unknown): Promise<void> {
   }
 }
 
-/** Classifies stakers never seen, then stale ones. A failure leaves them for the next hour. */
+/** Classifies stakers never seen, then stale ones, saving each batch as it goes. A failure leaves the rest for the next hour. */
 export async function classifyNewStakers(c: RunContext): Promise<void> {
   const now = c.deps.now();
   try {
     const staleBefore = new Date(now.getTime() - RECLASSIFY_AFTER_DAYS * DAY_MS).toISOString();
     const addresses = await store.stakersToClassify(c.env.DB, staleBefore, CLASSIFY_PER_RUN);
-    if (addresses.length === 0) return;
-    await store.upsertStakingHolders(c.env.DB, await classifyStakers(c.deps, logRpcUrls(c.env), addresses), now.toISOString());
+    for (let i = 0; i < addresses.length; i += CLASSIFY_BATCH) {
+      const kinds = await classifyStakers(c.deps, logRpcUrls(c.env), addresses.slice(i, i + CLASSIFY_BATCH));
+      await store.upsertStakingHolders(c.env.DB, kinds, now.toISOString());
+    }
   } catch (err) {
     console.warn(`Staker classification failed: ${err instanceof Error ? err.message : String(err)}`);
   }

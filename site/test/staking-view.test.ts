@@ -29,6 +29,9 @@ describe('hive', () => {
   it('splits cells by largest remainder and always uses every cell', () => {
     expect(apportion([1, 1, 1], 10)).toEqual([4, 3, 3]);
     expect(apportion([0, 0], 5)).toEqual([0, 5]);
+    // Three cells left over after flooring: every one is handed out, so no cell is left without a holder.
+    expect(apportion([1, 1, 1, 1], 7)).toEqual([2, 2, 2, 1]);
+    expect(hiveKinds({ community: { total: 100, cap: 100, min_stake: 1, max_stake: 10, stakers: 4, ever: 4, at_max: 0, median: 0, mean: 0, full_since: null }, holders: [{ kind: 'wallet', stakers: 1, link: 33 }, { kind: 'smart', stakers: 1, link: 33 }, { kind: 'stakelink', stakers: 1, link: 33 }, { kind: 'contract', stakers: 1, link: 1 }] }, 271).filter(Boolean)).toHaveLength(271);
   });
 
   it('gives each holder its share of the cap and leaves open space on the rim', () => {
