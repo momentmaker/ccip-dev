@@ -15,7 +15,7 @@ import { newestFirst } from '../components/home/Feed';
 import { slugMap } from '../lib/chain-slug';
 import { iconHref } from '../lib/chain-icons';
 import { feeHistoryTotals } from '../lib/fee-revenue';
-import { formatDuration, formatUtcDay } from '../lib/format';
+import { formatCount, formatDuration, formatUtcDay } from '../lib/format';
 import { chainNameMap } from '../lib/names';
 import { projectSlugs } from '../lib/projects';
 import { PULSE_DAYS } from '../lib/pulse';
@@ -124,7 +124,7 @@ const telegram = telegramOpen(process.env.TELEGRAM_BOT);
           <p class="lead">
             {poolFull
               ? `Chainlink staking's community pool has been full since ${formatUtcDay(pool.community.full_since!)}. When a staker leaves, hunters take the space within seconds.`
-              : "Chainlink staking's community pool has room: anyone can stake from 1 LINK, up to its cap."}
+              : `Chainlink staking's community pool has room: anyone can stake from ${formatCount(pool.community.min_stake)} LINK, up to its cap.`}
           </p>
         </div>
         <a class="more-link more-teal" href="/staking/">Staking →</a>
