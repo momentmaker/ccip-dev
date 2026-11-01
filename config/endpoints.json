@@ -80,7 +80,7 @@
     "tempo-mainnet": "https://tempo-mainnet.drpc.org",
     "tron-mainnet-evm": "https://tron.api.pocket.network",
     "wemix-mainnet": "https://api.wemix.com",
-    "xdc-mainnet": "https://rpc.xdcrpc.com",
+    "xdc-mainnet": "https://rpc.xdc.network",
     "zora-mainnet": "https://rpc.zora.energy"
   },
   "explorer": {
@@ -105,6 +105,8 @@
   },
   "ethereumLogs": [
     "https://rpc-eth.blockmachine.io",
-    "https://eth.api.pocket.network"
+    "https://eth.api.pocket.network",
+    "https://xrpc.cl/eth",
+    "https://ethereum-json-rpc.stakely.io"
   ]
 }
