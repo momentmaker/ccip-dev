@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "SafeProxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82"
+note = "candidate: 3 of 3 messages in the last 7 days, $8545319 in all, first seen 2026-10-11"
+

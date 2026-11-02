@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "BridgeAdapterProxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82"
+note = "candidate: 5 of 5 messages in the last 7 days, $112741 in all, first seen 2026-10-30"
+

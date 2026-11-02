@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "BridgedWOETHStrategyProxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x80c864704dd06c3693ed5179190786ee38acf835"
+note = "candidate: 9 of 9 messages in the last 7 days, $17532269 in all, first seen 2026-10-26"
+
