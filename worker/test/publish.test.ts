@@ -1070,6 +1070,35 @@ describe('history files when D1 is overloaded', () => {
     expect(sleep.mock.calls.filter(([ms]) => ms === PUBLISH_PAUSE_MS)).toHaveLength(9);
   });
 
+  it("logs each step's time and D1 use as one JSON line, then the publish's total", async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const lines = log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('{"publish_step"')).map((line) => JSON.parse(line));
+    expect({
+      steps: lines.map((l) => l.publish_step),
+      fields: lines.every((l) => ['ms', 'd1_ms', 'rows_read', 'queries'].every((f) => typeof l[f] === 'number') && l.ok === true),
+      total: lines.at(-1).queries === lines.slice(0, -1).reduce((sum, l) => sum + l.queries, 0),
+    }).toEqual({
+      steps: ['history', 'cost', 'day-leaders', 'moments', 'projects', 'sender-book', 'label-coverage', 'sender-identities', 'top/src_chain', 'top/dst_chain', 'top/lane', 'top/token', 'top/sender', 'replay', 'total'],
+      fields: true,
+      total: true,
+    });
+  });
+
+  it('logs a step that failed with ok false', async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(store, 'feeCosts').mockRejectedValueOnce(new Error('D1 unavailable'));
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const cost = log.mock.calls.map(([line]) => String(line)).find((line) => line.startsWith('{"publish_step":"cost"'));
+    expect(JSON.parse(cost!).ok).toBe(false);
+  });
+
   it('reports nothing missed when every file publishes', async () => {
     // #when
     const missed = await publishHistoryFiles(harness({ now: NOW }).c);
