@@ -105,14 +105,15 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
 
 /**
  * Closes last week's poll, publishes the history files and starts the site build, then records the last_finalize_day the
- * files now carry. The pointer is read first, so a finalize that advances it meanwhile is still re-published.
+ * files now carry, unless a file was missed (the daily card needs replay.json, for one). The pointer is read first, so a
+ * finalize that advances it meanwhile is still re-published.
  */
 async function publishFinalized(c: RunContext): Promise<void> {
   const finalizedThrough = await store.getMeta(c.env.DB, 'last_finalize_day');
   await closeOpenPolls(c);
-  await publishHistoryFiles(c);
+  const missed = await publishHistoryFiles(c);
   await triggerSiteBuild(c);
-  if (finalizedThrough !== null) await store.setMeta(c.env.DB, LAST_PUBLISHED_KEY, finalizedThrough);
+  if (finalizedThrough !== null && missed.length === 0) await store.setMeta(c.env.DB, LAST_PUBLISHED_KEY, finalizedThrough);
 }
 
 /**

@@ -1,7 +1,7 @@
 import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
 import { fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LAST_PUBLISHED_KEY } from '../src/jobs/finalize';
 import { runHourly } from '../src/jobs/hourly';
 import { LATE_FINALIZE_HOUR_UTC } from '../src/schedule';
@@ -197,6 +197,17 @@ describe('runHourly', () => {
       await run(`2026-10-08T0${LATE_FINALIZE_HOUR_UTC}:00:00.000Z`);
       // #then
       expect(await publishedDays()).toBeNull();
+    });
+
+    it('leaves the pointer behind when a history file was missed, so the next hour re-publishes again', async () => {
+      // #given replay.json cannot be built
+      await seedUnpublished('2026-10-06');
+      const replay = vi.spyOn(store, 'laneHistory').mockRejectedValue(new Error('D1 unavailable'));
+      // #when
+      await run();
+      replay.mockRestore();
+      // #then
+      expect(await store.getMeta(env.DB, LAST_PUBLISHED_KEY)).toBe('2026-10-06');
     });
 
     it('alerts and finishes the hour when the re-publish fails', async () => {
