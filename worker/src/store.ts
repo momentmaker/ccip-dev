@@ -1051,41 +1051,67 @@ export interface FeeCostRow {
 /** A fee token as normalizeAddress stores it: a 42-character 0x address lowercased, any other address as it is. */
 const NORMALIZED_FEE_TOKEN = "CASE WHEN fee_token LIKE '0x%' AND length(fee_token) = 42 THEN lower(fee_token) ELSE fee_token END";
 
+/** A priced fee of the window, with whether it was paid in LINK. */
+export interface PricedFee {
+  src_chain: string;
+  dst_chain: string;
+  fee_usd: number;
+  is_link: number;
+}
+
 /**
- * One row per route over days [?1, ?2] with at least ?3 priced fees: the nearest-rank 10th, 50th and 90th percentiles
- * (rank ceil(p·n/100), written (p·n + 99) / 100 in integer arithmetic), and the medians of the LINK-paid and other fees.
- * The LINK keys are inlined as literals because D1 caps a statement at 100 bound parameters.
+ * Every priced fee over days [?1, ?2], read once through messages_day. The LINK keys are inlined as literals because D1
+ * caps a statement at 100 bound parameters.
  */
-export function feeCostsSql(linkTokens: LinkFeeTokens): string {
+export function pricedFeesSql(linkTokens: LinkFeeTokens): string {
   const keys = [...linkTokens.keys()].map(sqlLiteral).join(', ');
-  return `WITH priced AS (
-      SELECT src_chain, dst_chain, fee_usd,
-        CASE WHEN (src_chain || ':' || ${NORMALIZED_FEE_TOKEN}) IN (${keys}) THEN 1 ELSE 0 END AS is_link
-      FROM messages WHERE day >= ?1 AND day <= ?2 AND fee_usd IS NOT NULL
-    ), ranked AS (
-      SELECT src_chain, dst_chain, fee_usd, is_link,
-        ROW_NUMBER() OVER (PARTITION BY src_chain, dst_chain ORDER BY fee_usd) AS rn,
-        COUNT(*) OVER (PARTITION BY src_chain, dst_chain) AS n,
-        ROW_NUMBER() OVER (PARTITION BY src_chain, dst_chain, is_link ORDER BY fee_usd) AS split_rn,
-        COUNT(*) OVER (PARTITION BY src_chain, dst_chain, is_link) AS split_n,
-        SUM(is_link) OVER (PARTITION BY src_chain, dst_chain) AS link_n
-      FROM priced
-    )
-    SELECT src_chain AS src, dst_chain AS dst, MAX(n) AS messages, MAX(link_n) AS link_messages,
-      MAX(CASE WHEN rn = (10 * n + 99) / 100 THEN fee_usd END) AS p10_usd,
-      MAX(CASE WHEN rn = (50 * n + 99) / 100 THEN fee_usd END) AS median_usd,
-      MAX(CASE WHEN rn = (90 * n + 99) / 100 THEN fee_usd END) AS p90_usd,
-      MAX(CASE WHEN is_link = 1 AND split_rn = (50 * split_n + 99) / 100 THEN fee_usd END) AS link_median_usd,
-      MAX(CASE WHEN is_link = 0 AND split_rn = (50 * split_n + 99) / 100 THEN fee_usd END) AS gas_median_usd
-    FROM ranked
-    WHERE n >= ?3
-    GROUP BY src_chain, dst_chain
-    ORDER BY messages DESC, src, dst`;
+  return `SELECT src_chain, dst_chain, fee_usd,
+      CASE WHEN (src_chain || ':' || ${NORMALIZED_FEE_TOKEN}) IN (${keys}) THEN 1 ELSE 0 END AS is_link
+    FROM messages WHERE day >= ?1 AND day <= ?2 AND fee_usd IS NOT NULL`;
+}
+
+/** The nearest-rank value at percentile `p` of ascending `sorted`: rank ceil(p·n/100), in integer arithmetic. */
+const nearestRank = (sorted: readonly number[], p: number): number => sorted[Math.floor((p * sorted.length + 99) / 100) - 1]!;
+
+const byNumber = (a: number, b: number) => a - b;
+const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * One row per route with at least `minMessages` priced fees: the nearest-rank 10th, 50th and 90th percentiles and the
+ * medians of the LINK-paid and other fees, busiest route first. Ranked here rather than in SQL, where five window
+ * passes read the window about 13 times over.
+ */
+export function feeCostRows(fees: readonly PricedFee[], minMessages: number): FeeCostRow[] {
+  const routes = new Map<string, { src: string; dst: string; all: number[]; link: number[]; gas: number[] }>();
+  for (const f of fees) {
+    const key = `${f.src_chain}>${f.dst_chain}`;
+    const route = routes.get(key) ?? { src: f.src_chain, dst: f.dst_chain, all: [], link: [], gas: [] };
+    routes.set(key, route);
+    route.all.push(f.fee_usd);
+    (f.is_link === 1 ? route.link : route.gas).push(f.fee_usd);
+  }
+  return [...routes.values()]
+    .filter((r) => r.all.length >= minMessages)
+    .map((r) => {
+      const [all, link, gas] = [r.all, r.link, r.gas].map((list) => [...list].sort(byNumber)) as [number[], number[], number[]];
+      return {
+        src: r.src,
+        dst: r.dst,
+        messages: all.length,
+        link_messages: link.length,
+        p10_usd: nearestRank(all, 10),
+        median_usd: nearestRank(all, 50),
+        p90_usd: nearestRank(all, 90),
+        link_median_usd: link.length > 0 ? nearestRank(link, 50) : null,
+        gas_median_usd: gas.length > 0 ? nearestRank(gas, 50) : null,
+      };
+    })
+    .sort((a, b) => b.messages - a.messages || byText(a.src, b.src) || byText(a.dst, b.dst));
 }
 
 export async function feeCosts(db: D1Database, fromDay: string, toDay: string, linkTokens: LinkFeeTokens, minMessages: number): Promise<FeeCostRow[]> {
-  const { results } = await db.prepare(feeCostsSql(linkTokens)).bind(fromDay, toDay, minMessages).all<FeeCostRow>();
-  return results;
+  const { results } = await db.prepare(pricedFeesSql(linkTokens)).bind(fromDay, toDay).all<PricedFee>();
+  return feeCostRows(results, minMessages);
 }
 
 export async function laneHistory(db: D1Database): Promise<LaneDayRow[]> {
