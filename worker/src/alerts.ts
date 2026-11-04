@@ -8,7 +8,8 @@ const SUPPRESS_MS = 3_600_000;
 
 /**
  * Sends each signature at most once an hour. The suppression row is claimed before sending, so overlapping cron runs
- * raising the same signature send it once; a failed send releases the claim so the next alert retries.
+ * raising the same signature send it once; a failed send releases the claim so the next alert retries. When D1 cannot
+ * store the claim, the alert goes out unsuppressed: it may be about D1 itself, and a repeat beats silence.
  */
 export function createAlerter(db: D1Database, telegram: { token?: string; chatId?: string }, deps: Deps): Alert {
   return async (signature, text) => {
@@ -16,7 +17,13 @@ export function createAlerter(db: D1Database, telegram: { token?: string; chatId
     const now = deps.now();
     const claim = now.toISOString();
     const staleAtOrBefore = new Date(now.getTime() - SUPPRESS_MS).toISOString();
-    if (!(await claimMeta(db, key, claim, staleAtOrBefore))) return;
+    let claimed = true;
+    try {
+      if (!(await claimMeta(db, key, claim, staleAtOrBefore))) return;
+    } catch (err) {
+      claimed = false;
+      console.error(`[alert] could not claim ${key}, sending unsuppressed: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     if (!telegram.token || !telegram.chatId) {
       console.warn(`[alert] ${text}`);
@@ -30,7 +37,7 @@ export function createAlerter(db: D1Database, telegram: { token?: string; chatId
     );
     if (failure) {
       console.error(`[alert] ${failure} for signature ${signature}: ${text}`);
-      await releaseMeta(db, key, claim);
+      if (claimed) await releaseMeta(db, key, claim);
     }
   };
 }
