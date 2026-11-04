@@ -7,6 +7,7 @@ import { publishRegistryFiles } from '../publish';
 import { balanceRpcUrls } from '../rpc';
 import * as store from '../store';
 import { backfillViaToken } from '../via-token-backfill';
+import { catchUpPublish } from './finalize';
 import { runReserveTransfers } from './reserve';
 
 const RESERVE_ALERT_AFTER = 3;
@@ -21,6 +22,7 @@ export async function runHourly(c: RunContext): Promise<void> {
     registryError = err;
   }
   const reserve = await publishRegistryFiles(c);
+  await catchUpPublish(c);
   await broadcastHourly(c, reserve);
   await refreshCoingeckoIds(c);
   await backfillViaTokenHistory(c);

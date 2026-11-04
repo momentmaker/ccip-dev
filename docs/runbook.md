@@ -340,6 +340,7 @@ Alerts arrive in the Telegram chat.
 |---|---|
 | `ingest-lag` | Ingest has not succeeded for a while. Check `lag_seconds` in `status.json`, then the CCIP API (see "Poison message"). |
 | `job-failed:<job>` | The named job threw. Read the message in the alert and the Worker logs (`wrangler tail`). |
+| `publish-catch-up` | A finalize finished its days but its publish (history files, site build trigger) failed, and the hourly re-publish failed too. The hourly run retries every hour (except 06:00, when the late finalize publishes) until `last_published_day` matches `last_finalize_day`; yesterday's daily posts after the first one that succeeds. Read the reason; a `D1 DB is overloaded` one usually clears on its own. |
 | `ingest-resume` | The ingest resume walk failed and was dropped. Nothing to do unless it repeats. |
 | `price-outlier` | A token amount valued above $10 billion was stored unpriced. Check the price of the listed token on DefiLlama. |
 | `price-jump` | A price refresh (or a detail fill's re-fetch) rejected a jump of more than 20×. Check the listed tokens on DefiLlama; if the move is real, accept it (see "Accept a real price jump"). |
@@ -424,6 +425,7 @@ Use `last_archived_day` in place of `last_finalize_day` for the second key.
   - Detail fills share one 5-minute budget, which starts when the run starts and also covers the list walks. In a deep catch-up, the later days of a run may get little or none of it. They roll up with list values for the messages still missing details, and the log says "detail fill stopped at its deadline".
   - The 06:00 run re-fills a day's missing details when it archives that day. For a day already archived, rewind `last_archived_day` too.
 - **A day that fails** (`job-failed:finalize` names it) holds its own run's pointer: `last_finalize_day` for the 00:07 run, `last_archived_day` for the 06:00 run. The later days in the same run still finalize and publish, and the next run of that kind retries it.
+- **A publish that fails** after the days finalized leaves `last_published_day` behind `last_finalize_day`, and the next hourly run (not the 06:00 one) re-publishes, then retries yesterday's daily. A rewind of `last_finalize_day` also makes the hourly run re-publish once; that is harmless.
 
 ### Re-price live fees after an alias change
 

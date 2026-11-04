@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAlerter } from '../src/alerts';
 import type { Deps } from '../src/deps';
-import { resetStorage } from './helpers';
+import { resetStorage, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -67,6 +67,16 @@ describe('createAlerter', () => {
     await alert('a', 'two');
     expect(f.calls).toHaveLength(2);
     expect(error).toHaveBeenCalledWith('[alert] Telegram returned HTTP 500 for signature a: one');
+    error.mockRestore();
+  });
+
+  it('still sends when D1 cannot store the suppression claim, since the alert may be about D1 itself', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { db } = watchedDb(/INSERT INTO meta/, { fail: true });
+    const f = fakeFetch(() => jsonResponse({ ok: true }));
+    const deps: Deps = { fetch: f, sleep: async () => {}, clock: () => 0, now: () => new Date('2026-10-08T12:00:00.000Z') };
+    await createAlerter(db, { token: 'TOKEN', chatId: '42' }, deps)('job-failed:finalize', 'finalize failed: D1 DB is overloaded');
+    expect(f.calls.map((c) => JSON.parse(String(c.init?.body)).text)).toEqual(['ccip.dev alert: finalize failed: D1 DB is overloaded']);
     error.mockRestore();
   });
 

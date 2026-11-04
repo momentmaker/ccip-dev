@@ -6,6 +6,7 @@ import type { RunContext } from '../context';
 import { closeOpenPolls } from '../broadcasts/poll';
 import { broadcastSafely } from '../broadcasts/run';
 import { publishHistoryFiles, retryPut } from '../publish';
+import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
 import { recordSenderArrivals } from '../senders';
 import { triggerSiteBuild } from '../site-build';
 import * as store from '../store';
@@ -13,6 +14,8 @@ import { fallbackLoader, type FallbackLoader } from '../price-fallback';
 import { DetailFillError, ensureKeys, runDetails } from './details';
 import { storeListMessages } from './ingest';
 
+/** The last_finalize_day whose history files, site build and cards are out; behind it, the hourly run re-publishes. */
+export const LAST_PUBLISHED_KEY = 'last_published_day';
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 200;
 const MAX_DAYS_PER_RUN = 3;
@@ -89,17 +92,45 @@ export async function runFinalize(c: RunContext, mode: 'early' | 'late'): Promis
   }
   const summary = `finalize failed for ${failures.length} day(s); the first: ${failures[0]}`;
   if (failures.length < days.length) {
-    await closeOpenPolls(c);
     try {
-      await publishHistoryFiles(c);
+      await publishFinalized(c);
     } catch (err) {
       if (failures.length > 0) console.error(`history publish failed after ${summary}`);
       throw err;
     }
-    await triggerSiteBuild(c);
     await broadcastSafely(c, { kind: 'finalize', days: finalized });
   }
   if (failures.length > 0) throw new Error(summary);
+}
+
+/**
+ * Closes last week's poll, publishes the history files and starts the site build, then records the last_finalize_day the
+ * files now carry. The pointer is read first, so a finalize that advances it meanwhile is still re-published.
+ */
+async function publishFinalized(c: RunContext): Promise<void> {
+  const finalizedThrough = await store.getMeta(c.env.DB, 'last_finalize_day');
+  await closeOpenPolls(c);
+  await publishHistoryFiles(c);
+  await triggerSiteBuild(c);
+  if (finalizedThrough !== null) await store.setMeta(c.env.DB, LAST_PUBLISHED_KEY, finalizedThrough);
+}
+
+/**
+ * Re-runs a finalize's publish that failed (a D1 overload once stopped one halfway through), so the files, the site build
+ * and the daily card that reads them catch up within the hour rather than at 06:00. That hour is the late finalize's,
+ * which publishes on its own. A failure alerts and leaves the pointer for the next hour.
+ */
+export async function catchUpPublish(c: RunContext): Promise<void> {
+  if (c.deps.now().getUTCHours() === LATE_FINALIZE_HOUR_UTC) return;
+  const db = c.env.DB;
+  const finalizedThrough = await store.getMeta(db, 'last_finalize_day');
+  if (finalizedThrough === null || (await store.getMeta(db, LAST_PUBLISHED_KEY)) === finalizedThrough) return;
+  try {
+    await publishFinalized(c);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    await c.alert('publish-catch-up', `Re-publishing the files for ${finalizedThrough} failed; the next hourly run retries: ${reason}`);
+  }
 }
 
 /**
