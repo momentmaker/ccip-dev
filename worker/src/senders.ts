@@ -34,7 +34,20 @@ export function identitiesOf(book: Pick<SenderBook, 'resolve' | 'labeled' | 'cla
   return mergeIdentities(senders, book.resolve, viaTokenCredits(credits, book.claims));
 }
 
-/** The top `limit` identities over [fromDay, toDay]: every labeled row, the busiest unlabeled addresses net of the move, and the credits. */
+/** A window's parts that no ranking order changes: its labeled rows and its credits, each a scan of the whole window. */
+export interface WindowParts {
+  labeledRows: store.BreakdownRow[];
+  credits: ViaTokenCredit[];
+}
+
+export async function windowParts(c: RunContext, book: SenderBook, fromDay: string | null, toDay: string): Promise<WindowParts> {
+  return { labeledRows: await store.senderTotalsOf(c.env.DB, fromDay, toDay, book.labeled), credits: await windowCredits(c, book, fromDay, toDay) };
+}
+
+/**
+ * The top `limit` identities over [fromDay, toDay]: every labeled row, the busiest unlabeled addresses net of the move, and
+ * the credits. Rankings of one window in several orders pass the same `parts`, so its scans run once.
+ */
 export async function rankedIdentities(
   c: RunContext,
   book: SenderBook,
@@ -42,13 +55,11 @@ export async function rankedIdentities(
   toDay: string,
   order: IdentityOrder,
   limit: number,
+  parts?: WindowParts,
 ): Promise<IdentityTotals[]> {
-  const db = c.env.DB;
-  const rows = [
-    ...(await store.senderTotalsOf(db, fromDay, toDay, book.labeled)),
-    ...(await store.topUnlabeledSenders(db, fromDay, toDay, book.labeled, limit, order, book.claimed)),
-  ];
-  return rankIdentities(mergeIdentities(rows, book.resolve, await windowCredits(c, book, fromDay, toDay)), order, limit);
+  const { labeledRows, credits } = parts ?? (await windowParts(c, book, fromDay, toDay));
+  const unlabeled = await store.topUnlabeledSenders(c.env.DB, fromDay, toDay, book.labeled, limit, order, book.claimed);
+  return rankIdentities(mergeIdentities([...labeledRows, ...unlabeled], book.resolve, credits), order, limit);
 }
 
 function byDay(rows: readonly store.LeaderRow[]): Map<string, store.LeaderRow[]> {
