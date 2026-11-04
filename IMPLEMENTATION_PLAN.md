@@ -68,7 +68,7 @@ the same data.
 **Tests**: The existing cost.json tests pass unchanged (nearest-rank percentiles, the LINK/gas split from 20 LINK-paid
 fees, routes under 5 priced fees left out, four-decimal fractions of a cent). Plus a test that the step issues one
 query over the window.
-**Status**: Not Started
+**Status**: In Progress (deployed; the new query read 64.8k rows on production against 844k, in 0.78 s against 1.2 s)
 
 ## Stage 4: Unlabeled-sender rankings and via-token lookups
 **Goal**: `topUnlabeledSenders` reads its window's sender and via_token rows once instead of twice, and the via-token

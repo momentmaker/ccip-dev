@@ -467,8 +467,8 @@ describe('cost.json', () => {
 
   it('reads the window through the messages_day index', async () => {
     // #when
-    const sql = store.feeCostsSql(await store.linkFeeTokens(env.DB));
-    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind('2026-09-08', '2026-10-07', 5).all<{ detail: string }>();
+    const sql = store.pricedFeesSql(await store.linkFeeTokens(env.DB));
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind('2026-09-08', '2026-10-07').all<{ detail: string }>();
     // #then
     expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX messages_day');
   });
