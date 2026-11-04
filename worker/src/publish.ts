@@ -4,7 +4,7 @@ import type { RunContext } from './context';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
 import { buildProjects } from './projects';
-import { identitiesOf, LABEL_COVERAGE_KEY, labelCoverageOf, rankedIdentities, senderBook, topIdentityByDay, type SenderBook } from './senders';
+import { identitiesOf, LABEL_COVERAGE_KEY, labelCoverageOf, rankedIdentities, senderBook, topIdentityByDay, windowParts, type SenderBook } from './senders';
 import * as store from './store';
 
 export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'attribution'>;
@@ -426,22 +426,32 @@ export async function weekLeaderRows(c: RunContext, monday: string): Promise<Wee
 
 const TOP_FILE_LIMIT = 100;
 
-/** top/sender.json's identities for each window, each with its share of the window's messages. */
-async function identityWindows(c: RunContext, book: SenderBook, today: string, order: store.TopOrder): Promise<Record<TopWindow, Leader[]>> {
+/**
+ * top/sender.json's identities for each window by value and by fees, each with its share of the window's messages; without
+ * them the file keeps its per-chain windows, which every reader falls back to. Both orders share the window's scans, and a
+ * pause before each window spreads the reads.
+ */
+async function senderIdentities(c: RunContext, book: SenderBook, today: string): Promise<{ identities: Record<TopWindow, Leader[]>; identities_by_fees: Record<TopWindow, Leader[]> }> {
   const lastDay = addDays(today, -1);
   const from: Record<TopWindow, string | null> = { '7d': addDays(today, -7), '30d': addDays(today, -30), all: null };
-  const out: Record<TopWindow, Leader[]> = { '7d': [], '30d': [], all: [] };
+  const identities: Record<TopWindow, Leader[]> = { '7d': [], '30d': [], all: [] };
+  const byFees: Record<TopWindow, Leader[]> = { '7d': [], '30d': [], all: [] };
   for (const window of TOP_WINDOWS) {
+    await pauseForD1(c);
     const total = (await store.totalsBetween(c.env.DB, from[window], lastDay)).messages;
-    out[window] = (await rankedIdentities(c, book, from[window], lastDay, order, TOP_FILE_LIMIT)).map((i) => identityEntry(i, total));
+    const parts = await windowParts(c, book, from[window], lastDay);
+    const ranked = async (order: store.TopOrder) =>
+      (await rankedIdentities(c, book, from[window], lastDay, order, TOP_FILE_LIMIT, parts)).map((i) => identityEntry(i, total));
+    identities[window] = await ranked('value');
+    byFees[window] = await ranked('fees');
   }
-  return out;
+  return { identities, identities_by_fees: byFees };
 }
 
-/** The identity windows for top/sender.json; without them the file keeps its per-chain windows, which every reader falls back to. */
-async function senderIdentities(c: RunContext, book: SenderBook, today: string): Promise<{ identities: Record<TopWindow, Leader[]>; identities_by_fees: Record<TopWindow, Leader[]> }> {
-  return { identities: await identityWindows(c, book, today, 'value'), identities_by_fees: await identityWindows(c, book, today, 'fees') };
-}
+/** A breather before each of the publish's heaviest reads, so they spread past D1's 10-second overload window. */
+export const PUBLISH_PAUSE_MS = 3_000;
+
+const pauseForD1 = (c: RunContext) => c.deps.sleep(PUBLISH_PAUSE_MS);
 
 const D1_OVERLOADED = 'D1 DB is overloaded';
 /** D1 refuses queries for a few seconds once a burst overloads it; each wait lets that window drain before the step re-runs. */
@@ -505,37 +515,41 @@ export async function publishHistoryFiles(c: RunContext): Promise<string[]> {
       store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay))),
     );
   }
-  for (const dim of DIMS) await untilD1Recovers(c, async () => {
-    const ranked = async (order: store.TopOrder) => ({
-      '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
-      '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100, order),
-      all: await store.topBetween(db, dim, null, lastDay, 100, order),
+  for (const dim of DIMS) {
+    await pauseForD1(c);
+    await untilD1Recovers(c, async () => {
+      const ranked = async (order: store.TopOrder) => ({
+        '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
+        '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100, order),
+        all: await store.topBetween(db, dim, null, lastDay, 100, order),
+      });
+      const windows = await ranked('value');
+      const byFees = FEE_DIMS.has(dim) ? await ranked('fees') : null;
+      const symbols =
+        dim === 'token'
+          ? await store.tokenSymbols(db, Object.values(windows).flatMap((rows) => rows.map((r) => splitTokenKey(r.key))))
+          : new Map<string, string>();
+      const entries = (rows: typeof windows['all']) =>
+        rows.map((r) => ({
+          key: r.key,
+          messages: r.messages,
+          usd: usd(r.usd_value),
+          fee_usd: usd(r.fee_usd),
+          ...(dim === 'token' ? { symbol: symbolOf(symbols, r.key) } : {}),
+          ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
+        }));
+      const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
+      const identities = dim === 'sender' && book ? await attempt('top-sender-identities', 'Sender identities were not computed', () => senderIdentities(c, book, today)) : null;
+      await putJson(
+        c.env.PUBLIC,
+        `top/${dim}.json`,
+        { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}), ...identities },
+        TTL.top,
+        now,
+      );
     });
-    const windows = await ranked('value');
-    const byFees = FEE_DIMS.has(dim) ? await ranked('fees') : null;
-    const symbols =
-      dim === 'token'
-        ? await store.tokenSymbols(db, Object.values(windows).flatMap((rows) => rows.map((r) => splitTokenKey(r.key))))
-        : new Map<string, string>();
-    const entries = (rows: typeof windows['all']) =>
-      rows.map((r) => ({
-        key: r.key,
-        messages: r.messages,
-        usd: usd(r.usd_value),
-        fee_usd: usd(r.fee_usd),
-        ...(dim === 'token' ? { symbol: symbolOf(symbols, r.key) } : {}),
-        ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
-      }));
-    const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
-    const identities = dim === 'sender' && book ? await attempt('top-sender-identities', 'Sender identities were not computed', () => senderIdentities(c, book, today)) : null;
-    await putJson(
-      c.env.PUBLIC,
-      `top/${dim}.json`,
-      { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}), ...identities },
-      TTL.top,
-      now,
-    );
-  });
+  }
+  await pauseForD1(c);
   await attempt('replay-publish', 'replay.json was not published', async () =>
     putJson(c.env.PUBLIC, 'replay.json', { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) }, TTL.replay, now),
   );

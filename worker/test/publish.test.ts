@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
+import { ATTRIBUTION, PUBLISH_PAUSE_MS, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
 import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type LabelIndex, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeCcip, fakePrices, listMessage, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_LABELS, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
+import { rankedIdentities, senderBook } from '../src/senders';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
@@ -705,6 +706,36 @@ describe('senders by identity', () => {
     await store.replaceDaily(env.DB, XSTOCKS_TOTALS, xstocksBreakdown(), NOW);
   });
 
+  it("reads a window's labeled rows and credits once for both the value and the fees ranking", async () => {
+    // #given only the identities read the window 2026-09-14 to 2026-10-13
+    const from30 = '2026-09-14';
+    const labeledRows = vi.spyOn(store, 'senderTotalsOf');
+    const credits = vi.spyOn(store, 'viaTokenCreditsOf');
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels: XSTOCKS_LABELS }).c);
+    const reads = (spy: typeof labeledRows | typeof credits) => spy.mock.calls.filter(([, fromDay, toDay]) => fromDay === from30 && toDay === '2026-10-13').length;
+    const counts = { labeledRows: reads(labeledRows), credits: reads(credits) };
+    labeledRows.mockRestore();
+    credits.mockRestore();
+    // #then
+    expect(counts).toEqual({ labeledRows: 1, credits: 1 });
+  });
+
+  it('ranks every window in both orders as a ranking of that window alone would', async () => {
+    // #given
+    const { c } = harness({ now: NOW, labels: XSTOCKS_LABELS });
+    // #when
+    await publishHistoryFiles(c);
+    // #then
+    const book = await senderBook(c);
+    const from = { '7d': '2026-10-07', '30d': '2026-09-14', all: null };
+    const alone = async (order: 'value' | 'fees') =>
+      Object.fromEntries(await Promise.all(Object.entries(from).map(async ([w, f]) => [w, (await rankedIdentities(c, book, f, '2026-10-13', order, 100)).map((i) => i.key)])));
+    const published = (windows: Record<string, { key: string }[]>) => Object.fromEntries(Object.entries(windows).map(([w, rows]) => [w, rows.map((r) => r.key)]));
+    const top = await readPublic('top/sender.json');
+    expect({ value: published(top.identities), fees: published(top.identities_by_fees) }).toEqual({ value: await alone('value'), fees: await alone('fees') });
+  });
+
   it("names xStocks the day's top sender: 319 messages, 20.3% of the day, on six chains from two addresses", async () => {
     // #when
     await publishHistoryFiles(harness({ now: NOW, labels: XSTOCKS_LABELS }).c);
@@ -975,6 +1006,7 @@ describe('history files when D1 is overloaded', () => {
   const NOW = '2026-10-08T12:00:00.000Z';
   const OVERLOADED = 'D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window';
   afterEach(() => vi.restoreAllMocks());
+  const overloadWaits = (sleep: { mock: { calls: unknown[][] } }) => sleep.mock.calls.map(([ms]) => ms).filter((ms) => ms !== PUBLISH_PAUSE_MS);
 
   it('waits for D1 to recover and publishes the step it refused', async () => {
     // #given D1 refuses the replay query once
@@ -984,7 +1016,7 @@ describe('history files when D1 is overloaded', () => {
     // #when
     const missed = await publishHistoryFiles(c);
     // #then
-    expect({ missed, replay: (await env.PUBLIC.get('v1/replay.json')) !== null, waits: sleep.mock.calls.map(([ms]) => ms), alerts }).toEqual({
+    expect({ missed, replay: (await env.PUBLIC.get('v1/replay.json')) !== null, waits: overloadWaits(sleep), alerts }).toEqual({
       missed: [],
       replay: true,
       waits: [15_000],
@@ -1000,7 +1032,7 @@ describe('history files when D1 is overloaded', () => {
     // #when
     const missed = await publishHistoryFiles(c);
     // #then
-    expect({ missed, waits: sleep.mock.calls.map(([ms]) => ms), alerts: alerts.map((a) => a.signature) }).toEqual({
+    expect({ missed, waits: overloadWaits(sleep), alerts: alerts.map((a) => a.signature) }).toEqual({
       missed: ['replay-publish'],
       waits: [15_000, 45_000],
       alerts: ['replay-publish'],
@@ -1015,7 +1047,7 @@ describe('history files when D1 is overloaded', () => {
     // #when
     const missed = await publishHistoryFiles(c);
     // #then
-    expect({ missed, waits: sleep.mock.calls.length }).toEqual({ missed: ['cost-publish'], waits: 0 });
+    expect({ missed, waits: overloadWaits(sleep).length }).toEqual({ missed: ['cost-publish'], waits: 0 });
   });
 
   it('reports the sender identities as missed when they could not be computed', async () => {
@@ -1026,6 +1058,16 @@ describe('history files when D1 is overloaded', () => {
     const missed = await publishHistoryFiles(c);
     // #then
     expect(missed).toContain('top-sender-identities');
+  });
+
+  it('pauses before each top file, each identity window and replay.json, so the reads spread out', async () => {
+    // #given
+    const { c } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    await publishHistoryFiles(c);
+    // #then five top files, three identity windows and replay.json
+    expect(sleep.mock.calls.filter(([ms]) => ms === PUBLISH_PAUSE_MS)).toHaveLength(9);
   });
 
   it('reports nothing missed when every file publishes', async () => {
