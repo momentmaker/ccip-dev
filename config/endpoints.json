@@ -76,7 +76,7 @@
     "soneium-mainnet": "https://rpc.soneium.org",
     "sonic-mainnet": "https://rpc.soniclabs.com",
     "stable-mainnet": "https://rpc.stable.xyz",
-    "tac-mainnet": "https://rpc.ankr.com/tac",
+    "tac-mainnet": "https://tac.drpc.org",
     "tempo-mainnet": "https://tempo-mainnet.drpc.org",
     "tron-mainnet-evm": "https://tron.api.pocket.network",
     "wemix-mainnet": "https://api.wemix.com",
@@ -104,7 +104,7 @@
     "tac-mainnet": "https://tac.blockscout.com"
   },
   "ethereumLogs": [
-    "https://rpc-eth.blockmachine.io",
-    "https://eth.api.pocket.network"
+    "https://eth.api.pocket.network",
+    "https://ethereum-json-rpc.stakely.io"
   ]
 }
