@@ -438,76 +438,74 @@ async function identityWindows(c: RunContext, book: SenderBook, today: string, o
   return out;
 }
 
-async function senderBookOrAlert(c: RunContext): Promise<SenderBook | null> {
-  try {
-    return await senderBook(c);
-  } catch (err) {
-    await c.alert('top-sender-identities', `Sender identities were not computed: ${err instanceof Error ? err.message : String(err)}`);
-    return null;
-  }
-}
-
 /** The identity windows for top/sender.json; without them the file keeps its per-chain windows, which every reader falls back to. */
-async function topSenderIdentities(c: RunContext, book: SenderBook, today: string): Promise<{ identities?: Record<TopWindow, Leader[]>; identities_by_fees?: Record<TopWindow, Leader[]> }> {
-  try {
-    return { identities: await identityWindows(c, book, today, 'value'), identities_by_fees: await identityWindows(c, book, today, 'fees') };
-  } catch (err) {
-    await c.alert('top-sender-identities', `Sender identities were not computed: ${err instanceof Error ? err.message : String(err)}`);
-    return {};
-  }
+async function senderIdentities(c: RunContext, book: SenderBook, today: string): Promise<{ identities: Record<TopWindow, Leader[]>; identities_by_fees: Record<TopWindow, Leader[]> }> {
+  return { identities: await identityWindows(c, book, today, 'value'), identities_by_fees: await identityWindows(c, book, today, 'fees') };
 }
 
-export async function publishHistoryFiles(c: RunContext): Promise<void> {
+const D1_OVERLOADED = 'D1 DB is overloaded';
+/** D1 refuses queries for a few seconds once a burst overloads it; each wait lets that window drain before the step re-runs. */
+export const D1_OVERLOAD_WAITS_MS = [15_000, 45_000] as const;
+
+/** Runs `step`, re-running it after each wait while D1 answers that it is overloaded. Any other error, or a last overload, throws. */
+export async function untilD1Recovers<T>(c: RunContext, step: () => Promise<T>): Promise<T> {
+  for (const wait of D1_OVERLOAD_WAITS_MS) {
+    try {
+      return await step();
+    } catch (err) {
+      if (!(err instanceof Error && err.message.includes(D1_OVERLOADED))) throw err;
+      console.warn(`[publish] D1 is overloaded; re-running the step in ${wait / 1000}s`);
+      await c.deps.sleep(wait);
+    }
+  }
+  return step();
+}
+
+/**
+ * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the top files
+ * throw; every other step alerts and lets the rest publish. A step D1 refuses as overloaded waits and re-runs first.
+ */
+export async function publishHistoryFiles(c: RunContext): Promise<string[]> {
   const now = c.deps.now();
   const db = c.env.DB;
-  const days = await historyDays(c);
-  const linkTokens = await store.linkFeeTokens(db);
-  const classify = feeClassifier(linkTokens);
-  const since = (await store.getMeta(db, 'coverage_from')) ?? days[0]?.day ?? null;
-  await putJson(
-    c.env.PUBLIC,
-    'history.json',
-    { since, days, largest_fees: await largestFeeEntries(c, days.at(-1)?.day ?? '', LARGEST_FEES_LIMIT, classify) },
-    TTL.history,
-    now,
+  const missed: string[] = [];
+  const attempt = async <T>(signature: string, failure: string, step: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await untilD1Recovers(c, step);
+    } catch (err) {
+      missed.push(signature);
+      await c.alert(signature, `${failure}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  };
+  const { days, linkTokens, since } = await untilD1Recovers(c, async () => {
+    const days = await historyDays(c);
+    const linkTokens = await store.linkFeeTokens(db);
+    const since = (await store.getMeta(db, 'coverage_from')) ?? days[0]?.day ?? null;
+    const largest = await largestFeeEntries(c, days.at(-1)?.day ?? '', LARGEST_FEES_LIMIT, feeClassifier(linkTokens));
+    await putJson(c.env.PUBLIC, 'history.json', { since, days, largest_fees: largest }, TTL.history, now);
+    return { days, linkTokens, since };
+  });
+
+  await attempt('cost-publish', 'cost.json was not published', () => publishCost(c, now, linkTokens));
+  await attempt('day-leaders-publish', 'day-leaders.json was not published', () => publishDayLeaders(c, now));
+  await attempt('moments-publish', 'moments.json was not published', async () =>
+    putJson(c.env.PUBLIC, 'moments.json', await buildMoments(c, { lastDay: addDays(dayOf(now), -1), days }), TTL.moments, now),
   );
-
-  try {
-    await publishCost(c, now, linkTokens);
-  } catch (err) {
-    await c.alert('cost-publish', `cost.json was not published: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  try {
-    await publishDayLeaders(c, now);
-  } catch (err) {
-    await c.alert('day-leaders-publish', `day-leaders.json was not published: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  try {
-    await putJson(c.env.PUBLIC, 'moments.json', await buildMoments(c, { lastDay: addDays(dayOf(now), -1), days }), TTL.moments, now);
-  } catch (err) {
-    await c.alert('moments-publish', `moments.json was not published: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  try {
-    await putJson(c.env.PUBLIC, 'projects.json', await buildProjects(c, addDays(dayOf(now), -1)), TTL.projects, now);
-  } catch (err) {
-    await c.alert('projects-publish', `projects.json was not published: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  await attempt('projects-publish', 'projects.json was not published', async () =>
+    putJson(c.env.PUBLIC, 'projects.json', await buildProjects(c, addDays(dayOf(now), -1)), TTL.projects, now),
+  );
 
   const today = dayOf(now);
   const lastDay = addDays(today, -1);
-  const names = await store.chainNames(db);
-  const book = await senderBookOrAlert(c);
+  const names = await untilD1Recovers(c, () => store.chainNames(db));
+  const book = await attempt('top-sender-identities', 'Sender identities were not computed', () => senderBook(c));
   if (book) {
-    try {
-      await store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay)));
-    } catch (err) {
-      await c.alert('label-coverage', `Label coverage was not computed: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    await attempt('label-coverage', 'Label coverage was not computed', async () =>
+      store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay))),
+    );
   }
-  for (const dim of DIMS) {
+  for (const dim of DIMS) await untilD1Recovers(c, async () => {
     const ranked = async (order: store.TopOrder) => ({
       '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
       '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100, order),
@@ -529,7 +527,7 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
         ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
       }));
     const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
-    const identities = dim === 'sender' && book ? await topSenderIdentities(c, book, today) : {};
+    const identities = dim === 'sender' && book ? await attempt('top-sender-identities', 'Sender identities were not computed', () => senderIdentities(c, book, today)) : null;
     await putJson(
       c.env.PUBLIC,
       `top/${dim}.json`,
@@ -537,16 +535,9 @@ export async function publishHistoryFiles(c: RunContext): Promise<void> {
       TTL.top,
       now,
     );
-  }
-  try {
-    await putJson(
-      c.env.PUBLIC,
-      'replay.json',
-      { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) },
-      TTL.replay,
-      now,
-    );
-  } catch (err) {
-    await c.alert('replay-publish', `replay.json was not published: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  });
+  await attempt('replay-publish', 'replay.json was not published', async () =>
+    putJson(c.env.PUBLIC, 'replay.json', { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) }, TTL.replay, now),
+  );
+  return missed;
 }

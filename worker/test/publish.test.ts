@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
 import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type LabelIndex, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
@@ -750,7 +750,7 @@ describe('senders by identity', () => {
     const failing = fail().mockRejectedValue(new Error('D1 unavailable'));
     const { c, alerts } = harness({ now: NOW, labels: XSTOCKS_LABELS });
     // #when
-    await expect(publishHistoryFiles(c)).resolves.toBeUndefined();
+    const missed = await publishHistoryFiles(c);
     failing.mockRestore();
     // #then
     const top = await readPublic('top/sender.json');
@@ -759,7 +759,8 @@ describe('senders by identity', () => {
       identities: top.identities,
       replay: (await env.PUBLIC.get('v1/replay.json')) !== null,
       alerted: alerts.some((a) => a.signature === 'top-sender-identities'),
-    }).toEqual({ windows: true, identities: undefined, replay: true, alerted: true });
+      missed: missed.includes('top-sender-identities'),
+    }).toEqual({ windows: true, identities: undefined, replay: true, alerted: true, missed: true });
   });
 
   it("names the week's top sender by identity", async () => {
@@ -967,5 +968,70 @@ describe('senders via token', () => {
       today.top.sender[0].via_token_fee_usd,
       status.label_coverage.via_token_messages_pct,
     ]).toEqual([60, true, 600, null, 30]);
+  });
+});
+
+describe('history files when D1 is overloaded', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const OVERLOADED = 'D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window';
+  afterEach(() => vi.restoreAllMocks());
+
+  it('waits for D1 to recover and publishes the step it refused', async () => {
+    // #given D1 refuses the replay query once
+    vi.spyOn(store, 'laneHistory').mockRejectedValueOnce(new Error(OVERLOADED));
+    const { c, alerts } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({ missed, replay: (await env.PUBLIC.get('v1/replay.json')) !== null, waits: sleep.mock.calls.map(([ms]) => ms), alerts }).toEqual({
+      missed: [],
+      replay: true,
+      waits: [15_000],
+      alerts: [],
+    });
+  });
+
+  it('reports the step as missed, and alerts, once D1 stays overloaded through every wait', async () => {
+    // #given
+    vi.spyOn(store, 'laneHistory').mockRejectedValue(new Error(OVERLOADED));
+    const { c, alerts } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({ missed, waits: sleep.mock.calls.map(([ms]) => ms), alerts: alerts.map((a) => a.signature) }).toEqual({
+      missed: ['replay-publish'],
+      waits: [15_000, 45_000],
+      alerts: ['replay-publish'],
+    });
+  });
+
+  it('reports a failure that is not an overload as missed without waiting', async () => {
+    // #given
+    vi.spyOn(store, 'feeCosts').mockRejectedValueOnce(new Error('D1 unavailable'));
+    const { c } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({ missed, waits: sleep.mock.calls.length }).toEqual({ missed: ['cost-publish'], waits: 0 });
+  });
+
+  it('reports the sender identities as missed when they could not be computed', async () => {
+    // #given
+    vi.spyOn(store, 'senderTotalsOf').mockRejectedValue(new Error(OVERLOADED));
+    const { c } = harness({ now: NOW });
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect(missed).toContain('top-sender-identities');
+  });
+
+  it('reports nothing missed when every file publishes', async () => {
+    // #when
+    const missed = await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect(missed).toEqual([]);
   });
 });
