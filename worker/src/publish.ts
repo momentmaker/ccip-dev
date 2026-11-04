@@ -1,7 +1,7 @@
 import { addDays, dayOf, feeClassifier, lastCompleteMonday, normalizeAddress, rankIdentities, sharePct, taggableX, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
 import { LabelCoverageSchema, TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
-import { meterD1, type D1Usage } from './d1-meter';
+import { heaviestStatements, meterD1, usageSince, type D1Usage } from './d1-meter';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
 import { buildProjects } from './projects';
@@ -472,16 +472,14 @@ export async function untilD1Recovers<T>(c: RunContext, step: () => Promise<T>):
   return step();
 }
 
-/** Logs one publish step's wall time and D1 use as a JSON line; Workers Logs indexes its fields, so steps rank by rows read. */
+/**
+ * Logs one publish step's wall time and D1 use as a JSON line, with its heaviest statements in `top`; Workers Logs indexes
+ * the fields, so steps rank by rows read.
+ */
 function logPublishStep(step: string, ms: number, usage: D1Usage, ok: boolean): void {
-  console.log(JSON.stringify({ publish_step: step, ms, d1_ms: Math.round(usage.d1Ms), rows_read: usage.rowsRead, queries: usage.queries, ok }));
+  const top = heaviestStatements(usage.statements, 3);
+  console.log(JSON.stringify({ publish_step: step, ms, d1_ms: Math.round(usage.d1Ms), rows_read: usage.rowsRead, queries: usage.queries, ok, top }));
 }
-
-const usageSince = (now: D1Usage, before: D1Usage): D1Usage => ({
-  queries: now.queries - before.queries,
-  rowsRead: now.rowsRead - before.rowsRead,
-  d1Ms: now.d1Ms - before.d1Ms,
-});
 
 /**
  * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the top files

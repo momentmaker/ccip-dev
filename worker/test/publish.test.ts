@@ -1088,6 +1088,21 @@ describe('history files when D1 is overloaded', () => {
     });
   });
 
+  it('names up to three of each step\'s heaviest statements, heaviest first', async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const lines = log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('{"publish_step"')).map((line) => JSON.parse(line));
+    const history = lines.find((l) => l.publish_step === 'history');
+    expect({
+      shaped: lines.every((l) => Array.isArray(l.top) && l.top.length <= 3 && l.top.every((s: { sql: unknown }) => typeof s.sql === 'string')),
+      ordered: lines.every((l) => l.top.every((s: { rows_read: number }, i: number) => i === 0 || l.top[i - 1].rows_read >= s.rows_read)),
+      history: history.top.length > 0,
+    }).toEqual({ shaped: true, ordered: true, history: true });
+  });
+
   it('logs a step that failed with ok false', async () => {
     // #given
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
