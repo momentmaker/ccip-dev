@@ -3,7 +3,7 @@ import {
 } from '@ccip-dev/core';
 import { broadcastHourly } from '../broadcasts/run';
 import type { RunContext } from '../context';
-import { publishRegistryFiles } from '../publish';
+import { publishRegistryFiles, refreshDayLeaders } from '../publish';
 import { balanceRpcUrls } from '../rpc';
 import * as store from '../store';
 import { backfillViaToken } from '../via-token-backfill';
@@ -22,11 +22,21 @@ export async function runHourly(c: RunContext): Promise<void> {
     registryError = err;
   }
   const reserve = await publishRegistryFiles(c);
+  await refreshDayLeadersOrAlert(c);
   await catchUpPublish(c);
   await broadcastHourly(c, reserve);
   await refreshCoingeckoIds(c);
   await backfillViaTokenHistory(c);
   if (registryError !== null) throw registryError;
+}
+
+/** A failed refresh leaves the stored days as they are (day-leaders.json still serves them) and is retried next hour. */
+async function refreshDayLeadersOrAlert(c: RunContext): Promise<void> {
+  try {
+    await refreshDayLeaders(c);
+  } catch (err) {
+    await c.alert('day-leaders-refresh', `The stored day leaders were not refreshed, and are retried next hour: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /** History only: a failure is retried from the cursor next hour, and never holds up the rest of the hour. */

@@ -1,7 +1,8 @@
-import { addDays, dayOf, feeClassifier, lastCompleteMonday, normalizeAddress, rankIdentities, sharePct, taggableX, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
+import { addDays, dayOf, daysBetween, feeClassifier, lastCompleteMonday, normalizeAddress, rankIdentities, sharePct, taggableX, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
 import { LabelCoverageSchema, TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
 import { heaviestStatements, meterD1, usageSince, type D1Usage } from './d1-meter';
+import { LATE_FINALIZE_HOUR_UTC } from './schedule';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
 import { buildProjects } from './projects';
@@ -120,9 +121,9 @@ export function identityEntry(i: IdentityTotals, periodMessages: number | null):
 }
 
 /** Each day's leaders over [fromDay, toDay]: the top token and lane by value, the top sender identity by messages, and the top lane and source chain by fees. */
-export async function dayLeaderEntries(c: RunContext, fromDay: string, toDay: string): Promise<DayLeaders[]> {
+export async function dayLeaderEntries(c: RunContext, fromDay: string, toDay: string, given?: SenderBook): Promise<DayLeaders[]> {
   const db = c.env.DB;
-  const book = await senderBook(c);
+  const book = given ?? (await senderBook(c));
   const tokens = await store.dailyLeaders(db, 'token', 'value', fromDay, toDay);
   const senders = topIdentityByDay(
     book,
@@ -158,10 +159,83 @@ export async function weekFeeChains(c: RunContext, monday: string): Promise<Lead
   return (await store.topBetween(c.env.DB, 'src_chain', monday, addDays(monday, 6), 3, 'fees')).map((r) => leader(r, null));
 }
 
+/** Bump when dayLeaderEntries changes what a stored day holds, so every stored day is recomputed. */
+const DAY_LEADERS_LOGIC = 1;
+/** Days the hourly refresh computes a run: 400 stale days refresh within a day, at about a seventh of a publish each. */
+export const DAY_LEADERS_REFRESH_DAYS = 60;
+
+/** Names what a stored sender leader was resolved with: the bundled labels, projects and label tokens, and the claimed groups. */
+async function dayLeadersFingerprint(c: RunContext, book: SenderBook): Promise<string> {
+  const inputs = JSON.stringify([DAY_LEADERS_LOGIC, c.labels, c.projects, c.labelTokens, [...book.claimed].sort()]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(inputs));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Sorted days as [first, last] runs of consecutive days, so each run is computed in one pass. */
+function consecutiveRuns(days: readonly string[]): [string, string][] {
+  const runs: [string, string][] = [];
+  for (const day of [...days].sort()) {
+    const last = runs.at(-1);
+    if (last && addDays(last[1], 1) === day) last[1] = day;
+    else runs.push([day, day]);
+  }
+  return runs;
+}
+
+/** Computes `days` and stores each under `fingerprint`, a day without leaders as 'null'; returns the entries by day. */
+async function computeDayLeaders(c: RunContext, book: SenderBook, fingerprint: string, days: readonly string[]): Promise<Map<string, DayLeaders | null>> {
+  const computed = new Map<string, DayLeaders | null>();
+  for (const [from, to] of consecutiveRuns(days)) {
+    const entries = new Map((await dayLeaderEntries(c, from, to, book)).map((d) => [d.day, d]));
+    for (const day of daysBetween(from, to)) computed.set(day, entries.get(day) ?? null);
+  }
+  await store.putDayLeaders(c.env.DB, [...computed].map(([day, entry]) => ({ day, fingerprint, entry: JSON.stringify(entry) })));
+  return computed;
+}
+
+/**
+ * The window's day leaders from day_leaders, computing and storing the days without a row (normally just the day finalize
+ * rewrote). A row under another fingerprint is served as it is until refreshDayLeaders replaces it. Token symbols are
+ * looked up now, so a symbol the registry adds later shows on every stored day.
+ */
+async function storedDayLeaders(c: RunContext, fromDay: string, toDay: string): Promise<DayLeaders[]> {
+  const db = c.env.DB;
+  const stored = new Map((await store.dayLeaderRows(db, fromDay, toDay)).map((r) => [r.day, JSON.parse(r.entry) as DayLeaders | null]));
+  const missing = daysBetween(fromDay, toDay).filter((day) => !stored.has(day));
+  if (missing.length > 0) {
+    const book = await senderBook(c);
+    for (const [day, entry] of await computeDayLeaders(c, book, await dayLeadersFingerprint(c, book), missing)) stored.set(day, entry);
+  }
+  const entries = [...stored].sort(([a], [b]) => a.localeCompare(b)).flatMap(([, entry]) => (entry ? [entry] : []));
+  const symbols = await store.tokenSymbols(db, entries.flatMap((e) => (e.token ? [splitTokenKey(e.token.key)] : [])));
+  return entries.map((e) => (e.token ? { ...e, token: { ...e.token, label: symbolOf(symbols, e.token.key) } } : e));
+}
+
+/**
+ * Computes up to DAY_LEADERS_REFRESH_DAYS of the window's days that have no row or a row under another fingerprint,
+ * newest first, and only through last_finalize_day, whose breakdown is final. It skips the hours a finalize rewrites days
+ * (00:07 and 06:00), so it never stores a day from the breakdown a finalize is replacing.
+ */
+export async function refreshDayLeaders(c: RunContext): Promise<void> {
+  const now = c.deps.now();
+  if (now.getUTCHours() === 0 || now.getUTCHours() === LATE_FINALIZE_HOUR_UTC) return;
+  const finalized = await store.getMeta(c.env.DB, 'last_finalize_day');
+  if (finalized === null) return;
+  const today = dayOf(now);
+  const yesterday = addDays(today, -1);
+  const lastDay = finalized < yesterday ? finalized : yesterday;
+  const fromDay = addDays(today, -DAY_LEADERS_DAYS);
+  const book = await senderBook(c);
+  const fingerprint = await dayLeadersFingerprint(c, book);
+  const current = new Map((await store.dayLeaderRows(c.env.DB, fromDay, lastDay)).map((r) => [r.day, r.fingerprint]));
+  const due = daysBetween(fromDay, lastDay).filter((day) => current.get(day) !== fingerprint).reverse().slice(0, DAY_LEADERS_REFRESH_DAYS);
+  if (due.length > 0) await computeDayLeaders(c, book, fingerprint, due);
+}
+
 export async function publishDayLeaders(c: RunContext, now: Date): Promise<void> {
   const today = dayOf(now);
   const lastDay = addDays(today, -1);
-  const days = await dayLeaderEntries(c, addDays(today, -DAY_LEADERS_DAYS), lastDay);
+  const days = await storedDayLeaders(c, addDays(today, -DAY_LEADERS_DAYS), lastDay);
   const latest = lastCompleteMonday(lastDay);
   const weeks: { week: string; fee_chains: Leader[] }[] = [];
   for (let i = LEADER_WEEKS - 1; i >= 0; i--) {

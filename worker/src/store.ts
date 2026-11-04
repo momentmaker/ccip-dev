@@ -631,6 +631,7 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
         totals.median_delivery_s, totals.unpriced_messages, computedAt,
       ),
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
+    db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(totals.day),
     ...breakdown.map((b) => insertBreakdown.bind(b.day, b.dim, b.key, b.messages, b.usd_value, b.fee_usd)),
   ]);
 }
@@ -644,7 +645,29 @@ export async function rolledUpDaysBefore(db: D1Database, before: string, limit: 
 }
 
 export async function backfillViaTokenDay(db: D1Database, day: string): Promise<void> {
-  await db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day).run();
+  await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day)]);
+}
+
+/** A day's stored day-leaders.json entry (see migration 0012). */
+export interface DayLeaderRow {
+  day: string;
+  fingerprint: string;
+  entry: string;
+}
+
+export async function dayLeaderRows(db: D1Database, fromDay: string, toDay: string): Promise<DayLeaderRow[]> {
+  const { results } = await db
+    .prepare('SELECT day, fingerprint, entry FROM day_leaders WHERE day >= ? AND day <= ? ORDER BY day')
+    .bind(fromDay, toDay)
+    .all<DayLeaderRow>();
+  return results;
+}
+
+export async function putDayLeaders(db: D1Database, rows: readonly DayLeaderRow[]): Promise<void> {
+  const upsert = db.prepare(
+    'INSERT INTO day_leaders (day, fingerprint, entry) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET fingerprint = excluded.fingerprint, entry = excluded.entry',
+  );
+  await runBatch(db, rows.map((r) => upsert.bind(r.day, r.fingerprint, r.entry)));
 }
 
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
