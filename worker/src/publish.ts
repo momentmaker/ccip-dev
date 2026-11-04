@@ -1,6 +1,7 @@
 import { addDays, dayOf, feeClassifier, lastCompleteMonday, normalizeAddress, rankIdentities, sharePct, taggableX, LINK_PRICE_KEY, LINK_RESERVE, LINK_TOKEN, linkFeeMatcher, linkFeeUsd, buildReplay, reserveStats, rollupDay, toUnits, type DailyBreakdown, type Dim, type FeeClassifier, type LinkFeeTokens, type IdentityTotals, type SenderIdentity, type PricedTransfer } from '@ccip-dev/core';
 import { LabelCoverageSchema, TOP_WINDOWS, type DayLeaders, type DayTotals, type LargestFee, type Leader, type ReserveFile, type TopWindow } from '@ccip-dev/core/public';
 import type { RunContext } from './context';
+import { meterD1, type D1Usage } from './d1-meter';
 import { lookupLabel } from './labels';
 import { buildMoments } from './moments';
 import { buildProjects } from './projects';
@@ -471,11 +472,25 @@ export async function untilD1Recovers<T>(c: RunContext, step: () => Promise<T>):
   return step();
 }
 
+/** Logs one publish step's wall time and D1 use as a JSON line; Workers Logs indexes its fields, so steps rank by rows read. */
+function logPublishStep(step: string, ms: number, usage: D1Usage, ok: boolean): void {
+  console.log(JSON.stringify({ publish_step: step, ms, d1_ms: Math.round(usage.d1Ms), rows_read: usage.rowsRead, queries: usage.queries, ok }));
+}
+
+const usageSince = (now: D1Usage, before: D1Usage): D1Usage => ({
+  queries: now.queries - before.queries,
+  rowsRead: now.rowsRead - before.rowsRead,
+  d1Ms: now.d1Ms - before.d1Ms,
+});
+
 /**
  * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the top files
  * throw; every other step alerts and lets the rest publish. A step D1 refuses as overloaded waits and re-runs first.
+ * Each step logs its time and D1 use (see logPublishStep), then the publish logs its total.
  */
-export async function publishHistoryFiles(c: RunContext): Promise<string[]> {
+export async function publishHistoryFiles(run: RunContext): Promise<string[]> {
+  const meter = meterD1(run.env.DB);
+  const c: RunContext = { ...run, env: { ...run.env, DB: meter.db } };
   const now = c.deps.now();
   const db = c.env.DB;
   const missed: string[] = [];
@@ -488,70 +503,106 @@ export async function publishHistoryFiles(c: RunContext): Promise<string[]> {
       return null;
     }
   };
-  const { days, linkTokens, since } = await untilD1Recovers(c, async () => {
-    const days = await historyDays(c);
-    const linkTokens = await store.linkFeeTokens(db);
-    const since = (await store.getMeta(db, 'coverage_from')) ?? days[0]?.day ?? null;
-    const largest = await largestFeeEntries(c, days.at(-1)?.day ?? '', LARGEST_FEES_LIMIT, feeClassifier(linkTokens));
-    await putJson(c.env.PUBLIC, 'history.json', { since, days, largest_fees: largest }, TTL.history, now);
-    return { days, linkTokens, since };
-  });
-
-  await attempt('cost-publish', 'cost.json was not published', () => publishCost(c, now, linkTokens));
-  await attempt('day-leaders-publish', 'day-leaders.json was not published', () => publishDayLeaders(c, now));
-  await attempt('moments-publish', 'moments.json was not published', async () =>
-    putJson(c.env.PUBLIC, 'moments.json', await buildMoments(c, { lastDay: addDays(dayOf(now), -1), days }), TTL.moments, now),
-  );
-  await attempt('projects-publish', 'projects.json was not published', async () =>
-    putJson(c.env.PUBLIC, 'projects.json', await buildProjects(c, addDays(dayOf(now), -1)), TTL.projects, now),
-  );
-
-  const today = dayOf(now);
-  const lastDay = addDays(today, -1);
-  const names = await untilD1Recovers(c, () => store.chainNames(db));
-  const book = await attempt('top-sender-identities', 'Sender identities were not computed', () => senderBook(c));
-  if (book) {
-    await attempt('label-coverage', 'Label coverage was not computed', async () =>
-      store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay))),
+  const measured = async <T>(step: string, work: () => Promise<T>): Promise<T> => {
+    const before = meter.usage();
+    const missedBefore = missed.length;
+    const started = c.deps.clock();
+    let ok = false;
+    try {
+      const result = await work();
+      ok = missed.length === missedBefore;
+      return result;
+    } finally {
+      logPublishStep(step, c.deps.clock() - started, usageSince(meter.usage(), before), ok);
+    }
+  };
+  const started = c.deps.clock();
+  let completed = false;
+  try {
+    const { days, linkTokens, since } = await measured('history', () =>
+      untilD1Recovers(c, async () => {
+        const days = await historyDays(c);
+        const linkTokens = await store.linkFeeTokens(db);
+        const since = (await store.getMeta(db, 'coverage_from')) ?? days[0]?.day ?? null;
+        const largest = await largestFeeEntries(c, days.at(-1)?.day ?? '', LARGEST_FEES_LIMIT, feeClassifier(linkTokens));
+        await putJson(c.env.PUBLIC, 'history.json', { since, days, largest_fees: largest }, TTL.history, now);
+        return { days, linkTokens, since };
+      }),
     );
-  }
-  for (const dim of DIMS) {
-    await pauseForD1(c);
-    await untilD1Recovers(c, async () => {
-      const ranked = async (order: store.TopOrder) => ({
-        '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
-        '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100, order),
-        all: await store.topBetween(db, dim, null, lastDay, 100, order),
-      });
-      const windows = await ranked('value');
-      const byFees = FEE_DIMS.has(dim) ? await ranked('fees') : null;
-      const symbols =
-        dim === 'token'
-          ? await store.tokenSymbols(db, Object.values(windows).flatMap((rows) => rows.map((r) => splitTokenKey(r.key))))
-          : new Map<string, string>();
-      const entries = (rows: typeof windows['all']) =>
-        rows.map((r) => ({
-          key: r.key,
-          messages: r.messages,
-          usd: usd(r.usd_value),
-          fee_usd: usd(r.fee_usd),
-          ...(dim === 'token' ? { symbol: symbolOf(symbols, r.key) } : {}),
-          ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
-        }));
-      const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
-      const identities = dim === 'sender' && book ? await attempt('top-sender-identities', 'Sender identities were not computed', () => senderIdentities(c, book, today)) : null;
-      await putJson(
-        c.env.PUBLIC,
-        `top/${dim}.json`,
-        { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}), ...identities },
-        TTL.top,
-        now,
+
+    await measured('cost', () => attempt('cost-publish', 'cost.json was not published', () => publishCost(c, now, linkTokens)));
+    await measured('day-leaders', () => attempt('day-leaders-publish', 'day-leaders.json was not published', () => publishDayLeaders(c, now)));
+    await measured('moments', () =>
+      attempt('moments-publish', 'moments.json was not published', async () =>
+        putJson(c.env.PUBLIC, 'moments.json', await buildMoments(c, { lastDay: addDays(dayOf(now), -1), days }), TTL.moments, now),
+      ),
+    );
+    await measured('projects', () =>
+      attempt('projects-publish', 'projects.json was not published', async () =>
+        putJson(c.env.PUBLIC, 'projects.json', await buildProjects(c, addDays(dayOf(now), -1)), TTL.projects, now),
+      ),
+    );
+
+    const today = dayOf(now);
+    const lastDay = addDays(today, -1);
+    const { names, book } = await measured('sender-book', async () => ({
+      names: await untilD1Recovers(c, () => store.chainNames(db)),
+      book: await attempt('top-sender-identities', 'Sender identities were not computed', () => senderBook(c)),
+    }));
+    if (book) {
+      await measured('label-coverage', () =>
+        attempt('label-coverage', 'Label coverage was not computed', async () =>
+          store.setMeta(db, LABEL_COVERAGE_KEY, JSON.stringify(await labelCoverageOf(c, book, addDays(today, -7), lastDay))),
+        ),
       );
-    });
+    }
+    const identities = book
+      ? await measured('sender-identities', () => attempt('top-sender-identities', 'Sender identities were not computed', () => senderIdentities(c, book, today)))
+      : null;
+    for (const dim of DIMS) {
+      await pauseForD1(c);
+      await measured(`top/${dim}`, () =>
+        untilD1Recovers(c, async () => {
+          const ranked = async (order: store.TopOrder) => ({
+            '7d': await store.topBetween(db, dim, addDays(today, -7), lastDay, 100, order),
+            '30d': await store.topBetween(db, dim, addDays(today, -30), lastDay, 100, order),
+            all: await store.topBetween(db, dim, null, lastDay, 100, order),
+          });
+          const windows = await ranked('value');
+          const byFees = FEE_DIMS.has(dim) ? await ranked('fees') : null;
+          const symbols =
+            dim === 'token'
+              ? await store.tokenSymbols(db, Object.values(windows).flatMap((rows) => rows.map((r) => splitTokenKey(r.key))))
+              : new Map<string, string>();
+          const entries = (rows: typeof windows['all']) =>
+            rows.map((r) => ({
+              key: r.key,
+              messages: r.messages,
+              usd: usd(r.usd_value),
+              fee_usd: usd(r.fee_usd),
+              ...(dim === 'token' ? { symbol: symbolOf(symbols, r.key) } : {}),
+              ...(dim === 'sender' ? { label: senderLabel(c, names, r.key) } : {}),
+            }));
+          const published = (w: typeof windows) => ({ '7d': entries(w['7d']), '30d': entries(w['30d']), all: entries(w.all) });
+          await putJson(
+            c.env.PUBLIC,
+            `top/${dim}.json`,
+            { dim, since, windows: published(windows), ...(byFees ? { by_fees: published(byFees) } : {}), ...(dim === 'sender' ? identities : null) },
+            TTL.top,
+            now,
+          );
+        }),
+      );
+    }
+    await pauseForD1(c);
+    await measured('replay', () =>
+      attempt('replay-publish', 'replay.json was not published', async () =>
+        putJson(c.env.PUBLIC, 'replay.json', { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) }, TTL.replay, now),
+      ),
+    );
+    completed = true;
+    return missed;
+  } finally {
+    logPublishStep('total', c.deps.clock() - started, meter.usage(), completed && missed.length === 0);
   }
-  await pauseForD1(c);
-  await attempt('replay-publish', 'replay.json was not published', async () =>
-    putJson(c.env.PUBLIC, 'replay.json', { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) }, TTL.replay, now),
-  );
-  return missed;
 }
