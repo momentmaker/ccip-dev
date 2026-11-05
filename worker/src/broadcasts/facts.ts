@@ -147,6 +147,7 @@ async function creTops(c: RunContext, days: readonly string[], monday: string | 
   const last = days.at(-1)!;
   const sunday = monday === null ? null : addDays(monday, 6);
   const rows = await store.breakdownBetween(c.env.DB, 'cre', monday === null ? first : earlier(first, monday), sunday === null ? last : later(last, sunday));
+  if (rows.length === 0) return { days: new Map(), week: null };
   const book = await senderBook(c);
   const topOf = (inPeriod: readonly store.LeaderRow[]): Player | null => {
     const [top] = rankIdentities(identitiesOf(book, inPeriod, []), 'messages', 1);
