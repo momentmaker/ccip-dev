@@ -3,6 +3,7 @@ import {
 } from '@ccip-dev/core';
 import { broadcastHourly } from '../broadcasts/run';
 import type { RunContext } from '../context';
+import { retagCre } from '../cre-retag';
 import { publishRegistryFiles, refreshDayLeaders } from '../publish';
 import { balanceRpcUrls } from '../rpc';
 import * as store from '../store';
@@ -29,6 +30,7 @@ export async function runHourly(c: RunContext): Promise<void> {
   await broadcastHourly(c, reserve);
   await refreshCoingeckoIds(c);
   await backfillViaTokenHistory(c);
+  await retagCreOrAlert(c);
   if (registryError !== null) throw registryError;
 }
 
@@ -57,6 +59,15 @@ async function backfillViaTokenHistory(c: RunContext): Promise<void> {
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     await c.alert('via-token-backfill', `The via_token history backfill failed and is retried next hour from its cursor: ${detail}`);
+  }
+}
+
+/** A failed re-tag keeps its place in meta and is retried next hour. */
+async function retagCreOrAlert(c: RunContext): Promise<void> {
+  try {
+    await retagCre(c);
+  } catch (err) {
+    await c.alert('cre-retag', `CRE re-tagging stopped and is retried next hour: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

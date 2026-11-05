@@ -2,7 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type HolderKind, type ReserveTransfer, type SenderChain, type StakingEvent, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
+  CRE_BREAKDOWN_DAY_SQL, CRE_TOTALS_DAY_SQL, DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 import { isMonth, monthBounds, previousMonth } from '@ccip-dev/core/month';
@@ -649,6 +649,17 @@ export async function rolledUpDaysBefore(db: D1Database, before: string, limit: 
 
 export async function backfillViaTokenDay(db: D1Database, day: string): Promise<void> {
   await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day), unrollStatement(db, day)]);
+}
+
+/** Re-tags one day's messages and rebuilds its CRE totals and cre rows in one batch; the rolled pointer moves back before its month. */
+export async function retagCreDay(db: D1Database, day: string, retagSql: string): Promise<void> {
+  await db.batch([
+    db.prepare(retagSql).bind(day),
+    db.prepare("DELETE FROM daily_breakdown WHERE day = ?1 AND dim = 'cre'").bind(day),
+    db.prepare(CRE_BREAKDOWN_DAY_SQL).bind(day),
+    db.prepare(CRE_TOTALS_DAY_SQL).bind(day),
+    unrollStatement(db, day),
+  ]);
 }
 
 /** A day's stored day-leaders.json entry (see migration 0012). */
