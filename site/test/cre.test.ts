@@ -1,6 +1,6 @@
 import type { DayTotals, TopFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { creLeaders, creSeries, creSparkPoints, creTotal } from '../src/lib/cre';
+import { creBand, creLatestCaption, creLeaders, creSeries, creSparkPoints, creTotal } from '../src/lib/cre';
 
 const day = (d: string, messages: number, cre: number): DayTotals =>
   ({ day: d, messages, token_messages: 0, usd_value: 0, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null, cre_messages: cre, cre_usd: 0 }) as DayTotals;
@@ -16,6 +16,42 @@ describe('creSeries', () => {
       { day: '2026-11-01', messages: 2, sharePct: 2 },
       { day: '2026-11-02', messages: 0, sharePct: 0 },
     ]);
+  });
+});
+
+describe('creBand', () => {
+  it('hides the band when the history has no CRE messages', () => {
+    // #given
+    const days = [day('2026-11-01', 100, 0), day('2026-11-02', 50, 0)];
+    // #when
+    const band = creBand(days);
+    // #then
+    expect(band).toBeNull();
+  });
+
+  it('hides the band for an empty history', () => {
+    // #when
+    const band = creBand([]);
+    // #then
+    expect(band).toBeNull();
+  });
+
+  it('shows the band, its latest point being the last finalized day, when any day has CRE messages', () => {
+    // #given
+    const days = [day('2026-11-01', 100, 2), day('2026-11-02', 50, 0)];
+    // #when
+    const band = creBand(days);
+    // #then
+    expect(band?.latest).toEqual({ day: '2026-11-02', messages: 0, sharePct: 0 });
+  });
+});
+
+describe('creLatestCaption', () => {
+  it('names the last finalized day instead of calling it today', () => {
+    // #when
+    const caption = creLatestCaption({ day: '2026-11-04', messages: 3, sharePct: 2.4 });
+    // #then
+    expect(caption).toBe('latest day (Nov 4, 2026) 2.4%');
   });
 });
 

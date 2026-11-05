@@ -1,3 +1,4 @@
+import { formatShare, formatUtcDay } from '@ccip-dev/core/format';
 import { shortAddress } from '@ccip-dev/core/names';
 import type { DayTotals, TopFile } from '@ccip-dev/core/public';
 
@@ -21,6 +22,16 @@ export function creSeries(days: readonly DayTotals[], n = CRE_DAYS): CrePoint[] 
     return { day: d.day, messages, sharePct: d.messages > 0 ? (messages / d.messages) * 100 : 0 };
   });
 }
+
+/** The home CRE band's series and its last day (history.json's last finalized day), or null to hide the band: no CRE message in the series. */
+export function creBand(days: readonly DayTotals[], n = CRE_DAYS): { series: CrePoint[]; latest: CrePoint } | null {
+  const series = creSeries(days, n);
+  const latest = series.at(-1);
+  return latest !== undefined && series.some((p) => p.messages > 0) ? { series, latest } : null;
+}
+
+/** The band's share for its last day, named by its date: history.json ends at the last finalized day, not today. */
+export const creLatestCaption = (latest: CrePoint): string => `latest day (${formatUtcDay(latest.day)}) ${formatShare(latest.sharePct)}`;
 
 export const creTotal = (days: readonly DayTotals[]): number => days.reduce((n, d) => n + (d.cre_messages ?? 0), 0);
 

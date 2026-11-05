@@ -1,7 +1,7 @@
 ---
 import type { DayTotals, TopFile } from '@ccip-dev/core/public';
-import { creLeaders, creSeries, creSparkPoints, creTotal, CRE_DAYS } from '../../lib/cre';
-import { formatCount, formatShare } from '../../lib/format';
+import { creBand, creLatestCaption, creLeaders, creSparkPoints, creTotal, CRE_DAYS } from '../../lib/cre';
+import { formatCount } from '../../lib/format';
 
 interface Props {
   days: readonly DayTotals[];
@@ -10,14 +10,13 @@ interface Props {
 }
 
 const { days, top, projects } = Astro.props;
-const series = creSeries(days);
+const band = creBand(days);
 const total = creTotal(days);
-const latest = series.at(-1)?.sharePct ?? 0;
 const leaders = creLeaders(top, projects);
 const W = 320;
 const H = 56;
 ---
-{series.some((p) => p.messages > 0) && (
+{band && (
   <section class="band" id="cre" aria-labelledby="cre-title">
     <div class="band-head">
       <div>
@@ -29,9 +28,9 @@ const H = 56;
     </div>
     <div class="cre-grid">
       <figure class="card cre-chart">
-        <figcaption class="label">Share of messages sent by CRE workflows, last {CRE_DAYS} days · today {formatShare(latest)}</figcaption>
+        <figcaption class="label">Share of messages sent by CRE workflows, last {CRE_DAYS} days · {creLatestCaption(band.latest)}</figcaption>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label={`CRE share of CCIP messages over the last ${CRE_DAYS} days`}>
-          <polyline points={creSparkPoints(series, W, H)} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
+          <polyline points={creSparkPoints(band.series, W, H)} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
         </svg>
       </figure>
       {leaders.length > 0 && (
