@@ -122,7 +122,11 @@ sender-identities, not worth an index build over the 1.1M-row table inside a mig
   returns the same rows both ways. The publish log shows sender-identities, top/*, projects and moments down.
 - **Tests:** every reader returns the same rows with the pointer absent, before, at and after a month boundary, and with
   a rewound month.
-- **Status:** Not Started.
+- **Benchmark** (local, production scale, rolled through 2026-09): every reader returned the same rows (keys, order and
+  values to 1e-6), 2–6× faster: unlabeled 870 → 358 ms, labeled 242 → 42 ms, top senders 292 → 103 ms, credits 218 → 123
+  ms. The sums differ only by float noise around 1e-10, which could show only at a rounding boundary or as a different
+  order between two keys with exactly equal totals.
+- **Status:** In Progress.
 
 ## Done when
 A full publish reads well under the 8.4M of 2026-11-05 (stage 5 estimate: about 5M, with the all-time windows bounded

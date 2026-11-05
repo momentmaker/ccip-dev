@@ -2,7 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type HolderKind, type ReserveTransfer, type SenderChain, type StakingEvent, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
+  DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 import { isMonth, monthBounds, previousMonth } from '@ccip-dev/core/month';
@@ -718,6 +718,31 @@ export async function advanceRolledThrough(db: D1Database, month: string): Promi
   return result.meta.changes > 0;
 }
 
+/**
+ * The breakdown rows an all-time window up to `toDay` reads: monthly_breakdown through the rolled pointer and
+ * daily_breakdown after its last day, as one subquery with daily_breakdown's columns (a monthly row's `day` is the key's
+ * first day of that month). daily_breakdown alone before the first roll, or when `toDay` ends inside a rolled month.
+ * The pointer passed isMonth, so it is safe as a literal.
+ */
+export async function allTimeSource(db: D1Database, toDay: string): Promise<string> {
+  const through = await rolledThrough(db);
+  if (through === null) return DAILY_BREAKDOWN;
+  const { last } = monthBounds(through);
+  return toDay < last ? DAILY_BREAKDOWN : rolledSourceSql(through);
+}
+
+/** monthly_breakdown through `through` (a month) and daily_breakdown after its last day, with daily_breakdown's columns. */
+export function rolledSourceSql(through: string): string {
+  if (!isMonth(through)) throw new Error(`not a month: ${through}`);
+  const { last } = monthBounds(through);
+  return `(SELECT first_day AS day, dim, key, messages, usd_value, fee_usd FROM monthly_breakdown WHERE month <= '${through}'
+    UNION ALL SELECT day, dim, key, messages, usd_value, fee_usd FROM daily_breakdown WHERE day > '${last}')`;
+}
+
+/** The source of a window: the rolled months for an all-time window (no `fromDay`), daily_breakdown otherwise. */
+const windowSource = (db: D1Database, fromDay: string | null, toDay: string): Promise<string> =>
+  fromDay === null ? allTimeSource(db, toDay) : Promise.resolve(DAILY_BREAKDOWN);
+
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
   const { results } = await db
     .prepare(
@@ -766,6 +791,13 @@ export interface LeaderRow extends BreakdownRow {
   day: string;
 }
 
+/** topBetween's SQL for the window; exported for its query-plan test. */
+export async function topBetweenSql(db: D1Database, fromDay: string | null, toDay: string, order: TopOrder): Promise<string> {
+  return `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+       FROM ${await windowSource(db, fromDay, toDay)} WHERE dim = ? AND day >= ? AND day <= ?
+       GROUP BY key ${TOP_ORDER_SQL[order]} LIMIT ?`;
+}
+
 export async function topBetween(
   db: D1Database,
   dim: Dim,
@@ -775,11 +807,7 @@ export async function topBetween(
   order: TopOrder,
 ): Promise<BreakdownRow[]> {
   const { results } = await db
-    .prepare(
-      `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
-       FROM daily_breakdown WHERE dim = ? AND day >= ? AND day <= ?
-       GROUP BY key ${TOP_ORDER_SQL[order]} LIMIT ?`,
-    )
+    .prepare(await topBetweenSql(db, fromDay, toDay, order))
     .bind(dim, fromDay ?? '0000-00-00', toDay, limit)
     .all<BreakdownRow>();
   return results;
@@ -805,12 +833,14 @@ export async function senderChains(db: D1Database): Promise<Map<string, SenderCh
 }
 
 /** No LIMIT: a project's rows on every chain must all arrive before they merge and rank. */
-export const SENDER_TOTALS_OF_SQL = `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
-  FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
+const senderTotalsOfSql = (source: string) => `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+  FROM ${source} WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
   GROUP BY key ORDER BY key`;
+export const SENDER_TOTALS_OF_SQL = senderTotalsOfSql(DAILY_BREAKDOWN);
 
 export async function senderTotalsOf(db: D1Database, fromDay: string | null, toDay: string, addresses: readonly string[]): Promise<BreakdownRow[]> {
-  const { results } = await db.prepare(SENDER_TOTALS_OF_SQL).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(addresses)).all<BreakdownRow>();
+  const sql = senderTotalsOfSql(await windowSource(db, fromDay, toDay));
+  const { results } = await db.prepare(sql).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(addresses)).all<BreakdownRow>();
   return results;
 }
 
@@ -837,7 +867,7 @@ const ADDRESS_ORDER_SQL: Record<TopOrder, string> = {
  * each address ranked by its rows summed across chains. A key with nothing left is dropped before the cut, so the ?4
  * are the busiest by what they keep.
  */
-export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledSenderRowsSql(false, '?5')}),
+export const topUnlabeledSendersSql = (order: TopOrder, source: string = DAILY_BREAKDOWN) => `WITH rows AS (${unlabeledSenderRowsSql(false, '?5', source)}),
   net AS (
     SELECT key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
     FROM rows GROUP BY key HAVING SUM(messages) > 0
@@ -855,7 +885,7 @@ export async function topUnlabeledSenders(
   claimed: readonly string[],
 ): Promise<BreakdownRow[]> {
   const { results } = await db
-    .prepare(topUnlabeledSendersSql(order))
+    .prepare(topUnlabeledSendersSql(order, await windowSource(db, fromDay, toDay)))
     .bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(labeled), limit, JSON.stringify(claimed))
     .all<BreakdownRow>();
   return results;
@@ -882,7 +912,8 @@ export async function dailyTopUnlabeledSenders(db: D1Database, fromDay: string, 
 /** The claimed direct sends over the window as credit rows (see VIA_TOKEN_CREDITS_SQL); none, unread, when nothing is claimed. */
 export async function viaTokenCreditsOf(db: D1Database, fromDay: string | null, toDay: string, claimed: readonly string[], labeled: readonly string[]): Promise<BreakdownRow[]> {
   if (claimed.length === 0) return [];
-  const { results } = await db.prepare(VIA_TOKEN_CREDITS_SQL).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(claimed), JSON.stringify(labeled)).all<BreakdownRow>();
+  const sql = viaTokenCreditsSqlOver(await windowSource(db, fromDay, toDay));
+  const { results } = await db.prepare(sql).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(claimed), JSON.stringify(labeled)).all<BreakdownRow>();
   return results;
 }
 
@@ -941,7 +972,7 @@ export interface FirstDayRow {
 /** Each key's first day with a message, oldest first. */
 export async function firstDays(db: D1Database, dim: 'lane' | 'token'): Promise<FirstDayRow[]> {
   const { results } = await db
-    .prepare('SELECT key, MIN(day) AS first_day FROM daily_breakdown WHERE dim = ? GROUP BY key ORDER BY first_day, key')
+    .prepare(`SELECT key, MIN(day) AS first_day FROM ${await allTimeSource(db, '9999-12-31')} WHERE dim = ? GROUP BY key ORDER BY first_day, key`)
     .bind(dim)
     .all<FirstDayRow>();
   return results;
