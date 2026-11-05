@@ -1,9 +1,9 @@
-// worker/test/cre-retag.test.ts
 import { CRE_FIRST_DAY, creKeySet, creRetagDaySql } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { retagCre } from '../src/cre-retag';
+import { LATE_FINALIZE_HOUR_UTC } from '../src/schedule';
 import * as store from '../src/store';
 import { harness, liveRow, resetStorage } from './helpers';
 
@@ -116,6 +116,78 @@ describe('retagCre', () => {
     await retagCre(c);
     // #then
     expect(await meta(store.ROLLED_THROUGH_KEY)).toBe('2026-09');
+  });
+
+  it('leaves a rolled month alone when the re-tagged day holds no CRE message', async () => {
+    // #given October is rolled, and its day holds only a message no key signed
+    await store.upsertListRows(env.DB, [liveRow({ id: 'plain', sendTs: '2026-10-15T10:00:00.000Z', sender: SENDER }, { origin: SENDER })], []);
+    await store.replaceDaily(env.DB, { day: '2026-10-15', ...TOTALS }, [], NOW);
+    await store.setMeta(env.DB, store.ROLLED_THROUGH_KEY, '2026-10');
+    await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    const { c } = harness({ now: NOW, creKeys: keys('v2') });
+    // #when the 30-day re-tag reaches 2026-10-15
+    await retagCre(c);
+    await retagCre(c);
+    // #then
+    expect(await meta(store.ROLLED_THROUGH_KEY)).toBe('2026-10');
+  });
+
+  it.each(['00:30', `0${LATE_FINALIZE_HOUR_UTC}:00`])('does nothing at %s UTC, when a finalize rewrites days', async (time) => {
+    // #given
+    const { c } = harness({ now: `2026-11-05T${time}:00.000Z`, creKeys: keys('v1') });
+    // #when
+    await retagCre(c);
+    // #then
+    expect(await meta('cre_retag')).toBeNull();
+  });
+
+  it('runs at an hour a finalize does not use', async () => {
+    // #given
+    const { c } = harness({ now: '2026-11-05T05:59:00.000Z', creKeys: keys('v1') });
+    // #when
+    await retagCre(c, 1);
+    // #then
+    expect(JSON.parse((await meta('cre_retag'))!).next).toBe('2026-11-04');
+  });
+
+  it.each(['not json {', 'null', '42'])('starts a fresh pass over a stored cre_retag of %s', async (stored) => {
+    // #given
+    await store.setMeta(env.DB, 'cre_retag', stored);
+    const { c } = harness({ now: NOW, creKeys: keys('v1') });
+    // #when
+    await retagCre(c, 3);
+    // #then
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1', next: '2026-11-02', from: CRE_FIRST_DAY });
+  });
+
+  it('keeps the days it finished when a later day fails', async () => {
+    // #given a database whose re-tag of 2026-11-04 throws
+    const failing = new Proxy(env.DB, {
+      get(target, prop) {
+        if (prop !== 'prepare') {
+          const value: unknown = Reflect.get(target, prop, target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        }
+        return (sql: string) => {
+          const statement = target.prepare(sql);
+          if (!sql.startsWith('UPDATE messages SET cre')) return statement;
+          return new Proxy(statement, {
+            get(s, key) {
+              if (key !== 'bind') return Reflect.get(s, key, s);
+              return (...args: unknown[]) => {
+                if (args[0] === '2026-11-04') throw new Error('D1_ERROR: boom');
+                return s.bind(...args);
+              };
+            },
+          });
+        };
+      },
+    });
+    const { c } = harness({ now: NOW, creKeys: keys('v1'), db: failing });
+    // #when
+    await expect(retagCre(c)).rejects.toThrow('boom');
+    // #then 2026-11-05 is done and the next run resumes at 2026-11-04
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1', next: '2026-11-04', from: CRE_FIRST_DAY });
   });
 
   it('searches one day of messages through the day index', async () => {

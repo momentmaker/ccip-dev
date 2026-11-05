@@ -629,7 +629,7 @@ Do this when CCIP adds a chain or a fee token.
 ## CRE-sent messages
 
 - **Keys:** `config/cre-keys.json`, refreshed daily by `.github/workflows/cre-keys.yml`, which opens a "CRE node keys — <day>" PR when a key is new. By hand: `pnpm cre-keys:refresh && pnpm labels:build`, then commit both `config/cre-keys.json` and `worker/src/generated/cre-keys.json`.
-- **Tagging:** live ingest and finalize sweeps tag at insert. `retagCre` (hourly) back-tags the whole history on its first run, then the last 30 days after each key change, 30 days per run.
+- **Tagging:** live ingest and finalize sweeps tag at insert. `retagCre` (hourly) back-tags the whole history on its first run, then the last 30 days after each key change, 30 days per run. It skips the 00:xx and 06:xx runs, when a finalize rewrites days.
 - **State:** `meta.cre_keys_version` (the finished version) and `meta.cre_retag` (a pass in progress: `{version, next, from}`).
 - **Force a full pass:** `DELETE FROM meta WHERE key IN ('cre_keys_version', 'cre_retag');`
-- **Alert:** `cre-retag`. The step stopped and keeps its place; it retries next hour.
+- **Alert:** `cre-retag`. The step stopped; each finished day is saved, so it retries next hour from the failed day.

@@ -1,4 +1,4 @@
-import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
+import { creKeySet, LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
 import { fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -267,6 +267,21 @@ describe('runHourly via-token backfill', () => {
     await runHourly(h.c);
     // #then
     expect(h.alerts.map((a) => a.signature)).toEqual(['via-token-backfill']);
+  });
+});
+
+describe('runHourly CRE re-tag', () => {
+  it('alerts when the re-tag fails, and finishes the hour', async () => {
+    // #given a key set, and a database that cannot prepare the re-tag
+    const creKeys = creKeySet({ version: 'v1', keys: [`${NETWORKS.base.chainSelector}:0x00000000000000000000000000000000000c4e01`] });
+    const h = harness({
+      now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), coingecko: linkMapped(), fetch: rpcFake({ balanceLink: 1n }), creKeys,
+      db: watchedDb(/UPDATE messages SET cre/, { fail: true }).db,
+    });
+    // #when
+    await runHourly(h.c);
+    // #then
+    expect(h.alerts.map((a) => a.signature)).toEqual(['cre-retag']);
   });
 });
 

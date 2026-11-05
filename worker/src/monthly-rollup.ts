@@ -1,6 +1,6 @@
 import { monthBounds, nextMonth } from '@ccip-dev/core/month';
 import type { RunContext } from './context';
-import { LATE_FINALIZE_HOUR_UTC } from './schedule';
+import { isFinalizeHour } from './schedule';
 import * as store from './store';
 
 export { ROLLED_THROUGH_KEY } from './store';
@@ -14,8 +14,7 @@ export const MONTHS_PER_RUN = 3;
  * (store.advanceRolledThrough), so a rewind that moved the pointer back meanwhile is rolled again on a later run.
  */
 export async function rollForwardMonths(c: RunContext): Promise<void> {
-  const hour = c.deps.now().getUTCHours();
-  if (hour === 0 || hour === LATE_FINALIZE_HOUR_UTC) return;
+  if (isFinalizeHour(c.deps.now())) return;
   const db = c.env.DB;
   const finalized = await store.getMeta(db, 'last_finalize_day');
   if (finalized === null) return;

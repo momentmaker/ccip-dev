@@ -651,14 +651,19 @@ export async function backfillViaTokenDay(db: D1Database, day: string): Promise<
   await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day), unrollStatement(db, day)]);
 }
 
-/** Re-tags one day's messages and rebuilds its CRE totals and cre rows in one batch; the rolled pointer moves back before its month. */
-export async function retagCreDay(db: D1Database, day: string, retagSql: string): Promise<void> {
+/**
+ * Re-tags one day's messages and rebuilds its CRE totals and cre rows, and records `passKey` = `pass` in the same batch,
+ * so a later failure keeps this day's progress. The rolled pointer moves back before the day's month only when the day
+ * holds CRE messages: keys are never removed, so a day without any has no cre rows to change.
+ */
+export async function retagCreDay(db: D1Database, day: string, retagSql: string, passKey: string, pass: string): Promise<void> {
   await db.batch([
     db.prepare(retagSql).bind(day),
     db.prepare("DELETE FROM daily_breakdown WHERE day = ?1 AND dim = 'cre'").bind(day),
     db.prepare(CRE_BREAKDOWN_DAY_SQL).bind(day),
     db.prepare(CRE_TOTALS_DAY_SQL).bind(day),
-    unrollStatement(db, day),
+    unrollIfCreStatement(db, day),
+    db.prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(passKey, pass),
   ]);
 }
 
@@ -691,6 +696,14 @@ export const ROLLED_THROUGH_KEY = 'breakdown_rolled_through';
 function unrollStatement(db: D1Database, day: string): D1PreparedStatement {
   const month = day.slice(0, 7);
   return db.prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2').bind(previousMonth(month), month, ROLLED_THROUGH_KEY);
+}
+
+/** unrollStatement, but only when `day` holds a CRE message. */
+function unrollIfCreStatement(db: D1Database, day: string): D1PreparedStatement {
+  const month = day.slice(0, 7);
+  return db
+    .prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2 AND EXISTS (SELECT 1 FROM messages WHERE day = ?4 AND cre = 1)')
+    .bind(previousMonth(month), month, ROLLED_THROUGH_KEY, day);
 }
 
 /** The last rolled month, or null before the first roll (or when the stored value is not a month). */
