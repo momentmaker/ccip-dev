@@ -625,12 +625,12 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
   await runBatch(db, [
     db
       .prepare(
-        `INSERT INTO daily_totals (day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, computed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
+        `INSERT INTO daily_totals (day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, cre_messages, cre_usd, computed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
       )
       .bind(
         totals.day, totals.messages, totals.token_messages, totals.data_messages ?? null, totals.usd_value, totals.fee_usd, totals.unique_senders,
-        totals.median_delivery_s, totals.unpriced_messages, computedAt,
+        totals.median_delivery_s, totals.unpriced_messages, totals.cre_messages ?? 0, totals.cre_usd ?? 0, computedAt,
       ),
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
     db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(totals.day),
@@ -693,7 +693,7 @@ export async function firstBreakdownDay(db: D1Database): Promise<string | null> 
   return (await db.prepare('SELECT MIN(day) AS day FROM daily_breakdown').first<{ day: string | null }>())?.day ?? null;
 }
 
-const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token'];
+const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token', 'cre'];
 
 /** Rebuilds `month`'s monthly_breakdown rows from its daily rows in one batch, one statement a dim; rolling again is a no-op. */
 export async function rollMonth(db: D1Database, month: string): Promise<void> {
@@ -747,7 +747,7 @@ const windowSource = (db: D1Database, fromDay: string | null, toDay: string): Pr
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
   const { results } = await db
     .prepare(
-      `SELECT day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages
+      `SELECT day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, cre_messages, cre_usd
        FROM daily_totals ORDER BY day`,
     )
     .all<DailyTotals>();
