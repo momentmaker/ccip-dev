@@ -22,6 +22,14 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x6976b950802cd33c9ce7c9d84a4ffbb741d4bf5b",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x897925d386eadb071c14e7bf9ee568a1f1dc0bce",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x9dbc2e6ca3e82cd7794538917692a720e857d028",
           "first_seen": "2026-11-05"
         },
@@ -31,6 +39,14 @@
         },
         {
           "address": "0xb4a03ac89ffd71a3059f846abb20a059e72c064a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc8ca3c41c48cd22e4e285d08474ff322f8aa92df",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xfd1e73d813b1f06ffdc6800739de5817fc0498ff",
           "first_seen": "2026-11-05"
         }
       ]
@@ -52,6 +68,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x15c40d93cf80b1e6ceef302f84393b8ff419ac51",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x1fdad2d8dc15f4078f0e1c8a39346955ab251214",
           "first_seen": "2026-11-05"
         },
@@ -68,11 +88,27 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x8e322a04bca11deb42f4e3a86a3bd9ce827f64fc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xa53b27e48d58e12f9518079ab66c052e1dacb3be",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xa9ea7932f8158455d443f27e6c3fb2a85f8a1a5b",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xb228be8da380b529a435931d9ae92b9b18effd32",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0xb4637db72378cdcd355d98e0c0b801f3d5549b30",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb7cea3e995ffaf72855af1427bdc30f0b5a1c83c",
           "first_seen": "2026-11-05"
         },
         {
@@ -156,6 +192,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x4ab257ea73318c63f47250bb73a008d5fc06b763",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x8aeda609b72af6af5d300aa9ac34a05142bdcdeb",
           "first_seen": "2026-11-05"
         },
@@ -164,7 +204,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xb6bf5b010896e532b775dd744285838fe1cad703",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xd0c491fcd1acb6f9f7850b659197413f42595bc8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd9f7882e6e02b9e0f367ad5d50f81c029bb676a7",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xda4ba32d8d521ba61ea7299b8995e7400f9e7830",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xdbcb3f994662f55922472eb168b04f8c9e45cff0",
           "first_seen": "2026-11-05"
         },
         {
@@ -194,6 +250,18 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x88dc2570714efd3d61f4d2db73a077e59aa8e4db",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8a6b72e3ba1e1c8c8963dacac3c5c3639d3de3d8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xa750fe740e27abbfab43f1a34fa2b1d8f51efbfc",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xab7b469a857d3fa09762214d8e2e4624aa26f7bc",
           "first_seen": "2026-11-05"
         },
@@ -210,7 +278,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xca6fd93593bf1a8f8ed58ddf37e47214cc90b2f5",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xde7ea590166c4dd70d79ee51ca889797ced451f2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xfad6657aa31cb0c2cbad5a6d80bd86ada60f3414",
           "first_seen": "2026-11-05"
         },
         {
@@ -228,11 +304,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x0d11829a772eb32120d4d86108e7cf9744e52cf4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1d0b098292254a20afd191651768b0c01906ad5c",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x26b31b48a1c2268153e33586c505d2145121e9f1",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0x3a8dbd6b352009a7f057a334b3ea9f7a3e15d169",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x67f7906a9d8410f689f6731ceafdd87d15195401",
           "first_seen": "2026-11-05"
         },
         {
@@ -256,7 +344,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xc42c7e26a95c1240afba9e0ee9a8136475e82cb9",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xcb6211376a7b916f126e93b12307ff50e955aed2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xdeda0f9a17d11cfb4e418a4899ad00129c47d360",
           "first_seen": "2026-11-05"
         },
         {
@@ -282,11 +378,19 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x453a20d6201dad69cf1aa3d645021fc3bc17d79c",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x68c0670279e1bbdb10397efb969e1b463a629738",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0x6c333740ca31ee543c16daf2707a63ad9a82e534",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6d1accced1e7df9c5168d39381feb7a6a65981e7",
           "first_seen": "2026-11-05"
         },
         {
@@ -302,11 +406,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xa30d6686161c3c7e758026b4a76d6773c6abc7f0",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xb122b17b538dec9e3027ccb3c602eb6283bf4bf4",
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xc85dba220a53ba10551be54ffc30e765fb17bd88",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xde11e532073c5a4f417cfdc26486fb18de0d0a71",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe99862b6d4fe810e0d3614c72ab4828d02151064",
           "first_seen": "2026-11-05"
         }
       ]
@@ -320,11 +436,19 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x11fadf2270a3611be5ea4cdd58529690867eb4a2",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x1903e8a42ffa7e072483428e24588a0e445aa256",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0x347decdb26501b3ad2f5b8cc0377d4c1331ffe2c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5430285a617002b128556ede9e7b42e3e3ea31b2",
           "first_seen": "2026-11-05"
         },
         {
@@ -340,11 +464,19 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x8d7aae7bf1c16344a12c6d0996e6916d0c78b157",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x9d683d74d73542587b54252e2d6afce99493eb52",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0xc358c1021f91f58b1310c3c813fa42f9cbcdc8e0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd3acc7f289cea343bbd3b2535180a813744c9b62",
           "first_seen": "2026-11-05"
         },
         {
@@ -374,6 +506,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x3f05ffdf1c8634ef4e75a27f7aaa4995089def39",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x41e7722da08928ad52746cf34a24b78e8e371ac5",
           "first_seen": "2026-11-05"
         },
@@ -382,11 +518,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x523a36d61dfd586eebcef91abaeb976dee379201",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x5cdc41d090fa45dd754ab2623bbbbb00c6ad97c5",
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x8d63fd75626ff355a8f09c1b4925b8bc21bb4911",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x94900d327449477d4c19a31bc71e8a4d96175a06",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9c804f09dae381c0fb6188b500a6a2211b74c3bd",
           "first_seen": "2026-11-05"
         },
         {
@@ -395,6 +543,14 @@
         },
         {
           "address": "0xd54ee96d12a995419541341245099d2a7c3dd1bc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xed8ec3285fe121500424ddc11118b8997fe34904",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xee38f9cf58dff1a30e85f7f990809625d93fda9b",
           "first_seen": "2026-11-05"
         }
       ]
@@ -416,6 +572,14 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x234eec6dea53cb1a52698044835f5d04a5a36aaa",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x35f6e5d54478d3077e556879b64c140601f411b3",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x379e46df0ea87dc3adbde9fe9adb563333724bef",
           "first_seen": "2026-11-05"
         },
@@ -428,7 +592,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x68259d2479e2f745ea3f57e309039acde6d6a9b1",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x84d10e9000b97fa1a1f1d41ff924b46e4597d2db",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8d4528a59e4333a3f3bdd54be6d0d2af0bf974d3",
           "first_seen": "2026-11-05"
         },
         {
@@ -450,7 +622,15 @@
       "forwarder": "0xf8344cfd5c43616a4366c34e3eee75af79a74482",
       "keys": [
         {
+          "address": "0x16cbd3d32acdf287ebb352fee209c01be080e2f3",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x17539ad782ff7309d35f6707d1b8695461a2785f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x18f3eb1c3c6e70222164ccd8d3f9d9591e2beb4d",
           "first_seen": "2026-11-05"
         },
         {
@@ -467,6 +647,18 @@
         },
         {
           "address": "0x3ee9ed2ecc711bb97a04422104cbd3258a6c48db",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x40487994b0b7b369837f436034df599161c67230",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4a84b20eb909262e51b61ecef6048eadf042168e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x503b38974131d1ee23ef857a73de99738c0cb94b",
           "first_seen": "2026-11-05"
         },
         {
@@ -516,7 +708,19 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x306107df61aaf29f517c5dffd918ddbdcdc1e617",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x37bf87a19aa8025ef7562d0e37dc3da1af27fcd5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x56aacca46cd83f143e08e7a9cfe34d80407ef315",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6622eb0325d0d55efc794643f0a41b4d3567b326",
           "first_seen": "2026-11-05"
         },
         {
@@ -524,7 +728,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xbd980cb14946fb31d63d48bf4a114209af8127bd",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xc25445ff25730851f7b0a1d405520d0dee94c5ed",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xcf8cc16fe5531555d73a7ce38d44c5eac44a7bf9",
           "first_seen": "2026-11-05"
         },
         {
@@ -546,6 +758,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x06689b374f2120ea422ebaf2c7a9ee7b8f70696e",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x0ba2bcd9bb8617093830ceff9be7bb1b46c065b8",
           "first_seen": "2026-11-05"
         },
@@ -558,7 +774,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x5c6f32a358cdd6f54f490e35bc8908786d796b96",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7832f69a869dbae13ced7df0b997a5f97131c8fb",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x9dd41d3a16bc98a256d24eeca49770eff4914eee",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xab579e96e4c7d151f24242d2793f3bf848b20857",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb01bfc48f421d3b069e64aaac4ec664ffea83077",
           "first_seen": "2026-11-05"
         },
         {
@@ -620,7 +852,27 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x5d0e9ea8d9ebd10ad47f86c7094f02281273c413",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x71e81adc776f3e74ecd086f2362aca472ce43490",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x85ef567837765c87513b48c2fde200f47dbc11b7",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x925964d212e26074bdc510b55b3c878d7cfa6dd1",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9f6dae1c7e1383ce48a02c6bd6b6b9cfd74204cc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe064c0486d8190fb43381f93dc4ed16f332d8b9e",
           "first_seen": "2026-11-05"
         },
         {
@@ -670,7 +922,27 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xa4ffda9fcae6f836fe773231694f242281941207",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xad69ea1d8bc806b4722d54d6fc8bcdf83dab593f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xdc6c059ed24d98ff41069ab54ea540c79d6ba9bc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xee13ecd99fce503e1c922e0d7ac1014002a8e745",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf6fde0e12c95f9b7cc9dbdf5ccc81c35e0fc21f7",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf76bcda2cbc032786d2635310e1d5f322e9ab450",
           "first_seen": "2026-11-05"
         }
       ]
@@ -684,11 +956,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x15708874452ab2fb9bf251332135f2a321cfd8a2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x18539686c3a103544799ffd68eddebd030476b83",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x39b3a5906ba9002f2fe79ebb41443f7af9d4b60a",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0x5dcd0050a9c8b62fdddbc5761fee24dbd2b806c2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6851628c149da57546c3f609898b43c5c81293f5",
           "first_seen": "2026-11-05"
         },
         {
@@ -700,11 +984,19 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x9ea1670a8aa514d3a9c9da142a53a17f06eece47",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xa5277d82e62453e5da77025e4e4d82031047f1eb",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0xc65a609fc1e9c9f159a17c83afeadf0e5f222bd3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc77ff7975a16bfd258f425ad8584e10bbf75ff73",
           "first_seen": "2026-11-05"
         },
         {
@@ -717,6 +1009,72 @@
         },
         {
           "address": "0xf89f13eaf6cc109c8a913d8525abcda9c3a0024b",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "hyperliquid-mainnet": {
+      "selector": "2442541497099098535",
+      "forwarder": "0x9ef6468c5f37b976e57d52054c693269479a784d",
+      "keys": [
+        {
+          "address": "0x07c92363be26b0d2523d450901ba7208fbf20f45",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1b6c6b0f3c566f1212aa23c847e2837b6907f6d9",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2276e15f9029e7f779bb425ce1ba16300be7dba3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2728272e0f8a7879fb965219b866ffde62769db4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2ad671b06afa9f3ede40d030127bd9348ea66959",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x52009538b8754e28bd69945dd3ce7b9feef5640e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5cb46669511ef4ac88dca928a650f45f2f6a8f6e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6831c58c0b8b96c9905289d717cb6ca848ac75a3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6a6997607d34f1199d3d8eb14cf8219d686796eb",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x735c48746dec850ff55cd6ce272fbe3e3c840689",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7724b0b24cb59c21430d0b6b2bf36c01cf8875ad",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7c451dd5e3c11f6f58835f2da0f3962789b839d8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x874e6b59d56031ec282b23993556d1a0d3eb5320",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe02e7df0c21c0143a1fd7a6e8bc4007d977d1cd8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xef1bd0dbe811d451b2e59d40d982f5344d5c6932",
           "first_seen": "2026-11-05"
         }
       ]
@@ -772,6 +1130,10 @@
       "forwarder": "0x7bccafbd064cb3658476066cc33cee3f3414c04c",
       "keys": [
         {
+          "address": "0x2b5ad017e6aa15e221cf369b9b55165b998bfa58",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x2ecc3152183c3df9fb7c2c550634f86e30f7d755",
           "first_seen": "2026-11-05"
         },
@@ -781,6 +1143,10 @@
         },
         {
           "address": "0x3adf9f2952bad4d1818e8eae52542f13d647cd51",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4373d76ed102c19071bda4aa488850823f9f389a",
           "first_seen": "2026-11-05"
         },
         {
@@ -800,6 +1166,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xa526ffc0d30e7effca6f7369376bb71860a63505",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xb1b76145da8d47286b6c96368852e7540689301a",
           "first_seen": "2026-11-05"
         },
@@ -808,7 +1178,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xc5a560623959529077d112b63bd4359667bcd2f2",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xea32b9a82e8fd83103db636fede7aa4c123fc67b",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf54a3139fae1b4de41459ccc95c9a0582cb5ab31",
           "first_seen": "2026-11-05"
         }
       ]
@@ -864,6 +1242,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x2074891c87f63c5c0e5d68b0b68db938a0460ca4",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x356716ecada989cf76e6c8317f3a04c2669adb4e",
           "first_seen": "2026-11-05"
         },
@@ -876,6 +1258,10 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x67a7200f526f270376c2eb6b19f672e7df34a65a",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x7bfa40c466c21ddc0a94c66c540a52dd04b32f7f",
           "first_seen": "2026-11-05"
         },
@@ -884,11 +1270,23 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xae5273fc14165af9dfac7852a6e02b961860fd37",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xbb4954f9e8a3e1b2c7d78edb1f54c779c671465f",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xd63490ccec355a8d34869fc8dd4219893a9e623d",
           "first_seen": "2026-11-05"
         },
         {
           "address": "0xeb8d777fcad99b3e99b9e2156219c3a6f7a754f4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf040b3995a25ec696745b5a0648172d51d4e0fbd",
           "first_seen": "2026-11-05"
         }
       ]
@@ -902,7 +1300,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x41740495496088e7cd6a6bbc56f13d3a4df94536",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x5619a29d15d4cb3e3113b7a258b83d64730328b8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5e1bed564d16af0948e7f41775974f602f403606",
           "first_seen": "2026-11-05"
         },
         {
@@ -911,6 +1317,10 @@
         },
         {
           "address": "0x620d8af172ef8ce0abc5d99e9b8e08b203dfc409",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x65a8bde34b728f1399244b1dfc139959e9e61def",
           "first_seen": "2026-11-05"
         },
         {
@@ -936,6 +1346,10 @@
         {
           "address": "0xeca9a7ab4df9811a0445920c6a4e664ce4e728c8",
           "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xfb9b50f5536c53f9053a71462d3d2ae6026065c8",
+          "first_seen": "2026-11-05"
         }
       ]
     },
@@ -952,7 +1366,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x50f707ab98e3bdf8cdaef61b0a0cde04bcfb538c",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x580539f7c7f396b54efdfdd2578767c9bef04b0f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5ac80237db387736f8401f7d128ef1acd06b79d2",
           "first_seen": "2026-11-05"
         },
         {
@@ -968,6 +1390,14 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xb400cc59deff1afc16de2e11a60311917eb9a66f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc76b29bda31d0f39691e934743d6372a7041209f",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xd52c06be0317b01d6bc8dada02bfe911e145eb15",
           "first_seen": "2026-11-05"
         },
@@ -977,6 +1407,10 @@
         },
         {
           "address": "0xe499a77877f8486c2522e0c5eaf16b8c35538e7d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe80ed37ff101ca64b8013b749c7ad563942f751c",
           "first_seen": "2026-11-05"
         },
         {
@@ -994,7 +1428,19 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0x0b82001bfba77c59c680b89ea88f083b71f3feda",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0x18b0bfa10b923aceb947fc014eb552b565459ec1",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1c0142a4702dc8f977379ff8a3b91f742ff678c2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2ad6f54ce2c6b8d7879341f499520d0cec2a0a8e",
           "first_seen": "2026-11-05"
         },
         {
@@ -1018,7 +1464,15 @@
           "first_seen": "2026-11-05"
         },
         {
+          "address": "0xa4312b16a455f78031b1d4cb87c62a133dff47a2",
+          "first_seen": "2026-11-05"
+        },
+        {
           "address": "0xafd56f60afb88fa7b577d2d66bbb4ae532a69b26",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb1744a0a3902a48c3dbaea0cbe3cee11aca1bce3",
           "first_seen": "2026-11-05"
         },
         {
