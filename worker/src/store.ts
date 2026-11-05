@@ -209,6 +209,7 @@ export interface LiveRow {
   dst_chain: string;
   sender: string;
   usd_value: number;
+  cre: 0 | 1;
   symbol: string | null;
   chain: string | null;
   token: string | null;
@@ -217,7 +218,7 @@ export interface LiveRow {
 export async function liveSince(db: D1Database, sinceIso: string): Promise<LiveRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, NULLIF(t.symbol, '') AS symbol, mt.chain, mt.token
+      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, m.cre, NULLIF(t.symbol, '') AS symbol, mt.chain, mt.token
        FROM messages m
        LEFT JOIN message_tokens mt ON mt.message_id = m.message_id AND mt.idx = 0
        LEFT JOIN tokens t ON t.chain = mt.chain AND t.address = mt.token

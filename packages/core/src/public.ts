@@ -38,6 +38,8 @@ export const LiveMessageSchema = z.object({
   token: z.string().nullable(),
   usd: z.number().nullable(),
   sender_label: z.string().nullable(),
+  /** Present, as true, when a CRE workflow sent the message. */
+  cre: z.boolean().optional(),
 });
 
 export const LiveFileSchema = z.object({ ...envelope, window_minutes: z.number(), messages: z.array(LiveMessageSchema) });
@@ -52,6 +54,8 @@ export const DayTotalsSchema = z.object({
   unique_senders: z.number(),
   median_delivery_s: z.number().nullable(),
   unpriced_messages: z.number(),
+  cre_messages: z.number().optional(),
+  cre_usd: z.number().optional(),
   fee_link_usd: z.number().nullable(),
   fee_native_usd: z.number().nullable().optional(),
   fee_stable_usd: z.number().nullable().optional(),
@@ -110,7 +114,7 @@ const TopWindowsSchema = z.object({ '7d': z.array(TopEntrySchema), '30d': z.arra
 
 export const TopFileSchema = z.object({
   ...envelope,
-  dim: z.enum(['src_chain', 'dst_chain', 'lane', 'token', 'sender']),
+  dim: z.enum(['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'cre']),
   since: z.string().nullable(),
   windows: TopWindowsSchema,
   by_fees: TopWindowsSchema.optional(),
@@ -359,6 +363,9 @@ const ProjectWindowSchema = z.object({
   /** The part of `messages` and `usd` credited via the project's claimed tokens. */
   via_token_messages: z.number().optional(),
   via_token_usd: z.number().optional(),
+  /** Messages its addresses sent through CRE workflows. */
+  cre_messages: z.number().optional(),
+  cre_share_pct: z.number().nullable().optional(),
 });
 
 export const ProjectSchema = z.object({
@@ -467,6 +474,7 @@ export const PUBLIC_SCHEMAS = {
   'top/sender.json': TopFileSchema,
   'top/src_chain.json': TopFileSchema,
   'top/dst_chain.json': TopFileSchema,
+  'top/cre.json': TopFileSchema,
   'chains.json': ChainsFileSchema,
   'tokens.json': TokensFileSchema,
   'reserve.json': ReserveFileSchema,
