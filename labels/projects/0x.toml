@@ -24,3 +24,14 @@ note = "MonadBridgeSettler (0x Settler)"
 chain = "plasma-mainnet"
 address = "0xebf4b796b858210fbbbdab0a51bca61f1d9c1fe5"
 note = "PlasmaBridgeSettler (0x Settler registry ownerOf(5))"
+
+# Source: https://contracts.0x.org/ (BridgeSettler table, Arbitrum row: 0x12a3c40E5443D395f8D8f2604100906f4B2cf029, prevAddress 0x5547e38674ecbA8fa553475615DFACeb1abc32Da)
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x12a3c40e5443d395f8d8f2604100906f4b2cf029"
+note = "ArbitrumBridgeSettler (0x contracts dashboard, BridgeSettler)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x5547e38674ecba8fa553475615dfaceb1abc32da"
+note = "Previous ArbitrumBridgeSettler (0x contracts dashboard, prevAddress)"

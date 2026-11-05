@@ -64,6 +64,12 @@
       "x": "build_on_bob"
     },
     {
+      "chain": "ethereum-mainnet",
+      "address": "0xa8d906b7bbcde3339edbb7702d7af2aab67f898b",
+      "project": "Cambria",
+      "x": "playcambria"
+    },
+    {
       "chain": "solana-mainnet",
       "address": "XLnpFRQ3rSWupCRjuQfx74mgVoT3ezVJKE1CogRZxhH",
       "project": "Dexlab",

@@ -8,30 +8,30 @@ A wallet that calls the CCIP router itself is the sender of its message, so its 
 
 | Token | Name | Chain | Address | Group | Direct sends (7d) | USD (7d) | Explorer |
 |---|---|---|---|---|---|---|---|
-| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 118 | 2,611,422 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
-| PROS | Wrapped PROS | ethereum-mainnet-base-1 | 0x8b7dde054be9d180c1be7fae0874697374a49832 | 65a0fcc8-0990-5d51-bfcb-1727cf76daa4 | 94 | 72,614 | - |
-| TREE | Treehouse Token | ethereum-mainnet | 0x77146784315ba81904d654466968e3a7c196d1f3 | dc1d87c9-bbc7-5243-998e-93cd05661349 | 76 | 32,036 | [link](https://eth.blockscout.com/token/0x77146784315ba81904d654466968e3a7c196d1f3) |
-| cbBTC | Coinbase Wrapped BTC | ethereum-mainnet-base-1 | 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf | 347a5e6c-4b7b-53c7-819c-f809690e1051 | 59 | 7,613,035 | - |
-| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 39 | 10,197,514 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
-| LINK | ChainLink Token | ethereum-mainnet | 0x514910771af9ca656af840dff83e8264ecf986ca | 6127beed-c032-54e4-a739-cce5313ff620 | 37 | 123,673 | [link](https://eth.blockscout.com/token/0x514910771af9ca656af840dff83e8264ecf986ca) |
-| LYP | Lympid Token | ethereum-mainnet-base-1 | 0x4837b18a6d7af6159c8665505b90a2ed393255e0 | d6cb8db9-4d9f-545b-ab81-792d9d5d5637 | 35 | 892 | - |
-| - | - | binance_smart_chain-mainnet | 0x8457ca5040ad67fdebbcc8edce889a335bc0fbfb | - | 33 | 2,376,696 | - |
-| VSN | Vision | ethereum-mainnet | 0x699ccf919c1dfdfa4c374292f42cadc9899bf753 | 057f055f-7b04-5dfc-85f3-a96281e72a0c | 23 | 25,465 | [link](https://eth.blockscout.com/token/0x699ccf919c1dfdfa4c374292f42cadc9899bf753) |
-| - | - | tempo-mainnet | 0x20c00000000000000000000058d0b8b2cfdb358c | - | 22 | 6,894,540 | - |
-| syzUSD | Staked Yuzu USD | monad-mainnet | 0x484be0540ad49f351eaa04eeb35df0f937d4e73f | d56976e6-0694-5c0c-8aa4-102d4b625d51 | 19 | 4,640,660 | - |
-| - | - | polygon-mainnet | 0x1ca03ecf9bdcc9860c51745ba80968e34bcd00a4 | - | 19 | 0 | - |
-| TRADE | Polytrade | ethereum-mainnet | 0x6e5970dbd6fc7eb1f29c6d2edf2bc4c36124c0c1 | 52f5ca80-6eed-590c-8a7a-0084f525471e | 14 | 2,307 | [link](https://eth.blockscout.com/token/0x6e5970dbd6fc7eb1f29c6d2edf2bc4c36124c0c1) |
-| xPufETH | xPufETH | ethereum-mainnet-zircuit-1 | 0x9346a5043c590133fe900aec643d9622edddba57 | fdaa999a-9970-59a3-a8a3-5503d5c8382b | 12 | 2,270 | - |
-| - | - | solana-mainnet | XaVajZFTX6opvdu9j2CuJttZisQvR8puzXJx7Dz2dax | - | 12 | 0 | - |
+| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 208 | 21,848,692 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
+| PROS | Wrapped PROS | ethereum-mainnet-base-1 | 0x8b7dde054be9d180c1be7fae0874697374a49832 | 65a0fcc8-0990-5d51-bfcb-1727cf76daa4 | 191 | 187,762 | - |
+| ZYPTO | Zypto | solana-mainnet | EjmMzq3ey5LCdMVXnHRmkwV9CRfydWkcZpQdgC72rXtM | dea3bb1e-7cf6-5388-a6b8-f99a19303663 | 111 | 15,084 | - |
+| - | - | solana-mainnet | ZEUS1aR7aX8DFFJf5QjWj2ftDDdNTroMNGo8YoQm3Gq | - | 105 | 35,772 | - |
+| LINK | ChainLink Token | ethereum-mainnet | 0x514910771af9ca656af840dff83e8264ecf986ca | 6127beed-c032-54e4-a739-cce5313ff620 | 91 | 491,425 | [link](https://eth.blockscout.com/token/0x514910771af9ca656af840dff83e8264ecf986ca) |
+| cbBTC | Coinbase Wrapped BTC | ethereum-mainnet-base-1 | 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf | 347a5e6c-4b7b-53c7-819c-f809690e1051 | 85 | 7,720,255 | - |
+| - | - | polygon-mainnet | 0x1ca03ecf9bdcc9860c51745ba80968e34bcd00a4 | - | 74 | 0 | - |
+| - | - | binance_smart_chain-mainnet | 0xabb6b1ecdeb982aa0cf12059d3930be47803ebe4 | - | 45 | 0 | - |
+| - | - | binance_smart_chain-mainnet | 0xa2be3e48170a60119b5f0400c65f65f3158fbeee | - | 37 | 25,806 | - |
+| WETH | Ronin Wrapped Ether | ronin-mainnet | 0xc99a6a985ed2cac1ef41640596c5a5f9f4e19ef5 | 5ae79b38-2def-5fa1-8a97-8b5f40c3009d | 30 | 46,608 | - |
+| TREE | Treehouse Token | ethereum-mainnet | 0x77146784315ba81904d654466968e3a7c196d1f3 | dc1d87c9-bbc7-5243-998e-93cd05661349 | 29 | 13,558 | [link](https://eth.blockscout.com/token/0x77146784315ba81904d654466968e3a7c196d1f3) |
+| USDf | Falcon USD | ethereum-mainnet | 0xfa2b947eec368f42195f24f36d2af29f7c24cec2 | 83b86c6a-308f-5915-bd4b-a3cb55e85fd5 | 28 | 722,347 | [link](https://eth.blockscout.com/token/0xfa2b947eec368f42195f24f36d2af29f7c24cec2) |
+| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 25 | 4,048,597 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
+| VSN | Vision | ethereum-mainnet | 0x699ccf919c1dfdfa4c374292f42cadc9899bf753 | 057f055f-7b04-5dfc-85f3-a96281e72a0c | 24 | 245,360 | [link](https://eth.blockscout.com/token/0x699ccf919c1dfdfa4c374292f42cadc9899bf753) |
+| uniBTC | uniBTC | ethereum-mainnet-mantle-1 | 0x93919784c523f39cacaa98ee0a9d96c3f32b593e | 86663a55-0229-5b63-966a-c9775ae3633e | 22 | 102,441 | - |
 
 ### By value, with no handle
 
 | Token | Name | Chain | Address | Group | USD (7d) | Explorer |
 |---|---|---|---|---|---|---|
-| - | - | solana-mainnet | 3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7 | - | 13,620,167 | - |
-| USD1 | World Liberty Financial USD | ethereum-mainnet | 0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d | 093dbee4-8ea6-5423-af62-d8a71738a8e1 | 10,116,238 | [link](https://eth.blockscout.com/token/0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d) |
-| - | - | ethereum-mainnet-arbitrum-1 | 0xe1b0dc5a21b10f1634fbfbe9976fba2ee2e1c762 | - | 6,997,376 | - |
-| - | - | tempo-mainnet | 0x20c00000000000000000000058d0b8b2cfdb358c | - | 6,894,540 | - |
+| USDC | USD Coin | ethereum-mainnet | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 | 790e37b0-cd0c-5871-a9e2-b4c608aec010 | 19,839,336 | [link](https://eth.blockscout.com/token/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) |
+| - | - | ethereum-mainnet-arbitrum-1 | 0xe1b0dc5a21b10f1634fbfbe9976fba2ee2e1c762 | - | 19,212,482 | - |
+| wOETH | Wrapped OETH | ethereum-mainnet-base-1 | 0xd8724322f44e5c58d7a815f542036fb17dbbf839 | 39ad272e-60a7-5176-9121-fcc184767563 | 17,532,269 | - |
+| uniBTC | uniBTC | ethereum-mainnet-base-1 | 0x93919784c523f39cacaa98ee0a9d96c3f32b593e | 86663a55-0229-5b63-966a-c9775ae3633e | 16,539,889 | - |
 
 ## Handles to research
 
@@ -39,8 +39,4 @@ Regenerated by the weekly label-candidates job.
 
 Add a chain's handle only with a source: the chain's own website or docs, on a page that links to the X account. Chains go in `labels/chain-x.json`. Leave out anything you cannot verify; it stays a plain name. See docs/runbook.md, "Labels and handles".
 
-### Chains without an X handle
-
-| Chain | Selector |
-|---|---|
-| canton-mainnet | 2308837218439511688 |
+Nothing to research this week.

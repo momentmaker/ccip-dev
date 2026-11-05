@@ -19,3 +19,8 @@ note = "Outland ConnectorCCIP (OUTLAND_CONNECTOR_CCIP in addresses.8453.json)"
 chain = "monad-mainnet"
 address = "0x1d95cc100d6cd9c7bbdbd7cb328d99b3d6037ff7"
 note = "Outland ConnectorCCTP_Chainlink (OUTLAND_CONNECTOR_CCTP_CHAINLINK in addresses.143.json)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x3373784a7a52a07f9339aa8f60403420cc602c52"
+note = "Outland ConnectorCCTP_Chainlink to Monad (OUTLAND_CONNECTOR_CCTP_CHAINLINK_MONAD in addresses.1.json)"

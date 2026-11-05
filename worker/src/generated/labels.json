@@ -23,6 +23,18 @@
     "kind": "protocol",
     "slug": "0x"
   },
+  "ethereum-mainnet-arbitrum-1:0x12a3c40e5443d395f8d8f2604100906f4b2cf029": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "ethereum-mainnet-arbitrum-1:0x5547e38674ecba8fa553475615dfaceb1abc32da": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
   "ethereum-mainnet-arbitrum-1:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
     "name": "Aave",
     "x": "aave",
@@ -70,6 +82,18 @@
     "x": "SocketProtocol",
     "kind": "protocol",
     "slug": "bungee"
+  },
+  "ethereum-mainnet:0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82": {
+    "name": "Cambria",
+    "x": "playcambria",
+    "kind": "app",
+    "slug": "cambria"
+  },
+  "ethereum-mainnet-base-1:0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82": {
+    "name": "Cambria",
+    "x": "playcambria",
+    "kind": "app",
+    "slug": "cambria"
   },
   "ethereum-mainnet:0x39cf679eb0ac9075cfb5f94930a367ba1557d955": {
     "name": "Centrifuge",
@@ -172,6 +196,24 @@
     "slug": "enso"
   },
   "monad-mainnet:0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "kind": "protocol",
+    "slug": "enso"
+  },
+  "sei-mainnet:0xe532c864b7ed73b5188b8410ad2acd4a7ed7ba26": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "kind": "protocol",
+    "slug": "enso"
+  },
+  "ethereum-mainnet-base-1:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "kind": "protocol",
+    "slug": "enso"
+  },
+  "gnosis_chain-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
     "name": "Enso",
     "x": "EnsoBuild",
     "kind": "protocol",
@@ -369,6 +411,12 @@
     "kind": "protocol",
     "slug": "infinifi"
   },
+  "ethereum-mainnet:0x3373784a7a52a07f9339aa8f60403420cc602c52": {
+    "name": "infiniFi",
+    "x": "infinifi",
+    "kind": "protocol",
+    "slug": "infinifi"
+  },
   "ethereum-mainnet:0x0772c76c3e4b081e85747f248ed76cc3813d46c4": {
     "name": "Interport Finance",
     "x": "InterportFi",
@@ -500,6 +548,24 @@
     "x": "BoredApeYC",
     "kind": "app",
     "slug": "mudwater"
+  },
+  "ethereum-mainnet-base-1:0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82": {
+    "name": "Origin Protocol",
+    "x": "OriginProtocol",
+    "kind": "protocol",
+    "slug": "origin-protocol"
+  },
+  "ethereum-mainnet:0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82": {
+    "name": "Origin Protocol",
+    "x": "OriginProtocol",
+    "kind": "protocol",
+    "slug": "origin-protocol"
+  },
+  "ethereum-mainnet-base-1:0x80c864704dd06c3693ed5179190786ee38acf835": {
+    "name": "Origin Protocol",
+    "x": "OriginProtocol",
+    "kind": "protocol",
+    "slug": "origin-protocol"
   },
   "ethereum-mainnet:0x4d61b82eab6477c7b29e4190af5c906b923ef3ad": {
     "name": "Polkastarter",

@@ -1,0 +1,21 @@
+# Source: https://docs.cambria.gg/genesis-misc/technical (treasury table: "Foundation Safe | Ethereum and Base | 0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82"; bridge table: "$RSGP canonical token | Ethereum | 0xA8D906B7BbCDE3339EDBb7702D7aF2Aab67F898B", with its CCIP lock box and lock-release pool)
+name = "Cambria"
+x = "playcambria"
+url = "https://cambria.gg"
+kind = "app"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82"
+note = "Foundation Safe (Cambria docs, Ethereum)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82"
+note = "Foundation Safe (Cambria docs, Base)"
+
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0xa8d906b7bbcde3339edbb7702d7af2aab67f898b"
+source = "https://docs.cambria.gg/genesis-misc/technical"
