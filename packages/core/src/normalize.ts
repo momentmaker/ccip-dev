@@ -75,8 +75,8 @@ export function normalizeRegistryToken(t: RegistryToken): NormalizedToken {
   return {
     chain: t.chainSelector,
     address: normalizeAddress(t.address),
-    symbol: sanitize(t.symbol),
-    name: sanitize(t.name),
+    symbol: sanitize(t.symbol ?? ''),
+    name: sanitize(t.name ?? t.symbol ?? ''),
     decimals: t.decimals,
     groupId: t.groupId ?? null,
   };

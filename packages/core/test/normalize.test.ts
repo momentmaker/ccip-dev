@@ -130,4 +130,14 @@ describe('sanitize and registry tokens', () => {
       groupId: null,
     });
   });
+
+  it('names a registry token without a name by its symbol, and stores a missing symbol as empty', () => {
+    // #given
+    const token = { chainSelector: '124615329519749607', address: 'So1', decimals: 6, groupId: null };
+    // #when
+    const named = normalizeRegistryToken({ ...token, symbol: 'wYLDS', name: null });
+    const unnamed = normalizeRegistryToken({ ...token, symbol: null, name: null });
+    // #then
+    expect([named.symbol, named.name, unnamed.symbol, unnamed.name]).toEqual(['wYLDS', 'wYLDS', '', '']);
+  });
 });

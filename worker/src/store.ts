@@ -217,7 +217,7 @@ export interface LiveRow {
 export async function liveSince(db: D1Database, sinceIso: string): Promise<LiveRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, t.symbol, mt.chain, mt.token
+      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, NULLIF(t.symbol, '') AS symbol, mt.chain, mt.token
        FROM messages m
        LEFT JOIN message_tokens mt ON mt.message_id = m.message_id AND mt.idx = 0
        LEFT JOIN tokens t ON t.chain = mt.chain AND t.address = mt.token
@@ -258,7 +258,8 @@ export async function tokenSymbols(db: D1Database, tokens: { chain: string; addr
       )
       .bind(...chunk.flatMap((t) => [t.chain, t.address.toLowerCase()]))
       .all<{ chain: string; address: string; symbol: string }>();
-    for (const r of results) symbols.set(tokenKey(r.chain, r.address), r.symbol);
+    // A registry token listed without a symbol is stored as '', and named below like a token outside the registry.
+    for (const r of results) if (r.symbol !== '') symbols.set(tokenKey(r.chain, r.address), r.symbol);
   }
 
   const unnamed = wanted.filter((t) => !symbols.has(tokenKey(t.chain, t.address)));

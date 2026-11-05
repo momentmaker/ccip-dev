@@ -183,6 +183,16 @@ describe('token symbols outside the CCIP registry', () => {
     ]);
   });
 
+  it('names a token the registry lists without a symbol from its DefiLlama price row', async () => {
+    // #given the registry lists syrupUSDC with an empty symbol
+    await seedUnregisteredToken();
+    await store.upsertTokens(env.DB, [{ chain: BASE, address: SYRUP.toLowerCase(), symbol: '', name: '', decimals: 6, groupId: null }], NOW);
+    // #when
+    await publishLiveFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('live.json')).messages.find((m: { id: string }) => m.id === 'syrup').token).toBe('syrupUSDC');
+  });
+
   it('prefers the registry symbol over the DefiLlama one', async () => {
     await seedUnregisteredToken();
     await store.upsertPrices(env.DB, new Map([['base:0xtok', { price: 1, decimals: 6, symbol: 'USDC.llama' }]]), NOW);
