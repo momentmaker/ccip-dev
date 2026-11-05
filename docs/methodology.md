@@ -99,6 +99,16 @@
   - `projects.json` is new.
   - Every sender identity also carries `via_token_messages`, `via_token_usd`, `via_token_fee_usd` and `via_token` (true when every message came via token); `label_coverage` adds `via_token_messages_pct`, `via_token_usd_pct` and `via_token_fees_pct`; a `projects.json` window adds `via_token_messages` and `via_token_usd`, and a project lists its `tokens`. A via-token-only identity publishes `x` as null, so the posts never tag it. On the site, a sender credited this way is marked "via token" when all its messages came via its token and "incl. N via token" when some did, with the title "Credited via its token: wallets bridging the project's token through CCIP themselves".
 
+## CRE-sent messages
+
+The Chainlink Runtime Environment (CRE) runs workflows on Chainlink nodes. A workflow reaches a chain by having a node submit a signed report to that chain's KeystoneForwarder; the forwarder calls the workflow's contract, which can send a CCIP message. ccip.dev counts a CCIP message as **sent by a CRE workflow** when the signer of its source transaction (its origin) is a known CRE node key on the source chain.
+
+- **The keys** are the signers of KeystoneForwarder `report()` transactions, read from each chain's `ReportProcessed` logs (`config/cre-keys.json`, refreshed daily). Only production forwarders count, never the simulation forwarders.
+- **Checked:** on 2026-11-05, every one of 20 sampled tagged messages had its source transaction sent to the chain's forwarder, and none of 10 untagged messages from the same senders did.
+- **Matching on the CCIP sender does not work:** the contract that receives a CRE report usually hands off to another contract that sends, so the sender is not a forwarder receiver.
+- **A lower bound.** It misses a workflow whose contract queues a request and sends CCIP in a later transaction, and a key rotation until the next key refresh is merged; the last 30 days are re-tagged after each key change.
+- History is tagged from 2025-10-17, the CRE Workflow Registry's first record.
+
 ## Broadcasts
 
 - **What is posted:** a daily report after each day is finalized, a weekly report on Mondays (Monday–Sunday, UTC), a post for each record or milestone a newly finalized day sets, and one for each Reserve deposit. They go to the Telegram channel @ccipdev and to X.

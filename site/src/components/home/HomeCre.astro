@@ -1,0 +1,52 @@
+---
+import type { DayTotals, TopFile } from '@ccip-dev/core/public';
+import { creLeaders, creSeries, creSparkPoints, creTotal, CRE_DAYS } from '../../lib/cre';
+import { formatCount, formatShare } from '../../lib/format';
+
+interface Props {
+  days: readonly DayTotals[];
+  top: TopFile | null;
+  projects: ReadonlySet<string>;
+}
+
+const { days, top, projects } = Astro.props;
+const series = creSeries(days);
+const total = creTotal(days);
+const latest = series.at(-1)?.sharePct ?? 0;
+const leaders = creLeaders(top, projects);
+const W = 320;
+const H = 56;
+---
+{series.some((p) => p.messages > 0) && (
+  <section class="band" id="cre" aria-labelledby="cre-title">
+    <div class="band-head">
+      <div>
+        <p class="eyebrow">CRE</p>
+        <h2 id="cre-title">Workflows that send CCIP. <span class="g">{formatCount(total)} messages so far.</span></h2>
+        <p class="lead">Chainlink's Runtime Environment runs workflows on Chainlink nodes; these CCIP messages were sent by one. The count is a lower bound.</p>
+      </div>
+      <a class="more-link" href="/methodology/#cre-sent-messages">How we count →</a>
+    </div>
+    <div class="cre-grid">
+      <figure class="card cre-chart">
+        <figcaption class="label">Share of messages sent by CRE workflows, last {CRE_DAYS} days · today {formatShare(latest)}</figcaption>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label={`CRE share of CCIP messages over the last ${CRE_DAYS} days`}>
+          <polyline points={creSparkPoints(series, W, H)} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
+        </svg>
+      </figure>
+      {leaders.length > 0 && (
+        <div class="card">
+          <p class="label">Top CRE-driven senders, 30 days</p>
+          <ol class="cre-leaders">
+            {leaders.map((l) => (
+              <li>
+                {l.slug ? <a href={`/projects/${l.slug}/`}>{l.name}</a> : <span>{l.name}</span>}
+                <span class="mono muted">{formatCount(l.messages)}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  </section>
+)}

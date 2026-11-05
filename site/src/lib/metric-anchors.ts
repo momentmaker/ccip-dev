@@ -13,6 +13,7 @@ export const METRIC_ANCHORS = {
   staking: 'chainlink-staking',
   labels: 'senders-and-projects',
   status: 'data-sources',
+  cre: 'cre-sent-messages',
 } as const;
 
 export type MetricKey = keyof typeof METRIC_ANCHORS;

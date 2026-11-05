@@ -57,6 +57,7 @@ const tiles = [
   { title: 'Median delivery', metric: 'delivery', value: formatDuration(view.row.median_delivery_s), deltas: [], sub: null },
   { title: 'Fees', metric: 'fees', value: formatUsd(view.row.fee_usd), deltas: [], sub: dayFeeLine(view.row) },
   { title: 'Take rate', metric: 'take_rate', value: formatBps(takeRate), deltas: [], sub: takeRate === null ? null : 'of value moved' },
+  ...((view.row.cre_messages ?? 0) > 0 ? [{ title: 'Sent by CRE', metric: 'cre' as const, value: formatCount(view.row.cre_messages), deltas: [], sub: 'messages sent by CRE workflows' }] : []),
 ] as const;
 ---
 <Base title={`${label} (UTC)`} description={`${formatCount(view.row.messages)} CCIP messages and ${formatUsd(view.row.usd_value)} moved on ${label} (UTC).`} cardPath={`day/${day}`}>

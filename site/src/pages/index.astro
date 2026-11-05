@@ -3,6 +3,7 @@ import Board from '../components/home/Board.astro';
 import Briefed from '../components/home/Briefed.astro';
 import Dossier from '../components/home/Dossier.astro';
 import HallOfRecords from '../components/home/HallOfRecords.astro';
+import HomeCre from '../components/home/HomeCre.astro';
 import HomeCorps from '../components/home/HomeCorps';
 import HomeLive from '../components/home/HomeLive';
 import HomePool from '../components/home/HomePool';
@@ -31,7 +32,7 @@ import '../styles/staking-common.css';
 import '../styles/vault.css';
 import '../styles/home.css';
 
-const [live, today, history, replay, chains, reserve, moments, projects, staking] = await Promise.all([
+const [live, today, history, replay, chains, reserve, moments, projects, staking, topCre] = await Promise.all([
   buildData('live.json'),
   buildData('today.json'),
   buildData('history.json'),
@@ -41,6 +42,7 @@ const [live, today, history, replay, chains, reserve, moments, projects, staking
   buildDataIfPublished('moments.json'),
   buildDataIfPublished('projects.json'),
   buildDataIfPublished('staking.json'),
+  buildDataIfPublished('top/cre.json'),
 ]);
 const stars = buildLayout(replay.chains);
 const weights = trailingWeights(replay, 30);
@@ -97,6 +99,8 @@ const telegram = telegramOpen(process.env.TELEGRAM_BOT);
   >
     <Fragment set:html={fallbackSvg} />
   </HomeLive>
+
+  <HomeCre days={history.days} top={topCre} projects={projectSet} />
 
   <section class="band" id="vault" aria-labelledby="vault-title">
     <div class="band-head">

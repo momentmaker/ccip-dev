@@ -1,5 +1,6 @@
 import type { TodayFile } from '@ccip-dev/core/public';
-import { formatCount, formatDuration, formatUsd, linkShareText } from '../../lib/format';
+import type { CSSProperties } from 'react';
+import { formatCount, formatDuration, formatShare, formatUsd, linkShareText } from '../../lib/format';
 import type { MetricKey } from '../../lib/metric-anchors';
 import InfoLink from '../InfoLink';
 
@@ -13,15 +14,19 @@ interface Stat {
 
 /** Today's figures beside the chart, as one strip. */
 export default function TodayTiles({ totals, yesterdaySenders = null }: { totals: TodayFile['totals']; yesterdaySenders?: number | null }) {
+  const cre = totals.cre_messages ?? 0;
+  const creStats: Stat[] =
+    cre > 0 ? [{ label: 'Sent by CRE', metric: 'cre', info: 'CRE-sent messages', value: formatCount(cre), sub: `${formatShare((cre / Math.max(totals.messages, 1)) * 100)} of today` }] : [];
   const stats: Stat[] = [
     { label: 'Token transfers', metric: 'messages', info: 'token transfers', value: formatCount(totals.token_messages), sub: `of ${formatCount(totals.messages)} messages` },
     { label: 'Unique senders', metric: 'senders', info: 'unique senders', value: formatCount(totals.unique_senders), sub: yesterdaySenders === null ? 'today so far' : `yesterday ${formatCount(yesterdaySenders)}` },
     { label: 'Median delivery', metric: 'delivery', info: 'delivery time', value: formatDuration(totals.median_delivery_s), sub: 'send to execution' },
     { label: 'Fees', metric: 'fees', info: 'fees', value: formatUsd(totals.fee_usd), sub: totals.fee_link_share_pct === null ? 'paid to Chainlink' : linkShareText(totals.fee_link_share_pct) },
+    ...creStats,
     { label: 'Unpriced', metric: 'unpriced', info: 'unpriced messages', value: formatCount(totals.unpriced_messages), sub: 'with a token we cannot price' },
   ];
   return (
-    <div className="stats">
+    <div className="stats" style={{ '--stat-cols': stats.length } as CSSProperties}>
       {stats.map((s) => (
         <div key={s.label} className="stat">
           <span className="label">
