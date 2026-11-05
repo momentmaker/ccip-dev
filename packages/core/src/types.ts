@@ -66,6 +66,8 @@ export interface MessageRow {
   detail_fetched_at: string | null;
   next_check_at: string | null;
   source: Source;
+  /** 1 when a CRE node key on the source chain signed the source transaction (see packages/core/src/cre.ts). */
+  cre: 0 | 1;
 }
 
 export interface TokenRow {

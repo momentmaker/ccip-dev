@@ -7,6 +7,7 @@ const UNRESOLVED_AFTER = 48 * HOUR;
 
 export interface RowExtras {
   source: Source;
+  cre?: boolean;
   feeUsd?: number | null;
   detailFetchedAt?: string | null;
   nextCheckAt?: string | null;
@@ -34,6 +35,7 @@ export function toMessageRow(m: NormalizedMessage, v: Valuation, extras: RowExtr
     detail_fetched_at: extras.detailFetchedAt ?? null,
     next_check_at: extras.nextCheckAt ?? null,
     source: extras.source,
+    cre: extras.cre ? 1 : 0,
   };
 }
 

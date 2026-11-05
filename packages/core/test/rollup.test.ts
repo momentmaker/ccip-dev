@@ -9,7 +9,7 @@ function row(id: string, overrides: Partial<MessageRow> = {}): MessageRow {
     message_id: id, day: '2026-10-05', send_ts: '2026-10-05T10:00:00.000Z', receipt_ts: null, status: 'SENT',
     src_chain: 'A', dst_chain: 'B', sender: '0xs1', receiver: null, origin: null, token_count: 0, usd_value: 0,
     unpriced: 0, fee_token: null, fee_amount: null, fee_usd: null, ready_for_manual_exec: 0,
-    detail_fetched_at: null, next_check_at: null, source: 'live', ...overrides,
+    detail_fetched_at: null, next_check_at: null, source: 'live', cre: 0, ...overrides,
   };
 }
 

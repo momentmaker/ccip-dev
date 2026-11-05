@@ -5,15 +5,19 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   addDays, archiveKey, BREAKDOWN_CONFLICT, buildCoingeckoIdIndex, buildRows, buildTokenGroupIndex, chainRef, COIN_PRICE_DECIMALS,
-  coingeckoKeys, createCcipClient, createCoingeckoClient, createPricesClient, dayOf, dayStartIso, fallbackKeys, groupFallback, gzipText,
-  insertSql, isCoingeckoKey, issuePath, listAllTokens, ListMessage, MAX_TRANSFER_USD, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize, tokenGroupLookup,
+  coingeckoKeys, createCcipClient, createCoingeckoClient, createPricesClient, creKeySet, dayOf, dayStartIso, fallbackKeys, groupFallback, gzipText,
+  insertSql, isCoingeckoKey, isCreOrigin, issuePath, listAllTokens, ListMessage, MAX_TRANSFER_USD, normalizeList, normalizeRegistryToken, priceKeys, rollupDay, sanitize, tokenGroupLookup,
   sqlLiteral, toIsoUtc, toJsonl, tokenGroupEntry, TOTALS_CONFLICT, type CcipClient, type CoingeckoClient, type CoingeckoIdIndex,
-  type CoingeckoLists, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
+  type CoingeckoLists, type GeneratedCreKeys, type HttpDeps, type NetworkInfo, type NormalizedMessage, type PriceLookup, type PricesClient, type RegistryToken,
   type TokenGroupIndex,
 } from '@ccip-dev/core';
 import type { SkippedMessage } from './crawl';
 import { dropPriceOutliers } from './price-outliers';
 import type { Source, SourceSummary, SourcesSummary } from './sources';
+
+const CRE_KEYS = creKeySet(
+  JSON.parse(await readFile(path.join(import.meta.dirname, '../../worker/src/generated/cre-keys.json'), 'utf8')) as GeneratedCreKeys,
+);
 
 export const MESSAGE_CONFLICT =
   'ON CONFLICT(message_id) DO UPDATE SET status = excluded.status, receipt_ts = excluded.receipt_ts, ' +
@@ -129,7 +133,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     await prices.ensure(fallbackKeys(groups, amounts, lookup));
     await prices.ensure(coingeckoKeys(groups, amounts, lookup, coingeckoIdOf));
     const fallback = groupFallback(groups, lookup, { coingeckoIdOf, decimalsOf: (key) => prices.decimalsOf(key) });
-    const { rows, tokens, outliers } = buildRows(normalized, lookup, () => ({ source: 'backfill' }), fallback);
+    const { rows, tokens, outliers } = buildRows(normalized, lookup, (m) => ({ source: 'backfill', cre: isCreOrigin(CRE_KEYS, m.src.selector, m.origin) }), fallback);
     normalized.forEach((m) => firstSeen.add(m));
     entries.forEach((e) => chains.add(e.message));
     const statements = [

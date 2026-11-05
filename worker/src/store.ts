@@ -14,7 +14,7 @@ const MIN_MEDIAN_DAYS = 7;
 export const MESSAGE_COLUMNS = [
   'message_id', 'day', 'send_ts', 'receipt_ts', 'status', 'src_chain', 'dst_chain', 'sender', 'receiver', 'origin',
   'token_count', 'usd_value', 'unpriced', 'fee_token', 'fee_amount', 'fee_usd', 'ready_for_manual_exec',
-  'detail_fetched_at', 'next_check_at', 'source',
+  'detail_fetched_at', 'next_check_at', 'source', 'cre',
 ] as const satisfies readonly (keyof MessageRow)[];
 
 export function chunks<T>(items: T[], size: number): T[][] {
