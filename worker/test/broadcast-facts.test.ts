@@ -1,7 +1,8 @@
 import { labelKey, type Dim } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { shortAddress } from '@ccip-dev/core/names';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dailyFacts, loadFactsSource, recordFacts, weeklyFacts } from '../src/broadcasts/facts';
 import * as store from '../src/store';
 import { harness, resetStorage, seedRegistry } from './helpers';
@@ -67,6 +68,7 @@ describe('daily facts', () => {
       },
       feeChain: { key: BASE, player: { name: 'Base', x: 'base' }, feeUsd: 4 },
       records: [{ kind: 'fees', day: DAY, value: 5, previous: { day: '2026-10-03', value: 4 }, stoodDays: 7 }],
+      cre: null,
     });
   });
 
@@ -132,6 +134,61 @@ describe('weekly facts', () => {
       chains: [['Base', 10], ['BNB Chain', 2], ['Ethereum', 1]],
       lane: `${ETH}>${BASE}`,
     });
+  });
+});
+
+const CRE_SENDER = '0x00000000000000000000000000000000000000c4';
+
+describe('CRE facts', () => {
+  it("sums the day's CRE-sent messages, takes their share of the day and names the busiest CRE sender", async () => {
+    // #given a day of 150 messages, 30 of them from CRE workflows, 20 sent by a labeled sender and 10 by another
+    await seedDay();
+    await store.replaceDaily(env.DB, { ...totals(DAY, 150, 2e6, 5), cre_messages: 30, cre_usd: 4_000 }, [
+      row(DAY, 'cre', `${ETH}:${SENDER}`, 20, 3_000, 1),
+      row(DAY, 'cre', `${BASE}:${CRE_SENDER}`, 10, 1_000, 1),
+    ], NOW);
+    const { c } = harness({ now: NOW, labels: LABELS, handles: HANDLES });
+    // #when
+    const facts = dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), DAY);
+    // #then
+    expect(facts?.cre).toEqual({ messages: 30, usd: 4_000, sharePct: 20, changePct: null, top: { name: 'xStocks', x: 'xStocksFi' } });
+  });
+
+  it('has no CRE facts for a day without CRE-sent messages', async () => {
+    // #given
+    await seedDay();
+    const { c } = harness({ now: NOW, labels: LABELS, handles: HANDLES });
+    // #when
+    const facts = dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), DAY);
+    // #then
+    expect(facts?.cre).toBeNull();
+  });
+
+  it('gives the week its CRE messages against the week before, and its busiest CRE sender over the whole week', async () => {
+    // #given 125 CRE messages in the week of Sep 28 and 140 in the week of Oct 5, the busiest sender of that week on Oct 7
+    await seedDay();
+    const week = (day: string, cre: number, rows: ReturnType<typeof row>[]) => store.replaceDaily(env.DB, { ...totals(day, 200, 8e6, 4), cre_messages: cre, cre_usd: cre }, rows, NOW);
+    await week('2026-10-01', 125, [row('2026-10-01', 'cre', `${ETH}:${SENDER}`, 125, 125, 1)]);
+    await week('2026-10-06', 60, [row('2026-10-06', 'cre', `${BASE}:${CRE_SENDER}`, 60, 60, 1)]);
+    await week('2026-10-07', 80, [row('2026-10-07', 'cre', `${BASE}:${CRE_SENDER}`, 50, 50, 1), row('2026-10-07', 'cre', `${ETH}:${SENDER}`, 30, 30, 1)]);
+    const { c } = harness({ now: '2026-10-12T00:07:00.000Z', labels: LABELS, handles: HANDLES });
+    // #when
+    const facts = weeklyFacts(await loadFactsSource(c, { days: ['2026-10-11'], monday: '2026-10-05' }), '2026-10-05');
+    // #then
+    expect(facts?.cre).toEqual({ messages: 140, usd: 140, sharePct: (140 / 1_150) * 100, changePct: 12, top: { name: shortAddress(CRE_SENDER), x: null } });
+  });
+
+  it('reads the CRE rows once for the days and the week together', async () => {
+    // #given a day in the week of Oct 5
+    await seedDay();
+    const { c } = harness({ now: '2026-10-12T00:07:00.000Z' });
+    const reads: string[] = [];
+    const spy = vi.spyOn(store, 'breakdownBetween').mockImplementation(async (_db, dim) => (reads.push(dim), []));
+    // #when
+    await loadFactsSource(c, { days: ['2026-10-11'], monday: '2026-10-05' });
+    spy.mockRestore();
+    // #then
+    expect(reads.filter((d) => d === 'cre')).toEqual(['cre']);
   });
 });
 

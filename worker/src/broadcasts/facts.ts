@@ -1,4 +1,4 @@
-import { feeClassifier, mostlyViaToken, senderKeyAddress } from '@ccip-dev/core';
+import { addDays, feeClassifier, mostlyViaToken, rankIdentities, senderKeyAddress } from '@ccip-dev/core';
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, reserveDepositFacts, weekTotalsFacts,
   type DayTotalsFacts, type RecordDriver, type ReserveDepositFacts, type WeekTotalsFacts,
@@ -9,6 +9,7 @@ import type { DayLeaders, DayTotals, LargestFee, Leader, ReserveFile } from '@cc
 import { recordsSetOn, type MilestoneSet, type RecordSet } from '@ccip-dev/core/records';
 import type { RunContext } from '../context';
 import { dayLeaderEntries, historyDays, LARGEST_FEES_LIMIT, largestFeeEntries, weekLeaderRows, type WeekLeaderRows } from '../publish';
+import { identitiesOf, senderBook } from '../senders';
 import * as store from '../store';
 import { createTagger, type Player, type Tagger } from './tags';
 
@@ -52,6 +53,16 @@ export interface LeaderFacts {
   lane: LaneFacts | null;
 }
 
+export interface CreFacts {
+  messages: number;
+  usd: number;
+  /** Share of the period's messages. */
+  sharePct: number | null;
+  /** Weekly only: change against the week before. */
+  changePct: number | null;
+  top: Player | null;
+}
+
 export interface DailyFacts {
   kind: 'daily';
   day: string;
@@ -59,6 +70,7 @@ export interface DailyFacts {
   leaders: LeaderFacts;
   feeChain: ChainFeeFacts | null;
   records: RecordSet[];
+  cre: CreFacts | null;
 }
 
 export interface WeeklyFacts {
@@ -67,6 +79,7 @@ export interface WeeklyFacts {
   totals: WeekTotalsFacts;
   leaders: LeaderFacts;
   feeChains: ChainFeeFacts[];
+  cre: CreFacts | null;
 }
 
 export interface RecordFacts {
@@ -105,6 +118,7 @@ export interface FactsSource {
   largest: LargestFee[];
   leaders: ReadonlyMap<string, DayLeaders>;
   week: WeekLeaderRows | null;
+  creTop: { days: ReadonlyMap<string, Player>; week: Player | null };
   tags: Tagger;
 }
 
@@ -121,7 +135,48 @@ export async function loadFactsSource(c: RunContext, o: { days: readonly string[
   const leaders = new Map((await dayLeaderEntries(c, first, last)).map((d) => [d.day, d]));
   const week = o.monday === null ? null : await weekLeaderRows(c, o.monday);
   const tokenKeys = [...[...leaders.values()].flatMap((d) => (d.token ? [d.token.key] : [])), ...(week?.token ? [week.token.key] : [])];
-  return { history, largest, leaders, week, tags: await createTagger(c, tokenKeys) };
+  return { history, largest, leaders, week, creTop: await creTops(c, sorted, o.monday), tags: await createTagger(c, tokenKeys) };
+}
+
+const earlier = (a: string, b: string) => (a < b ? a : b);
+const later = (a: string, b: string) => (a > b ? a : b);
+
+/** The busiest CRE sender of each of `days` and of the week from `monday`, from one read of the cre rows that span them. */
+async function creTops(c: RunContext, days: readonly string[], monday: string | null): Promise<FactsSource['creTop']> {
+  const first = days[0]!;
+  const last = days.at(-1)!;
+  const sunday = monday === null ? null : addDays(monday, 6);
+  const rows = await store.breakdownBetween(c.env.DB, 'cre', monday === null ? first : earlier(first, monday), sunday === null ? last : later(last, sunday));
+  const book = await senderBook(c);
+  const topOf = (inPeriod: readonly store.LeaderRow[]): Player | null => {
+    const [top] = rankIdentities(identitiesOf(book, inPeriod, []), 'messages', 1);
+    return top ? { name: top.label ?? shortAddress(senderKeyAddress(top.key)), x: top.inferred ? null : top.x ?? null } : null;
+  };
+  const byDay = new Map<string, Player>();
+  for (const day of days) {
+    const top = topOf(rows.filter((r) => r.day === day));
+    if (top) byDay.set(day, top);
+  }
+  return { days: byDay, week: monday === null || sunday === null ? null : topOf(rows.filter((r) => r.day >= monday && r.day <= sunday)) };
+}
+
+const creSum = (rows: readonly DayTotals[]) => ({
+  messages: rows.reduce((n, d) => n + (d.cre_messages ?? 0), 0),
+  usd: rows.reduce((n, d) => n + (d.cre_usd ?? 0), 0),
+  all: rows.reduce((n, d) => n + d.messages, 0),
+});
+
+function creFacts(rows: readonly DayTotals[], before: readonly DayTotals[] | null, top: Player | null): CreFacts | null {
+  const now = creSum(rows);
+  if (now.messages === 0) return null;
+  const prev = before === null ? null : creSum(before).messages;
+  return {
+    messages: now.messages,
+    usd: now.usd,
+    sharePct: now.all === 0 ? null : (now.messages / now.all) * 100,
+    changePct: prev === null || prev === 0 ? null : ((now.messages - prev) / prev) * 100,
+    top,
+  };
 }
 
 const laneEnds = (key: string): [string, string] => {
@@ -163,6 +218,7 @@ export function dailyFacts(src: FactsSource, day: string): DailyFacts | null {
     leaders: leaderFacts(src.tags, lead?.token ?? null, lead?.sender ?? null, lead?.lane ?? null, totals.value.value),
     feeChain: lead?.fee_chain ? chainFee(src.tags, lead.fee_chain) : null,
     records: recordsSetOn(src.history, src.largest, day),
+    cre: creFacts(src.history.filter((d) => d.day === day), null, src.creTop.days.get(day) ?? null),
   };
 }
 
@@ -175,6 +231,11 @@ export function weeklyFacts(src: FactsSource, monday: string): WeeklyFacts | nul
     totals,
     leaders: leaderFacts(src.tags, src.week.token, src.week.sender, src.week.lane, totals.value.value),
     feeChains: src.week.feeChains.map((l) => chainFee(src.tags, l)),
+    cre: creFacts(
+      src.history.filter((d) => d.day >= monday && d.day <= addDays(monday, 6)),
+      src.history.filter((d) => d.day >= addDays(monday, -7) && d.day <= addDays(monday, -1)),
+      src.creTop.week,
+    ),
   };
 }
 

@@ -4,7 +4,7 @@ import { formatCompactCount, formatCount, formatDuration, formatFeeTotal, format
 import { shortAddress } from '@ccip-dev/core/names';
 import { HUNTER_MIN_GRABS, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RecordKind } from '@ccip-dev/core/records';
-import type { BroadcastFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
+import type { BroadcastFacts, CreFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -17,7 +17,7 @@ export interface Line {
   drop?: number;
 }
 
-export const DROP = { lane: 1, sender: 2, token: 3, feeChains: 4, closing: 5 } as const;
+export const DROP = { lane: 1, cre: 2, sender: 3, token: 4, feeChains: 5, closing: 6 } as const;
 
 export function fitLines(lines: readonly Line[], fits: (text: string) => boolean): string {
   const join = (kept: readonly Line[]) => kept.map((l) => l.text).join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -102,6 +102,21 @@ function leaderLinesTg(l: LeaderFacts, period: 'day' | 'week'): Line[] {
   return lines;
 }
 
+function creLineX(cre: CreFacts | null, trend: boolean): Line[] {
+  if (cre === null) return [];
+  const count = plural(cre.messages, 'message');
+  const head = trend ? words(`CRE workflows: ${count}`, arrow(cre.changePct)) : `CRE workflows: ${count}${paren(cre.sharePct === null ? null : formatShare(cre.sharePct))}`;
+  return [{ text: `${head}${cre.top ? ` · top: ${plainName(cre.top)}` : ''}`, drop: DROP.cre }];
+}
+
+function creLineTg(cre: CreFacts | null, trend: boolean): Line[] {
+  if (cre === null) return [];
+  const value = cre.usd > 0 ? ` · ${formatUsd(cre.usd)}` : '';
+  const change = arrow(cre.changePct);
+  const comparison = trend ? paren(change === null ? null : `${change} vs last week`) : paren(cre.sharePct === null ? null : formatShare(cre.sharePct));
+  return [{ text: `Sent by CRE workflows: ${plural(cre.messages, 'message')}${value}${comparison}${cre.top ? ` · top: ${tgName(cre.top)}` : ''}`, drop: DROP.cre }];
+}
+
 function feesX(fees: number | null, change: string | null, sharePct: number | null): Line[] {
   if (fees === null) return [];
   return [{ text: words(`${formatFeeTotal(fees)} in fees`, change, sharePct === null ? null : `· ${formatShare(sharePct)} paid in $LINK`) }];
@@ -121,6 +136,7 @@ function dailyX(f: DailyFacts): Line[] {
     { text: `${plural(t.messages.value ?? 0, 'message')} · ${formatUsd(t.value.value)} moved` },
     ...feesX(t.fees.value, null, t.linkSharePct),
     ...leaderLinesX(f.leaders),
+    ...creLineX(f.cre, false),
     { text: '#Chainlink', drop: DROP.closing },
   ];
 }
@@ -135,6 +151,7 @@ function dailyTg(f: DailyFacts): Line[] {
     ...feesTg(t.fees.value, arrow(t.fees.pct), t.linkSharePct, t.linkUsd, t.linkAmount),
     { text: '' },
     ...leaderLinesTg(f.leaders, 'day'),
+    ...creLineTg(f.cre, false),
     ...(f.feeChain ? [{ text: `Top fee chain: ${tgName(f.feeChain.player)} · ${formatFeeTotal(f.feeChain.feeUsd)} in fees`, drop: DROP.lane }] : []),
     { text: '' },
     { text: '#CCIP #Chainlink $LINK', drop: DROP.closing },
@@ -148,6 +165,7 @@ function weeklyX(f: WeeklyFacts): Line[] {
     { text: words(plural(t.messages.value ?? 0, 'message'), arrow(t.messages.pct), `· ${formatUsd(t.value.value)} moved`, arrow(t.value.pct)) },
     ...feesX(t.fees.value, arrow(t.fees.pct), t.linkSharePct),
     ...leaderLinesX(f.leaders),
+    ...creLineX(f.cre, true),
     ...(f.feeChains.length > 0 ? [{ text: `Top fee chains: ${f.feeChains.map((c) => plainName(c.player)).join(' · ')}`, drop: DROP.feeChains }] : []),
     { text: '#Chainlink', drop: DROP.closing },
   ];
@@ -164,6 +182,7 @@ function weeklyTg(f: WeeklyFacts): Line[] {
     ...feesTg(t.fees.value, arrow(t.fees.pct), t.linkSharePct, t.linkUsd, t.linkAmount),
     { text: '' },
     ...leaderLinesTg(f.leaders, 'week'),
+    ...creLineTg(f.cre, true),
     ...(f.feeChains.length > 0 ? [{ text: `Top fee chains: ${chains}`, drop: DROP.feeChains }] : []),
     { text: '' },
     { text: '#CCIP #Chainlink $LINK', drop: DROP.closing },
