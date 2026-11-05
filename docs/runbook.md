@@ -335,7 +335,7 @@ LinkMarines as a Telegram Mini App on @ccipdevbot: enlisting, your dog tag and t
 
 ## Incidents and alerts
 
-Alerts arrive in the Telegram chat.
+Alerts arrive in the Telegram chat. Every sent alert also logs `{"alert_sent": <signature>, "suppressed_for_ms": …}` to Workers Logs, so filtering the `alert_sent` field lists them all. That includes alerts sent while D1 was overloaded, which leave no `alert:` row in `meta` (`suppressed_for_ms` 0).
 
 | Signature | What to check |
 |---|---|

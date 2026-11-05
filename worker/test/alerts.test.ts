@@ -80,6 +80,26 @@ describe('createAlerter', () => {
     error.mockRestore();
   });
 
+  it('logs each sent alert as a JSON line, so Workers Logs finds it even when D1 kept no row', async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { alert } = setup('TOKEN');
+    const { db } = watchedDb(/INSERT INTO meta/, { fail: true });
+    const unsuppressed = createAlerter(db, { token: 'TOKEN', chatId: '42' }, { fetch: fakeFetch(() => jsonResponse({ ok: true })), sleep: async () => {}, clock: () => 0, now: () => new Date() });
+    // #when
+    await alert('ingest-lag', 'Ingest is 12 minutes behind');
+    await unsuppressed('job-failed:details', 'details failed: D1 DB is overloaded');
+    const lines = log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('{"alert_sent"'));
+    log.mockRestore();
+    error.mockRestore();
+    // #then
+    expect(lines.map((line) => JSON.parse(line))).toEqual([
+      { alert_sent: 'ingest-lag', suppressed_for_ms: 3_600_000 },
+      { alert_sent: 'job-failed:details', suppressed_for_ms: 0 },
+    ]);
+  });
+
   it('resolves without throwing when the fetch fails, and retries on the next alert', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     let attempts = 0;

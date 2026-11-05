@@ -38,6 +38,9 @@ export function createAlerter(db: D1Database, telegram: { token?: string; chatId
     if (failure) {
       console.error(`[alert] ${failure} for signature ${signature}: ${text}`);
       if (claimed) await releaseMeta(db, key, claim);
+      return;
     }
+    // One line per sent alert, so Workers Logs lists every alert, the ones D1 kept no suppression row for included.
+    console.log(JSON.stringify({ alert_sent: signature, suppressed_for_ms: claimed ? SUPPRESS_MS : 0 }));
   };
 }
