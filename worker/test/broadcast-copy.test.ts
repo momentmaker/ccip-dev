@@ -359,8 +359,31 @@ describe('CRE workflows line', () => {
   it('leaves the daily post exactly as before on a day without CRE-sent messages', () => {
     // #when
     const { xText, telegramHtml } = composeCopy(DAILY);
-    // #then
-    expect({ x: xText.includes('CRE'), tg: telegramHtml.includes('CRE'), lines: [xText.split('\n').length, telegramHtml.split('\n').length] }).toEqual({ x: false, tg: false, lines: [7, 11] });
+    // #then the post as it was before CRE lines existed
+    expect({ xText, telegramHtml }).toEqual({
+      xText: [
+        '#CCIP · Sat, Oct 10',
+        '1,313 messages · $17.1M moved',
+        '$739 in fees · 0.5% paid in $LINK',
+        'Top token: $syrupUSDC Maple · $6.1M (36%)',
+        'Top sender: xStocks · 97 messages (7.4%)',
+        'Busiest lane: Ethereum → Arc · $5.2M',
+        '#Chainlink',
+      ].join('\n'),
+      telegramHtml: [
+        '<b>CCIP daily report · Sat, Oct 10, 2026</b>',
+        '1,313 messages (▼ 34% vs the 7-day average)',
+        '$17.1M moved (▼ 64%)',
+        '$739 in fees (▼ 34%) · 0.5% paid in LINK ($4, 0.29 LINK)',
+        '',
+        'Top token: syrupUSDC (Maple) · $6.1M, 36% of the value moved',
+        "Top sender: xStocks · 97 messages, 7.4% of the day's",
+        'Busiest lane: Ethereum → Arc · $5.2M',
+        'Top fee chain: Base · $412 in fees',
+        '',
+        '#CCIP #Chainlink $LINK',
+      ].join('\n'),
+    });
   });
 
   it('leaves out the value on Telegram when the CRE messages carried none, and the top sender when there is none', () => {

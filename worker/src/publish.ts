@@ -559,9 +559,9 @@ function logPublishStep(step: string, ms: number, usage: D1Usage, ok: boolean): 
 }
 
 /**
- * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the top files
- * throw; every other step alerts and lets the rest publish. A step D1 refuses as overloaded waits and re-runs first.
- * Each step logs its time and D1 use (see logPublishStep), then the publish logs its total.
+ * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the dim top files
+ * throw; every other step, top/cre.json included, alerts and lets the rest publish. A step D1 refuses as overloaded waits
+ * and re-runs first. Each step logs its time and D1 use (see logPublishStep), then the publish logs its total.
  */
 export async function publishHistoryFiles(run: RunContext): Promise<string[]> {
   const meter = meterD1(run.env.DB);
@@ -671,7 +671,7 @@ export async function publishHistoryFiles(run: RunContext): Promise<string[]> {
     }
     await pauseForD1(c);
     await measured('top/cre', () =>
-      untilD1Recovers(c, async () => {
+      attempt('top-cre-publish', 'top/cre.json was not published', async () => {
         const from: Record<TopWindow, string | null> = { '7d': addDays(today, -7), '30d': addDays(today, -30), all: null };
         const windows = { '7d': [] as Leader[], '30d': [] as Leader[], all: [] as Leader[] };
         const identities = { '7d': [] as Leader[], '30d': [] as Leader[], all: [] as Leader[] };

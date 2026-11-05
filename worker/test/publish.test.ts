@@ -1134,6 +1134,7 @@ describe('history files when D1 is overloaded', () => {
 
 describe('CRE in the published files', () => {
   const NOW = '2026-10-08T12:00:00.000Z';
+  afterEach(() => vi.restoreAllMocks());
   const TODAY = '2026-10-08';
   const DAY = '2026-10-07';
   const rows = (day: string) => [
@@ -1209,5 +1210,23 @@ describe('CRE in the published files', () => {
     await publishHistoryFiles(harness({ now: NOW }).c);
     // #then
     expect(PUBLIC_SCHEMAS['top/cre.json'].safeParse(await readPublic('top/cre.json')).error?.issues ?? []).toEqual([]);
+  });
+
+  it('raises one top-cre-publish alert when the CRE ranking fails, and still publishes replay.json', async () => {
+    // #given the all-time CRE ranking, which only top/cre.json reads, fails
+    const topBetween = store.topBetween;
+    vi.spyOn(store, 'topBetween').mockImplementation((db, dim, fromDay, ...rest) =>
+      dim === 'cre' && fromDay === null ? Promise.reject(new Error('D1 unavailable')) : topBetween(db, dim, fromDay, ...rest),
+    );
+    const { c, alerts } = harness({ now: NOW });
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({
+      cre: await env.PUBLIC.get('v1/top/cre.json'),
+      replay: (await env.PUBLIC.get('v1/replay.json')) !== null,
+      missed,
+      alerts,
+    }).toEqual({ cre: null, replay: true, missed: ['top-cre-publish'], alerts: [{ signature: 'top-cre-publish', text: 'top/cre.json was not published: D1 unavailable' }] });
   });
 });
