@@ -1,0 +1,1035 @@
+{
+  "source": "Built by pnpm cre-keys:refresh from KeystoneForwarder ReportProcessed logs; a key is the signer of a forwarder report() transaction. Keys are never removed.",
+  "chains": {
+    "adi-mainnet": {
+      "selector": "4059281736450291836",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x2f2f214fcc3f62aa8bf24cf3bfce193694f1c5b1",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x52fdc04286e0933a8fb4e0d2fa65717820ce5a52",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x55ffae8e369802ca3f5f5e3bf1a0db20111a2dd2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x67ac89cce365cb2b9b15e0b0ad8fdc2d4101f42b",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9dbc2e6ca3e82cd7794538917692a720e857d028",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xa35d69c78aa3d9341b907553293dd0fb70cd46ab",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb4a03ac89ffd71a3059f846abb20a059e72c064a",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "avalanche-mainnet": {
+      "selector": "6433500567565415381",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x0bf8c9b866756305e16dca7f258801c7f464c1a2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x12a2949e1afb0eebe7ad16c8740092c4a9cb3f13",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x140d1119511c64f4236391b6844ed5cc625e04e3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1fdad2d8dc15f4078f0e1c8a39346955ab251214",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2a4208c181d2442179b48226c515b7e04b1b45fe",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x532021ca45ad1461b2ffc4cb8f29a17d9d9f0127",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x67da14c9c571e7b3c7d635d46d6e68ede93e967c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb228be8da380b529a435931d9ae92b9b18effd32",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb4637db72378cdcd355d98e0c0b801f3d5549b30",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd586358b53c24ad802fda074a6e8cb3ec609fa8d",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "binance_smart_chain-mainnet": {
+      "selector": "11344663589394136015",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x0a3cf09b7efe01a078ad528f686a80bb2d50e3c5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x40109494a5885fc0919bd523a5027ef8dad46bf9",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x56df3855531d9328f31ba53724bbbd570fd0885e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x711ec94a5c2a67673a41f450d8cd2e8dd3cb02d8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x73455118d80b1243fbb97b4ce555cb4ce9197bf2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8140e17d82670404bed78edc148b9091b3fa8820",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xaa537ec4eaf8ea0258772b8448d4850dc13cfe6d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb576131e082b512ecac5fd63fca53ef43d8d5f32",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xcfe7dd4318ed544c8c7156e92ce3206d62e70027",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf5e7c003d2ac77c528095b8ea98c11951ef72f7d",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "celo-mainnet": {
+      "selector": "1346049177634351622",
+      "forwarder": "0x98b8335d29aca40840ed8426da1a0aaa8677d8d1",
+      "keys": [
+        {
+          "address": "0x01d94d6adcb8db30ce74f84e8845162fc757ac48",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x323a83532ad855f3bdb267299dee89f68b03a27b",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3466d29bbe0fc80e258c23f05cc4b6ea6e12bc5c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3e0bc9c1589603b5559306d43c77b8405f7cd1c0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x43e35c878cc987e2a7b5b42d3cf5b3c5ad12f536",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4904699cc60764df33629ceb072a1b3613aa5147",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8aeda609b72af6af5d300aa9ac34a05142bdcdeb",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8cbda6c2a69f8b1c32724e56ae09add17648caa6",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd0c491fcd1acb6f9f7850b659197413f42595bc8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe98e832cb5ea4d2ba05d25870887d79abfc9536e",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet": {
+      "selector": "5009297550715157269",
+      "forwarder": "0x0b93082d9b3c7c97facd250082899bacf3af3885",
+      "keys": [
+        {
+          "address": "0x48536b019199e42722ddf185e22aacd763ee7243",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x758d2567f7370210c0288efd064169411894b874",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x79d13906b588c8b039a6f979295b35361d07bd37",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8496816458be43fb787411b5f209af6a4173d1a0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xab7b469a857d3fa09762214d8e2e4624aa26f7bc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xabee046af565107b8cd9abddf5d1ef390d8a79ef",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb9173e2e1bf4f1e4547dcce1d40ba1b3b5d220d5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb9cbb043f0ae008a6f8323f562b31eb996d62872",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xde7ea590166c4dd70d79ee51ca889797ced451f2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xfca9ac60019f8732298052bbad522bd647070022",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-arbitrum-1": {
+      "selector": "4949039107694359620",
+      "forwarder": "0xf8344cfd5c43616a4366c34e3eee75af79a74482",
+      "keys": [
+        {
+          "address": "0x00da34cd7247d85ca520bad227dbe17000a074b0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x26b31b48a1c2268153e33586c505d2145121e9f1",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3a8dbd6b352009a7f057a334b3ea9f7a3e15d169",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8690fc73c876fc64adc7494e185518522b8eb312",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x97ff5b930c7f6ae9f03aa1cca6b870345084deee",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb367215beed9e9250cae44f5789dbf885dba65d5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xba218037ec4617358efd89fffbbb4507b9965f0a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xbc2926079d8d08b1042f269dd6a90542197046ce",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xcb6211376a7b916f126e93b12307ff50e955aed2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf0ecfbfcfe3b42d84abc2fcbd45b26f303b7641f",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-base-1": {
+      "selector": "15971525489660198786",
+      "forwarder": "0xf8344cfd5c43616a4366c34e3eee75af79a74482",
+      "keys": [
+        {
+          "address": "0x1d07e028160365abe87593162b4812b469f36327",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3252221a874e756c47d229e0b673c643f0de4d39",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x40902220ae0ae19fd902a97f84e9ae2292375919",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x68c0670279e1bbdb10397efb969e1b463a629738",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6c333740ca31ee543c16daf2707a63ad9a82e534",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x76af15924edd640f4d67f930de801608fde474d3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7ff2285a28cfece656a889d956f2de339201298c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x85d2ba212b465200b1c1ba395a8c83ecbbab7edc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb122b17b538dec9e3027ccb3c602eb6283bf4bf4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xde11e532073c5a4f417cfdc26486fb18de0d0a71",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-ink-1": {
+      "selector": "3461204551265785888",
+      "forwarder": "0x9ef6468c5f37b976e57d52054c693269479a784d",
+      "keys": [
+        {
+          "address": "0x093b1d5e1300671960acb79b78945e5710427d67",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1903e8a42ffa7e072483428e24588a0e445aa256",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x347decdb26501b3ad2f5b8cc0377d4c1331ffe2c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6442741fed9c9c9b753a9f7de87792608a4b173f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x678dae941933dc83829670797d24aa2515c982a2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x813e9076eaccc18f98bf8de4051f341e5d4391ff",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9d683d74d73542587b54252e2d6afce99493eb52",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc358c1021f91f58b1310c3c813fa42f9cbcdc8e0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe2db012d03dd74080656c7ce8b9f2bd46eb02212",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf3c60be1aa97f607bd9006c5a90cefb7a38c0a18",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-linea-1": {
+      "selector": "4627098889531055414",
+      "forwarder": "0x9ef6468c5f37b976e57d52054c693269479a784d",
+      "keys": [
+        {
+          "address": "0x16d6c58dd22030fc9f9bdd4a335e7df31be48e8d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x28ab81077e5ac5df3582a168e20f4a76e352963e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x329ab512120ffdfa8d37217102b00063b3476e32",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x41e7722da08928ad52746cf34a24b78e8e371ac5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4481cacd0d3b5509989b3fe391846cfdfd8dfa73",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5cdc41d090fa45dd754ab2623bbbbb00c6ad97c5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x94900d327449477d4c19a31bc71e8a4d96175a06",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xbc0754e78773dd0bf35736c5531ae6b7484faa54",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd54ee96d12a995419541341245099d2a7c3dd1bc",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-mantle-1": {
+      "selector": "1556008542357238666",
+      "forwarder": "0xb9f79d863261869b234c481d1f9a7af84aead192",
+      "keys": [
+        {
+          "address": "0x0cbbd4e3f8670fe17153fcdcbc0336ad90664941",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x0ddabf54a6cd9022e5ca5bbc131bd97473b7438e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1beb7ca294af2521358277d10676b049c3839d74",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x379e46df0ea87dc3adbde9fe9adb563333724bef",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x47bb9fe9461b32304081d3dbaaf5bd14fc6ea0ef",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4f1114bd581adc0bb14e6adf112796e564d013bf",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x84d10e9000b97fa1a1f1d41ff924b46e4597d2db",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc8cf30a270609f9affb3934bf5e4872d20bbb473",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xdf5fb502258d00fd484fd138f5ac90897265408d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xfdfd2e2da73759be80963d1b438542c9fefb14de",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-optimism-1": {
+      "selector": "3734403246176062136",
+      "forwarder": "0xf8344cfd5c43616a4366c34e3eee75af79a74482",
+      "keys": [
+        {
+          "address": "0x17539ad782ff7309d35f6707d1b8695461a2785f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x19d8cd52dbaf706e13c344ee1316a38793fbd2b6",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1ff527714fcb7b56e45d1eb8f608d2408961ee54",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3e71da0601447e4fcc11ab2f5b7b44d717f4b74d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3ee9ed2ecc711bb97a04422104cbd3258a6c48db",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb3542cea412a03f6c36aef2f97e60055e4ba7616",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xca44acd0deeb9737574847a32e60a6aa09822283",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd1a3a6a465c8eb69ee5332b457a57d75fc05a6f3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd1d0dbadfa3841989abd1631becb6814a44dd26e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xef0b1ba093c8d36025145d44a9c1b73b36a6a2af",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-scroll-1": {
+      "selector": "13204309965629103672",
+      "forwarder": "0x98b8335d29aca40840ed8426da1a0aaa8677d8d1",
+      "keys": [
+        {
+          "address": "0x1063f98c97702be9886a6d50d936ed38489ffc3a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1306868715a3506bd0c6282b0e831a12d7c99844",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1c430cec9293f06a32c73751e578fb298db60ed0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x281e21917ab4b1b501f2546574c5fb7bc76b96b9",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x283ef29b3f6676e7ac47153710f5750a8da37106",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x37bf87a19aa8025ef7562d0e37dc3da1af27fcd5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xab33de0365237d0ac139ea6c36f0f82e2ef31e89",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc25445ff25730851f7b0a1d405520d0dee94c5ed",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe630d052ff1b07bdc6b9cf6e73edc59547943fb0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe675e51bd4dee174aafe4ff125d2a7a7ec1e5b5d",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-worldchain-1": {
+      "selector": "2049429975587534727",
+      "forwarder": "0x98b8335d29aca40840ed8426da1a0aaa8677d8d1",
+      "keys": [
+        {
+          "address": "0x0356c4df788329a5b808e9847e32bb8ca7c3d2e1",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x0ba2bcd9bb8617093830ceff9be7bb1b46c065b8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x360487758e42dc27ea18b1e78c645b52d8e1706d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5a00c44f4df51af6738946ecdb1087b8f2d5fa00",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9dd41d3a16bc98a256d24eeca49770eff4914eee",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb2990dccacc5ba8f1ab85f82c666d2671c65ff9b",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb97473a2afa76869d019645fbb84e90099a0ae38",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xbf5f4aa0058ca72fe181ee9a2fce135c49f9d6bb",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc4dd37b48c8e524c82de06884aecb3c484332d1d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc62276019b59d30e5e31aaec0921ede7c2f87255",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-xlayer-1": {
+      "selector": "3016212468291539606",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x0d224479c42111cd383328502869d0f0f4d79556",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x122263e9fc73f6fe79b61a6cb71482d72d89534e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x135885eddda17cfaadba979de84b9e7dd858235e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x14d15ba21ccb5a70d3b972aceb3b2ac6289a44cd",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2be856d920a2a9bd51eb33d94ffc1c4af2bec267",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2f8de6f061df2bbf14198573ef6adb98b1855aad",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3334688cd613decfeaace9f0f43861d03cefc8d9",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4a4665c731eecd9fcb0e226164e52cc20b5ac36e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x71e81adc776f3e74ecd086f2362aca472ce43490",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe12ac11f7b8d34344b0c4274bc7f3603889944f5",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "ethereum-mainnet-zksync-1": {
+      "selector": "1562403441176082196",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x13e51c00a6e07fad9fd1723fb9793e7a04a0df2f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x14b84b6791f9024f747f825f70c9d1f176470d50",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x200a6a0cbd12d83961486d26fb7d74f99b8149b8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x2aee50e2c43845e038642de2a3bedc234ea8823a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3d9780607fe45b92bb24b5dd29485dd843385b83",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x45bf2912dc82565dbda324afc47900ee02a0e3ef",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x49aff48cf755d116e74f5e3712a58a5520135c4a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6d57b44aebd8278bc12e88522e61053b2ef9f06e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x784a2dd1eab3bb8276342f956ae3c13c5458644b",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xad69ea1d8bc806b4722d54d6fc8bcdf83dab593f",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "gnosis_chain-mainnet": {
+      "selector": "465200170687744372",
+      "forwarder": "0x9ef6468c5f37b976e57d52054c693269479a784d",
+      "keys": [
+        {
+          "address": "0x1318d24a125514d0f387c26b6f3730b4725a30b5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x39b3a5906ba9002f2fe79ebb41443f7af9d4b60a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5dcd0050a9c8b62fdddbc5761fee24dbd2b806c2",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x95141773b9826b40dc936fae0294a551164c7657",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9753e1dbe5f0a589265f09a5101ce03874381ce4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xa5277d82e62453e5da77025e4e4d82031047f1eb",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc65a609fc1e9c9f159a17c83afeadf0e5f222bd3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd0a049fa742109c54158476b4e85e699e02e7598",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf6be416befd325ca8ba4b6e97885e704d96f4bd4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf89f13eaf6cc109c8a913d8525abcda9c3a0024b",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "jovay-mainnet": {
+      "selector": "1523760397290643893",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x02a2d22f47cabb1202acdc239339afb048444998",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x38840d81b18c841c200ffce77740bc56c46f97fd",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x492964d3f813772ff720b49f96b986a2d7a12790",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x71d9f5008f6431d0fdcbad0c4b0c4eb541cde926",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x85e9ef34d2183af56eb667d8de96ad896b1fa94c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9445c90367ee75402a001bd8b2b6204649c41d11",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xcb9bda75e29cc7151344aeaa6a8ed105ff1e6a30",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd6e0df4f9a9511fe265e399361e76cc10dd212d5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf26064d68f52e6ab3cdeb61b6fb29c4b9bfad24a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf820bf4a1ba879a91003b373dd86227c1d64b69d",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "megaeth-mainnet": {
+      "selector": "6093540873831549674",
+      "forwarder": "0x7bccafbd064cb3658476066cc33cee3f3414c04c",
+      "keys": [
+        {
+          "address": "0x2ecc3152183c3df9fb7c2c550634f86e30f7d755",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x32ec13881ed226b9c3c9162bcfc6cbdf6fb6a9c8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3adf9f2952bad4d1818e8eae52542f13d647cd51",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x4f69ac4ed06adc08c07a1eeff46399a728e5b5d7",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6d533aedf75cb67d6f225cd911ec1e9d9ba71cf5",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7ffc7af08454f2b5f1d01b545cd9c73afc66be42",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x928ec85234271108a023005dfbe51b048dd4c0ed",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xb1b76145da8d47286b6c96368852e7540689301a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc5682c526e6c47f09492c1c60fbb50f7915fc31a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xea32b9a82e8fd83103db636fede7aa4c123fc67b",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "monad-mainnet": {
+      "selector": "8481857512324358265",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x1853ae9cd188ee50c0340570c10404e9200928c4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x18dd04f6f40932779e80a8d908a02f3b8f12b78c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x247821f696442dbd52143b61fde531a2946507a8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x31eacb9cd8daab3b0d34514b27df3a70020c0ae4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6c33efda3a3031765065af7666c2dbfaf59b2b7c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x70fd79dfab327ede06d807d86649614e689ea2a4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xbe43a8fb51c5bba3838eaff66e6e2189f613af69",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "pharos-mainnet": {
+      "selector": "7801139999541420232",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x025dccb60b320c9bdc581b38f10972fc8e630209",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x16a1b9e7f8b8bfc89a3932c6f010d14a58e8701a",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x1b041ec5abff6c505e7d675d81f7f8874dc5d470",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x356716ecada989cf76e6c8317f3a04c2669adb4e",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x462647e7af8daa4398583e0ec17e18c82600c8e4",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x54331bd1c71f605d36c6326cc4571da464e7d9d0",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7bfa40c466c21ddc0a94c66c540a52dd04b32f7f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x91f093b48b0660fd3d66f6d9a0a68427bc1fffd3",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd63490ccec355a8d34869fc8dd4219893a9e623d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xeb8d777fcad99b3e99b9e2156219c3a6f7a754f4",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "plasma-mainnet": {
+      "selector": "9335212494177455608",
+      "forwarder": "0x7bccafbd064cb3658476066cc33cee3f3414c04c",
+      "keys": [
+        {
+          "address": "0x10f70a066d5931ab6fbbf6dae7f8d31288952623",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x5619a29d15d4cb3e3113b7a258b83d64730328b8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x616904571836500cfdf2fb91ecd1492c4eec0abb",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x620d8af172ef8ce0abc5d99e9b8e08b203dfc409",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7cb100c5e6455ced7040d4139f281e72e22b0c6c",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9167944331b710a7cb56689b2f0bbc1b0a7377d6",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9c47cf5e3a5204bbecd2a3d8a22fbd7612a74251",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x9f7de6a45bfbf6ab18535213184209800297abfe",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xbbecdcf81d97aca6c7c622f368332c09fc7b99bf",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xeca9a7ab4df9811a0445920c6a4e664ce4e728c8",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "polygon-mainnet": {
+      "selector": "4051577828743386545",
+      "forwarder": "0x76c9cf548b4179f8901cda1f8623568b58215e62",
+      "keys": [
+        {
+          "address": "0x16ce0f1d9fdac8b714633e0246cd3a677db0dd13",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x3501535f1377af53f7075385357ff55a12dfee36",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x580539f7c7f396b54efdfdd2578767c9bef04b0f",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x80086112a704a1ab93ff79dae01e281d8ffcf59d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x8f607e78ed1cbcce530a523cb9e011502558d616",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x911f97da3d8db0bf51808a0b98d5a31415351062",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd52c06be0317b01d6bc8dada02bfe911e145eb15",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xda28e6554d63a9d975ccf8a7305d47185354c355",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xe499a77877f8486c2522e0c5eaf16b8c35538e7d",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xf1957cfd6e8b711f2c469814e7ed0489e0b7fa9b",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    },
+    "sonic-mainnet": {
+      "selector": "1673871237479749969",
+      "forwarder": "0x98b8335d29aca40840ed8426da1a0aaa8677d8d1",
+      "keys": [
+        {
+          "address": "0x06341e7b30b693096fb506f913ccd6e2df1fb5f8",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x18b0bfa10b923aceb947fc014eb552b565459ec1",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x37fcf1ba043a5ac3d33ef145cec9258692ecf3a6",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6097c62f0089a79af600f3a28a88546d3484d855",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x6b20bd6680e73c10c56c7c1d84f5b51d1bb5fafc",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7755eb63ec26b35126dfd69ca5329a1c2e0f2fec",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0x7e48bbf957f32be7c6e5b1805eb0da5f60409d26",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xafd56f60afb88fa7b577d2d66bbb4ae532a69b26",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xc3368e7406e924350b9de857a64e22b587b48d47",
+          "first_seen": "2026-11-05"
+        },
+        {
+          "address": "0xd5e9c548619fce07c67cf52147bd78f84c988c8a",
+          "first_seen": "2026-11-05"
+        }
+      ]
+    }
+  }
+}

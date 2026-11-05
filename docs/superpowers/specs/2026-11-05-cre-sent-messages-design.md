@@ -26,21 +26,21 @@ Research behind this is in `reports/Chainlink CRE product opportunities.md` (unt
     "ethereum-mainnet": {
       "selector": "5009297550715157269",
       "forwarder": "0x0b93082d9b3c7c97facd250082899bacf3af3885",
-      "keys": [{ "address": "0x…", "first_seen": "2026-11-05", "last_seen": "2026-11-05" }]
+      "keys": [{ "address": "0x…", "first_seen": "2026-11-05" }]
     }
   }
 }
 ```
 
 - Addresses are lowercase.
-- Keys are never deleted. A rotated-out key still marks the messages it signed, and its `last_seen` stops moving.
+- Keys are never deleted; a rotated-out key still marks the messages it signed.
 - The 24 chains and forwarders come from the CRE Forwarder Directory (docs.chain.link/cre/guides/workflow/using-evm-client/forwarder-directory-ts), checked into the script. Only production `KeystoneForwarder` addresses are used, never the `MockKeystoneForwarder` simulation addresses.
 - Each selector is resolved from ccip.dev's own `https://data.ccip.dev/v1/chains.json`. A chain CCIP does not list is skipped, since none of its messages could be in D1.
 
 **`pnpm cre-keys:refresh`** (`scripts/cre-keys/refresh.ts`) runs once per chain:
 1. Reads `ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bytes2 indexed reportId, bool result)` logs from the forwarder over the last ~24 hours. It walks back from the head in windows that shrink on a range error (start 5,000 blocks, floor 100).
 2. Fetches up to 80 of those transactions, spread evenly, and takes `tx.from` as the node key.
-3. Merges the result: new keys are added with today's `first_seen`, known keys get today's `last_seen`.
+3. Merges the result: new keys are added with today's `first_seen`; known keys are left unchanged (no `last_seen`, so the file only changes when a key is new).
 
 It uses the keyless `rpc` map in `config/endpoints.json`, then a per-chain fallback list (publicnode first). A chain that fails on every endpoint keeps its keys unchanged, and the script prints it in the run summary. The script never removes a key.
 
@@ -170,7 +170,7 @@ DROP = { lane: 1, cre: 2, sender: 3, token: 4, feeChains: 5, closing: 6 }
   - a restart when the version changes mid-pass;
   - totals and breakdown recomputed, and the rolled pointer moved back.
 - `EXPLAIN QUERY PLAN`: the per-day `UPDATE` and the recompute use `messages_day`.
-- Refresh merge (`scripts/test/`): adds keys, bumps `last_seen`, never deletes, keeps a failed chain's keys, resolves selectors, skips chains CCIP does not list.
+- Refresh merge (`scripts/test/`): adds keys, leaves known keys unchanged, never deletes, keeps a failed chain's keys, resolves selectors, skips chains CCIP does not list.
 - Copy fixtures:
   - daily and weekly posts on X and Telegram, with and without the CRE line;
   - the drop order at X's 280 characters.
