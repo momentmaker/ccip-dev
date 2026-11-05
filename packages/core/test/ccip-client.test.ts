@@ -106,6 +106,21 @@ describe('listTokens with a bad registry entry', () => {
     });
   });
 
+  it('keeps a token the registry lists without a name or symbol, as wYLDS and an unnamed Solana token arrive', async () => {
+    // #given
+    const solana = '124615329519749607';
+    const wylds = { chainSelector: solana, address: '8fr7WGTVFszfyNWRMXj6fRjZZAnDwmXwEpCrtzmUkdih', symbol: 'wYLDS', name: null, decimals: 6, groupId: 'g1' };
+    const unnamed = { chainSelector: solana, address: '5GpNXzXfheGjRCpPW7NtRnKqVDKWGfY3sEnWLWt7be9Q', symbol: null, name: null, decimals: 9, groupId: null };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = createCcipClient(instantDeps(fakeFetch(() => jsonResponse({ data: [wylds, unnamed], pagination: { hasNextPage: false } }))), { minIntervalMs: 0 });
+    // #when
+    const page = await client.listTokens({ limit: 2 });
+    const warnings = warn.mock.calls.length;
+    warn.mockRestore();
+    // #then
+    expect({ addresses: page.tokens.map((t) => t.address), warnings }).toEqual({ addresses: [wylds.address, unnamed.address], warnings: 0 });
+  });
+
   it('still fails when the page itself is malformed', async () => {
     // #given
     const client = createCcipClient(instantDeps(fakeFetch(() => jsonResponse({ data: [good] }))), { minIntervalMs: 0 });
