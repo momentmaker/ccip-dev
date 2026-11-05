@@ -40,6 +40,16 @@
         "chain": "plasma-mainnet",
         "address": "0xebf4b796b858210fbbbdab0a51bca61f1d9c1fe5",
         "note": "PlasmaBridgeSettler (0x Settler registry ownerOf(5))"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x12a3c40e5443d395f8d8f2604100906f4b2cf029",
+        "note": "ArbitrumBridgeSettler (0x contracts dashboard, BridgeSettler)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x5547e38674ecba8fa553475615dfaceb1abc32da",
+        "note": "Previous ArbitrumBridgeSettler (0x contracts dashboard, prevAddress)"
       }
     ],
     "tokens": []
@@ -205,6 +215,32 @@
       }
     ],
     "tokens": []
+  },
+  "cambria": {
+    "name": "Cambria",
+    "x": "playcambria",
+    "url": "https://cambria.gg",
+    "kind": "app",
+    "source": "https://docs.cambria.gg/genesis-misc/technical (treasury table: \"Foundation Safe | Ethereum and Base | 0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82\"; bridge table: \"$RSGP canonical token | Ethereum | 0xA8D906B7BbCDE3339EDBb7702D7aF2Aab67F898B\", with its CCIP lock box and lock-release pool)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82",
+        "note": "Foundation Safe (Cambria docs, Ethereum)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x1ae605b51bb36be453de15cad9a63ebd2cf8ac82",
+        "note": "Foundation Safe (Cambria docs, Base)"
+      }
+    ],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xa8d906b7bbcde3339edbb7702d7af2aab67f898b",
+        "source": "https://docs.cambria.gg/genesis-misc/technical"
+      }
+    ]
   },
   "centrifuge": {
     "name": "Centrifuge",
@@ -387,6 +423,21 @@
         "chain": "monad-mainnet",
         "address": "0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76",
         "note": "EnsoShortcuts (Enso docs, Monad)"
+      },
+      {
+        "chain": "sei-mainnet",
+        "address": "0xe532c864b7ed73b5188b8410ad2acd4a7ed7ba26",
+        "note": "EnsoShortcuts (Enso docs, Sei)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003",
+        "note": "EnsoShortcuts (Enso docs, Base)"
+      },
+      {
+        "chain": "gnosis_chain-mainnet",
+        "address": "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003",
+        "note": "EnsoShortcuts (Enso docs, Gnosis)"
       }
     ],
     "tokens": []
@@ -648,6 +699,11 @@
         "chain": "monad-mainnet",
         "address": "0x1d95cc100d6cd9c7bbdbd7cb328d99b3d6037ff7",
         "note": "Outland ConnectorCCTP_Chainlink (OUTLAND_CONNECTOR_CCTP_CHAINLINK in addresses.143.json)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x3373784a7a52a07f9339aa8f60403420cc602c52",
+        "note": "Outland ConnectorCCTP_Chainlink to Monad (OUTLAND_CONNECTOR_CCTP_CHAINLINK_MONAD in addresses.1.json)"
       }
     ],
     "tokens": []
@@ -987,6 +1043,31 @@
         "source": "https://www.npc.com/blog/articles/support-the-current-chain"
       }
     ]
+  },
+  "origin-protocol": {
+    "name": "Origin Protocol",
+    "x": "OriginProtocol",
+    "url": "https://www.originprotocol.com",
+    "kind": "protocol",
+    "source": "https://docs.originprotocol.com/registry/contracts/super-oeth-registry (Super OETH registry: \"CCIP Bridge Adapter 0x03578bC4b5fB0cC0cA7A6AD05b06407ae6324a82 (Ethereum) 0x03578bC4b5fB0cC0cA7A6AD05b06407ae6324a82 (Base)\" and \"Bridged wOETH Strategy (Old) 0x80c864704DD06C3693ed5179190786EE38ACf835\")",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82",
+        "note": "CCIP Bridge Adapter (Super OETH registry, Base)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82",
+        "note": "CCIP Bridge Adapter (Super OETH registry, Ethereum)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x80c864704dd06c3693ed5179190786ee38acf835",
+        "note": "Bridged wOETH Strategy (Old) (Super OETH registry)"
+      }
+    ],
+    "tokens": []
   },
   "overtime": {
     "name": "Overtime",

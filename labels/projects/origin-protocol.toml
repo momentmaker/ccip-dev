@@ -1,0 +1,21 @@
+# Source: https://docs.originprotocol.com/registry/contracts/super-oeth-registry (Super OETH registry: "CCIP Bridge Adapter 0x03578bC4b5fB0cC0cA7A6AD05b06407ae6324a82 (Ethereum) 0x03578bC4b5fB0cC0cA7A6AD05b06407ae6324a82 (Base)" and "Bridged wOETH Strategy (Old) 0x80c864704DD06C3693ed5179190786EE38ACf835")
+name = "Origin Protocol"
+x = "OriginProtocol"
+url = "https://www.originprotocol.com"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82"
+note = "CCIP Bridge Adapter (Super OETH registry, Base)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82"
+note = "CCIP Bridge Adapter (Super OETH registry, Ethereum)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x80c864704dd06c3693ed5179190786ee38acf835"
+note = "Bridged wOETH Strategy (Old) (Super OETH registry)"
