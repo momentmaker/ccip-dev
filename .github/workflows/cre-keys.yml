@@ -18,7 +18,24 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm cre-keys:refresh
+      - name: Keep the keys an open refresh PR already holds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open=$(gh pr list --head cre-keys/refresh --state open --json number --jq '.[0].number // empty')
+          if [ -n "${open}" ] && git ls-remote --exit-code --heads origin cre-keys/refresh > /dev/null; then
+            git fetch --depth=1 origin cre-keys/refresh
+            git show FETCH_HEAD:config/cre-keys.json > "${RUNNER_TEMP}/cre-keys-open-pr.json"
+          fi
+      - id: refresh
+        run: |
+          set -euo pipefail
+          if [ -f "${RUNNER_TEMP}/cre-keys-open-pr.json" ]; then
+            pnpm cre-keys:refresh --keep-from "${RUNNER_TEMP}/cre-keys-open-pr.json"
+          else
+            pnpm cre-keys:refresh
+          fi
       - run: pnpm labels:build
       - name: Open or update the CRE keys PR
         env:
@@ -41,4 +58,17 @@ jobs:
             gh pr edit "${pr}" --title "CRE node keys — ${day}" --body-file cre-keys-pr.md
           else
             gh pr create --head cre-keys/refresh --base main --title "CRE node keys — ${day}" --body-file cre-keys-pr.md
+          fi
+      - name: Name the chains whose RPCs failed
+        env:
+          FAILED_COUNT: ${{ steps.refresh.outputs.failed_count }}
+          FAILED_CHAINS: ${{ steps.refresh.outputs.failed_chains }}
+        run: |
+          set -euo pipefail
+          if [ "${FAILED_COUNT:-0}" -gt 0 ]; then
+            echo "::warning::CRE key refresh failed on ${FAILED_COUNT} chain(s): ${FAILED_CHAINS}"
+          fi
+          if [ "${FAILED_COUNT:-0}" -gt 3 ]; then
+            echo "::error::More than 3 chains failed; check their RPCs in config/endpoints.json and FALLBACK_RPC"
+            exit 1
           fi
