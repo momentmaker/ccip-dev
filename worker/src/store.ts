@@ -2,9 +2,10 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type HolderKind, type ReserveTransfer, type SenderChain, type StakingEvent, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
+  DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
+import { isMonth, monthBounds, previousMonth } from '@ccip-dev/core/month';
 
 const PARAM_CHUNK = 90;
 const BATCH_SIZE = 100;
@@ -216,7 +217,7 @@ export interface LiveRow {
 export async function liveSince(db: D1Database, sinceIso: string): Promise<LiveRow[]> {
   const { results } = await db
     .prepare(
-      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, t.symbol, mt.chain, mt.token
+      `SELECT m.message_id, m.send_ts, m.status, m.src_chain, m.dst_chain, m.sender, m.usd_value, NULLIF(t.symbol, '') AS symbol, mt.chain, mt.token
        FROM messages m
        LEFT JOIN message_tokens mt ON mt.message_id = m.message_id AND mt.idx = 0
        LEFT JOIN tokens t ON t.chain = mt.chain AND t.address = mt.token
@@ -257,7 +258,8 @@ export async function tokenSymbols(db: D1Database, tokens: { chain: string; addr
       )
       .bind(...chunk.flatMap((t) => [t.chain, t.address.toLowerCase()]))
       .all<{ chain: string; address: string; symbol: string }>();
-    for (const r of results) symbols.set(tokenKey(r.chain, r.address), r.symbol);
+    // A registry token listed without a symbol is stored as '', and named below like a token outside the registry.
+    for (const r of results) if (r.symbol !== '') symbols.set(tokenKey(r.chain, r.address), r.symbol);
   }
 
   const unnamed = wanted.filter((t) => !symbols.has(tokenKey(t.chain, t.address)));
@@ -631,6 +633,8 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
         totals.median_delivery_s, totals.unpriced_messages, computedAt,
       ),
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
+    db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(totals.day),
+    unrollStatement(db, totals.day),
     ...breakdown.map((b) => insertBreakdown.bind(b.day, b.dim, b.key, b.messages, b.usd_value, b.fee_usd)),
   ]);
 }
@@ -644,8 +648,101 @@ export async function rolledUpDaysBefore(db: D1Database, before: string, limit: 
 }
 
 export async function backfillViaTokenDay(db: D1Database, day: string): Promise<void> {
-  await db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day).run();
+  await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day), unrollStatement(db, day)]);
 }
+
+/** A day's stored day-leaders.json entry (see migration 0012). */
+export interface DayLeaderRow {
+  day: string;
+  fingerprint: string;
+  entry: string;
+}
+
+export async function dayLeaderRows(db: D1Database, fromDay: string, toDay: string): Promise<DayLeaderRow[]> {
+  const { results } = await db
+    .prepare('SELECT day, fingerprint, entry FROM day_leaders WHERE day >= ? AND day <= ? ORDER BY day')
+    .bind(fromDay, toDay)
+    .all<DayLeaderRow>();
+  return results;
+}
+
+export async function putDayLeaders(db: D1Database, rows: readonly DayLeaderRow[]): Promise<void> {
+  const upsert = db.prepare(
+    'INSERT INTO day_leaders (day, fingerprint, entry) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET fingerprint = excluded.fingerprint, entry = excluded.entry',
+  );
+  await runBatch(db, rows.map((r) => upsert.bind(r.day, r.fingerprint, r.entry)));
+}
+
+/** The meta key naming the last month of the rolled prefix of monthly_breakdown (see migration 0013). */
+export const ROLLED_THROUGH_KEY = 'breakdown_rolled_through';
+
+/** Moves the rolled pointer back before `day`'s month when that month is rolled, so readers take its daily rows. */
+function unrollStatement(db: D1Database, day: string): D1PreparedStatement {
+  const month = day.slice(0, 7);
+  return db.prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2').bind(previousMonth(month), month, ROLLED_THROUGH_KEY);
+}
+
+/** The last rolled month, or null before the first roll (or when the stored value is not a month). */
+export async function rolledThrough(db: D1Database): Promise<string | null> {
+  const value = await getMeta(db, ROLLED_THROUGH_KEY);
+  return value !== null && isMonth(value) ? value : null;
+}
+
+/** The first day daily_breakdown holds, through its primary key. */
+export async function firstBreakdownDay(db: D1Database): Promise<string | null> {
+  return (await db.prepare('SELECT MIN(day) AS day FROM daily_breakdown').first<{ day: string | null }>())?.day ?? null;
+}
+
+const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token'];
+
+/** Rebuilds `month`'s monthly_breakdown rows from its daily rows in one batch, one statement a dim; rolling again is a no-op. */
+export async function rollMonth(db: D1Database, month: string): Promise<void> {
+  const { first, last } = monthBounds(month);
+  const insert = db.prepare(
+    `INSERT INTO monthly_breakdown (month, dim, key, messages, usd_value, fee_usd, first_day)
+     SELECT ?1, dim, key, SUM(messages), SUM(usd_value), SUM(fee_usd), MIN(day) FROM daily_breakdown
+     WHERE dim = ?2 AND day >= ?3 AND day <= ?4 GROUP BY key`,
+  );
+  await db.batch([
+    db.prepare('DELETE FROM monthly_breakdown WHERE month = ?').bind(month),
+    ...BREAKDOWN_DIMS.map((dim) => insert.bind(month, dim, first, last)),
+  ]);
+}
+
+/** Sets the pointer to `month` only while it still names the month before, and returns whether it moved. */
+export async function advanceRolledThrough(db: D1Database, month: string): Promise<boolean> {
+  const before = previousMonth(month);
+  const result = await db
+    .prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE meta.value = ?3')
+    .bind(ROLLED_THROUGH_KEY, month, before)
+    .run();
+  return result.meta.changes > 0;
+}
+
+/**
+ * The breakdown rows an all-time window up to `toDay` reads: monthly_breakdown through the rolled pointer and
+ * daily_breakdown after its last day, as one subquery with daily_breakdown's columns (a monthly row's `day` is the key's
+ * first day of that month). daily_breakdown alone before the first roll, or when `toDay` ends inside a rolled month.
+ * The pointer passed isMonth, so it is safe as a literal.
+ */
+export async function allTimeSource(db: D1Database, toDay: string): Promise<string> {
+  const through = await rolledThrough(db);
+  if (through === null) return DAILY_BREAKDOWN;
+  const { last } = monthBounds(through);
+  return toDay < last ? DAILY_BREAKDOWN : rolledSourceSql(through);
+}
+
+/** monthly_breakdown through `through` (a month) and daily_breakdown after its last day, with daily_breakdown's columns. */
+export function rolledSourceSql(through: string): string {
+  if (!isMonth(through)) throw new Error(`not a month: ${through}`);
+  const { last } = monthBounds(through);
+  return `(SELECT first_day AS day, dim, key, messages, usd_value, fee_usd FROM monthly_breakdown WHERE month <= '${through}'
+    UNION ALL SELECT day, dim, key, messages, usd_value, fee_usd FROM daily_breakdown WHERE day > '${last}')`;
+}
+
+/** The source of a window: the rolled months for an all-time window (no `fromDay`), daily_breakdown otherwise. */
+const windowSource = (db: D1Database, fromDay: string | null, toDay: string): Promise<string> =>
+  fromDay === null ? allTimeSource(db, toDay) : Promise.resolve(DAILY_BREAKDOWN);
 
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
   const { results } = await db
@@ -695,6 +792,13 @@ export interface LeaderRow extends BreakdownRow {
   day: string;
 }
 
+/** topBetween's SQL for the window; exported for its query-plan test. */
+export async function topBetweenSql(db: D1Database, fromDay: string | null, toDay: string, order: TopOrder): Promise<string> {
+  return `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+       FROM ${await windowSource(db, fromDay, toDay)} WHERE dim = ? AND day >= ? AND day <= ?
+       GROUP BY key ${TOP_ORDER_SQL[order]} LIMIT ?`;
+}
+
 export async function topBetween(
   db: D1Database,
   dim: Dim,
@@ -704,11 +808,7 @@ export async function topBetween(
   order: TopOrder,
 ): Promise<BreakdownRow[]> {
   const { results } = await db
-    .prepare(
-      `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
-       FROM daily_breakdown WHERE dim = ? AND day >= ? AND day <= ?
-       GROUP BY key ${TOP_ORDER_SQL[order]} LIMIT ?`,
-    )
+    .prepare(await topBetweenSql(db, fromDay, toDay, order))
     .bind(dim, fromDay ?? '0000-00-00', toDay, limit)
     .all<BreakdownRow>();
   return results;
@@ -734,12 +834,14 @@ export async function senderChains(db: D1Database): Promise<Map<string, SenderCh
 }
 
 /** No LIMIT: a project's rows on every chain must all arrive before they merge and rank. */
-export const SENDER_TOTALS_OF_SQL = `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
-  FROM daily_breakdown WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
+const senderTotalsOfSql = (source: string) => `SELECT key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
+  FROM ${source} WHERE dim = 'sender' AND day >= ?1 AND day <= ?2 AND ${SENDER_ADDRESS} IN (SELECT value FROM json_each(?3))
   GROUP BY key ORDER BY key`;
+export const SENDER_TOTALS_OF_SQL = senderTotalsOfSql(DAILY_BREAKDOWN);
 
 export async function senderTotalsOf(db: D1Database, fromDay: string | null, toDay: string, addresses: readonly string[]): Promise<BreakdownRow[]> {
-  const { results } = await db.prepare(SENDER_TOTALS_OF_SQL).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(addresses)).all<BreakdownRow>();
+  const sql = senderTotalsOfSql(await windowSource(db, fromDay, toDay));
+  const { results } = await db.prepare(sql).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(addresses)).all<BreakdownRow>();
   return results;
 }
 
@@ -766,7 +868,7 @@ const ADDRESS_ORDER_SQL: Record<TopOrder, string> = {
  * each address ranked by its rows summed across chains. A key with nothing left is dropped before the cut, so the ?4
  * are the busiest by what they keep.
  */
-export const topUnlabeledSendersSql = (order: TopOrder) => `WITH rows AS (${unlabeledSenderRowsSql(false, '?5')}),
+export const topUnlabeledSendersSql = (order: TopOrder, source: string = DAILY_BREAKDOWN) => `WITH rows AS (${unlabeledSenderRowsSql(false, '?5', source)}),
   net AS (
     SELECT key, address, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd
     FROM rows GROUP BY key HAVING SUM(messages) > 0
@@ -784,7 +886,7 @@ export async function topUnlabeledSenders(
   claimed: readonly string[],
 ): Promise<BreakdownRow[]> {
   const { results } = await db
-    .prepare(topUnlabeledSendersSql(order))
+    .prepare(topUnlabeledSendersSql(order, await windowSource(db, fromDay, toDay)))
     .bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(labeled), limit, JSON.stringify(claimed))
     .all<BreakdownRow>();
   return results;
@@ -811,7 +913,8 @@ export async function dailyTopUnlabeledSenders(db: D1Database, fromDay: string, 
 /** The claimed direct sends over the window as credit rows (see VIA_TOKEN_CREDITS_SQL); none, unread, when nothing is claimed. */
 export async function viaTokenCreditsOf(db: D1Database, fromDay: string | null, toDay: string, claimed: readonly string[], labeled: readonly string[]): Promise<BreakdownRow[]> {
   if (claimed.length === 0) return [];
-  const { results } = await db.prepare(VIA_TOKEN_CREDITS_SQL).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(claimed), JSON.stringify(labeled)).all<BreakdownRow>();
+  const sql = viaTokenCreditsSqlOver(await windowSource(db, fromDay, toDay));
+  const { results } = await db.prepare(sql).bind(fromDay ?? '0000-00-00', toDay, JSON.stringify(claimed), JSON.stringify(labeled)).all<BreakdownRow>();
   return results;
 }
 
@@ -870,7 +973,7 @@ export interface FirstDayRow {
 /** Each key's first day with a message, oldest first. */
 export async function firstDays(db: D1Database, dim: 'lane' | 'token'): Promise<FirstDayRow[]> {
   const { results } = await db
-    .prepare('SELECT key, MIN(day) AS first_day FROM daily_breakdown WHERE dim = ? GROUP BY key ORDER BY first_day, key')
+    .prepare(`SELECT key, MIN(day) AS first_day FROM ${await allTimeSource(db, '9999-12-31')} WHERE dim = ? GROUP BY key ORDER BY first_day, key`)
     .bind(dim)
     .all<FirstDayRow>();
   return results;
@@ -1028,41 +1131,67 @@ export interface FeeCostRow {
 /** A fee token as normalizeAddress stores it: a 42-character 0x address lowercased, any other address as it is. */
 const NORMALIZED_FEE_TOKEN = "CASE WHEN fee_token LIKE '0x%' AND length(fee_token) = 42 THEN lower(fee_token) ELSE fee_token END";
 
+/** A priced fee of the window, with whether it was paid in LINK. */
+export interface PricedFee {
+  src_chain: string;
+  dst_chain: string;
+  fee_usd: number;
+  is_link: number;
+}
+
 /**
- * One row per route over days [?1, ?2] with at least ?3 priced fees: the nearest-rank 10th, 50th and 90th percentiles
- * (rank ceil(p·n/100), written (p·n + 99) / 100 in integer arithmetic), and the medians of the LINK-paid and other fees.
- * The LINK keys are inlined as literals because D1 caps a statement at 100 bound parameters.
+ * Every priced fee over days [?1, ?2], read once through messages_day. The LINK keys are inlined as literals because D1
+ * caps a statement at 100 bound parameters.
  */
-export function feeCostsSql(linkTokens: LinkFeeTokens): string {
+export function pricedFeesSql(linkTokens: LinkFeeTokens): string {
   const keys = [...linkTokens.keys()].map(sqlLiteral).join(', ');
-  return `WITH priced AS (
-      SELECT src_chain, dst_chain, fee_usd,
-        CASE WHEN (src_chain || ':' || ${NORMALIZED_FEE_TOKEN}) IN (${keys}) THEN 1 ELSE 0 END AS is_link
-      FROM messages WHERE day >= ?1 AND day <= ?2 AND fee_usd IS NOT NULL
-    ), ranked AS (
-      SELECT src_chain, dst_chain, fee_usd, is_link,
-        ROW_NUMBER() OVER (PARTITION BY src_chain, dst_chain ORDER BY fee_usd) AS rn,
-        COUNT(*) OVER (PARTITION BY src_chain, dst_chain) AS n,
-        ROW_NUMBER() OVER (PARTITION BY src_chain, dst_chain, is_link ORDER BY fee_usd) AS split_rn,
-        COUNT(*) OVER (PARTITION BY src_chain, dst_chain, is_link) AS split_n,
-        SUM(is_link) OVER (PARTITION BY src_chain, dst_chain) AS link_n
-      FROM priced
-    )
-    SELECT src_chain AS src, dst_chain AS dst, MAX(n) AS messages, MAX(link_n) AS link_messages,
-      MAX(CASE WHEN rn = (10 * n + 99) / 100 THEN fee_usd END) AS p10_usd,
-      MAX(CASE WHEN rn = (50 * n + 99) / 100 THEN fee_usd END) AS median_usd,
-      MAX(CASE WHEN rn = (90 * n + 99) / 100 THEN fee_usd END) AS p90_usd,
-      MAX(CASE WHEN is_link = 1 AND split_rn = (50 * split_n + 99) / 100 THEN fee_usd END) AS link_median_usd,
-      MAX(CASE WHEN is_link = 0 AND split_rn = (50 * split_n + 99) / 100 THEN fee_usd END) AS gas_median_usd
-    FROM ranked
-    WHERE n >= ?3
-    GROUP BY src_chain, dst_chain
-    ORDER BY messages DESC, src, dst`;
+  return `SELECT src_chain, dst_chain, fee_usd,
+      CASE WHEN (src_chain || ':' || ${NORMALIZED_FEE_TOKEN}) IN (${keys}) THEN 1 ELSE 0 END AS is_link
+    FROM messages WHERE day >= ?1 AND day <= ?2 AND fee_usd IS NOT NULL`;
+}
+
+/** The nearest-rank value at percentile `p` of ascending `sorted`: rank ceil(p·n/100), in integer arithmetic. */
+const nearestRank = (sorted: readonly number[], p: number): number => sorted[Math.floor((p * sorted.length + 99) / 100) - 1]!;
+
+const byNumber = (a: number, b: number) => a - b;
+const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * One row per route with at least `minMessages` priced fees: the nearest-rank 10th, 50th and 90th percentiles and the
+ * medians of the LINK-paid and other fees, busiest route first. Ranked here rather than in SQL, where five window
+ * passes read the window about 13 times over.
+ */
+export function feeCostRows(fees: readonly PricedFee[], minMessages: number): FeeCostRow[] {
+  const routes = new Map<string, { src: string; dst: string; all: number[]; link: number[]; gas: number[] }>();
+  for (const f of fees) {
+    const key = `${f.src_chain}>${f.dst_chain}`;
+    const route = routes.get(key) ?? { src: f.src_chain, dst: f.dst_chain, all: [], link: [], gas: [] };
+    routes.set(key, route);
+    route.all.push(f.fee_usd);
+    (f.is_link === 1 ? route.link : route.gas).push(f.fee_usd);
+  }
+  return [...routes.values()]
+    .filter((r) => r.all.length >= minMessages)
+    .map((r) => {
+      const [all, link, gas] = [r.all, r.link, r.gas].map((list) => [...list].sort(byNumber)) as [number[], number[], number[]];
+      return {
+        src: r.src,
+        dst: r.dst,
+        messages: all.length,
+        link_messages: link.length,
+        p10_usd: nearestRank(all, 10),
+        median_usd: nearestRank(all, 50),
+        p90_usd: nearestRank(all, 90),
+        link_median_usd: link.length > 0 ? nearestRank(link, 50) : null,
+        gas_median_usd: gas.length > 0 ? nearestRank(gas, 50) : null,
+      };
+    })
+    .sort((a, b) => b.messages - a.messages || byText(a.src, b.src) || byText(a.dst, b.dst));
 }
 
 export async function feeCosts(db: D1Database, fromDay: string, toDay: string, linkTokens: LinkFeeTokens, minMessages: number): Promise<FeeCostRow[]> {
-  const { results } = await db.prepare(feeCostsSql(linkTokens)).bind(fromDay, toDay, minMessages).all<FeeCostRow>();
-  return results;
+  const { results } = await db.prepare(pricedFeesSql(linkTokens)).bind(fromDay, toDay).all<PricedFee>();
+  return feeCostRows(results, minMessages);
 }
 
 export async function laneHistory(db: D1Database): Promise<LaneDayRow[]> {

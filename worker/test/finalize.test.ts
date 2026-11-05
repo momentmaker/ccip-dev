@@ -9,7 +9,7 @@ import detailMultiToken from '../../packages/core/test/fixtures/detail-multi-tok
 import detailToken from '../../packages/core/test/fixtures/detail-token.json';
 import { runBroadcasts } from '../src/broadcasts/run';
 import { runDetails } from '../src/jobs/details';
-import { runFinalize } from '../src/jobs/finalize';
+import { LAST_PUBLISHED_KEY, runFinalize } from '../src/jobs/finalize';
 import { storeListMessages } from '../src/jobs/ingest';
 import * as store from '../src/store';
 import { fallbackLoader } from '../src/price-fallback';
@@ -442,6 +442,23 @@ describe('runFinalize', () => {
         outcome: 'Error: D1_ERROR: no such table: tokens',
         errors: ['history publish failed after finalize failed for 1 day(s); the first: 2026-10-09: CCIP list down'],
       });
+    });
+
+    it('marks the finalized day published once its files are out', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      await runFinalize(harness({ now: NOW, ccip: api() }).c, 'early');
+      expect(await store.getMeta(env.DB, LAST_PUBLISHED_KEY)).toBe('2026-10-09');
+    });
+
+    it('leaves the published pointer behind when the publish fails, so the hourly run re-publishes', async () => {
+      await seedMeta('2026-10-08', '2026-10-08');
+      await store.setMeta(env.DB, LAST_PUBLISHED_KEY, '2026-10-08');
+      const { db } = watchedDb(/FROM daily_totals ORDER BY day/, { fail: true });
+      await expect(runFinalize(harness({ now: NOW, ccip: api(), db }).c, 'early')).rejects.toThrow('D1_ERROR');
+      expect({
+        finalized: await store.getMeta(env.DB, 'last_finalize_day'),
+        published: await store.getMeta(env.DB, LAST_PUBLISHED_KEY),
+      }).toEqual({ finalized: '2026-10-09', published: '2026-10-08' });
     });
 
     it('publishes nothing when no day was finalized', async () => {

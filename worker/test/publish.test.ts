@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ATTRIBUTION, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ATTRIBUTION, PUBLISH_PAUSE_MS, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
 import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type LabelIndex, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeCcip, fakePrices, listMessage, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_LABELS, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
+import { rankedIdentities, senderBook } from '../src/senders';
 import * as store from '../src/store';
 import { harness, liveRow, readPublic, resetStorage, seedRegistry } from './helpers';
 
@@ -180,6 +181,16 @@ describe('token symbols outside the CCIP registry', () => {
       { key: `${BASE}:${SYRUP.toLowerCase()}`, messages: 1, usd: 99_999, symbol: 'syrupUSDC' },
       { key: `${BASE}:0xtok`, messages: 1, usd: 1234.57, symbol: 'USDC' },
     ]);
+  });
+
+  it('names a token the registry lists without a symbol from its DefiLlama price row', async () => {
+    // #given the registry lists syrupUSDC with an empty symbol
+    await seedUnregisteredToken();
+    await store.upsertTokens(env.DB, [{ chain: BASE, address: SYRUP.toLowerCase(), symbol: '', name: '', decimals: 6, groupId: null }], NOW);
+    // #when
+    await publishLiveFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('live.json')).messages.find((m: { id: string }) => m.id === 'syrup').token).toBe('syrupUSDC');
   });
 
   it('prefers the registry symbol over the DefiLlama one', async () => {
@@ -466,8 +477,8 @@ describe('cost.json', () => {
 
   it('reads the window through the messages_day index', async () => {
     // #when
-    const sql = store.feeCostsSql(await store.linkFeeTokens(env.DB));
-    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind('2026-09-08', '2026-10-07', 5).all<{ detail: string }>();
+    const sql = store.pricedFeesSql(await store.linkFeeTokens(env.DB));
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind('2026-09-08', '2026-10-07').all<{ detail: string }>();
     // #then
     expect(plan.results.map((r) => r.detail).join(' | ')).toContain('USING INDEX messages_day');
   });
@@ -705,6 +716,36 @@ describe('senders by identity', () => {
     await store.replaceDaily(env.DB, XSTOCKS_TOTALS, xstocksBreakdown(), NOW);
   });
 
+  it("reads a window's labeled rows and credits once for both the value and the fees ranking", async () => {
+    // #given only the identities read the window 2026-09-14 to 2026-10-13
+    const from30 = '2026-09-14';
+    const labeledRows = vi.spyOn(store, 'senderTotalsOf');
+    const credits = vi.spyOn(store, 'viaTokenCreditsOf');
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels: XSTOCKS_LABELS }).c);
+    const reads = (spy: typeof labeledRows | typeof credits) => spy.mock.calls.filter(([, fromDay, toDay]) => fromDay === from30 && toDay === '2026-10-13').length;
+    const counts = { labeledRows: reads(labeledRows), credits: reads(credits) };
+    labeledRows.mockRestore();
+    credits.mockRestore();
+    // #then
+    expect(counts).toEqual({ labeledRows: 1, credits: 1 });
+  });
+
+  it('ranks every window in both orders as a ranking of that window alone would', async () => {
+    // #given
+    const { c } = harness({ now: NOW, labels: XSTOCKS_LABELS });
+    // #when
+    await publishHistoryFiles(c);
+    // #then
+    const book = await senderBook(c);
+    const from = { '7d': '2026-10-07', '30d': '2026-09-14', all: null };
+    const alone = async (order: 'value' | 'fees') =>
+      Object.fromEntries(await Promise.all(Object.entries(from).map(async ([w, f]) => [w, (await rankedIdentities(c, book, f, '2026-10-13', order, 100)).map((i) => i.key)])));
+    const published = (windows: Record<string, { key: string }[]>) => Object.fromEntries(Object.entries(windows).map(([w, rows]) => [w, rows.map((r) => r.key)]));
+    const top = await readPublic('top/sender.json');
+    expect({ value: published(top.identities), fees: published(top.identities_by_fees) }).toEqual({ value: await alone('value'), fees: await alone('fees') });
+  });
+
   it("names xStocks the day's top sender: 319 messages, 20.3% of the day, on six chains from two addresses", async () => {
     // #when
     await publishHistoryFiles(harness({ now: NOW, labels: XSTOCKS_LABELS }).c);
@@ -750,7 +791,7 @@ describe('senders by identity', () => {
     const failing = fail().mockRejectedValue(new Error('D1 unavailable'));
     const { c, alerts } = harness({ now: NOW, labels: XSTOCKS_LABELS });
     // #when
-    await expect(publishHistoryFiles(c)).resolves.toBeUndefined();
+    const missed = await publishHistoryFiles(c);
     failing.mockRestore();
     // #then
     const top = await readPublic('top/sender.json');
@@ -759,7 +800,8 @@ describe('senders by identity', () => {
       identities: top.identities,
       replay: (await env.PUBLIC.get('v1/replay.json')) !== null,
       alerted: alerts.some((a) => a.signature === 'top-sender-identities'),
-    }).toEqual({ windows: true, identities: undefined, replay: true, alerted: true });
+      missed: missed.includes('top-sender-identities'),
+    }).toEqual({ windows: true, identities: undefined, replay: true, alerted: true, missed: true });
   });
 
   it("names the week's top sender by identity", async () => {
@@ -967,5 +1009,125 @@ describe('senders via token', () => {
       today.top.sender[0].via_token_fee_usd,
       status.label_coverage.via_token_messages_pct,
     ]).toEqual([60, true, 600, null, 30]);
+  });
+});
+
+describe('history files when D1 is overloaded', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  const OVERLOADED = 'D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window';
+  afterEach(() => vi.restoreAllMocks());
+  const overloadWaits = (sleep: { mock: { calls: unknown[][] } }) => sleep.mock.calls.map(([ms]) => ms).filter((ms) => ms !== PUBLISH_PAUSE_MS);
+
+  it('waits for D1 to recover and publishes the step it refused', async () => {
+    // #given D1 refuses the replay query once
+    vi.spyOn(store, 'laneHistory').mockRejectedValueOnce(new Error(OVERLOADED));
+    const { c, alerts } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({ missed, replay: (await env.PUBLIC.get('v1/replay.json')) !== null, waits: overloadWaits(sleep), alerts }).toEqual({
+      missed: [],
+      replay: true,
+      waits: [15_000],
+      alerts: [],
+    });
+  });
+
+  it('reports the step as missed, and alerts, once D1 stays overloaded through every wait', async () => {
+    // #given
+    vi.spyOn(store, 'laneHistory').mockRejectedValue(new Error(OVERLOADED));
+    const { c, alerts } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({ missed, waits: overloadWaits(sleep), alerts: alerts.map((a) => a.signature) }).toEqual({
+      missed: ['replay-publish'],
+      waits: [15_000, 45_000],
+      alerts: ['replay-publish'],
+    });
+  });
+
+  it('reports a failure that is not an overload as missed without waiting', async () => {
+    // #given
+    vi.spyOn(store, 'feeCosts').mockRejectedValueOnce(new Error('D1 unavailable'));
+    const { c } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({ missed, waits: overloadWaits(sleep).length }).toEqual({ missed: ['cost-publish'], waits: 0 });
+  });
+
+  it('reports the sender identities as missed when they could not be computed', async () => {
+    // #given
+    vi.spyOn(store, 'senderTotalsOf').mockRejectedValue(new Error(OVERLOADED));
+    const { c } = harness({ now: NOW });
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect(missed).toContain('top-sender-identities');
+  });
+
+  it('pauses before each top file, each identity window and replay.json, so the reads spread out', async () => {
+    // #given
+    const { c } = harness({ now: NOW });
+    const sleep = vi.spyOn(c.deps, 'sleep');
+    // #when
+    await publishHistoryFiles(c);
+    // #then five top files, three identity windows and replay.json
+    expect(sleep.mock.calls.filter(([ms]) => ms === PUBLISH_PAUSE_MS)).toHaveLength(9);
+  });
+
+  it("logs each step's time and D1 use as one JSON line, then the publish's total", async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const lines = log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('{"publish_step"')).map((line) => JSON.parse(line));
+    expect({
+      steps: lines.map((l) => l.publish_step),
+      fields: lines.every((l) => ['ms', 'd1_ms', 'rows_read', 'queries'].every((f) => typeof l[f] === 'number') && l.ok === true),
+      total: lines.at(-1).queries === lines.slice(0, -1).reduce((sum, l) => sum + l.queries, 0),
+    }).toEqual({
+      steps: ['history', 'cost', 'day-leaders', 'moments', 'projects', 'sender-book', 'label-coverage', 'sender-identities', 'top/src_chain', 'top/dst_chain', 'top/lane', 'top/token', 'top/sender', 'replay', 'total'],
+      fields: true,
+      total: true,
+    });
+  });
+
+  it('names up to three of each step\'s heaviest statements, heaviest first', async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const lines = log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('{"publish_step"')).map((line) => JSON.parse(line));
+    const history = lines.find((l) => l.publish_step === 'history');
+    expect({
+      shaped: lines.every((l) => Array.isArray(l.top) && l.top.length <= 3 && l.top.every((s: { sql: unknown }) => typeof s.sql === 'string')),
+      ordered: lines.every((l) => l.top.every((s: { rows_read: number }, i: number) => i === 0 || l.top[i - 1].rows_read >= s.rows_read)),
+      history: history.top.length > 0,
+    }).toEqual({ shaped: true, ordered: true, history: true });
+  });
+
+  it('logs a step that failed with ok false', async () => {
+    // #given
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(store, 'feeCosts').mockRejectedValueOnce(new Error('D1 unavailable'));
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const cost = log.mock.calls.map(([line]) => String(line)).find((line) => line.startsWith('{"publish_step":"cost"'));
+    expect(JSON.parse(cost!).ok).toBe(false);
+  });
+
+  it('reports nothing missed when every file publishes', async () => {
+    // #when
+    const missed = await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect(missed).toEqual([]);
   });
 });

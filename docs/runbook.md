@@ -110,6 +110,7 @@ Run this once, after the Worker is deployed. The import makes D1 unavailable whi
    3. `pnpm backfill:build --live-start <live_start_day>` (read it with `… wrangler d1 execute ccip-dev --remote --command "SELECT value FROM meta WHERE key = 'live_start_day'"`). Each build also fetches the CCIP token registry (`/chains` and every `/tokens` page, a few requests) and CoinGecko's keyless coin id lists (`/asset_platforms` and `/coins/list`, two requests; ids only, never prices) into `.backfill/registry/`. A token with no price on a day takes the price of another copy of the same token that day, then its CoinGecko coin's DefiLlama price that day: the fallback the Worker also uses. The SQL also seeds the Worker's `coingecko_ids` table with the registry tokens it maps. A price series without a point on a day uses its nearest point at most two days away (the earlier on a tie), but only when it has a point on both sides of that day.
    4. `pnpm backfill:upload`. The upload passes `--yes` to wrangler, so there are no import prompts to answer.
 5. If interrupted, re-run `pnpm backfill:upload`; it resumes from `.backfill/upload-state.json`. After a rebuild, the new build id makes it apply every SQL file and replace every archive again. The upserts only touch backfill rows.
+6. The upload writes `daily_breakdown` without the Worker's `replaceDaily`, so it leaves `day_leaders` and `monthly_breakdown` holding the old values of the days it rewrote. Afterwards, clear the stored leaders and reset the rollup pointer: `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "DELETE FROM day_leaders; DELETE FROM meta WHERE key = 'breakdown_rolled_through'"`. The all-time rankings read daily rows until the hourly runs roll the months again (about ten hours). The next publish computes the missing leaders, and the hourly refresh fills the rest. Do the same after any SQL file that changes `daily_breakdown` directly, such as the fee backfill's `UPDATE daily_breakdown`.
 
 ## Endpoint maps
 
@@ -334,12 +335,15 @@ LinkMarines as a Telegram Mini App on @ccipdevbot: enlisting, your dog tag and t
 
 ## Incidents and alerts
 
-Alerts arrive in the Telegram chat.
+Alerts arrive in the Telegram chat. Every sent alert also logs `{"alert_sent": <signature>, "suppressed_for_ms": …}` to Workers Logs, so filtering the `alert_sent` field lists them all. That includes alerts sent while D1 was overloaded, which leave no `alert:` row in `meta` (`suppressed_for_ms` 0).
 
 | Signature | What to check |
 |---|---|
 | `ingest-lag` | Ingest has not succeeded for a while. Check `lag_seconds` in `status.json`, then the CCIP API (see "Poison message"). |
 | `job-failed:<job>` | The named job threw. Read the message in the alert and the Worker logs (`wrangler tail`). |
+| `monthly-rollup` | The hourly roll of completed months into `monthly_breakdown` failed. Nothing is wrong meanwhile: the all-time rankings read daily rows for every month after `breakdown_rolled_through`, and the next hour retries. Read the reason in the alert. |
+| `day-leaders-refresh` | The hourly refresh of the stored day leaders (`day_leaders`) failed. day-leaders.json keeps serving the stored days, under their old labels if a deploy changed them, and the next hour retries. A day with no row is still computed at publish, so the file stays complete. Read the reason in the alert; a `D1 DB is overloaded` one usually clears on its own. |
+| `publish-catch-up` | A finalize finished its days but its publish (history files, site build trigger) failed, and the hourly re-publish failed too. The hourly run retries every hour (except 06:00, when the late finalize publishes) until `last_published_day` matches `last_finalize_day`; yesterday's daily posts after the first one that succeeds. Read the reason; a `D1 DB is overloaded` one usually clears on its own. |
 | `ingest-resume` | The ingest resume walk failed and was dropped. Nothing to do unless it repeats. |
 | `price-outlier` | A token amount valued above $10 billion was stored unpriced. Check the price of the listed token on DefiLlama. |
 | `price-jump` | A price refresh (or a detail fill's re-fetch) rejected a jump of more than 20×. Check the listed tokens on DefiLlama; if the move is real, accept it (see "Accept a real price jump"). |
@@ -424,6 +428,7 @@ Use `last_archived_day` in place of `last_finalize_day` for the second key.
   - Detail fills share one 5-minute budget, which starts when the run starts and also covers the list walks. In a deep catch-up, the later days of a run may get little or none of it. They roll up with list values for the messages still missing details, and the log says "detail fill stopped at its deadline".
   - The 06:00 run re-fills a day's missing details when it archives that day. For a day already archived, rewind `last_archived_day` too.
 - **A day that fails** (`job-failed:finalize` names it) holds its own run's pointer: `last_finalize_day` for the 00:07 run, `last_archived_day` for the 06:00 run. The later days in the same run still finalize and publish, and the next run of that kind retries it.
+- **A publish that fails** after the days finalized leaves `last_published_day` behind `last_finalize_day`, and the next hourly run (not the 06:00 one) re-publishes, then retries yesterday's daily. A rewind of `last_finalize_day` also makes the hourly run re-publish once; that is harmless.
 
 ### Re-price live fees after an alias change
 

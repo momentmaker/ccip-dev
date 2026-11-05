@@ -147,10 +147,13 @@ export const VIA_ADDRESS = "substr(key, instr(key, ':') + 1, instr(key, '|') - i
 export const VIA_GROUP = "substr(key, instr(key, '|') + 1)";
 export const VIA_SELECTOR = "substr(key, 1, instr(key, ':') - 1)";
 
-const viaTokenCreditsSql = (withDay: boolean) => {
+/** The breakdown rows a query reads: daily_breakdown, or a subquery with its columns (the Worker's rolled months). */
+export const DAILY_BREAKDOWN = 'daily_breakdown';
+
+const viaTokenCreditsSql = (withDay: boolean, source: string = DAILY_BREAKDOWN) => {
   const day = withDay ? 'day, ' : '';
   return `SELECT ${day}credit AS key, SUM(messages) AS messages, SUM(usd_value) AS usd_value, SUM(fee_usd) AS fee_usd FROM (
-    SELECT day, ${VIA_SELECTOR} || '|' || ${VIA_GROUP} AS credit, messages, usd_value, fee_usd FROM daily_breakdown
+    SELECT day, ${VIA_SELECTOR} || '|' || ${VIA_GROUP} AS credit, messages, usd_value, fee_usd FROM ${source}
     WHERE dim = 'via_token' AND day >= ?1 AND day <= ?2
       AND ${VIA_GROUP} IN (SELECT value FROM json_each(?3)) AND ${VIA_ADDRESS} NOT IN (SELECT value FROM json_each(?4))
   ) GROUP BY ${day}credit ORDER BY ${day}credit`;
@@ -162,11 +165,11 @@ const viaTokenCreditsSql = (withDay: boolean) => {
  * The Worker's rankings and the candidates job both read unlabeled senders through it, so neither counts a wallet for
  * sends already credited to a project.
  */
-export const unlabeledSenderRowsSql = (withDay: boolean, claimedParam: string): string => `SELECT ${withDay ? 'day, ' : ''}key, address, messages, usd_value, fee_usd FROM (
-    SELECT day, key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd FROM daily_breakdown
+export const unlabeledSenderRowsSql = (withDay: boolean, claimedParam: string, source: string = DAILY_BREAKDOWN): string => `SELECT ${withDay ? 'day, ' : ''}key, address, messages, usd_value, fee_usd FROM (
+    SELECT day, key, ${SENDER_ADDRESS} AS address, messages, usd_value, fee_usd FROM ${source}
     WHERE dim = 'sender' AND day >= ?1 AND day <= ?2
     UNION ALL
-    SELECT day, ${VIA_SENDER_KEY}, ${VIA_ADDRESS}, -messages, -usd_value, -fee_usd FROM daily_breakdown
+    SELECT day, ${VIA_SENDER_KEY}, ${VIA_ADDRESS}, -messages, -usd_value, -fee_usd FROM ${source}
     WHERE dim = 'via_token' AND day >= ?1 AND day <= ?2 AND ${VIA_GROUP} IN (SELECT value FROM json_each(${claimedParam}))
   ) WHERE address NOT IN (SELECT value FROM json_each(?3))`;
 
@@ -175,6 +178,8 @@ export const unlabeledSenderRowsSql = (withDay: boolean, claimedParam: string): 
  * labeled addresses ?4. The Worker and the candidates job both read coverage through it, so their numbers match.
  */
 export const VIA_TOKEN_CREDITS_SQL = viaTokenCreditsSql(false);
+/** VIA_TOKEN_CREDITS_SQL over another breakdown source (see DAILY_BREAKDOWN). */
+export const viaTokenCreditsSqlOver = (source: string): string => viaTokenCreditsSql(false, source);
 export const VIA_TOKEN_CREDIT_DAYS_SQL = viaTokenCreditsSql(true);
 
 /**

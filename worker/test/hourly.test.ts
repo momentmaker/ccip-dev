@@ -1,7 +1,8 @@
 import { LINK_PRICE_KEY, RESERVE_FIRST_BLOCK, UpstreamHttpError, UpstreamSchemaError, type CoingeckoCoin } from '@ccip-dev/core';
 import { fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LAST_PUBLISHED_KEY } from '../src/jobs/finalize';
 import { runHourly } from '../src/jobs/hourly';
 import { LATE_FINALIZE_HOUR_UTC } from '../src/schedule';
 import * as store from '../src/store';
@@ -144,6 +145,87 @@ describe('runHourly', () => {
     const photos = f.calls.filter((c) => c.url.endsWith('/sendPhoto')).map((c) => ((c.init?.body as FormData).get('photo') instanceof Blob ? 'uploaded' : 'missing'));
     const cards = f.calls.filter((c) => c.url.startsWith('https://ccip.dev/og/')).map((c) => c.url);
     expect({ photos, cards }).toEqual({ photos: ['uploaded', 'uploaded'], cards: ['https://ccip.dev/og/broadcast/daily/2026-10-07.png'] });
+  });
+
+  describe('when the 00:07 finalize failed to publish', () => {
+    async function seedUnpublished(published: string | null) {
+      for (const day of ['2026-10-05', '2026-10-06', '2026-10-07']) {
+        await store.replaceDaily(env.DB, { day, messages: 1, token_messages: 0, usd_value: 1, fee_usd: 1, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 }, [], NOW);
+      }
+      await store.setMeta(env.DB, 'live_start_day', '2026-10-05');
+      await store.setMeta(env.DB, 'last_finalize_day', '2026-10-07');
+      if (published !== null) await store.setMeta(env.DB, LAST_PUBLISHED_KEY, published);
+    }
+    const run = (now = NOW) =>
+      runHourly(harness({ now, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: rpcFake({ balanceLink: 1n }) }).c);
+    const publishedDays = async () => ((await env.PUBLIC.get('v1/history.json')) === null ? null : (await readPublic('history.json')).days.map((d: { day: string }) => d.day));
+
+    it('re-publishes the finalized day and marks it published', async () => {
+      // #given yesterday is finalized, but its files were last published for the day before
+      await seedUnpublished('2026-10-06');
+      // #when
+      await run();
+      // #then
+      expect({ days: await publishedDays(), pointer: await store.getMeta(env.DB, LAST_PUBLISHED_KEY) }).toEqual({
+        days: ['2026-10-05', '2026-10-06', '2026-10-07'],
+        pointer: '2026-10-07',
+      });
+    });
+
+    it('re-publishes when no publish was ever recorded', async () => {
+      // #given
+      await seedUnpublished(null);
+      // #when
+      await run();
+      // #then
+      expect(await store.getMeta(env.DB, LAST_PUBLISHED_KEY)).toBe('2026-10-07');
+    });
+
+    it('publishes nothing when the finalized day is already published', async () => {
+      // #given
+      await seedUnpublished('2026-10-07');
+      // #when
+      await run();
+      // #then
+      expect(await publishedDays()).toBeNull();
+    });
+
+    it('leaves the 06:00 hour to the late finalize, which publishes itself', async () => {
+      // #given
+      await seedUnpublished('2026-10-06');
+      // #when
+      await run(`2026-10-08T0${LATE_FINALIZE_HOUR_UTC}:00:00.000Z`);
+      // #then
+      expect(await publishedDays()).toBeNull();
+    });
+
+    it('leaves the pointer behind when a history file was missed, so the next hour re-publishes again', async () => {
+      // #given replay.json cannot be built
+      await seedUnpublished('2026-10-06');
+      const replay = vi.spyOn(store, 'laneHistory').mockRejectedValue(new Error('D1 unavailable'));
+      // #when
+      await run();
+      replay.mockRestore();
+      // #then
+      expect(await store.getMeta(env.DB, LAST_PUBLISHED_KEY)).toBe('2026-10-06');
+    });
+
+    it('alerts and finishes the hour when the re-publish fails', async () => {
+      // #given
+      await seedUnpublished('2026-10-06');
+      const { db } = watchedDb(/FROM daily_totals ORDER BY day/, { fail: true });
+      const h = harness({ now: NOW, ccip: fakeCcip({ chains: [NETWORKS.base], tokens: [LINK] }), fetch: rpcFake({ balanceLink: 1n }), db });
+      // #when
+      await runHourly(h.c);
+      // #then
+      expect({
+        alerts: h.alerts.filter((a) => a.signature === 'publish-catch-up').map((a) => a.text),
+        pointer: await store.getMeta(env.DB, LAST_PUBLISHED_KEY),
+      }).toEqual({
+        alerts: ["Re-publishing the files for 2026-10-07 failed; the next hourly run retries: D1_ERROR: no such table: tokens"],
+        pointer: '2026-10-06',
+      });
+    });
   });
 
   it('leaves yesterday to the 06:00 late finalize, so the hourly run at that hour does not retry it', async () => {

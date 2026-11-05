@@ -44,11 +44,12 @@ export const FixedFees = z.object({
 
 export const ChainsResponse = z.object({ chains: z.array(NetworkInfo) });
 
+/** The registry lists some tokens (Solana's wYLDS and PRIME, for one) without a name or a symbol; they're kept. */
 export const RegistryToken = z.object({
   chainSelector: z.string(),
   address: z.string(),
-  symbol: z.string(),
-  name: z.string(),
+  symbol: z.string().nullable(),
+  name: z.string().nullable(),
   decimals: z.number().int().nonnegative(),
   groupId: z.string().nullish(),
 });
