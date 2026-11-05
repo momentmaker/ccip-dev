@@ -1,5 +1,4 @@
 import type { TodayFile } from '@ccip-dev/core/public';
-import type { CSSProperties } from 'react';
 import { formatCount, formatDuration, formatShare, formatUsd, linkShareText } from '../../lib/format';
 import type { MetricKey } from '../../lib/metric-anchors';
 import InfoLink from '../InfoLink';
@@ -26,7 +25,7 @@ export default function TodayTiles({ totals, yesterdaySenders = null }: { totals
     { label: 'Unpriced', metric: 'unpriced', info: 'unpriced messages', value: formatCount(totals.unpriced_messages), sub: 'with a token we cannot price' },
   ];
   return (
-    <div className="stats" style={{ '--stat-cols': stats.length } as CSSProperties}>
+    <div className={stats.length === 6 ? 'stats stats-six' : 'stats'}>
       {stats.map((s) => (
         <div key={s.label} className="stat">
           <span className="label">

@@ -120,6 +120,15 @@ describe('TodayTiles CRE tile', () => {
     expect(out).toMatch(/\b4\b.*of today/);
   });
 
+  it('lays six tiles out in three columns and five in the usual strip', () => {
+    // #when
+    const six = render(TodayTiles, { totals: { ...today.totals, cre_messages: 4 } });
+    const five = render(TodayTiles, { totals: { ...today.totals, cre_messages: 0 } });
+    // #then
+    expect(six).toContain('class="stats stats-six"');
+    expect(five).toContain('class="stats"');
+  });
+
   it('hides when there are none', () => {
     // #when
     const out = text(render(TodayTiles, { totals: { ...today.totals, cre_messages: 0 } }));
@@ -145,6 +154,7 @@ describe('the COMMS feed', () => {
     const out = render(Feed, { messages, names });
     // #then
     expect(out).toContain('title="Sent by a Chainlink CRE workflow"');
+    expect(out).toContain('aria-label="Sent by a Chainlink CRE workflow"');
   });
 
   it('badges ticker items sent by a CRE workflow', () => {

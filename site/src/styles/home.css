@@ -156,7 +156,8 @@
 .pulse-tip { position: absolute; z-index: 2; pointer-events: none; display: grid; padding: 7px 10px; border-radius: 6px; background: #0b0f17; border: 1px solid var(--border); font-size: 12px; white-space: nowrap; transform: translate(-50%, -100%); }
 .pulse-tip strong { font-size: 14px; }
 
-.stats { display: grid; grid-template-columns: repeat(var(--stat-cols, 5), minmax(0, 1fr)); gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.stats-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stat { min-width: 0; }
 .stat .label { font-size: 10px; letter-spacing: 0.06em; white-space: nowrap; }
 .stat .info { margin-left: 2px; }
@@ -362,7 +363,7 @@
   .flow-link { width: 40px; justify-self: center; transform: rotate(90deg); }
   .board-foot, .corps-grid { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats .stat:first-child { grid-column: 1 / -1; }
+  .stats .stat:first-child, .stats-six .stat:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 720px) {
   .hero { padding-bottom: 340px; }
