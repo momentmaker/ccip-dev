@@ -5,6 +5,7 @@ import {
   SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, VIA_TOKEN_CREDITS_SQL,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
+import { isMonth, monthBounds, previousMonth } from '@ccip-dev/core/month';
 
 const PARAM_CHUNK = 90;
 const BATCH_SIZE = 100;
@@ -632,6 +633,7 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
       ),
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
     db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(totals.day),
+    unrollStatement(db, totals.day),
     ...breakdown.map((b) => insertBreakdown.bind(b.day, b.dim, b.key, b.messages, b.usd_value, b.fee_usd)),
   ]);
 }
@@ -645,7 +647,7 @@ export async function rolledUpDaysBefore(db: D1Database, before: string, limit: 
 }
 
 export async function backfillViaTokenDay(db: D1Database, day: string): Promise<void> {
-  await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day)]);
+  await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day), unrollStatement(db, day)]);
 }
 
 /** A day's stored day-leaders.json entry (see migration 0012). */
@@ -668,6 +670,52 @@ export async function putDayLeaders(db: D1Database, rows: readonly DayLeaderRow[
     'INSERT INTO day_leaders (day, fingerprint, entry) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET fingerprint = excluded.fingerprint, entry = excluded.entry',
   );
   await runBatch(db, rows.map((r) => upsert.bind(r.day, r.fingerprint, r.entry)));
+}
+
+/** The meta key naming the last month of the rolled prefix of monthly_breakdown (see migration 0013). */
+export const ROLLED_THROUGH_KEY = 'breakdown_rolled_through';
+
+/** Moves the rolled pointer back before `day`'s month when that month is rolled, so readers take its daily rows. */
+function unrollStatement(db: D1Database, day: string): D1PreparedStatement {
+  const month = day.slice(0, 7);
+  return db.prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2').bind(previousMonth(month), month, ROLLED_THROUGH_KEY);
+}
+
+/** The last rolled month, or null before the first roll (or when the stored value is not a month). */
+export async function rolledThrough(db: D1Database): Promise<string | null> {
+  const value = await getMeta(db, ROLLED_THROUGH_KEY);
+  return value !== null && isMonth(value) ? value : null;
+}
+
+/** The first day daily_breakdown holds, through its primary key. */
+export async function firstBreakdownDay(db: D1Database): Promise<string | null> {
+  return (await db.prepare('SELECT MIN(day) AS day FROM daily_breakdown').first<{ day: string | null }>())?.day ?? null;
+}
+
+const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token'];
+
+/** Rebuilds `month`'s monthly_breakdown rows from its daily rows in one batch, one statement a dim; rolling again is a no-op. */
+export async function rollMonth(db: D1Database, month: string): Promise<void> {
+  const { first, last } = monthBounds(month);
+  const insert = db.prepare(
+    `INSERT INTO monthly_breakdown (month, dim, key, messages, usd_value, fee_usd, first_day)
+     SELECT ?1, dim, key, SUM(messages), SUM(usd_value), SUM(fee_usd), MIN(day) FROM daily_breakdown
+     WHERE dim = ?2 AND day >= ?3 AND day <= ?4 GROUP BY key`,
+  );
+  await db.batch([
+    db.prepare('DELETE FROM monthly_breakdown WHERE month = ?').bind(month),
+    ...BREAKDOWN_DIMS.map((dim) => insert.bind(month, dim, first, last)),
+  ]);
+}
+
+/** Sets the pointer to `month` only while it still names the month before, and returns whether it moved. */
+export async function advanceRolledThrough(db: D1Database, month: string): Promise<boolean> {
+  const before = previousMonth(month);
+  const result = await db
+    .prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE meta.value = ?3')
+    .bind(ROLLED_THROUGH_KEY, month, before)
+    .run();
+  return result.meta.changes > 0;
 }
 
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {

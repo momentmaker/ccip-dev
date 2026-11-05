@@ -6,6 +6,7 @@ import type { RunContext } from '../context';
 import { publishRegistryFiles, refreshDayLeaders } from '../publish';
 import { balanceRpcUrls } from '../rpc';
 import * as store from '../store';
+import { rollForwardMonths } from '../monthly-rollup';
 import { backfillViaToken } from '../via-token-backfill';
 import { catchUpPublish } from './finalize';
 import { runReserveTransfers } from './reserve';
@@ -23,6 +24,7 @@ export async function runHourly(c: RunContext): Promise<void> {
   }
   const reserve = await publishRegistryFiles(c);
   await refreshDayLeadersOrAlert(c);
+  await rollForwardMonthsOrAlert(c);
   await catchUpPublish(c);
   await broadcastHourly(c, reserve);
   await refreshCoingeckoIds(c);
@@ -36,6 +38,15 @@ async function refreshDayLeadersOrAlert(c: RunContext): Promise<void> {
     await refreshDayLeaders(c);
   } catch (err) {
     await c.alert('day-leaders-refresh', `The stored day leaders were not refreshed, and are retried next hour: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** Until a month is rolled, all-time readers take its daily rows, so a failed roll only waits for the next hour. */
+async function rollForwardMonthsOrAlert(c: RunContext): Promise<void> {
+  try {
+    await rollForwardMonths(c);
+  } catch (err) {
+    await c.alert('monthly-rollup', `Rolling up the completed months failed, and is retried next hour: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
