@@ -1,4 +1,4 @@
-import { CRE_FIRST_DAY, creKeySet, creRetagDaySql } from '@ccip-dev/core';
+import { CRE_BREAKDOWN_DAY_SQL, CRE_FIRST_DAY, creKeySet, creRetagDaySql, NO_TOKEN_GROUPS, rollupDay } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -195,5 +195,46 @@ describe('retagCre', () => {
     const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${creRetagDaySql(keys('v1'))}`).bind('2026-11-04').all()).results;
     // #then
     expect(JSON.stringify(plan)).toMatch(/USING INDEX messages_day/);
+  });
+
+  it("indexes a day's cre rows through messages_day", async () => {
+    // #when
+    const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${CRE_BREAKDOWN_DAY_SQL}`).bind('2026-11-04').all()).results;
+    // #then
+    expect(JSON.stringify(plan)).toMatch(/USING INDEX messages_day/);
+  });
+
+  it("finds a day's cre rows for the conditional unroll with an index seek on day and dim, never a scan", async () => {
+    // #when
+    const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.UNROLL_IF_CRE_SQL}`).bind('2026-09', '2026-10', store.ROLLED_THROUGH_KEY, '2026-10-15').all()).results;
+    // #then
+    expect(JSON.stringify(plan)).toMatch(/SEARCH daily_breakdown USING COVERING INDEX \w+ \((day=\? AND dim=\?|dim=\? AND day=\?)\)/);
+  });
+});
+
+describe('finalize and retag agree', () => {
+  it("write the same CRE totals and cre rows for a day, fee-less senders included", async () => {
+    // #given a day with one CRE sender whose fees are all unpriced, one with mixed fees, and a message no key signed
+    const DAY = '2026-10-20';
+    const MIXED = '0x00000000000000000000000000000000000d0002';
+    await store.upsertListRows(env.DB, [
+      liveRow({ id: 'a1', sendTs: `${DAY}T10:00:00.000Z`, sender: SENDER }, { origin: NODE, cre: 1, usd_value: 4, fee_usd: null }),
+      liveRow({ id: 'a2', sendTs: `${DAY}T10:01:00.000Z`, sender: SENDER }, { origin: NODE, cre: 1, usd_value: 0, fee_usd: null }),
+      liveRow({ id: 'b1', sendTs: `${DAY}T10:02:00.000Z`, sender: MIXED }, { origin: NODE, cre: 1, usd_value: 7, fee_usd: 1.5 }),
+      liveRow({ id: 'b2', sendTs: `${DAY}T10:03:00.000Z`, sender: MIXED }, { origin: NODE, cre: 1, usd_value: 1, fee_usd: null }),
+      liveRow({ id: 'p1', sendTs: `${DAY}T10:04:00.000Z`, sender: MIXED }, { origin: MIXED, usd_value: 50, fee_usd: 2 }),
+    ], []);
+    const { totals, breakdown } = rollupDay(DAY, await store.messagesForDay(env.DB, DAY), [], NO_TOKEN_GROUPS);
+    await store.replaceDaily(env.DB, totals, breakdown, NOW);
+    const snapshot = async () => ({
+      totals: await env.DB.prepare('SELECT cre_messages, cre_usd FROM daily_totals WHERE day = ?').bind(DAY).first(),
+      rows: (await env.DB.prepare("SELECT key, messages, usd_value, fee_usd FROM daily_breakdown WHERE day = ? AND dim = 'cre' ORDER BY key").bind(DAY).all()).results,
+    });
+    const finalized = await snapshot();
+    // #when
+    await store.retagCreDay(env.DB, DAY, creRetagDaySql(keys('v1')), 'cre_retag', 'test');
+    // #then
+    expect(finalized.totals).toEqual({ cre_messages: 4, cre_usd: 12 });
+    expect(await snapshot()).toEqual(finalized);
   });
 });

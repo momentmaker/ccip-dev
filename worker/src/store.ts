@@ -654,7 +654,7 @@ export async function backfillViaTokenDay(db: D1Database, day: string): Promise<
 /**
  * Re-tags one day's messages and rebuilds its CRE totals and cre rows, and records `passKey` = `pass` in the same batch,
  * so a later failure keeps this day's progress. The rolled pointer moves back before the day's month only when the day
- * holds CRE messages: keys are never removed, so a day without any has no cre rows to change.
+ * has cre rows: keys are never removed, so a day without any has no cre rows to change.
  */
 export async function retagCreDay(db: D1Database, day: string, retagSql: string, passKey: string, pass: string): Promise<void> {
   await db.batch([
@@ -698,12 +698,15 @@ function unrollStatement(db: D1Database, day: string): D1PreparedStatement {
   return db.prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2').bind(previousMonth(month), month, ROLLED_THROUGH_KEY);
 }
 
-/** unrollStatement, but only when `day` holds a CRE message. */
+/**
+ * unrollStatement, but only when `day` has cre rows, which the re-tag batch has just rebuilt (a primary-key lookup). A day
+ * in a rolled month is always finalized, so a CRE message there always has its row.
+ */
+export const UNROLL_IF_CRE_SQL = "UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2 AND EXISTS (SELECT 1 FROM daily_breakdown WHERE day = ?4 AND dim = 'cre')";
+
 function unrollIfCreStatement(db: D1Database, day: string): D1PreparedStatement {
   const month = day.slice(0, 7);
-  return db
-    .prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2 AND EXISTS (SELECT 1 FROM messages WHERE day = ?4 AND cre = 1)')
-    .bind(previousMonth(month), month, ROLLED_THROUGH_KEY, day);
+  return db.prepare(UNROLL_IF_CRE_SQL).bind(previousMonth(month), month, ROLLED_THROUGH_KEY, day);
 }
 
 /** The last rolled month, or null before the first roll (or when the stored value is not a month). */

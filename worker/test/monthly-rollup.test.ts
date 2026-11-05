@@ -36,6 +36,15 @@ describe('rollMonth', () => {
     ]);
   });
 
+  it('rolls the cre rows into the month with the other dims', async () => {
+    // #given
+    await seedDays({ '2025-08-03': [row('2025-08-03', 'cre', '1:0xs', 2, 10, null)], '2025-08-04': [row('2025-08-04', 'cre', '1:0xs', 1, 5, 0.5)] });
+    // #when
+    await store.rollMonth(env.DB, '2025-08');
+    // #then
+    expect(await monthly('2025-08')).toEqual([{ dim: 'cre', key: '1:0xs', messages: 3, usd_value: 15, fee_usd: 0.5, first_day: '2025-08-03' }]);
+  });
+
   it('replaces the month when rolled again, so a second roll changes nothing', async () => {
     // #given
     await seedDays({ '2025-08-03': [row('2025-08-03', 'lane', 'a>b', 2, 10, 1)] });
