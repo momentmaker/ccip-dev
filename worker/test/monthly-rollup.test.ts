@@ -120,3 +120,80 @@ describe('rewriting a rolled day', () => {
     expect(await pointer()).toBe('2025-02');
   });
 });
+
+describe('all-time readers over the rolled months', () => {
+  const TO = '2025-03-20';
+  const LABELED = ['0xa1'];
+  const CLAIMED = ['g-claimed'];
+
+  beforeEach(async () => {
+    // #given three months of lanes, tokens, labeled and unlabeled senders, and claimed and unclaimed via-token sends,
+    // with a day on the last day of a rolled month
+    const day = (d: string, n: number) => [
+      row(d, 'lane', 'a>b', n, n * 0.5, n * 0.25),
+      row(d, 'lane', `l${d}`, 1, 0.75, null),
+      row(d, 'token', 't1', n, n * 2, null),
+      row(d, 'src_chain', 's1', n, n, n * 0.5),
+      row(d, 'sender', '1:0xa1', n, n * 4, n * 0.25),
+      row(d, 'sender', `1:0xu${n % 3}`, n + 1, n * 1.5, 0.5),
+      row(d, 'sender', `2:0xone${d}`, 1, 0.25, null),
+      row(d, 'via_token', `1:0xu${n % 3}|g-claimed`, 1, 0.5, 0.25),
+      row(d, 'via_token', `1:0xu${n % 3}|g-other`, 2, 1, null),
+    ];
+    await seedDays({
+      '2025-01-05': day('2025-01-05', 3), '2025-01-28': day('2025-01-28', 5),
+      '2025-02-11': day('2025-02-11', 2), '2025-02-28': day('2025-02-28', 6), '2025-03-02': day('2025-03-02', 7), '2025-03-19': day('2025-03-19', 4),
+    });
+    await store.setMeta(env.DB, 'last_finalize_day', '2025-03-19');
+  });
+
+  const read = async () => ({
+    top: await Promise.all((['lane', 'token', 'src_chain', 'sender'] as const).flatMap((dim) => (['value', 'fees'] as const).map((o) => store.topBetween(env.DB, dim, null, TO, 100, o)))),
+    labeled: await store.senderTotalsOf(env.DB, null, TO, LABELED),
+    credits: await store.viaTokenCreditsOf(env.DB, null, TO, CLAIMED, LABELED),
+    unlabeled: await Promise.all((['value', 'fees'] as const).map((o) => store.topUnlabeledSenders(env.DB, null, TO, LABELED, 100, o, CLAIMED))),
+    firstLanes: await store.firstDays(env.DB, 'lane'),
+    firstTokens: await store.firstDays(env.DB, 'token'),
+  });
+
+  it('read the same rows once January and February are rolled', async () => {
+    // #given
+    const daily = await read();
+    // #when
+    await rollForwardMonths(harness({ now: HOUR }).c);
+    // #then
+    expect({ pointer: await pointer(), rows: await read() }).toEqual({ pointer: '2025-02', rows: daily });
+  });
+
+  it('read the same rows with only January rolled', async () => {
+    // #given
+    const daily = await read();
+    // #when
+    await store.rollMonth(env.DB, '2025-01');
+    await store.advanceRolledThrough(env.DB, '2025-01');
+    // #then
+    expect(await read()).toEqual(daily);
+  });
+
+  it('read the rewritten day, not the stale month, after a rolled day is finalized again', async () => {
+    // #given both months rolled, then a February day rewritten
+    await rollForwardMonths(harness({ now: HOUR }).c);
+    await seedDays({ '2025-02-11': [row('2025-02-11', 'lane', 'a>b', 50, 64, 8), row('2025-02-11', 'sender', '1:0xa1', 9, 16, 1)] });
+    // #when
+    const rolled = await read();
+    await store.setMeta(env.DB, ROLLED_THROUGH_KEY, null);
+    // #then the same rows as from daily_breakdown alone
+    expect(rolled).toEqual(await read());
+  });
+
+  it('read the monthly rows through an index on each side', async () => {
+    // #given
+    await rollForwardMonths(harness({ now: HOUR }).c);
+    // #when
+    const sql = await store.topBetweenSql(env.DB, null, TO, 'value');
+    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind('sender', '0000-00-00', TO, 100).all<{ detail: string }>();
+    const details = plan.results.map((r) => r.detail).join(' | ');
+    // #then
+    expect({ monthly: /SEARCH monthly_breakdown USING .*\(dim=\? AND month<\?\)/.test(details), daily: details.includes('USING INDEX daily_breakdown_dim') }).toEqual({ monthly: true, daily: true });
+  });
+});
