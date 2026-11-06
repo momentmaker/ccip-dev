@@ -1,0 +1,115 @@
+# Unattributed Chainlink CRE Connect Smart Accounts kept as leads. Each sends USDC over CCIP from a per-wallet ERC1967 proxy whose
+# implementation (unverified; 0xE0FDE6d6…, 0x9cB69C0D…) carries the EIP-712 domain "CLLSmartAccount", the fixed domain of CRE Connect
+# Smart Accounts (https://docs.chain.link/crec/concepts/eip712-signing). The reports come from a private-registry workflow
+# (owner 0x794F828f…, name hash cdb9e78995), since October through Base receiver 0x575De5dD… (a minimal proxy); each report carries one
+# signed Operation (USDC approve + Router ccipSend). CRE Connect is in private beta and its tenants are not public, so the
+# project behind each account is unknown and these credit nobody. Researched 2026-11-06 (CCIP API, public RPCs, Sourcify, Basescan).
+name = "CRE Connect smart accounts (unconfirmed)"
+kind = "unknown"
+verified = false
+spread = false
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x323ab353f559caeb4a48771ca8a32d940112b4f2"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x3812fe58b288f36a4dbcfea61af7cf18fa01464f"
+note = "CRE Connect Smart Account proxy; 3 CRE-sent USDC messages, latest to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x430cc3ba36c4c909610c629a6958a665c847c7f2"
+note = "CRE Connect Smart Account proxy; 2 CRE-sent USDC messages, latest to ethereum-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x4464c678ebc54c02fb7f8217f271c0dcd1a9b43d"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x4cb2711be91500e7f463bf0f153bc4c17b859eaf"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x4e889377faa8f79ddeb230fbb861a18e02949373"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x57dd7e9c91a9a85b1fe7e0950df1d0b7f229c31d"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x5dac3346d6fe2be4b13c12ecd1c0ed82c57bf19b"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x646dba7754848fab9b77e383eb2d12f4713c1031"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x697d9fe244753e09e0162d0e0ee8ef00ea0b52f5"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x81cb19e069dfe6329b32adeb2c779b07a879bfb0"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x85b1ea12e7092e96b63cced4aea33d09438504b1"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x962d56fc24411556e425f4f8c432ab80cda27780"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x97c3c2465df215a7555530a45f92795fffdf4f6a"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x9ff2b50a98a87aa29f1e5b9992a925e2a49ddb75"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xa58642bb20d92ecae0a51981e19df282f3d74727"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xab16c0b12e14a925b62c4c73cef6cecbde2122f5"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xf36f780557d0b6f4bb73b126cdbbf14e507c92ec"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to polygon-mainnet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xf7614338f628ddd3a7e9a38c907a881075db6c26"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xfbe66e765e4ebf7b42dc45757d7beaabc0678f15"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-arbitrum-1"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0x38ce063820dfbfbd94c20162a212ea1184c18780"
+note = "CRE Connect Smart Account proxy; 1 CRE-sent USDC message, to ethereum-mainnet-base-1"

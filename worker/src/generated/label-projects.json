@@ -75,6 +75,16 @@
         "chain": "ethereum-mainnet",
         "address": "0xed42a7d8559a463722ca4bed50e0cc05a386b0e1",
         "note": "Governance V3 CrossChainController (a.DI), sends through its CCIP adapter"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0x27fc7d54c893da63c0ae6d57e1b2b13a70690928",
+        "note": "Governance V3 CrossChainController (a.DI) on Avalanche, sends through its CCIP adapter"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x7f2f96fcdc3a29be75938d2ac3d92e7006919fe6",
+        "note": "AaveGhoCcipBridge, bridges GHO over CCIP"
       }
     ],
     "tokens": [
@@ -869,6 +879,16 @@
         "chain": "ethereum-mainnet-arbitrum-1",
         "address": "0x72229141d4b016682d3618ece47c046f30da4ad1",
         "note": "CCIP Direct Staking CustomSenderReferral (Lido docs, Arbitrum)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0x328de900860816d29d1367f6903a24d8ed40c997",
+        "note": "CCIP Direct Staking CustomSenderReferral (Lido docs, Optimism)"
+      },
+      {
+        "chain": "ethereum-mainnet-linea-1",
+        "address": "0x328de900860816d29d1367f6903a24d8ed40c997",
+        "note": "CCIP Direct Staking CustomSenderReferral (Lido docs, Linea)"
       }
     ],
     "tokens": [
@@ -1739,6 +1759,46 @@
         "source": "https://yesnoerror.com"
       }
     ]
+  },
+  "yieldcoin": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "url": "https://yield.contractlevel.com",
+    "kind": "protocol",
+    "source": "https://github.com/contractlevel/yield-v2/blob/main/docs/protocol/NETWORKS.md (Contract Level's Yieldcoin v2 deployments: \"ParentVault proxy\" on Base and \"ChildVault proxy\" on each other chain)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x664efe3859165011b811d8afc127872520e97079",
+        "note": "ParentVault proxy, rebalances USDC to child vaults over CCIP (CRE workflow yieldcoin-v2-workflow-production)"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xd2f0e776312567e3157577b429bb210a4656fa04",
+        "note": "ChildVault proxy, same address on every child chain (NETWORKS.md)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0xd2f0e776312567e3157577b429bb210a4656fa04",
+        "note": "ChildVault proxy (NETWORKS.md)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0xd2f0e776312567e3157577b429bb210a4656fa04",
+        "note": "ChildVault proxy (NETWORKS.md)"
+      },
+      {
+        "chain": "avalanche-mainnet",
+        "address": "0xd2f0e776312567e3157577b429bb210a4656fa04",
+        "note": "ChildVault proxy (NETWORKS.md)"
+      },
+      {
+        "chain": "polygon-mainnet",
+        "address": "0xd2f0e776312567e3157577b429bb210a4656fa04",
+        "note": "ChildVault proxy (NETWORKS.md)"
+      }
+    ],
+    "tokens": []
   },
   "zest-protocol": {
     "name": "Zest Protocol",

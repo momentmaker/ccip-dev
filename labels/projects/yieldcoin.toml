@@ -1,0 +1,36 @@
+# Source: https://github.com/contractlevel/yield-v2/blob/main/docs/protocol/NETWORKS.md (Contract Level's Yieldcoin v2 deployments: "ParentVault proxy" on Base and "ChildVault proxy" on each other chain)
+name = "Yieldcoin"
+x = "contractlevel"
+url = "https://yield.contractlevel.com"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x664efe3859165011b811d8afc127872520e97079"
+note = "ParentVault proxy, rebalances USDC to child vaults over CCIP (CRE workflow yieldcoin-v2-workflow-production)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xd2f0e776312567e3157577b429bb210a4656fa04"
+note = "ChildVault proxy, same address on every child chain (NETWORKS.md)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xd2f0e776312567e3157577b429bb210a4656fa04"
+note = "ChildVault proxy (NETWORKS.md)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0xd2f0e776312567e3157577b429bb210a4656fa04"
+note = "ChildVault proxy (NETWORKS.md)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0xd2f0e776312567e3157577b429bb210a4656fa04"
+note = "ChildVault proxy (NETWORKS.md)"
+
+[[addresses]]
+chain = "polygon-mainnet"
+address = "0xd2f0e776312567e3157577b429bb210a4656fa04"
+note = "ChildVault proxy (NETWORKS.md)"
