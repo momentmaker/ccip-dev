@@ -2,7 +2,7 @@ import type { CostFile, TopEntry, TopFile } from '@ccip-dev/core/public';
 import type { TopDim, TopOrder, Window } from './card-paths';
 import { chainName, keyChains, laneLabel, senderLabel, tokenLabel, type ChainNames } from './names';
 
-export type TopFileName = 'top/lane.json' | 'top/token.json' | 'top/sender.json' | 'top/src_chain.json';
+export type TopFileName = 'top/lane.json' | 'top/token.json' | 'top/sender.json' | 'top/src_chain.json' | 'top/cre.json';
 
 /** The Chains tab ranks source chains, so it reads the src_chain file. */
 export const TOP_FILE: Record<TopDim, TopFileName> = {
@@ -10,6 +10,7 @@ export const TOP_FILE: Record<TopDim, TopFileName> = {
   token: 'top/token.json',
   sender: 'top/sender.json',
   chain: 'top/src_chain.json',
+  cre: 'top/cre.json',
 };
 
 export interface TopRow {

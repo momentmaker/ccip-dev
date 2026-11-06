@@ -65,6 +65,10 @@ describe('chains and fee rankings', () => {
   it('reads the Chains tab from the source-chain file', () => {
     expect(TOP_FILE.chain).toBe('top/src_chain.json');
   });
+
+  it('reads the CRE tab from the CRE file', () => {
+    expect(TOP_FILE.cre).toBe('top/cre.json');
+  });
 });
 
 describe('typical fees', () => {

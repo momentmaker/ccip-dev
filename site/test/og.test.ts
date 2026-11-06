@@ -275,6 +275,25 @@ describe('handleOg', () => {
     }).toEqual({ fees: 200, token: 404, card: true, read: true });
   });
 
+  it('renders a CRE senders card from top/cre.json, and serves the fallback card while the file is not published', async () => {
+    // #given a CRE file with one identity
+    const identity = { key: 'project:xstocks', label: 'xStocks', messages: 12, usd: 100, chains: ['5009297550715157269'], addresses: 1 };
+    const creFile = { ...topToken, dim: 'cre', windows: { '7d': [], '30d': [], all: [] }, identities: { '7d': [identity], '30d': [], all: [] } };
+    const published = setup({}, [], { ...DATA, 'top/cre.json': creFile });
+    const missing = setup();
+    // #when
+    const card = await published.get('/og/top/cre/7d.png');
+    const fallback = await missing.get('/og/top/cre/7d.png');
+    // #then
+    expect({
+      card: card.status,
+      drawn: JSON.stringify(published.renderPng.mock.calls[0]![0]).includes('TOP CRE SENDER'),
+      read: published.dataUrls.some((u) => u.endsWith('/top/cre.json')),
+      fallback: new Uint8Array(await fallback.arrayBuffer()),
+      missingRendered: missing.renderPng.mock.calls.length,
+    }).toEqual({ card: 200, drawn: true, read: true, fallback: FALLBACK, missingRendered: 0 });
+  });
+
   it('answers 404 without rendering for an unknown pattern or a day with no data', async () => {
     const { get, renderPng, dataUrls } = setup();
     expect((await get('/og/top/route/7d.png')).status).toBe(404);

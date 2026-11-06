@@ -11,6 +11,8 @@ describe('card paths', () => {
     ['top/lane/7d/fees', { kind: 'top', dim: 'lane', window: '7d', order: 'fees' }],
     ['top/chain/all', { kind: 'top', dim: 'chain', window: 'all', order: 'value' }],
     ['top/chain/30d/fees', { kind: 'top', dim: 'chain', window: '30d', order: 'fees' }],
+    ['top/cre/7d', { kind: 'top', dim: 'cre', window: '7d', order: 'value' }],
+    ['top/cre/all', { kind: 'top', dim: 'cre', window: 'all', order: 'value' }],
     ['flow/all', { kind: 'flow', window: 'all' }],
     ['reserve', { kind: 'reserve' }],
     ['staking', { kind: 'staking' }],
@@ -41,7 +43,7 @@ describe('card paths', () => {
     expect(cardPathOf(route)).toBe(path);
   });
 
-  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base', 'project/XStocks', 'project/a/b', 'project', 'staker/0x8D87cbd8c3632b7ef117a15f8100943a23b7d03b', 'staker/0x12'])('rejects %j', (path) => {
+  it.each(['', 'day/2026-02-30', 'day/../../x', 'top/route/7d', 'top/token/7d/fees', 'top/cre/7d/fees', 'top/lane/7d/value', 'top/lane/7d/fees/x', 'top/token/1y', 'history/7d', 'flow', 'home/extra', 'broadcast', 'broadcast/monthly/2026-10-10', 'broadcast/weekly/2026-10-06', 'broadcast/poll/2026-10-13', 'broadcast/welcome/base', 'project/XStocks', 'project/a/b', 'project', 'staker/0x8D87cbd8c3632b7ef117a15f8100943a23b7d03b', 'staker/0x12'])('rejects %j', (path) => {
     expect(parseCardPath(path)).toBeNull();
   });
 
@@ -71,7 +73,7 @@ describe('card paths', () => {
     expect(parseCardPath('replay')).toEqual({ kind: 'replay' });
   });
 
-  it('offers a fee ranking for lanes, senders and chains, but not tokens', () => {
-    expect([topOrders('lane'), topOrders('sender'), topOrders('chain'), topOrders('token')]).toEqual([['value', 'fees'], ['value', 'fees'], ['value', 'fees'], ['value']]);
+  it('offers a fee ranking for lanes, senders and chains, but not tokens or CRE senders', () => {
+    expect([topOrders('lane'), topOrders('sender'), topOrders('chain'), topOrders('token'), topOrders('cre')]).toEqual([['value', 'fees'], ['value', 'fees'], ['value', 'fees'], ['value'], ['value']]);
   });
 });

@@ -145,6 +145,36 @@ describe('card content', () => {
   });
 });
 
+describe('CRE card', () => {
+  const cre = (rows: TopFile['windows']['7d']): TopFile => ({
+    ...top,
+    dim: 'cre',
+    identities: { '7d': rows, '30d': [], all: [] },
+    windows: { '7d': [], '30d': [], all: [] },
+  });
+
+  it('leads with the message count and names senders by identity', () => {
+    // #given
+    const file = cre([
+      { key: 'project:xstocks', label: 'xStocks', messages: 1234, usd: 5e6, chains: [ETH], addresses: 2 },
+      { key: 'address:0x671be08d6d3c826c2f6d76915f1b54af484d4077', label: null, messages: 56, usd: 10, chains: [BASE] },
+    ]);
+    // #when, #then
+    expect(topCard(file, 'cre', '7d', 'value', names)).toEqual({
+      eyebrow: 'TOP CRE SENDER · LAST 7 DAYS',
+      big: 'xStocks',
+      label: '1,234 messages sent by CRE · $5.0M',
+      date: '',
+      extra: ['#2 0x671b…4077 · 56 messages'],
+      spark: null,
+    });
+  });
+
+  it('says there is no data yet for a window without CRE senders', () => {
+    expect(topCard(cre([]), 'cre', '7d', 'value', names)).toMatchObject({ eyebrow: 'TOP CRE SENDER · LAST 7 DAYS', big: '—', label: 'No data yet' });
+  });
+});
+
 describe('sparkline placement', () => {
   const tree = () => JSON.stringify(cardTree(replayChainCard({ name: 'Base', since: '2023-11-03', usd: 1, messages: 2, partners: 3, coin: null }, 'base'), { skyDataUri: null, coins: [], sparkDataUri: 'data:image/svg+xml;base64,AA', sponsorLine: null }));
 
