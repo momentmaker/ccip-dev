@@ -1,3 +1,4 @@
+import { formatUsd } from '../lib/format';
 import { coinDiameter, coinSelectors, type Reachable } from './coins';
 import { projector, type StarPoint } from './layout';
 import { skyScale, starRadius, topSelectors } from './weights';
@@ -154,4 +155,8 @@ export function whalePosition(star: { x: number; y: number }, size: { width: num
   const spots = [...corners.filter(across), ...corners.filter((c) => !across(c))].map(fit);
   const clear = (p: { left: number; top: number }) => avoid.every((r) => p.left >= r.right || p.left + WHALE_W <= r.left || p.top >= r.bottom || p.top + WHALE_H <= r.top);
   return spots.find(clear) ?? spots[0]!;
+}
+
+export function whaleAmount(usd: number | null, token: string | null): string {
+  return usd ? `${formatUsd(usd)}${token ? ` ${token}` : ''}` : '';
 }

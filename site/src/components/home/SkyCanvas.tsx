@@ -7,10 +7,10 @@ import { chainName, type ChainNames } from '../../lib/names';
 import { catchCoin, latestArrivals } from '../../sky/arrival';
 import { chainMessages, coinCount, nearestStar } from '../../sky/coins';
 import { projector, type StarPoint } from '../../sky/layout';
-import { cardPosition, cardSize, skyOverlay, whalePosition, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
+import { cardPosition, cardSize, skyOverlay, whaleAmount, whalePosition, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
-import { CAPTION_MS, COMET_MS, creCaption, GOLD_USD, LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
+import { CAPTION_MS, COMET_MS, cometKind, creCaption, LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
 import { skyScale } from '../../sky/weights';
 
 interface Props {
@@ -125,12 +125,12 @@ export default function SkyCanvas(props: Props) {
           scene.flash(input, now);
           latest.current.onLaunch(message, null);
         } else {
-          const isWhale = (input.usd ?? 0) >= GOLD_USD;
+          const isWhale = cometKind(input.usd, input.token, input.cre) === 'gold';
           const caption = scene.launch(input, now, (m) => (isWhale ? captionText(m, latest.current.names) : creCaption(message.sender_label)));
           latest.current.onLaunch(message, caption);
           if (caption) {
             const names = latest.current.names;
-            const whale: Whale = { id: input.id, eyebrow: isWhale ? 'Whale · $1M+' : caption.text, tone: isWhale ? 'gold' : 'cre', dst: input.dst, amount: `${formatUsd(input.usd)}${input.token ? ` ${input.token}` : ''}`, lane: `${chainName(names, input.src)} → ${chainName(names, input.dst)}` };
+            const whale: Whale = { id: input.id, eyebrow: isWhale ? 'Whale · $1M+' : caption.text, tone: isWhale ? 'gold' : 'cre', dst: input.dst, amount: whaleAmount(input.usd, input.token), lane: `${chainName(names, input.src)} → ${chainName(names, input.dst)}` };
             whaleTimers.current.push(
               setTimeout(() => setWhales((list) => [...list.filter((w) => w.id !== whale.id), whale]), COMET_MS),
               setTimeout(() => setWhales((list) => list.filter((w) => w.id !== whale.id)), COMET_MS + CAPTION_MS),
@@ -275,7 +275,7 @@ export default function SkyCanvas(props: Props) {
           return (
             <div key={w.id} className={w.tone === 'cre' ? 'whale cre' : 'whale'} style={whalePosition(star, { width: widthRef.current, height: heightRef.current }, avoidRef.current)}>
               <span className="whale-eyebrow">{w.eyebrow}</span>
-              <span className="whale-amt">{w.amount}</span>
+              {w.amount && <span className="whale-amt">{w.amount}</span>}
               <span className="whale-lane">{w.lane}</span>
             </div>
           );
