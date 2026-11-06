@@ -114,9 +114,11 @@ describe('creSparkPoints', () => {
 
 describe('hasCreReplay', () => {
   it('is true only when the replay lists CRE days', () => {
-    expect(hasCreReplay({ cre: [{ day: '2026-11-01', lanes: [[0, 1, 0]] }] })).toBe(true);
-    expect(hasCreReplay({ cre: [] })).toBe(false);
-    expect(hasCreReplay({})).toBe(false);
-    expect(hasCreReplay(null)).toBe(false);
+    // #given
+    const withDays = { cre: [{ day: '2026-11-01', lanes: [[0, 1, 0]] as [number, number, number][] }] };
+    // #when
+    const results = [hasCreReplay(withDays), hasCreReplay({ cre: [] }), hasCreReplay({}), hasCreReplay(null)];
+    // #then
+    expect(results).toEqual([true, false, false, false]);
   });
 });

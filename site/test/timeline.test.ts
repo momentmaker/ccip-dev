@@ -404,7 +404,12 @@ describe('creSpawns', () => {
   });
 
   it('is empty without CRE lanes', () => {
-    expect(creSpawns([], 5)).toEqual([]);
+    // #given
+    const lanes: [number, number, number][] = [];
+    // #when
+    const spawns = creSpawns(lanes, 5);
+    // #then
+    expect(spawns).toEqual([]);
   });
 });
 

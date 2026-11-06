@@ -44,7 +44,10 @@ export function monthReplay(replay: ReplayFile, month: string): ReplayFile {
 function monthCre(cre: ReplayFile['cre'], first: string, last: string, laneAt: ReadonlyMap<number, number>): ReplayFile['cre'] {
   const days = (cre ?? [])
     .filter((d) => d.day >= first && d.day <= last)
-    .map((d) => ({ day: d.day, lanes: d.lanes.flatMap(([lane, messages, usd]): [number, number, number][] => (laneAt.has(lane) ? [[laneAt.get(lane)!, messages, usd]] : [])) }))
+    .map((d) => ({
+      day: d.day,
+      lanes: d.lanes.flatMap(([lane, messages, usd]): [number, number, number][] => (laneAt.has(lane) ? [[laneAt.get(lane)!, messages, usd]] : [])),
+    }))
     .filter((d) => d.lanes.length > 0);
   return days.length > 0 ? days : undefined;
 }
