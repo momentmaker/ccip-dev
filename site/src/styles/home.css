@@ -67,7 +67,7 @@
 .whales { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .whale { position: absolute; width: 250px; display: grid; gap: 1px; padding: 8px 12px; border-left: 2px solid var(--gold); background: linear-gradient(90deg, rgba(40, 30, 6, 0.9), rgba(40, 30, 6, 0)); animation: whale-in 0.45s var(--ease) both; }
 .whale.cre { border-left-color: var(--cre); background: linear-gradient(90deg, rgba(6, 40, 36, 0.9), rgba(6, 40, 36, 0)); }
-.whale.cre .whale-eyebrow { color: var(--cre); }
+.whale.cre .whale-eyebrow { color: var(--cre); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .whale.cre .whale-amt { color: #d4fff7; text-shadow: 0 0 18px rgba(64, 224, 196, 0.6); }
 .whale.cre .whale-lane { color: #b4d8d2; }
 @keyframes whale-in { from { opacity: 0; transform: translateY(8px); } }
@@ -196,8 +196,9 @@
 /* cre */
 .cre-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
 .cre-chart { margin: 0; min-width: 0; }
-.cre-chart svg { display: block; margin-top: 10px; color: var(--blue-2); }
+.cre-chart svg { display: block; margin-top: 10px; color: var(--cre); }
 .cre-leaders { list-style: none; margin: 0; min-width: 0; }
+.cre-grid .more-link { display: inline-block; margin-top: 12px; }
 .cre-leaders .label { margin: 0 0 6px; }
 .cre-leaders li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; min-width: 0; }
 .cre-leaders li > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -122,6 +122,14 @@ describe('the CRE line on the daily and weekly cards', () => {
     expect(creLines(words)).toEqual(['CRE workflows: 90 messages (6.2%)']);
   });
 
+  it('says "1 message" when a single message was sent by a CRE workflow', async () => {
+    // #given
+    // #when
+    const words = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: withCre({ [DAY]: 1 }) }));
+    // #then
+    expect(creLines(words)).toEqual(['CRE workflows: 1 message (0.7%)']);
+  });
+
   it('leaves the daily and weekly cards exactly as they were when no message was sent by CRE', async () => {
     // #given the same history with zero CRE messages on every day, and with the CRE fields absent
     const zero = withCre(Object.fromEntries(HISTORY.days.map((d) => [d.day, 0])));

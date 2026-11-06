@@ -111,14 +111,16 @@ function entryLabel(e: TopEntry, dim: TopDim, names: ChainNames): string {
   return senderLabel(names, e.key, e.label).primary;
 }
 
+export const messageCount = (n: number) => `${formatCount(n)} ${n === 1 ? 'message' : 'messages'}`;
+
 function creCard(top: TopFile, window: Window, entries: readonly TopEntry[], names: ChainNames): CardSpec {
   const first = entries[0];
   return {
     eyebrow: `${DIM_LABEL.cre} · ${WINDOW_LABEL[window]}`,
     big: first ? entryLabel(first, 'cre', names) : '—',
-    label: first ? `${formatCount(first.messages)} messages sent by CRE · ${formatUsd(first.usd)}` : 'No data yet',
+    label: first ? `${messageCount(first.messages)} sent by CRE${first.usd ? ` · ${formatUsd(first.usd)}` : ''}` : 'No data yet',
     date: window === 'all' ? `since ${top.since}` : '',
-    extra: entries.slice(1, 3).map((e, i) => `#${i + 2} ${entryLabel(e, 'cre', names)} · ${formatCount(e.messages)} messages`),
+    extra: entries.slice(1, 3).map((e, i) => `#${i + 2} ${entryLabel(e, 'cre', names)} · ${messageCount(e.messages)}`),
     spark: null,
   };
 }

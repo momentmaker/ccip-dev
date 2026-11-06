@@ -170,6 +170,27 @@ describe('CRE card', () => {
     });
   });
 
+  it('leaves the value out of the label when the top sender moved none', () => {
+    // #given a data-only sender whose messages carry no priced value
+    const labelFor = (usd: number | null) => topCard(cre([{ key: 'project:xstocks', label: 'xStocks', messages: 1234, usd, chains: [ETH] }]), 'cre', '7d', 'value', names).label;
+    // #when, #then
+    expect(labelFor(0)).toBe('1,234 messages sent by CRE');
+    expect(labelFor(null)).toBe('1,234 messages sent by CRE');
+  });
+
+  it('says "1 message" for a single message, in the label and in the runners-up', () => {
+    // #given
+    const file = cre([
+      { key: 'project:xstocks', label: 'xStocks', messages: 1, usd: 0, chains: [ETH] },
+      { key: 'address:0x671be08d6d3c826c2f6d76915f1b54af484d4077', label: null, messages: 1, usd: 0, chains: [BASE] },
+    ]);
+    // #when
+    const card = topCard(file, 'cre', '7d', 'value', names);
+    // #then
+    expect(card.label).toBe('1 message sent by CRE');
+    expect(card.extra).toEqual(['#2 0x671b…4077 · 1 message']);
+  });
+
   it('says there is no data yet for a window without CRE senders', () => {
     expect(topCard(cre([]), 'cre', '7d', 'value', names)).toMatchObject({ eyebrow: 'TOP CRE SENDER · LAST 7 DAYS', big: '—', label: 'No data yet' });
   });

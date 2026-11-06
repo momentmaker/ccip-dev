@@ -13,6 +13,7 @@ import {
   bigSize, bold, boldArrows, broadcastFrame, cardDay, cardWeek, COLORS, deltaStat, eyebrow, feeBars, hasReplayDay, iconsFor, MILESTONE_TITLES, mutedStat, namesOf, row,
   skyFor, statsPanel, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
+import { messageCount } from './content';
 import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph, withArrows } from './glyphs';
 import { countdownTree, welcomeTree } from './moment-cards';
@@ -88,7 +89,7 @@ function feeChainsInsight(chains: readonly Leader[], names: ChainNames): Child[]
 /** "CRE workflows: 30 messages (20%)"; null when no message was sent by a CRE workflow, or the history rows predate counting them. */
 function creLine(messages: number, creMessages: number): string | null {
   if (creMessages <= 0 || messages <= 0) return null;
-  return `CRE workflows: ${formatCount(creMessages)} messages (${formatShare((creMessages / messages) * 100)})`;
+  return `CRE workflows: ${messageCount(creMessages)} (${formatShare((creMessages / messages) * 100)})`;
 }
 
 const mutedLine = (text: string, marginTop: number) => h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop } }, text);

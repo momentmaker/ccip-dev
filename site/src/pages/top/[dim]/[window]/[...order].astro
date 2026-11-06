@@ -28,7 +28,7 @@ const window = Astro.params.window as Window;
 const order: TopOrder = Astro.params.order === 'fees' ? 'fees' : 'value';
 const byFees = order === 'fees';
 const byMessages = dim === 'cre';
-const [top, chains] = await Promise.all([dim === 'cre' ? buildDataIfPublished('top/cre.json') : buildData(TOP_FILE[dim]), buildData('chains.json')]);
+const [top, chains] = await Promise.all([dim === 'cre' ? buildDataIfPublished(TOP_FILE.cre) : buildData(TOP_FILE[dim]), buildData('chains.json')]);
 const names = chainNameMap(chains.chains);
 const cost = dim === 'lane' ? await buildDataIfPublished('cost.json') : null;
 const rows = !top
