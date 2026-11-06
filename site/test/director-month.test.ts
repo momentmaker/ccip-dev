@@ -2,6 +2,7 @@ import { recordValueText } from '@ccip-dev/core/broadcasts';
 import { formatUsdDown } from '@ccip-dev/core/format';
 import { monthDays, monthSummary, type MonthSummary } from '@ccip-dev/core/month';
 import { RECORD_KINDS, type RecordKind } from '@ccip-dev/core/records';
+import type { ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
 import { monthCardRows, monthCut, monthReplay } from '../src/replay/director/month';
 import { Show } from '../src/replay/director/show';
@@ -46,6 +47,42 @@ describe('monthReplay', () => {
     const cut = monthReplay(replay, '2026-10');
     // #then
     expect({ days: cut.days.length, empty: cut.days.filter((d) => d.lanes.length === 0).length }).toEqual({ days: 31, empty: 26 });
+  });
+});
+
+describe('monthReplay with CRE lane-days', () => {
+  const chains = [0, 1, 2].map((i) => ({ selector: String(i), name: `c${i}`, display_name: `C${i}`, first_day: '2026-08-01' }));
+  const base: ReplayFile = {
+    schema_version: 1,
+    updated_at: '2026-10-01T00:00:00.000Z',
+    attribution: '',
+    since: '2026-08-01',
+    chains,
+    lanes: [[0, 1], [1, 2], [2, 0]],
+    days: [
+      { day: '2026-08-31', lanes: [[0, 5, 0]] },
+      { day: '2026-09-02', lanes: [[1, 4, 40], [2, 3, 30]] },
+    ],
+  };
+
+  it("re-indexes the month's CRE lanes like its lanes, and drops other months' days and lanes that did not move", () => {
+    // #given lane 1 is the month's first lane, so it becomes 0; lane 0 only moved in August
+    const cre = [
+      { day: '2026-08-31', lanes: [[0, 1, 0]] },
+      { day: '2026-09-02', lanes: [[2, 2, 20], [0, 1, 0]] },
+    ] as ReplayFile['cre'];
+    // #when
+    const cut = monthReplay({ ...base, cre }, '2026-09');
+    // #then
+    expect(cut.cre).toEqual([{ day: '2026-09-02', lanes: [[1, 2, 20]] }]);
+  });
+
+  it('leaves out the CRE field when nothing of it is in the month', () => {
+    // #when
+    const cut = monthReplay({ ...base, cre: [{ day: '2026-08-31', lanes: [[0, 1, 0]] }] }, '2026-09');
+    // #then
+    expect(cut).toEqual(monthReplay(base, '2026-09'));
+    expect('cre' in cut).toBe(false);
   });
 });
 
