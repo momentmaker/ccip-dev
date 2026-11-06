@@ -1,7 +1,7 @@
 export const TOTALS_CONFLICT =
   'ON CONFLICT(day) DO UPDATE SET messages = excluded.messages, token_messages = excluded.token_messages, data_messages = excluded.data_messages, ' +
   'usd_value = excluded.usd_value, fee_usd = excluded.fee_usd, unique_senders = excluded.unique_senders, ' +
-  'median_delivery_s = excluded.median_delivery_s, unpriced_messages = excluded.unpriced_messages, computed_at = excluded.computed_at';
+  'median_delivery_s = excluded.median_delivery_s, unpriced_messages = excluded.unpriced_messages, cre_messages = excluded.cre_messages, cre_usd = excluded.cre_usd, computed_at = excluded.computed_at';
 export const BREAKDOWN_CONFLICT =
   'ON CONFLICT(day, dim, key) DO UPDATE SET messages = excluded.messages, usd_value = excluded.usd_value, fee_usd = excluded.fee_usd';
 

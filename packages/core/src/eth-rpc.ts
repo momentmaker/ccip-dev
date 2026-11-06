@@ -6,6 +6,9 @@ export const HEX_QUANTITY = /^0x[0-9a-fA-F]+$/;
 
 export const toHex = (n: number) => `0x${n.toString(16)}`;
 
+/** ethRpc's error when the endpoint answered with a null result and no error, as for a transaction it does not hold. */
+export const NO_RESULT = 'no result';
+
 export async function ethRpc(deps: Fetcher, url: string, method: string, params: unknown[]): Promise<unknown> {
   const res = await deps.fetch(url, {
     method: 'POST',
@@ -14,7 +17,7 @@ export async function ethRpc(deps: Fetcher, url: string, method: string, params:
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = (await res.json()) as { result?: unknown; error?: { message?: string } };
-  if (body.result === undefined || body.result === null) throw new Error(body.error?.message ?? 'no result');
+  if (body.result === undefined || body.result === null) throw new Error(body.error?.message ?? NO_RESULT);
   return body.result;
 }
 

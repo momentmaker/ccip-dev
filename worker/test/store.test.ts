@@ -167,6 +167,15 @@ describe('replaceDaily', () => {
       ],
     });
   });
+  it('stores and returns the CRE totals of a day', async () => {
+    // #given
+    const totals = { day: '2026-11-04', messages: 3, token_messages: 1, data_messages: 2, usd_value: 22, fee_usd: 3, unique_senders: 2, median_delivery_s: null, unpriced_messages: 0, cre_messages: 2, cre_usd: 15 };
+    // #when
+    await store.replaceDaily(env.DB, totals, [], '2026-11-05T00:07:00.000Z');
+    // #then
+    const [day] = await store.dailyHistory(env.DB);
+    expect(day).toMatchObject({ cre_messages: 2, cre_usd: 15 });
+  });
 });
 
 describe('prices', () => {

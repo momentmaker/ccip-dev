@@ -9,7 +9,7 @@ function row(id: string, overrides: Partial<MessageRow> = {}): MessageRow {
     message_id: id, day: '2026-10-05', send_ts: '2026-10-05T10:00:00.000Z', receipt_ts: null, status: 'SENT',
     src_chain: 'A', dst_chain: 'B', sender: '0xs1', receiver: null, origin: null, token_count: 0, usd_value: 0,
     unpriced: 0, fee_token: null, fee_amount: null, fee_usd: null, ready_for_manual_exec: 0,
-    detail_fetched_at: null, next_check_at: null, source: 'live', ...overrides,
+    detail_fetched_at: null, next_check_at: null, source: 'live', cre: 0, ...overrides,
   };
 }
 
@@ -40,6 +40,8 @@ describe('rollupDay', () => {
       unique_senders: 2,
       median_delivery_s: 120,
       unpriced_messages: 1,
+      cre_messages: 0,
+      cre_usd: 0,
     });
   });
 
@@ -54,6 +56,35 @@ describe('rollupDay', () => {
 
   it('reports fee_usd as null when no message on the day has a fee', () => {
     expect(rollupDay('2026-10-05', [row('a')], [], NO_TOKEN_GROUPS).totals.fee_usd).toBeNull();
+  });
+});
+
+describe('rollupDay CRE', () => {
+  it('counts CRE-sent messages and ranks their senders under the cre dimension', () => {
+    // #given two CRE-sent messages from one sender and one ordinary message
+    const day = '2026-11-04';
+    const rows = [
+      row('a', { day, sender: '0xaaa', cre: 1, usd_value: 10, fee_usd: 1 }),
+      row('b', { day, sender: '0xaaa', cre: 1, usd_value: 5, fee_usd: null }),
+      row('c', { day, sender: '0xbbb', cre: 0, usd_value: 7, fee_usd: 2 }),
+    ];
+    // #when
+    const { totals, breakdown } = rollupDay(day, rows, [], NO_TOKEN_GROUPS);
+    // #then
+    expect(totals.cre_messages).toBe(2);
+    expect(totals.cre_usd).toBe(15);
+    expect(breakdown.filter((b) => b.dim === 'cre')).toEqual([{ day, dim: 'cre', key: `${rows[0]!.src_chain}:0xaaa`, messages: 2, usd_value: 15, fee_usd: 1 }]);
+  });
+
+  it('has no cre rows and zero CRE totals on a day without CRE messages', () => {
+    // #given
+    const day = '2026-11-04';
+    // #when
+    const { totals, breakdown } = rollupDay(day, [row('c', { day, cre: 0 })], [], NO_TOKEN_GROUPS);
+    // #then
+    expect(totals.cre_messages).toBe(0);
+    expect(totals.cre_usd).toBe(0);
+    expect(breakdown.some((b) => b.dim === 'cre')).toBe(false);
   });
 });
 

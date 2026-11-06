@@ -1,4 +1,4 @@
-import { COIN_PRICE_DECIMALS, coingeckoKey } from '@ccip-dev/core';
+import { COIN_PRICE_DECIMALS, coingeckoKey, creKeySet } from '@ccip-dev/core';
 import { fakeCcip, listMessage, NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -14,6 +14,23 @@ const six = () => Array.from({ length: 6 }, (_, i) => listMessage({ id: `m${6 - 
 const count = async () => (await env.DB.prepare('SELECT COUNT(*) AS n FROM messages').first<{ n: number }>())!.n;
 
 describe('runIngest', () => {
+  it('tags a message whose origin is a CRE node key on its source chain', async () => {
+    // #given listMessage's default origin is 0x3333..., sent from Base
+    const ccip = fakeCcip({
+      messages: [
+        listMessage({ id: 'cre-1', sendTs: '2026-11-05T09:59:00.000Z' }),
+        listMessage({ id: 'other', sendTs: '2026-11-05T09:58:00.000Z', src: NETWORKS.ethereum }),
+      ],
+    });
+    const creKeys = creKeySet({ version: 't', keys: [`${NETWORKS.base.chainSelector}:0x3333333333333333333333333333333333333333`] });
+    const { c } = harness({ now: '2026-11-05T10:00:00.000Z', ccip, creKeys });
+    // #when
+    await runIngest(c, { pageSize: 10 });
+    // #then
+    const rows = (await env.DB.prepare('SELECT message_id, cre FROM messages ORDER BY message_id').all()).results;
+    expect(rows).toEqual([{ message_id: 'cre-1', cre: 1 }, { message_id: 'other', cre: 0 }]);
+  });
+
   it('on the first run sets live_start_day, stops at its floor and publishes', async () => {
     const yesterday = listMessage({ id: 'old', sendTs: '2026-10-07T23:59:00.000Z' });
     const ccip = fakeCcip({ messages: [...six(), yesterday] });

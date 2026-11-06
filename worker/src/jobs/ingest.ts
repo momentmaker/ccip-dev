@@ -1,5 +1,5 @@
 import {
-  addDays, buildRows, dayOf, dayStartIso, firstCheckAt, normalizeList, priceKeys, type ListMessage,
+  addDays, buildRows, dayOf, dayStartIso, firstCheckAt, isCreOrigin, normalizeList, priceKeys, type ListMessage,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import { publishLiveFiles } from '../publish';
@@ -93,7 +93,7 @@ export async function storeListMessages(c: RunContext, messages: ListMessage[], 
   const { rows, tokens, outliers } = buildRows(
     unique,
     (key) => prices.get(key),
-    (m) => ({ source: 'live', nextCheckAt: firstCheckAt(m.sendTs) }),
+    (m) => ({ source: 'live', nextCheckAt: firstCheckAt(m.sendTs), cre: isCreOrigin(c.creKeys, m.src.selector, m.origin) }),
     fallback,
   );
   await store.upsertListRows(db, rows, tokens);

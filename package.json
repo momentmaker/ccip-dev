@@ -19,6 +19,7 @@
     "backfill:fees:fetch": "tsx scripts/backfill/fees/fetch.ts",
     "backfill:fees:upload": "tsx --env-file=.env scripts/backfill/fees/upload.ts",
     "endpoints:refresh": "tsx scripts/refresh-endpoints.ts",
+    "cre-keys:refresh": "tsx scripts/cre-keys/refresh.ts",
     "fee-groups:generate": "tsx scripts/fee-groups/generate.ts",
     "labels:build": "tsx scripts/build-labels.ts",
     "labels:check": "tsx scripts/build-labels.ts --check",

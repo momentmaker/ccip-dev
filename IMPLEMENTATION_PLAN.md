@@ -132,3 +132,17 @@ sender-identities, not worth an index build over the 1.1M-row table inside a mig
 A full publish reads well under the 8.4M of 2026-11-05 (stage 5 estimate: about 5M, with the all-time windows bounded
 by the monthly rows plus the current month), and the 00:07 run logs no `D1 is overloaded` warning for a week. Delete this file
 then.
+
+## CRE-sent messages (plan: docs/superpowers/plans/2026-11-05-cre-sent-messages.md)
+
+### Stage C1: Data layer (PR A)
+**Goal**: tag CRE-sent messages at ingest, back-tag history, roll CRE totals up
+**Success Criteria**: `meta.cre_keys_version` equals the generated version; `daily_totals.cre_messages` matches the 2026-11-05 probe for Aug–Oct 2026 (252 / 271 / 389, or more)
+**Tests**: core cre, rows, rollup, retag, EXPLAIN plans
+**Status**: In Progress
+
+### Stage C2: Published files, posts, site (PR B)
+**Goal**: CRE lines in the posts, a CRE band and tile on the home page, CRE stats on project and day pages
+**Success Criteria**: schemas parse; post fixtures pass; the band renders with data and hides without
+**Tests**: publish, broadcast copy and facts, site components
+**Status**: Not Started

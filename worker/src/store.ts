@@ -2,7 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type HolderKind, type ReserveTransfer, type SenderChain, type StakingEvent, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
+  CRE_BREAKDOWN_DAY_SQL, CRE_TOTALS_DAY_SQL, DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 import { isMonth, monthBounds, previousMonth } from '@ccip-dev/core/month';
@@ -14,7 +14,7 @@ const MIN_MEDIAN_DAYS = 7;
 export const MESSAGE_COLUMNS = [
   'message_id', 'day', 'send_ts', 'receipt_ts', 'status', 'src_chain', 'dst_chain', 'sender', 'receiver', 'origin',
   'token_count', 'usd_value', 'unpriced', 'fee_token', 'fee_amount', 'fee_usd', 'ready_for_manual_exec',
-  'detail_fetched_at', 'next_check_at', 'source',
+  'detail_fetched_at', 'next_check_at', 'source', 'cre',
 ] as const satisfies readonly (keyof MessageRow)[];
 
 export function chunks<T>(items: T[], size: number): T[][] {
@@ -625,12 +625,12 @@ async function writeDaily(db: D1Database, totals: DailyTotals, breakdown: DailyB
   await runBatch(db, [
     db
       .prepare(
-        `INSERT INTO daily_totals (day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, computed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
+        `INSERT INTO daily_totals (day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, cre_messages, cre_usd, computed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ${TOTALS_CONFLICT}`,
       )
       .bind(
         totals.day, totals.messages, totals.token_messages, totals.data_messages ?? null, totals.usd_value, totals.fee_usd, totals.unique_senders,
-        totals.median_delivery_s, totals.unpriced_messages, computedAt,
+        totals.median_delivery_s, totals.unpriced_messages, totals.cre_messages ?? 0, totals.cre_usd ?? 0, computedAt,
       ),
     db.prepare('DELETE FROM daily_breakdown WHERE day = ?').bind(totals.day),
     db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(totals.day),
@@ -649,6 +649,22 @@ export async function rolledUpDaysBefore(db: D1Database, before: string, limit: 
 
 export async function backfillViaTokenDay(db: D1Database, day: string): Promise<void> {
   await db.batch([db.prepare(VIA_TOKEN_BACKFILL_DAY_SQL).bind(day), db.prepare('DELETE FROM day_leaders WHERE day = ?').bind(day), unrollStatement(db, day)]);
+}
+
+/**
+ * Re-tags one day's messages and rebuilds its CRE totals and cre rows, and records `passKey` = `pass` in the same batch,
+ * so a later failure keeps this day's progress. The rolled pointer moves back before the day's month only when the day
+ * has cre rows: keys are never removed, so a day without any has no cre rows to change.
+ */
+export async function retagCreDay(db: D1Database, day: string, retagSql: string, passKey: string, pass: string): Promise<void> {
+  await db.batch([
+    db.prepare(retagSql).bind(day),
+    db.prepare("DELETE FROM daily_breakdown WHERE day = ?1 AND dim = 'cre'").bind(day),
+    db.prepare(CRE_BREAKDOWN_DAY_SQL).bind(day),
+    db.prepare(CRE_TOTALS_DAY_SQL).bind(day),
+    unrollIfCreStatement(db, day),
+    db.prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(passKey, pass),
+  ]);
 }
 
 /** A day's stored day-leaders.json entry (see migration 0012). */
@@ -682,6 +698,17 @@ function unrollStatement(db: D1Database, day: string): D1PreparedStatement {
   return db.prepare('UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2').bind(previousMonth(month), month, ROLLED_THROUGH_KEY);
 }
 
+/**
+ * unrollStatement, but only when `day` has cre rows, which the re-tag batch has just rebuilt (a primary-key lookup). A day
+ * in a rolled month is always finalized, so a CRE message there always has its row.
+ */
+export const UNROLL_IF_CRE_SQL = "UPDATE meta SET value = ?1 WHERE key = ?3 AND value >= ?2 AND EXISTS (SELECT 1 FROM daily_breakdown WHERE day = ?4 AND dim = 'cre')";
+
+function unrollIfCreStatement(db: D1Database, day: string): D1PreparedStatement {
+  const month = day.slice(0, 7);
+  return db.prepare(UNROLL_IF_CRE_SQL).bind(previousMonth(month), month, ROLLED_THROUGH_KEY, day);
+}
+
 /** The last rolled month, or null before the first roll (or when the stored value is not a month). */
 export async function rolledThrough(db: D1Database): Promise<string | null> {
   const value = await getMeta(db, ROLLED_THROUGH_KEY);
@@ -693,7 +720,7 @@ export async function firstBreakdownDay(db: D1Database): Promise<string | null> 
   return (await db.prepare('SELECT MIN(day) AS day FROM daily_breakdown').first<{ day: string | null }>())?.day ?? null;
 }
 
-const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token'];
+const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token', 'cre'];
 
 /** Rebuilds `month`'s monthly_breakdown rows from its daily rows in one batch, one statement a dim; rolling again is a no-op. */
 export async function rollMonth(db: D1Database, month: string): Promise<void> {
@@ -747,7 +774,7 @@ const windowSource = (db: D1Database, fromDay: string | null, toDay: string): Pr
 export async function dailyHistory(db: D1Database): Promise<DailyTotals[]> {
   const { results } = await db
     .prepare(
-      `SELECT day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages
+      `SELECT day, messages, token_messages, data_messages, usd_value, fee_usd, unique_senders, median_delivery_s, unpriced_messages, cre_messages, cre_usd
        FROM daily_totals ORDER BY day`,
     )
     .all<DailyTotals>();

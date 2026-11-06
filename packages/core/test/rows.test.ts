@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ListMessage } from '../src/ccip/schemas';
 import { normalizeList } from '../src/normalize';
 import { buildRows, firstCheckAt, isFinal, scheduleNextCheck, toMessageRow, toTokenRows } from '../src/rows';
+import { listMessage } from '../src/testing';
 import listPage from './fixtures/list-page.json';
 
 const m = normalizeList(ListMessage.parse(listPage.data[0]));
@@ -30,7 +31,17 @@ describe('row building', () => {
       detail_fetched_at: null,
       next_check_at: '2026-10-05T11:16:53.000Z',
       source: 'live',
+      cre: 0,
     });
+  });
+
+  it('flags a message sent by a CRE workflow', () => {
+    // #given
+    const cre = normalizeList(listMessage({ id: 'c1', sendTs: '2026-11-05T10:00:00.000Z' }));
+    const value = { usdValue: 0, unpriced: false, tokenUsd: [], outliers: [] };
+    // #then
+    expect(toMessageRow(cre, value, { source: 'live', cre: true }).cre).toBe(1);
+    expect(toMessageRow(cre, value, { source: 'live' }).cre).toBe(0);
   });
 
   it('builds token rows keyed by position', () => {

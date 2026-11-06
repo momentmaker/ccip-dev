@@ -1,6 +1,6 @@
 import {
-  DetailMessage, issuePath, normalizeDetail, priceKeys, scheduleNextCheck, toMessageRow, toTokenRows, UpstreamHttpError, valueFee,
-  valueTokens, type NormalizedMessage, type PriceFallback, type PriceInfo, type PriceLookup,
+  DetailMessage, isCreOrigin, issuePath, normalizeDetail, priceKeys, scheduleNextCheck, toMessageRow, toTokenRows, UpstreamHttpError,
+  valueFee, valueTokens, type NormalizedMessage, type PriceFallback, type PriceInfo, type PriceLookup,
 } from '@ccip-dev/core';
 import type { RunContext } from '../context';
 import * as store from '../store';
@@ -117,6 +117,7 @@ async function fillOne(c: RunContext, id: string, loader: FallbackLoader): Promi
     feeUsd: valueFee(message.fee, message.src, lookup),
     detailFetchedAt: now.toISOString(),
     nextCheckAt: next.nextCheckAt,
+    cre: isCreOrigin(c.creKeys, message.src.selector, message.origin),
   });
   await store.applyDetail(db, row, toTokenRows(message, valuation));
   return { outliers: valuation.outliers, requestError: null };
