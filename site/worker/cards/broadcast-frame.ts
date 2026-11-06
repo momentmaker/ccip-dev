@@ -3,7 +3,7 @@ import { chainName, chainNameMap, type ChainNames } from '@ccip-dev/core/names';
 import type { ChainsFile, MomentsFile, PublicFile, PublicFileName, ReplayFile } from '@ccip-dev/core/public';
 import type { MilestoneMetric } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
-import { windowWeights } from '../../src/sky/weights';
+import { creLaneKeys, windowWeights } from '../../src/sky/weights';
 import { h, type Child, type VNode } from '../h';
 import type { Cta } from './cta';
 import type { CardSize } from './frame';
@@ -206,11 +206,12 @@ export async function loadMomentFiles(inputs: BroadcastInputs): Promise<{ moment
 type SkyExtra = { dim?: boolean; gold?: string | null; starFree?: readonly StarFreeZone[] };
 
 /** The day's (or week's) chains and lanes from replay.json, around the busiest chain. */
-export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: string, extra: SkyExtra = {}): OrbitSky {
+export function skyFor(replay: ReplayFile, names: ChainNames, from: string, to: string, extra: SkyExtra = {}, opts: { cre?: boolean } = {}): OrbitSky {
   const weights = windowWeights(replay, from, to);
+  const cre = opts.cre ? creLaneKeys(replay, from, to) : new Set<string>();
   return orbitSky({
     chains: [...weights.chains].map(([selector, value]) => ({ selector, value, name: chainName(names, selector) })),
-    lanes: weights.lanes,
+    lanes: weights.lanes.map((l) => (cre.has(`${l.src}>${l.dst}`) ? { ...l, cre: true as const } : l)),
     seed: dayNumber(to),
     ...extra,
   });

@@ -1,6 +1,6 @@
 import type { ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { laneOpacity, lastReplayDay, skyScale, starRadius, topSelectors, trailingWeights, windowWeights } from '../src/sky/weights';
+import { creLaneKeys, laneOpacity, lastReplayDay, skyScale, starRadius, topSelectors, trailingWeights, windowWeights } from '../src/sky/weights';
 import replayJson from './fixtures/replay.json';
 
 const replay = replayJson as ReplayFile;
@@ -39,6 +39,20 @@ describe('weights', () => {
     expect(laneOpacity(0, 50)).toBeCloseTo(0.06);
     expect(laneOpacity(5, 0)).toBe(0.06);
     expect(topSelectors(new Map([['b', 5], ['a', 5], ['c', 9]]), 2)).toEqual(['c', 'a']);
+  });
+});
+
+describe('creLaneKeys', () => {
+  it('lists the lanes that carried CRE-sent messages in a window, by selector', () => {
+    // #given one day with a CRE lane
+    const day = replay.days[0]!;
+    const laneIdx = day.lanes[0]![0];
+    const withCre = { ...replay, cre: [{ day: day.day, lanes: [[laneIdx, 2, 0]] }] } as ReplayFile;
+    const [src, dst] = replay.lanes[laneIdx]!;
+    // #then
+    expect(creLaneKeys(withCre, day.day, day.day)).toEqual(new Set([`${replay.chains[src]!.selector}>${replay.chains[dst]!.selector}`]));
+    expect(creLaneKeys(withCre, '1999-01-01', '1999-01-02').size).toBe(0);
+    expect(creLaneKeys(replay, day.day, day.day).size).toBe(0);
   });
 });
 

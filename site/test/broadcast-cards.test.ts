@@ -142,6 +142,44 @@ describe('the CRE line on the daily and weekly cards', () => {
   });
 });
 
+describe('CRE lanes in the daily and weekly sky', () => {
+  const TEAL = '#40e0c4';
+  const withCreLanes = (days: string[]): typeof loadFixture => async (name) => {
+    const file = await loadFixture(name);
+    return name === 'replay.json' ? ({ ...file, cre: days.map((day) => ({ day, lanes: [[0, 3, 0]] })) } as typeof file) : file;
+  };
+  const skySvgs = (card: VNode) =>
+    [...JSON.stringify(card).matchAll(/data:image\/svg\+xml;base64,([A-Za-z0-9+/=]{100,})/g)].map((m) => atob(m[1]!));
+
+  it('draws the lanes that carried CRE-sent messages in teal on the daily card', async () => {
+    // #given the day has a CRE lane
+    // #when
+    const card = await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: withCreLanes([DAY]) });
+    // #then
+    expect(skySvgs(card as VNode).some((svg) => svg.includes(TEAL))).toBe(true);
+  });
+
+  it('draws them on the weekly card when any day of the week has one', async () => {
+    // #given only one day of the week has a CRE lane
+    // #when
+    const card = await broadcastTree({ kind: 'weekly', monday: MONDAY }, { ...inputs, load: withCreLanes([DAY]) });
+    // #then
+    expect(skySvgs(card as VNode).some((svg) => svg.includes(TEAL))).toBe(true);
+  });
+
+  it('renders a day without a CRE lane exactly as when replay.json has no cre field', async () => {
+    // #given CRE lanes on another day only
+    const targets = [{ kind: 'daily', day: DAY }, { kind: 'weekly', monday: '2026-10-05' }] as const;
+    // #when
+    const trees = await Promise.all([
+      broadcastTree(targets[0], inputs),
+      broadcastTree(targets[0], { ...inputs, load: withCreLanes(['2026-09-30']) }),
+    ]);
+    // #then
+    expect(trees[1]).toEqual(trees[0]);
+  });
+});
+
 describe('cards from incomplete data', () => {
   const endingOn = (name: 'history.json' | 'replay.json', lastDay: string): typeof loadFixture => async (n) => {
     const file = await loadFixture(n);
