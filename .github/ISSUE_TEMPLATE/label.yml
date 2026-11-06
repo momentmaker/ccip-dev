@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping name who sends on CCIP. A label needs a public source that ties the address to the project: its docs, its deployments on GitHub, or its own website. We add it as a file in `labels/projects/`; see "Labels and handles" in `docs/runbook.md`.
+        Thanks for helping name who sends on CCIP. A label needs a public source that ties the address to the project: its docs, its deployments on GitHub, or its own website. For a sender driven by a Chainlink CRE workflow, a page of the project's that publishes the workflow's owner address also counts (see "Verified labels" in `docs/methodology.md`). We add it as a file in `labels/projects/`; see "Labels and handles" in `docs/runbook.md`.
   - type: input
     id: chain
     attributes:
@@ -34,6 +34,6 @@ body:
     id: source
     attributes:
       label: Source URL
-      description: An https page of the project's own that lists this address.
+      description: An https page of the project's own that lists this address, or, for a CRE workflow sender, the page that lists the workflow's owner address.
     validations:
       required: true
