@@ -196,7 +196,22 @@
 /* cre */
 .cre-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
 .cre-chart { margin: 0; min-width: 0; }
-.cre-chart svg { display: block; margin-top: 10px; color: var(--cre); }
+/* Text is HTML over the SVG so it keeps its size as the chart scales. */
+.cre-stats { margin: 0; font-size: 14px; color: var(--fg); }
+.cre-plot { position: relative; margin: 30px 10px 26px 28px; }
+.cre-plot svg { display: block; overflow: visible; }
+.cre-grid-line { stroke: var(--muted); stroke-opacity: 0.22; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cre-bar { fill: var(--cre); }
+.cre-col { fill: transparent; pointer-events: all; }
+.cre-col:hover { fill: rgba(232, 234, 237, 0.07); }
+.cre-y, .cre-x, .cre-peak { position: absolute; font: 600 11px var(--font-mono); color: var(--muted); white-space: nowrap; pointer-events: none; }
+.cre-y { right: 100%; padding-right: 6px; transform: translateY(-50%); }
+.cre-x { top: 100%; padding-top: 6px; }
+.cre-peak { color: var(--fg); transform: translate(-50%, calc(-100% - 4px)); }
+.cre-peak.start { transform: translate(-4px, calc(-100% - 4px)); }
+.cre-peak.end { transform: translate(calc(-100% + 4px), calc(-100% - 4px)); }
+.cre-tip { position: absolute; top: -28px; transform: translateX(-50%); padding: 4px 8px; border-radius: 6px; background: rgba(22, 27, 35, 0.96); border: 1px solid var(--border); font: 600 11px var(--font-sans); color: var(--fg); white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
+.cre-chart figcaption { margin-top: 0; }
 .cre-leaders { list-style: none; margin: 0; min-width: 0; }
 .cre-grid .more-link { display: inline-block; margin-top: 12px; }
 .cre-leaders .label { margin: 0 0 6px; }

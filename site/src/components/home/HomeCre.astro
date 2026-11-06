@@ -1,6 +1,6 @@
 ---
 import type { DayTotals, TopFile } from '@ccip-dev/core/public';
-import { creBand, creLatestCaption, creLeaders, creSparkPoints, creTotal, CRE_DAYS } from '../../lib/cre';
+import { creBand, creBars, creLeaders, creMonthTotals, creStats, creSummary, creTotal, CRE_DAYS } from '../../lib/cre';
 import { formatCount } from '../../lib/format';
 
 interface Props {
@@ -13,8 +13,11 @@ const { days, top, projects } = Astro.props;
 const band = creBand(days);
 const total = creTotal(days);
 const leaders = creLeaders(top, projects);
-const W = 320;
-const H = 56;
+const W = 600;
+const H = 200;
+const chart = band ? creBars(band.series, { width: W, height: H, gap: 2, monthGap: 40 }) : null;
+const stats = creStats(days);
+const pct = (n: number, of: number) => `${((n / of) * 100).toFixed(2)}%`;
 ---
 {band && (
   <section class="band" id="cre" aria-labelledby="cre-title">
@@ -28,10 +31,32 @@ const H = 56;
     </div>
     <div class="cre-grid">
       <figure class="card cre-chart">
-        <figcaption class="label">Share of messages sent by CRE workflows, last {CRE_DAYS} days · {creLatestCaption(band.latest)}</figcaption>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label={`CRE share of CCIP messages over the last ${CRE_DAYS} days`}>
-          <polyline points={creSparkPoints(band.series, W, H)} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
-        </svg>
+        <p class="cre-stats">{stats.line}</p>
+        {chart && (
+          <div class="cre-plot">
+            <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={creSummary(band.series)}>
+              {chart.ticks.map((t) => <line class="cre-grid-line" x1="0" x2={W} y1={t.y} y2={t.y} />)}
+              {chart.bars.map((b) => b.path && <path class="cre-bar" d={b.path} />)}
+              {chart.bars.map((b) => <rect class="cre-col" x={b.columnX} y="0" width={b.columnWidth} height={H} data-tip={b.tip} />)}
+            </svg>
+            <div aria-hidden="true">
+              {chart.ticks.map((t) => <span class="cre-y" style={`top:${pct(t.y, H)}`}>{t.value}</span>)}
+              {chart.months.map((m) => <span class="cre-x" style={`left:${pct(m.x, W)}`}>{m.label}</span>)}
+              {chart.peak && <span class={`cre-peak ${chart.peak.anchor}`} style={`left:${pct(chart.peak.x, W)};top:${pct(chart.peak.y, H)}`}>{chart.peak.label}</span>}
+              <span class="cre-tip" hidden></span>
+            </div>
+          </div>
+        )}
+        <figcaption class="label">CRE-sent CCIP messages per day, last {CRE_DAYS} days</figcaption>
+        {band && (
+          <table class="visually-hidden">
+            <caption>CRE-sent CCIP messages per month, within the last {CRE_DAYS} days</caption>
+            <thead><tr><th scope="col">Month</th><th scope="col">Messages</th></tr></thead>
+            <tbody>
+              {creMonthTotals(band.series).map((m) => <tr><th scope="row">{m.month}</th><td>{formatCount(m.messages)}</td></tr>)}
+            </tbody>
+          </table>
+        )}
       </figure>
       {leaders.length > 0 && (
         <div class="card">
@@ -50,3 +75,23 @@ const H = 56;
     </div>
   </section>
 )}
+
+<script>
+  document.querySelectorAll<HTMLElement>('.cre-plot').forEach((plot) => {
+    const tip = plot.querySelector<HTMLElement>('.cre-tip');
+    if (!tip) return;
+    const hide = () => { tip.hidden = true; };
+    plot.addEventListener('pointerover', (e) => {
+      const col = e.target instanceof Element ? e.target.closest<SVGElement>('[data-tip]') : null;
+      if (!col) return hide();
+      const box = plot.getBoundingClientRect();
+      const colBox = col.getBoundingClientRect();
+      tip.textContent = col.dataset.tip ?? '';
+      tip.hidden = false;
+      const half = tip.offsetWidth / 2;
+      tip.style.left = `${Math.min(Math.max(colBox.left + colBox.width / 2 - box.left, half), box.width - half)}px`;
+    });
+    plot.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'touch') hide(); });
+    document.addEventListener('pointerdown', (e) => { if (!(e.target instanceof Node) || !plot.contains(e.target)) hide(); });
+  });
+</script>
