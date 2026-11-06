@@ -169,14 +169,11 @@ describe('CRE lanes in the daily and weekly sky', () => {
 
   it('renders a day without a CRE lane exactly as when replay.json has no cre field', async () => {
     // #given CRE lanes on another day only
-    const targets = [{ kind: 'daily', day: DAY }, { kind: 'weekly', monday: '2026-10-05' }] as const;
+    const targets = [{ kind: 'daily', day: DAY }, { kind: 'weekly', monday: MONDAY }] as const;
     // #when
-    const trees = await Promise.all([
-      broadcastTree(targets[0], inputs),
-      broadcastTree(targets[0], { ...inputs, load: withCreLanes(['2026-09-30']) }),
-    ]);
+    const trees = await Promise.all(targets.flatMap((t) => [broadcastTree(t, inputs), broadcastTree(t, { ...inputs, load: withCreLanes(['2026-09-30']) })]));
     // #then
-    expect(trees[1]).toEqual(trees[0]);
+    expect([trees[1], trees[3]]).toEqual([trees[0], trees[2]]);
   });
 });
 
