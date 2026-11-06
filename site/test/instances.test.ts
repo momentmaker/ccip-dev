@@ -40,6 +40,15 @@ describe('buildInstances', () => {
     expect(head[7]).toBe(SHAPE.glow);
   });
 
+  it('colors a CRE comet teal', () => {
+    // #given a frame whose comet is a cre comet
+    const cre: SkyFrame = { ...frame, comets: [{ from: 0, to: 1, progress: 0.5, size: 1, kind: 'cre' }] };
+    // #when the instances are built
+    const head = instance(buildInstances(cre, project, 1), 10);
+    // #then the head uses the cre color
+    expect(head.slice(3, 6)).toEqual([...COLORS.cre].map((v) => expect.closeTo(v, 5)));
+  });
+
   it('draws a bright core halfway between the comet color and the star color', () => {
     const core = instance(buildInstances(frame, project, 1), 11);
     expect(core[0]).toBeCloseTo(100);

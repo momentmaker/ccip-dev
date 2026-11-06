@@ -2,8 +2,8 @@ import { broadcastCardPath, parseBroadcastPath, type BroadcastTarget } from '@cc
 import { isDay } from './days';
 
 export const HISTORY_RANGES = ['30d', '90d', '1y', 'all'] as const;
-export const TOP_DIMS = ['lane', 'token', 'sender', 'chain'] as const;
-/** Tokens have no fee ranking: a fee is paid per message, so token rows carry no fees. */
+export const TOP_DIMS = ['lane', 'token', 'sender', 'chain', 'cre'] as const;
+/** Tokens have no fee ranking: a fee is paid per message, so token rows carry no fees. CRE senders are ranked by messages only. */
 export const FEE_TOP_DIMS = ['lane', 'sender', 'chain'] as const;
 export const TOP_ORDERS = ['value', 'fees'] as const;
 export const WINDOWS = ['7d', '30d', 'all'] as const;

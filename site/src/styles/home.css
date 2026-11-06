@@ -66,6 +66,10 @@
 
 .whales { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .whale { position: absolute; width: 250px; display: grid; gap: 1px; padding: 8px 12px; border-left: 2px solid var(--gold); background: linear-gradient(90deg, rgba(40, 30, 6, 0.9), rgba(40, 30, 6, 0)); animation: whale-in 0.45s var(--ease) both; }
+.whale.cre { border-left-color: var(--cre); background: linear-gradient(90deg, rgba(6, 40, 36, 0.9), rgba(6, 40, 36, 0)); }
+.whale.cre .whale-eyebrow { color: var(--cre); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.whale.cre .whale-amt { color: #d4fff7; text-shadow: 0 0 18px rgba(64, 224, 196, 0.6); }
+.whale.cre .whale-lane { color: #b4d8d2; }
 @keyframes whale-in { from { opacity: 0; transform: translateY(8px); } }
 .whale-eyebrow { font: 700 10px var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
 .whale-amt { font: 700 21px var(--font-mono); color: #fff3cf; text-shadow: 0 0 18px rgba(245, 196, 81, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -185,15 +189,16 @@
 .comms-lane { display: flex; align-items: center; min-width: 0; }
 .comms-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comms-sender { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-.comms-cre { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--blue-2); border-radius: 3px; font: 600 10px var(--font-mono); letter-spacing: 0.04em; color: var(--blue-2); vertical-align: middle; }
+.comms-cre { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--cre); border-radius: 3px; font: 600 10px var(--font-mono); letter-spacing: 0.04em; color: var(--cre); vertical-align: middle; }
 .comms-amt { display: grid; justify-items: end; font-size: 12px; font-weight: 600; text-align: right; white-space: nowrap; }
 .comms-usd { font-size: 12px; }
 
 /* cre */
 .cre-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
 .cre-chart { margin: 0; min-width: 0; }
-.cre-chart svg { display: block; margin-top: 10px; color: var(--blue-2); }
+.cre-chart svg { display: block; margin-top: 10px; color: var(--cre); }
 .cre-leaders { list-style: none; margin: 0; min-width: 0; }
+.cre-grid .more-link { display: inline-block; margin-top: 12px; }
 .cre-leaders .label { margin: 0 0 6px; }
 .cre-leaders li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; min-width: 0; }
 .cre-leaders li > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

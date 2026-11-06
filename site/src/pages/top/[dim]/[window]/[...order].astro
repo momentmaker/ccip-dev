@@ -17,25 +17,33 @@ export function getStaticPaths() {
   );
 }
 
-const TITLE: Record<TopDim, string> = { lane: 'Top lanes', token: 'Top tokens', sender: 'Top senders', chain: 'Top chains' };
-const NOUN: Record<TopDim, string> = { lane: 'lane', token: 'token', sender: 'sender', chain: 'source chain' };
-const COLUMN: Record<TopDim, string> = { lane: 'Lane', token: 'Token', sender: 'Sender', chain: 'Source chain' };
+const TITLE: Record<TopDim, string> = { lane: 'Top lanes', token: 'Top tokens', sender: 'Top senders', chain: 'Top chains', cre: 'Top CRE senders' };
+const TAB: Record<TopDim, string> = { lane: 'lanes', token: 'tokens', sender: 'senders', chain: 'chains', cre: 'CRE' };
+const NOUN: Record<TopDim, string> = { lane: 'lane', token: 'token', sender: 'sender', chain: 'source chain', cre: 'sender of CRE-sent messages' };
+const COLUMN: Record<TopDim, string> = { lane: 'Lane', token: 'Token', sender: 'Sender', chain: 'Source chain', cre: 'CRE sender' };
 const WINDOW_LABEL: Record<Window, string> = { '7d': '7 days', '30d': '30 days', all: 'All time' };
 const ORDER_LABEL: Record<TopOrder, string> = { value: 'Value', fees: 'Fees' };
 const dim = Astro.params.dim as TopDim;
 const window = Astro.params.window as Window;
 const order: TopOrder = Astro.params.order === 'fees' ? 'fees' : 'value';
 const byFees = order === 'fees';
-const [top, chains] = await Promise.all([buildData(TOP_FILE[dim]), buildData('chains.json')]);
+const byMessages = dim === 'cre';
+const [top, chains] = await Promise.all([dim === 'cre' ? buildDataIfPublished(TOP_FILE.cre) : buildData(TOP_FILE[dim]), buildData('chains.json')]);
 const names = chainNameMap(chains.chains);
 const cost = dim === 'lane' ? await buildDataIfPublished('cost.json') : null;
-const rows =
-  dim === 'sender'
-    ? senderRows(senderEntries(top, window, order), names, registryNames(chains.chains), projectSlugs(await buildDataIfPublished('projects.json')), order)
+const rows = !top
+  ? []
+  : dim === 'sender' || dim === 'cre'
+    ? senderRows(senderEntries(top, window, order), names, registryNames(chains.chains), projectSlugs(await buildDataIfPublished('projects.json')), order, byMessages ? 'messages' : 'value')
     : topRows(topEntries(top, window, order), dim, names, { order, typicalFees: typicalFeeMap(cost) });
-const scope = window === 'all' ? `since ${top.since}` : `last ${WINDOW_LABEL[window]}`;
+const scope = window === 'all' ? (top ? `since ${top.since}` : 'all time') : `last ${WINDOW_LABEL[window]}`;
 const heading = `${TITLE[dim]}${byFees ? ' by fees' : ''}`;
-const description = byFees ? `Up to 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.` : `Up to 100 of the busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
+const description = byMessages
+  ? `Up to 100 senders of the most CCIP messages sent by Chainlink CRE workflows, ${scope}.`
+  : byFees
+    ? `Up to 100 CCIP ${NOUN[dim]}s that paid the most in fees, ${scope}.`
+    : `Up to 100 of the busiest CCIP ${NOUN[dim]}s by value, ${scope}.`;
+const rankedBy = byMessages ? 'messages' : byFees ? 'fees' : 'value';
 const cardPath = `top/${dim}/${window}${byFees ? '/fees' : ''}`;
 const leader = rows[0];
 const feesAfter = !byFees && rows.some((r) => r.fee !== null);
@@ -44,13 +52,13 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
 <Base title={`${heading} · ${WINDOW_LABEL[window]}`} description={description} cardPath={cardPath}>
   <div class="page-head">
     <div>
-      <p class="label">{scope} · by {byFees ? 'fees' : 'value'}</p>
+      <p class="label">{scope} · by {rankedBy}</p>
       <h1>{TITLE[dim]}</h1>
     </div>
     <ShareButton client:load view={cardPath} headline={leader ? `${heading} on CCIP, ${scope}: #1 ${leader.primary}` : `${heading} on CCIP`} url={`https://ccip.dev${topHref(dim, window, order)}`} cardUrl={`/og/${cardPath}.png`} />
   </div>
   <nav class="tabs" aria-label="Dimension">
-    {TOP_DIMS.map((d) => <a href={topHref(d, window, tabOrder(d))} aria-current={d === dim ? 'page' : undefined}>{TITLE[d].replace('Top ', '')}</a>)}
+    {TOP_DIMS.map((d) => <a href={topHref(d, window, tabOrder(d))} aria-current={d === dim ? 'page' : undefined}>{TAB[d]}</a>)}
   </nav>
   <nav class="tabs" aria-label="Window">
     {WINDOWS.map((w) => <a href={topHref(dim, w, order)} aria-current={w === window ? 'page' : undefined}>{WINDOW_LABEL[w]}</a>)}
@@ -61,14 +69,14 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
     </nav>
   )}
   {rows.length === 0 ? (
-    <p class="card muted">{byFees ? 'No fee ranking yet. It appears after the next daily update.' : 'Nothing to rank in this window yet.'}</p>
+    <p class="card muted">{byMessages ? 'No CRE-sent messages in this window yet.' : byFees ? 'No fee ranking yet. It appears after the next daily update.' : 'Nothing to rank in this window yet.'}</p>
   ) : (
     <div class="table-wrap card">
       <table class="data">
         <thead>
           <tr>
             <th class="num">#</th>
-            <th>{COLUMN[dim]}{dim === 'sender' && <InfoLink metric="labels" label="sender labels" />}</th>
+            <th>{COLUMN[dim]}{(dim === 'sender' || dim === 'cre') && <InfoLink metric="labels" label="sender labels" />}</th>
             {byFees && <th class="num">Fees<InfoLink metric="fees" label="fees" /></th>}
             <th class="num">Messages<InfoLink metric="messages" label="messages" /></th>
             <th class="num">Value<InfoLink metric="value" label="value transferred" /></th>
@@ -98,5 +106,5 @@ const tabOrder = (d: TopDim): TopOrder => (topOrders(d).includes(order) ? order 
       </table>
     </div>
   )}
-  <p class="muted">Share is of the {byFees ? 'fees' : 'value'} of the top 100. {dim === 'sender' && 'A project counts every address its label names, on every chain, and the direct sends of the tokens it claims; "inferred" marks an address credited through the same address labeled on another chain, and "via token" the messages of wallets bridging the project\'s token through CCIP themselves.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
+  <p class="muted">{byMessages ? "Share is of the window's CRE-sent messages. " : `Share is of the ${byFees ? 'fees' : 'value'} of the top 100. `}{byMessages && <>These are the senders of CCIP messages whose source transaction a Chainlink CRE node key signed, a lower bound. <a href="/methodology/#cre-sent-messages">How we count</a>.</>}{dim === 'sender' && 'A project counts every address its label names, on every chain, and the direct sends of the tokens it claims; "inferred" marks an address credited through the same address labeled on another chain, and "via token" the messages of wallets bridging the project\'s token through CCIP themselves.'}{dim === 'chain' && 'Chains are ranked by the messages they send.'}{dim === 'lane' && ' Typical fee is the median fee per message on the lane over the last 30 days, whatever the window.'}</p>
 </Base>

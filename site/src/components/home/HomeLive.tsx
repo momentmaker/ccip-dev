@@ -1,12 +1,12 @@
 import type { DayTotals, LiveMessage, TodayFile } from '@ccip-dev/core/public';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { crossedToday, landedSince, liveAllTime, metricTotal, milestoneGoal, nearestGoal, type AllTimeBase, type AllTimeTotals, type CountedDay, type Landed } from '../../lib/all-time';
+import { launchAnnouncement } from '../../lib/announce';
 import { trackDataError, track } from '../../lib/analytics';
 import { heroFees, type FeeHistoryTotals } from '../../lib/fee-revenue';
-import { formatCount, formatUsd } from '../../lib/format';
+import { formatCount } from '../../lib/format';
 import { LiveScheduler, pruneStale, type Planned } from '../../lib/live-scheduler';
 import { publishToday } from '../../lib/live-store';
-import { laneLabel } from '../../lib/names';
 import { startPoller } from '../../lib/poller';
 import { liveRecordBreaks, type DayRecord, type MilestoneMetric } from '../../lib/records';
 import { type DaySnapshot, previousDay, rolloverSnapshot, yesterdayFor } from '../../lib/yesterday';
@@ -184,7 +184,7 @@ export default function HomeLive(props: HomeLiveProps) {
     else timersRef.current.push(setTimeout(() => land([message]), COMET_MS));
     if (now - lastAnnounceRef.current >= ANNOUNCE_EVERY_MS) {
       lastAnnounceRef.current = now;
-      setAnnouncement(`${laneLabel(names, `${message.src}>${message.dst}`)}${message.usd ? `, ${formatUsd(message.usd)}` : ''}`);
+      setAnnouncement(launchAnnouncement(names, message));
     }
   };
 

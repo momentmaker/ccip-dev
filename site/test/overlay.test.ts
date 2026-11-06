@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildLayout, projector } from '../src/sky/layout';
 import { cardPosition, cardSize, skyOverlay } from '../src/sky/overlay';
-import { WHALE_H, WHALE_W, whalePosition } from '../src/sky/overlay';
+import { WHALE_H, WHALE_W, whaleAmount, whalePosition } from '../src/sky/overlay';
 import { starRadius } from '../src/sky/weights';
 
 const stars = buildLayout([
@@ -169,5 +169,22 @@ describe('whalePosition', () => {
 
   it('flips left at the right edge and stays inside the sky', () => {
     expect(whalePosition({ x: 990, y: 20 }, size)).toEqual({ left: 990 - 22 - WHALE_W, top: 8 });
+  });
+});
+
+describe('whaleAmount', () => {
+  it('shows the value and token of a valued message', () => {
+    // #given a valued message with a token
+    // #when the panel amount is built
+    // #then it reads as value and token
+    expect(whaleAmount(4_200_000, 'USDC')).toBe('$4.2M USDC');
+  });
+
+  it('leaves the amount out of a data-only message', () => {
+    // #given messages with no USD value
+    // #when the panel amount is built
+    // #then it is empty, so the panel can drop the line
+    expect(whaleAmount(null, null)).toBe('');
+    expect(whaleAmount(0, null)).toBe('');
   });
 });

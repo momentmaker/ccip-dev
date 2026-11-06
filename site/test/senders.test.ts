@@ -102,6 +102,42 @@ describe('sender rows', () => {
   });
 });
 
+describe('CRE sender rows', () => {
+  const creWindow = (rows: unknown[]) => ({ '7d': rows, '30d': [], all: [] });
+  const CRE_PROJECT = { key: 'project:xstocks', label: 'xStocks', messages: 90, usd: 0, fee_usd: 20, chains: [SOL, INK], addresses: 2, share_pct: 60 };
+  const CRE_ADDRESS = { key: `address:${B1}`, label: null, messages: 30, usd: 250_000, fee_usd: 9, chains: [BASE], addresses: 1, share_pct: 20 };
+
+  it('reads the identities of the CRE file, already ranked by messages', () => {
+    // #given
+    const file = { ...(oldTopSender as TopFile), dim: 'cre', identities: creWindow([CRE_PROJECT, CRE_ADDRESS]) } as TopFile;
+    // #when
+    const rows = senderRows(senderEntries(file, '7d', 'value'), names, registry, slugs, 'value', 'messages');
+    // #then
+    expect(rows.map((r) => [r.rank, r.primary, r.href, r.messages])).toEqual([[1, 'xStocks', '/projects/xstocks/', 90], [2, '0x671b…4077', `https://ccip.chain.link/address/${B1}`, 30]]);
+  });
+
+  it("shares each row out of the window's CRE messages, not out of the listed total", () => {
+    // #when
+    const rows = senderRows([CRE_PROJECT, CRE_ADDRESS], names, registry, slugs, 'value', 'messages');
+    // #then
+    expect(rows.map((r) => r.sharePct)).toEqual([60, 20]);
+  });
+
+  it('falls back to the listed messages for a row without a share', () => {
+    // #when
+    const rows = senderRows([{ ...CRE_PROJECT, share_pct: undefined }, { ...CRE_ADDRESS, share_pct: null }], names, registry, slugs, 'value', 'messages');
+    // #then
+    expect(rows.map((r) => r.sharePct)).toEqual([75, 25]);
+  });
+
+  it('keeps the value share of the Senders tab by default', () => {
+    // #when
+    const rows = senderRows([CRE_PROJECT, CRE_ADDRESS], names, registry, slugs);
+    // #then
+    expect(rows.map((r) => r.sharePct)).toEqual([0, 100]);
+  });
+});
+
 describe("the day's top sender", () => {
   it('names it with its messages and share, and has none for a day without leaders', () => {
     // #given

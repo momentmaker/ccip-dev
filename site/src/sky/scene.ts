@@ -28,9 +28,14 @@ export function cometSize(usd: number | null): number {
   return Math.min(1, Math.max(0.15, Math.log10((usd ?? 0) + 1) / 7));
 }
 
-export function cometKind(usd: number | null, token: string | null): CometKind {
+export function cometKind(usd: number | null, token: string | null, cre = false): CometKind {
   if ((usd ?? 0) >= GOLD_USD) return 'gold';
+  if (cre) return 'cre';
   return (usd ?? 0) > 0 || token !== null ? 'token' : 'data';
+}
+
+export function creCaption(senderLabel: string | null | undefined): string {
+  return senderLabel ? `CRE · ${senderLabel}` : 'CRE';
 }
 
 export interface LaunchInput {
@@ -39,6 +44,7 @@ export interface LaunchInput {
   dst: string;
   usd: number | null;
   token: string | null;
+  cre?: boolean;
 }
 
 export interface Caption {
@@ -107,12 +113,14 @@ export class LiveScene {
   launch(m: LaunchInput, now: number, captionText: (m: LaunchInput) => string): Caption | null {
     const from = this.starIndex(m.src);
     const to = this.starIndex(m.dst);
-    const kind = cometKind(m.usd, m.token);
+    const kind = cometKind(m.usd, m.token, m.cre);
     this.comets.push({ from, to, start: now, size: cometSize(m.usd), kind });
     if (this.comets.length > MAX_COMETS) this.comets.splice(0, this.comets.length - MAX_COMETS);
-    if (kind !== 'gold') return null;
-    this.rings.push({ star: to, start: now + COMET_MS, ms: RING_MS });
-    for (const wave of SHOCKWAVE) this.rings.push({ star: to, start: now + COMET_MS + wave.delay, ms: wave.ms, reach: wave.reach });
+    if (kind !== 'gold' && kind !== 'cre') return null;
+    if (kind === 'gold') {
+      this.rings.push({ star: to, start: now + COMET_MS, ms: RING_MS });
+      for (const wave of SHOCKWAVE) this.rings.push({ star: to, start: now + COMET_MS + wave.delay, ms: wave.ms, reach: wave.reach });
+    }
     const caption = { id: m.id, text: captionText(m), until: now + CAPTION_MS };
     this.captions.push(caption);
     return caption;

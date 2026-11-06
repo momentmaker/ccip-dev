@@ -90,22 +90,35 @@ export function senderView(e: SenderFields, names: ChainNames, registry: Registr
   };
 }
 
-/** Top › Senders rows; Share is of the listed total, as on the other tabs. */
-export function senderRows(entries: readonly TopEntry[], names: ChainNames, registry: RegistryNames, slugs: ReadonlySet<string>, order: TopOrder = 'value'): TopRow[] {
-  const measure = (e: TopEntry) => (order === 'fees' ? (e.fee_usd ?? null) : e.usd);
+/**
+ * Top › Senders rows; Share is of the listed total, as on the other tabs. The CRE tab ranks by messages, so with
+ * `ranking = 'messages'` a row's share is its `share_pct` of the window's CRE-sent messages, or of the listed messages when the file has none.
+ */
+export function senderRows(
+  entries: readonly TopEntry[],
+  names: ChainNames,
+  registry: RegistryNames,
+  slugs: ReadonlySet<string>,
+  order: TopOrder = 'value',
+  ranking: 'value' | 'messages' = 'value',
+): TopRow[] {
+  const byMessages = ranking === 'messages';
+  const measure = (e: TopEntry) => (byMessages ? e.messages : order === 'fees' ? (e.fee_usd ?? null) : e.usd);
   const total = entries.reduce((sum, e) => sum + (measure(e) ?? 0), 0);
-  return entries.map((e, i) => {
+  const share = (e: TopEntry) => {
     const m = measure(e);
-    return {
-      rank: i + 1,
-      ...senderView(e, names, registry, slugs),
-      messages: e.messages,
-      usd: e.usd,
-      fee: e.fee_usd ?? null,
-      typicalFee: null,
-      sharePct: total > 0 && m !== null ? (m / total) * 100 : null,
-    };
-  });
+    if (byMessages && e.share_pct != null) return e.share_pct;
+    return total > 0 && m !== null ? (m / total) * 100 : null;
+  };
+  return entries.map((e, i) => ({
+    rank: i + 1,
+    ...senderView(e, names, registry, slugs),
+    messages: e.messages,
+    usd: e.usd,
+    fee: e.fee_usd ?? null,
+    typicalFee: null,
+    sharePct: share(e),
+  }));
 }
 
 export interface DaySender extends SenderView {

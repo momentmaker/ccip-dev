@@ -13,6 +13,7 @@ import {
   bigSize, bold, boldArrows, broadcastFrame, cardDay, cardWeek, COLORS, deltaStat, eyebrow, feeBars, hasReplayDay, iconsFor, MILESTONE_TITLES, mutedStat, namesOf, row,
   skyFor, statsPanel, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
+import { messageCount } from './content';
 import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph, withArrows } from './glyphs';
 import { countdownTree, welcomeTree } from './moment-cards';
@@ -85,13 +86,32 @@ function feeChainsInsight(chains: readonly Leader[], names: ChainNames): Child[]
   return ['Top fee chains: ', ...chains.flatMap((l, i): Child[] => [...(i > 0 ? [' · '] : []), bold(chainName(names, l.key)), ` ${formatFeeTotal(l.fee_usd)}`])];
 }
 
-function dayFooter(dataShare: number | null, leaders: VNode): VNode {
+/** "CRE workflows: 30 messages (20%)"; null when no message was sent by a CRE workflow, or the history rows predate counting them. */
+function creLine(messages: number, creMessages: number): string | null {
+  if (creMessages <= 0 || messages <= 0) return null;
+  return `CRE workflows: ${messageCount(creMessages)} (${formatShare((creMessages / messages) * 100)})`;
+}
+
+const mutedLine = (text: string, marginTop: number) => h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop } }, text);
+
+/** The data share and the CRE line share one row, as the stats panel has no height to spare for another. */
+function dayMetaRow(dataShare: number | null, cre: string | null): VNode | null {
+  const data = dataShare === null ? null : `${formatShare(dataShare)} data`;
+  if (cre === null) return data === null ? null : mutedLine(data, 12);
   return h(
     'div',
-    { style: { display: 'flex', flexDirection: 'column' } },
-    dataShare === null ? null : h('div', { style: { fontSize: 18, color: COLORS.muted, marginTop: 12 } }, `${formatShare(dataShare)} data`),
-    leaders,
+    { style: { display: 'flex', justifyContent: 'space-between', marginTop: 12 } },
+    data === null ? null : mutedLine(data, 0),
+    mutedLine(cre, 0),
   );
+}
+
+function dayFooter(dataShare: number | null, leaders: VNode, cre: string | null): VNode {
+  return h('div', { style: { display: 'flex', flexDirection: 'column' } }, dayMetaRow(dataShare, cre), leaders);
+}
+
+function weekFooter(bars: VNode, cre: string | null): VNode {
+  return cre === null ? bars : h('div', { style: { display: 'flex', flexDirection: 'column' } }, bars, mutedLine(cre, 12));
 }
 
 async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | null> {
@@ -114,7 +134,7 @@ async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | 
         deltaStat('Fees', formatFeeTotal(totals.fees.value), totals.fees.pct, ''),
         mutedStat('Paid in LINK', formatShare(totals.linkSharePct), formatLinkAmount(totals.linkAmount)),
       ],
-      dayFooter(dayRow ? dataSharePct(dayRow.messages, dayRow.data_messages) : null, leadersRow(lead, names)),
+      dayFooter(dayRow ? dataSharePct(dayRow.messages, dayRow.data_messages) : null, leadersRow(lead, names), dayRow ? creLine(dayRow.messages, dayRow.cre_messages ?? 0) : null),
     ),
     insight: record ? recordInsight(record) : laneInsight(lead.lane, names),
     cta: ctaFor(day),
@@ -130,6 +150,9 @@ async function weeklyTree(monday: string, inputs: BroadcastInputs): Promise<VNod
   if (!complete || totals === null || week === undefined || !hasReplayDay(replay, addDays(monday, 6))) return null;
   const names = namesOf(replay, chains);
   const sky = skyFor(replay, names, monday, addDays(monday, 6));
+  const weekRows = history.days.filter((d) => weekDays.includes(d.day));
+  const sumOf = (pick: (d: (typeof weekRows)[number]) => number) => weekRows.reduce((sum, d) => sum + pick(d), 0);
+  const cre = creLine(sumOf((d) => d.messages), sumOf((d) => d.cre_messages ?? 0));
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
     eyebrow: `Weekly report · ${cardWeek(monday)}`,
@@ -141,7 +164,7 @@ async function weeklyTree(monday: string, inputs: BroadcastInputs): Promise<VNod
         deltaStat('Fees', formatFeeTotal(totals.fees.value), totals.fees.pct, ''),
         mutedStat('Paid in LINK', formatShare(totals.linkSharePct), `${formatFeeTotal(totals.linkUsd)} in LINK`),
       ],
-      feeBars(totals.feesByDay),
+      weekFooter(feeBars(totals.feesByDay), cre),
     ),
     insight: feeChainsInsight(week.fee_chains, names),
     // The fee chains fill the strip, so the call to action shows only its address, as in the weekly mockup.
