@@ -19,6 +19,7 @@ export interface Replay {
   chains: ReplayChain[];
   lanes: [number, number][];
   days: { day: string; lanes: [number, number, number][] }[];
+  cre?: { day: string; lanes: [number, number, number][] }[];
 }
 
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -28,7 +29,7 @@ function laneEnds(key: string): [string, string] | null {
   return parts.length === 2 && parts[0] && parts[1] ? [parts[0], parts[1]] : null;
 }
 
-export function buildReplay(rows: LaneDayRow[], names: Map<string, ChainNames>): Replay {
+export function buildReplay(rows: LaneDayRow[], names: Map<string, ChainNames>, creRows: readonly LaneDayRow[] = []): Replay {
   const sorted = rows
     .flatMap((r) => {
       const ends = laneEnds(r.key);
@@ -63,5 +64,13 @@ export function buildReplay(rows: LaneDayRow[], names: Map<string, ChainNames>):
     days.at(-1)!.lanes.push([lane, r.messages, Math.round(r.usd_value)]);
   }
   for (const d of days) d.lanes.sort((a, b) => a[0] - b[0]);
-  return { chains, lanes, days };
+  const cre: NonNullable<Replay['cre']> = [];
+  for (const r of [...creRows].sort((a, b) => compare(a.day, b.day) || compare(a.key, b.key))) {
+    const lane = laneIndex.get(r.key);
+    if (lane === undefined) continue;
+    if (cre.at(-1)?.day !== r.day) cre.push({ day: r.day, lanes: [] });
+    cre.at(-1)!.lanes.push([lane, r.messages, Math.round(r.usd_value)]);
+  }
+  for (const d of cre) d.lanes.sort((a, b) => a[0] - b[0]);
+  return cre.length > 0 ? { chains, lanes, days, cre } : { chains, lanes, days };
 }

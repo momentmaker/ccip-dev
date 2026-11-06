@@ -353,6 +353,8 @@ export const ReplayFileSchema = z.object({
   ),
   lanes: z.array(z.tuple([z.number(), z.number()])),
   days: z.array(z.object({ day: z.string(), lanes: z.array(z.tuple([z.number(), z.number(), z.number()])) })),
+  /** Days with CRE-sent messages: [lane index, messages, usd] per lane. Absent before CRE tagging. */
+  cre: z.array(z.object({ day: z.string(), lanes: z.array(z.tuple([z.number(), z.number(), z.number()])) })).optional(),
 });
 
 const ProjectWindowSchema = z.object({

@@ -209,6 +209,16 @@ describe('public file schemas', () => {
     expect(ReplayFileSchema.parse(doc).days[0]!.lanes).toEqual([[0, 2, 0]]);
   });
 
+  it('parses replay.json with and without cre, and old parsers ignore cre', () => {
+    // #given
+    const base = { ...envelope, since: '2026-11-01', chains: [], lanes: [[0, 1]], days: [] };
+    const withCre = { ...base, cre: [{ day: '2026-11-01', lanes: [[0, 3, 30]] }] };
+    // #then
+    expect(ReplayFileSchema.safeParse(base).success).toBe(true);
+    expect(ReplayFileSchema.safeParse(withCre).success).toBe(true);
+    expect(ReplayFileSchema.omit({ cre: true }).safeParse(withCre).success).toBe(true);
+  });
+
   it('reject a replay lane row with the wrong number of fields', () => {
     const doc = { ...envelope, since: null, chains: [], lanes: [], days: [{ day: '2023-07-06', lanes: [[0, 2]] }] };
     expect(ReplayFileSchema.safeParse(doc).success).toBe(false);

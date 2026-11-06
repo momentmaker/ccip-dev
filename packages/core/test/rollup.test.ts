@@ -88,6 +88,26 @@ describe('rollupDay CRE', () => {
   });
 });
 
+describe('rollupDay CRE lanes', () => {
+  it('groups CRE-sent messages by lane under the cre_lane dimension', () => {
+    // #given two CRE-sent messages on one lane, one on another, and an ordinary one
+    const day = '2026-11-04';
+    const rows = [
+      row('a', { day, src_chain: '1', dst_chain: '2', cre: 1, usd_value: 10, fee_usd: 1 }),
+      row('b', { day, src_chain: '1', dst_chain: '2', cre: 1, usd_value: 5, fee_usd: null }),
+      row('c', { day, src_chain: '1', dst_chain: '3', cre: 1, usd_value: 0, fee_usd: null }),
+      row('d', { day, src_chain: '1', dst_chain: '2', cre: 0, usd_value: 7, fee_usd: 2 }),
+    ];
+    // #when
+    const { breakdown } = rollupDay(day, rows, [], NO_TOKEN_GROUPS);
+    // #then
+    expect(breakdown.filter((b) => b.dim === 'cre_lane')).toEqual([
+      { day, dim: 'cre_lane', key: '1>2', messages: 2, usd_value: 15, fee_usd: 1 },
+      { day, dim: 'cre_lane', key: '1>3', messages: 1, usd_value: 0, fee_usd: null },
+    ]);
+  });
+});
+
 describe('rollupDay boundaries and senders', () => {
   it('counts the same address on two source chains as two unique senders', () => {
     const { totals } = rollupDay('2026-10-05', [

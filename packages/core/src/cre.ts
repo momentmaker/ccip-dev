@@ -83,6 +83,14 @@ WHERE day = ?1 AND cre = 1 AND EXISTS (SELECT 1 FROM daily_totals d WHERE d.day 
 GROUP BY src_chain, sender
 ${BREAKDOWN_CONFLICT}`;
 
+/** One rolled-up day's `cre_lane` rows (?1 = day), as rollupDay writes them; a day not rolled up yet gets none. */
+export const CRE_LANE_DAY_SQL = `INSERT INTO daily_breakdown (day, dim, key, messages, usd_value, fee_usd)
+SELECT day, 'cre_lane', src_chain || '>' || dst_chain, COUNT(*), SUM(usd_value), SUM(fee_usd)
+FROM messages
+WHERE day = ?1 AND cre = 1 AND EXISTS (SELECT 1 FROM daily_totals d WHERE d.day = ?1)
+GROUP BY src_chain, dst_chain
+${BREAKDOWN_CONFLICT}`;
+
 /** One day's CRE totals (?1 = day) from its `cre` breakdown rows: a message has one sender, so the rows sum to the day. */
 export const CRE_TOTALS_DAY_SQL = `UPDATE daily_totals SET
   cre_messages = COALESCE((SELECT SUM(messages) FROM daily_breakdown WHERE day = ?1 AND dim = 'cre'), 0),
