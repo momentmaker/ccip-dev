@@ -1,7 +1,9 @@
 import { labelKey, type Dim } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { shortAddress } from '@ccip-dev/core/names';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { composeCopy } from '../src/broadcasts/copy';
 import { dailyFacts, loadFactsSource, recordFacts, weeklyFacts } from '../src/broadcasts/facts';
 import * as store from '../src/store';
 import { harness, resetStorage, seedRegistry } from './helpers';
@@ -67,6 +69,7 @@ describe('daily facts', () => {
       },
       feeChain: { key: BASE, player: { name: 'Base', x: 'base' }, feeUsd: 4 },
       records: [{ kind: 'fees', day: DAY, value: 5, previous: { day: '2026-10-03', value: 4 }, stoodDays: 7 }],
+      cre: null,
     });
   });
 
@@ -132,6 +135,98 @@ describe('weekly facts', () => {
       chains: [['Base', 10], ['BNB Chain', 2], ['Ethereum', 1]],
       lane: `${ETH}>${BASE}`,
     });
+  });
+});
+
+const CRE_SENDER = '0x00000000000000000000000000000000000000c4';
+
+describe('CRE facts', () => {
+  it("sums the day's CRE-sent messages, takes their share of the day and names the busiest CRE sender", async () => {
+    // #given a day of 150 messages, 30 of them from CRE workflows, 20 sent by a labeled sender and 10 by another
+    await seedDay();
+    await store.replaceDaily(env.DB, { ...totals(DAY, 150, 2e6, 5), cre_messages: 30, cre_usd: 4_000 }, [
+      row(DAY, 'cre', `${ETH}:${SENDER}`, 20, 3_000, 1),
+      row(DAY, 'cre', `${BASE}:${CRE_SENDER}`, 10, 1_000, 1),
+    ], NOW);
+    const { c } = harness({ now: NOW, labels: LABELS, handles: HANDLES });
+    // #when
+    const facts = dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), DAY);
+    // #then
+    expect(facts?.cre).toEqual({ messages: 30, usd: 4_000, sharePct: 20, changePct: null, top: { name: 'xStocks', x: 'xStocksFi' } });
+  });
+
+  it('has no CRE facts for a day without CRE-sent messages', async () => {
+    // #given
+    await seedDay();
+    const { c } = harness({ now: NOW, labels: LABELS, handles: HANDLES });
+    // #when
+    const facts = dailyFacts(await loadFactsSource(c, { days: [DAY], monday: null }), DAY);
+    // #then
+    expect(facts?.cre).toBeNull();
+  });
+
+  it('gives the week its CRE messages against the week before, and its busiest CRE sender over the whole week', async () => {
+    // #given 125 CRE messages in the week of Sep 28 and 140 in the week of Oct 5, the busiest sender of that week on Oct 7
+    await seedDay();
+    const week = (day: string, cre: number, rows: ReturnType<typeof row>[]) => store.replaceDaily(env.DB, { ...totals(day, 200, 8e6, 4), cre_messages: cre, cre_usd: cre }, rows, NOW);
+    await week('2026-10-01', 125, [row('2026-10-01', 'cre', `${ETH}:${SENDER}`, 125, 125, 1)]);
+    await week('2026-10-06', 60, [row('2026-10-06', 'cre', `${BASE}:${CRE_SENDER}`, 60, 60, 1)]);
+    await week('2026-10-07', 80, [row('2026-10-07', 'cre', `${BASE}:${CRE_SENDER}`, 50, 50, 1), row('2026-10-07', 'cre', `${ETH}:${SENDER}`, 30, 30, 1)]);
+    const { c } = harness({ now: '2026-10-12T00:07:00.000Z', labels: LABELS, handles: HANDLES });
+    // #when
+    const facts = weeklyFacts(await loadFactsSource(c, { days: ['2026-10-11'], monday: '2026-10-05' }), '2026-10-05');
+    // #then
+    expect(facts?.cre).toEqual({ messages: 140, usd: 140, sharePct: (140 / 1_150) * 100, changePct: 12, top: { name: shortAddress(CRE_SENDER), x: null } });
+  });
+
+  it('reads no sender chains or registry groups for the CRE tops when the window has no CRE rows, and has no CRE facts', async () => {
+    // #given the same window with and without a cre row, counting the reads the sender book makes
+    await seedDay();
+    const { c } = harness({ now: '2026-10-12T00:07:00.000Z' });
+    const chains = vi.spyOn(store, 'senderChains');
+    const groups = vi.spyOn(store, 'registryGroups');
+    const window = { days: ['2026-10-10'], monday: '2026-10-05' };
+    // #when
+    const without = await loadFactsSource(c, window);
+    const readsWithout = { chains: chains.mock.calls.length, groups: groups.mock.calls.length };
+    await store.replaceDaily(env.DB, { ...totals(DAY, 150, 2e6, 5), cre_messages: 30, cre_usd: 1 }, [row(DAY, 'cre', `${BASE}:${CRE_SENDER}`, 30, 1, 1)], NOW);
+    await loadFactsSource(c, window);
+    const readsWith = { chains: chains.mock.calls.length - readsWithout.chains, groups: groups.mock.calls.length - readsWithout.groups };
+    chains.mockRestore();
+    groups.mockRestore();
+    // #then
+    expect({
+      extraChainReads: readsWith.chains - readsWithout.chains,
+      extraGroupReads: readsWith.groups - readsWithout.groups,
+      day: dailyFacts(without, DAY)?.cre,
+      week: weeklyFacts(without, '2026-10-05')?.cre,
+      creTop: without.creTop,
+    }).toEqual({ extraChainReads: 1, extraGroupReads: 1, day: null, week: null, creTop: { days: new Map(), week: null } });
+  });
+
+  it('has no weekly change, and the X line no arrow, when the week before had no CRE messages', async () => {
+    // #given 60 CRE messages in the week of Oct 5 and none in the week before
+    await seedDay();
+    await store.replaceDaily(env.DB, { ...totals('2026-10-06', 200, 8e6, 4), cre_messages: 60, cre_usd: 60 }, [row('2026-10-06', 'cre', `${BASE}:${CRE_SENDER}`, 60, 60, 1)], NOW);
+    const { c } = harness({ now: '2026-10-12T00:07:00.000Z', handles: HANDLES });
+    // #when
+    const facts = weeklyFacts(await loadFactsSource(c, { days: ['2026-10-11'], monday: '2026-10-05' }), '2026-10-05');
+    const line = composeCopy({ ...facts!, leaders: { token: null, sender: null, lane: null } }).xText.split('\n').find((l) => l.startsWith('CRE workflows'));
+    // #then
+    expect({ changePct: facts?.cre?.changePct, line }).toEqual({ changePct: null, line: `CRE workflows: 60 messages · top: ${shortAddress(CRE_SENDER)}` });
+  });
+
+  it('reads the CRE rows once for the days and the week together', async () => {
+    // #given a day in the week of Oct 5
+    await seedDay();
+    const { c } = harness({ now: '2026-10-12T00:07:00.000Z' });
+    const reads: string[] = [];
+    const spy = vi.spyOn(store, 'breakdownBetween').mockImplementation(async (_db, dim) => (reads.push(dim), []));
+    // #when
+    await loadFactsSource(c, { days: ['2026-10-11'], monday: '2026-10-05' });
+    spy.mockRestore();
+    // #then
+    expect(reads.filter((d) => d === 'cre')).toEqual(['cre']);
   });
 });
 

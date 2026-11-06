@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, MomentsFileSchema, ProjectsFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
+import { CostFileSchema, DayLeadersFileSchema, HistoryFileSchema, LiveFileSchema, MomentsFileSchema, ProjectsFileSchema, PUBLIC_SCHEMAS, ReplayFileSchema, ReserveFileSchema, StatusFileSchema, TopFileSchema, type PublicFileName } from '../src/public';
 import chains from './fixtures/public/chains.json';
 import history from './fixtures/public/history.json';
 import live from './fixtures/public/live.json';
@@ -46,6 +46,18 @@ describe('public file schemas', () => {
     // #then
     expect({ slug: parsed.projects[0]?.slug, listed: PUBLIC_SCHEMAS['projects.json'] === ProjectsFileSchema }).toEqual({ slug: 'xstocks', listed: true });
   });
+  it('parses top/cre.json, a live message flagged cre and one without the flag', () => {
+    // #given
+    const message = { id: 'm', send_ts: '2026-11-05T10:00:00.000Z', status: 'SENT', src: '1', dst: '2', token: null, usd: null, sender_label: null };
+    const top = { ...envelope, dim: 'cre', since: null, windows: { '7d': [{ key: '1:0xa', messages: 1, usd: 9, label: null }], '30d': [], all: [] } };
+    // #when
+    const live = LiveFileSchema.parse({ ...envelope, window_minutes: 15, messages: [{ ...message, cre: true }, message] });
+    // #then
+    expect({ flagged: live.messages[0]?.cre, plain: live.messages[1]?.cre, topListed: PUBLIC_SCHEMAS['top/cre.json'] === TopFileSchema, dim: PUBLIC_SCHEMAS['top/cre.json'].parse(top).dim }).toEqual({
+      flagged: true, plain: undefined, topListed: true, dim: 'cre',
+    });
+  });
+
   it('reads identity fields on top entries and leaders, and still reads files without them', () => {
     // #given an identity entry, and the per-chain entry an older file holds
     const identity = { key: 'project:xstocks', label: 'xStocks', messages: 319, usd: 0, fee_usd: 79.75, x: 'xStocksFi', kind: 'protocol', inferred: false, chains: ['1', '2'], addresses: 2, share_pct: 20.3 };

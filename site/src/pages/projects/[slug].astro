@@ -48,6 +48,9 @@ const tokens = projectTokenRows(project);
           <div class="tile"><span class="label">Value, {label}</span><p class="value">{formatUsd(t.usd)}</p></div>
           <div class="tile"><span class="label">Fees, {label}</span><p class="value">{formatFeeTotal(t.fee_usd)}</p></div>
           <div class="tile"><span class="label">Share of messages, {label}</span><p class="value">{formatShare(t.share_pct)}</p></div>
+          {(t.cre_messages ?? 0) > 0 && (
+            <div class="tile"><span class="label">Sent by CRE workflows, {label}</span><p class="value">{formatCount(t.cre_messages)} <span class="muted">({formatShare(t.cre_share_pct)})</span></p></div>
+          )}
         </section>
         {via && <p class="muted">{via}, {label}.</p>}
       </>

@@ -157,6 +157,7 @@
 .pulse-tip strong { font-size: 14px; }
 
 .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.stats-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stat { min-width: 0; }
 .stat .label { font-size: 10px; letter-spacing: 0.06em; white-space: nowrap; }
 .stat .info { margin-left: 2px; }
@@ -184,8 +185,19 @@
 .comms-lane { display: flex; align-items: center; min-width: 0; }
 .comms-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comms-sender { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.comms-cre { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--blue-2); border-radius: 3px; font: 600 10px var(--font-mono); letter-spacing: 0.04em; color: var(--blue-2); vertical-align: middle; }
 .comms-amt { display: grid; justify-items: end; font-size: 12px; font-weight: 600; text-align: right; white-space: nowrap; }
 .comms-usd { font-size: 12px; }
+
+/* cre */
+.cre-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+.cre-chart { margin: 0; min-width: 0; }
+.cre-chart svg { display: block; margin-top: 10px; color: var(--blue-2); }
+.cre-leaders { list-style: none; margin: 0; min-width: 0; }
+.cre-leaders .label { margin: 0 0 6px; }
+.cre-leaders li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; min-width: 0; }
+.cre-leaders li > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) { .cre-grid { grid-template-columns: 1fr; } }
 
 /* vault */
 .flow { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 18px; }
@@ -351,7 +363,7 @@
   .flow-link { width: 40px; justify-self: center; transform: rotate(90deg); }
   .board-foot, .corps-grid { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats .stat:first-child { grid-column: 1 / -1; }
+  .stats .stat:first-child, .stats-six .stat:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 720px) {
   .hero { padding-bottom: 340px; }

@@ -17,7 +17,7 @@ export const PROJECT_LANES = 5;
 
 const cents = (v: number) => Math.round(v * 100) / 100;
 
-function windowOf(identity: IdentityTotals | undefined, total: store.WindowTotals): ProjectWindow {
+function windowOf(identity: IdentityTotals | undefined, total: store.WindowTotals, creMessages: number | null = null): ProjectWindow {
   return {
     messages: identity?.messages ?? 0,
     usd: cents(identity?.usd_value ?? 0),
@@ -25,6 +25,7 @@ function windowOf(identity: IdentityTotals | undefined, total: store.WindowTotal
     share_pct: sharePct(identity?.messages ?? 0, total.messages),
     via_token_messages: identity?.via_token_messages ?? 0,
     via_token_usd: cents(identity?.via_token_usd ?? 0),
+    ...(creMessages === null ? {} : { cre_messages: creMessages, cre_share_pct: sharePct(creMessages, identity?.messages ?? 0) }),
   };
 }
 
@@ -65,6 +66,15 @@ export async function buildProjects(c: RunContext, lastDay: string): Promise<Pro
   const symbols = await store.tokenSymbols(db, Object.values(c.projects).flatMap((entry) => claimedTokens(entry, selectorOf)));
   const identityOfKey = (key: string) => book.resolve(key.slice(0, key.indexOf(':')), senderKeyAddress(key));
   const days = daysBetween(from30, lastDay);
+  const creByProject = async (fromDay: string) => {
+    const sums = new Map<string, number>();
+    for (const r of await store.topBetween(db, 'cre', fromDay, lastDay, 1_000, 'messages')) {
+      const key = identityOfKey(r.key).key;
+      sums.set(key, (sums.get(key) ?? 0) + r.messages);
+    }
+    return sums;
+  };
+  const cre = { '7d': await creByProject(from7), '30d': await creByProject(from30) };
 
   const projects = Object.entries(c.projects).map(([slug, entry]): Project => {
     const key = projectKey(slug);
@@ -80,7 +90,7 @@ export async function buildProjects(c: RunContext, lastDay: string): Promise<Pro
       url: entry.url,
       kind: entry.kind,
       source: entry.source,
-      totals: { '7d': windowOf(find(week), totals['7d']), '30d': windowOf(thisMonth, totals['30d']), all: windowOf(find(allTime), totals.all) },
+      totals: { '7d': windowOf(find(week), totals['7d'], cre['7d'].get(key) ?? 0), '30d': windowOf(thisMonth, totals['30d'], cre['30d'].get(key) ?? 0), all: windowOf(find(allTime), totals.all) },
       series: days.map((day) => ({ day, messages: perDay.get(day) ?? 0 })),
       chains: thisMonth?.chains ?? [],
       ...lanesOf(lanes.filter((l) => thisMonth?.keys.includes(l.key) ?? false)),

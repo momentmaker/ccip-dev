@@ -139,10 +139,10 @@ then.
 **Goal**: tag CRE-sent messages at ingest, back-tag history, roll CRE totals up
 **Success Criteria**: `meta.cre_keys_version` equals the generated version; `daily_totals.cre_messages` matches the 2026-11-05 probe for Aug–Oct 2026 (252 / 271 / 389, or more)
 **Tests**: core cre, rows, rollup, retag, EXPLAIN plans
-**Status**: In Progress
+**Status**: In Review (PR #45)
 
 ### Stage C2: Published files, posts, site (PR B)
 **Goal**: CRE lines in the posts, a CRE band and tile on the home page, CRE stats on project and day pages
 **Success Criteria**: schemas parse; post fixtures pass; the band renders with data and hides without
 **Tests**: publish, broadcast copy and facts, site components
-**Status**: Not Started
+**Status**: In Review (PR B)

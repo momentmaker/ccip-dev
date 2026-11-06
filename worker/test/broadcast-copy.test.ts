@@ -15,6 +15,7 @@ const DAILY: DailyFacts = {
   },
   feeChain: { key: 'c', player: p('Base', 'base'), feeUsd: 412 },
   records: [],
+  cre: null,
 };
 const WEEKLY: WeeklyFacts = {
   kind: 'weekly',
@@ -25,6 +26,7 @@ const WEEKLY: WeeklyFacts = {
   },
   leaders: DAILY.leaders,
   feeChains: [{ key: 'b', player: p('Base', 'base'), feeUsd: 1_800 }, { key: 'n', player: p('BNB Chain', 'BNBCHAIN'), feeUsd: 1_600 }, { key: 'e', player: p('Ethereum'), feeUsd: 1_000 }],
+  cre: null,
 };
 const RECORD: RecordFacts = {
   kind: 'record',
@@ -43,6 +45,8 @@ const RESERVE: ReserveFacts = {
 };
 const withLeaders = (leaders: Partial<DailyFacts['leaders']>): DailyFacts => ({ ...DAILY, leaders: { ...DAILY.leaders, ...leaders } });
 const long = (n: number, ch = 'N') => ch.repeat(n);
+const RE = p('Re');
+const withCre = (cre: Partial<NonNullable<DailyFacts['cre']>>): DailyFacts => ({ ...DAILY, cre: { messages: 32, usd: 41_000, sharePct: 2.4, changePct: null, top: RE, ...cre } });
 const LINKLIKE = /\b[a-z0-9-]+\.[a-z]{2,}\b/i;
 
 describe('xLength', () => {
@@ -336,5 +340,88 @@ describe('a top sender credited via its token', () => {
       fits: xLength(xText) <= X_MAX,
       cashtags: cashtags(xText).length,
     }).toEqual({ sender: true, lane: false, fits: true, cashtags: 1 });
+  });
+});
+
+describe('CRE workflows line', () => {
+  it('adds the CRE line under the leaders on a day with CRE-sent messages, on X and Telegram', () => {
+    // #given
+    const f = withCre({});
+    // #when
+    const { xText, telegramHtml } = composeCopy(f);
+    // #then
+    expect({ x: xText.split('\n').slice(5, 7), tg: telegramHtml.split('\n').slice(7, 9) }).toEqual({
+      x: ['Busiest lane: Ethereum → Arc · $5.2M', 'CRE workflows: 32 messages (2.4%) · top: Re'],
+      tg: ['Busiest lane: Ethereum → Arc · $5.2M', 'Sent by CRE workflows: 32 messages · $41.0K (2.4%) · top: Re'],
+    });
+  });
+
+  it('leaves the daily post exactly as before on a day without CRE-sent messages', () => {
+    // #when
+    const { xText, telegramHtml } = composeCopy(DAILY);
+    // #then the post as it was before CRE lines existed
+    expect({ xText, telegramHtml }).toEqual({
+      xText: [
+        '#CCIP · Sat, Oct 10',
+        '1,313 messages · $17.1M moved',
+        '$739 in fees · 0.5% paid in $LINK',
+        'Top token: $syrupUSDC Maple · $6.1M (36%)',
+        'Top sender: xStocks · 97 messages (7.4%)',
+        'Busiest lane: Ethereum → Arc · $5.2M',
+        '#Chainlink',
+      ].join('\n'),
+      telegramHtml: [
+        '<b>CCIP daily report · Sat, Oct 10, 2026</b>',
+        '1,313 messages (▼ 34% vs the 7-day average)',
+        '$17.1M moved (▼ 64%)',
+        '$739 in fees (▼ 34%) · 0.5% paid in LINK ($4, 0.29 LINK)',
+        '',
+        'Top token: syrupUSDC (Maple) · $6.1M, 36% of the value moved',
+        "Top sender: xStocks · 97 messages, 7.4% of the day's",
+        'Busiest lane: Ethereum → Arc · $5.2M',
+        'Top fee chain: Base · $412 in fees',
+        '',
+        '#CCIP #Chainlink $LINK',
+      ].join('\n'),
+    });
+  });
+
+  it('leaves out the value on Telegram when the CRE messages carried none, and the top sender when there is none', () => {
+    // #when
+    const { xText, telegramHtml } = composeCopy(withCre({ usd: 0, top: null }));
+    // #then
+    expect({ x: xText.includes('CRE workflows: 32 messages (2.4%)\n'), tg: telegramHtml.includes('Sent by CRE workflows: 32 messages (2.4%)\n') }).toEqual({ x: true, tg: true });
+  });
+
+  it('shows the weekly CRE trend against the week before, on X and Telegram', () => {
+    // #given
+    const f: WeeklyFacts = { ...WEEKLY, leaders: { ...WEEKLY.leaders, token: null }, cre: { messages: 140, usd: 0, sharePct: 1, changePct: 12, top: RE } };
+    // #when
+    const { xText, telegramHtml } = composeCopy(f);
+    // #then
+    expect({ x: xText.includes('CRE workflows: 140 messages ▲ 12% · top: Re'), tg: telegramHtml.includes('Sent by CRE workflows: 140 messages (▲ 12% vs last week) · top: Re') }).toEqual({ x: true, tg: true });
+  });
+
+  it('drops the CRE line second, after the lane, when the X post is too long', () => {
+    // #given a top sender name that leaves room for one of the two lines only
+    const f = withCre({ top: p(long(52, 'R')) });
+    // #when
+    const kept = composeCopy(f).xText;
+    const tooLong = composeCopy(withCre({ top: p(long(120, 'R')) })).xText;
+    // #then
+    expect({
+      keptLane: kept.includes('Busiest lane'),
+      keptCre: kept.includes('CRE workflows'),
+      keptFits: xLength(kept) <= X_MAX,
+      tooLongCre: tooLong.includes('CRE workflows'),
+      tooLongFits: xLength(tooLong) <= X_MAX,
+    }).toEqual({ keptLane: false, keptCre: true, keptFits: true, tooLongCre: false, tooLongFits: true });
+  });
+
+  it('writes a CRE top sender name without links', () => {
+    // #when
+    const { xText, telegramHtml } = composeCopy(withCre({ top: p('pump.fun') }));
+    // #then
+    expect({ x: LINKLIKE.test(xText), tg: LINKLIKE.test(telegramHtml) }).toEqual({ x: false, tg: false });
   });
 });

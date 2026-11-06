@@ -68,10 +68,37 @@ describe('projects.json', () => {
   it('gives a project its 7-day, 30-day and all-time totals and its share of all messages', async () => {
     // #then 319 of 1,569 over 7 days; 419 of 1,969 over 30 days and all time
     expect((await xstocks()).totals).toEqual({
-      '7d': { messages: 319, usd: 0, fee_usd: 79.75, share_pct: 20.3, via_token_messages: 0, via_token_usd: 0 },
-      '30d': { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3, via_token_messages: 0, via_token_usd: 0 },
+      '7d': { messages: 319, usd: 0, fee_usd: 79.75, share_pct: 20.3, via_token_messages: 0, via_token_usd: 0, cre_messages: 0, cre_share_pct: 0 },
+      '30d': { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3, via_token_messages: 0, via_token_usd: 0, cre_messages: 0, cre_share_pct: 0 },
       all: { messages: 419, usd: 0, fee_usd: 104.75, share_pct: 21.3, via_token_messages: 0, via_token_usd: 0 },
     });
+  });
+
+  it("counts the messages its addresses sent through CRE workflows over 7 and 30 days, and its share of its own messages", async () => {
+    // #given 100 CRE messages from xBridge on Ink on Oct 13, and 20 more on Oct 1
+    await store.replaceDaily(env.DB, XSTOCKS_TOTALS, [
+      ...xstocksBreakdown(),
+      { day: XSTOCKS_DAY, dim: 'cre', key: `${INK}:${XBRIDGE_EVM}`, messages: 100, usd_value: 0, fee_usd: null },
+    ], NOW);
+    await store.replaceDaily(env.DB, { ...XSTOCKS_TOTALS, day: '2026-10-01', messages: 400 }, [
+      { day: '2026-10-01', dim: 'sender', key: `${INK}:${XBRIDGE_EVM}`, messages: 100, usd_value: 0, fee_usd: 25 },
+      { day: '2026-10-01', dim: 'cre', key: `${INK}:${XBRIDGE_EVM}`, messages: 20, usd_value: 0, fee_usd: null },
+    ], NOW);
+    // #when
+    const { totals } = await xstocks();
+    // #then 100 of 319 sent over 7 days, 120 of 419 over 30, and no all-time count
+    expect({
+      week: [totals['7d'].cre_messages, totals['7d'].cre_share_pct],
+      month: [totals['30d'].cre_messages, totals['30d'].cre_share_pct],
+      all: [totals.all.cre_messages, totals.all.cre_share_pct],
+    }).toEqual({ week: [100, 31.3], month: [120, 28.6], all: [undefined, undefined] });
+  });
+
+  it('gives a project with no messages zero CRE messages and no share', async () => {
+    // #when
+    const idle = (await build()).projects.find((p) => p.slug === 'idle')!;
+    // #then
+    expect([idle.totals['7d'].cre_messages, idle.totals['7d'].cre_share_pct]).toEqual([0, null]);
   });
 
   it("adds its claimed token's direct sends to its totals and series, and lists the token", async () => {
@@ -81,7 +108,7 @@ describe('projects.json', () => {
     const project = (await buildProjects(c, XSTOCKS_DAY)).projects.find((p) => p.slug === 'xstocks')!;
     // #then 349 of the day's 1,569 messages
     expect({ week: project.totals['7d'], day: project.series.at(-1), tokens: project.tokens }).toEqual({
-      week: { messages: 349, usd: 3_000, fee_usd: 82.75, share_pct: 22.2, via_token_messages: 30, via_token_usd: 3_000 },
+      week: { messages: 349, usd: 3_000, fee_usd: 82.75, share_pct: 22.2, via_token_messages: 30, via_token_usd: 3_000, cre_messages: 0, cre_share_pct: 0 },
       day: { day: XSTOCKS_DAY, messages: 349 },
       tokens: [{ chain: BASE, address: XTOKEN, symbol: 'TSLAx', source: 'https://xstocks.fi/tokens' }],
     });
@@ -149,7 +176,7 @@ describe('projects.json', () => {
       rest: [idle.chains, idle.lanes, idle.split, idle.addresses],
     }).toEqual({
       order: ['xstocks', 'idle'],
-      week: { messages: 0, usd: 0, fee_usd: null, share_pct: 0, via_token_messages: 0, via_token_usd: 0 },
+      week: { messages: 0, usd: 0, fee_usd: null, share_pct: 0, via_token_messages: 0, via_token_usd: 0, cre_messages: 0, cre_share_pct: null },
       series: true,
       rest: [[], [], { data_messages: 0, token_messages: 0 }, [{ chain: ETH, address: IDLE_ADDRESS, note: null, inferred: false }]],
     });

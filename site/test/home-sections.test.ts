@@ -5,7 +5,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { milestoneGoal } from '../src/lib/all-time';
 import { crossingText } from '../src/components/home/Celebration';
-import { rowClass } from '../src/components/home/Feed';
+import Feed, { rowClass } from '../src/components/home/Feed';
 import HomeTicker, { TICKER_MIN_ITEMS } from '../src/components/home/HomeTicker';
 import { CorpsBody, newestMarine } from '../src/components/home/HomeCorps';
 import HomeVault from '../src/components/home/HomeVault';
@@ -109,6 +109,34 @@ describe('TodayTiles', () => {
   });
 });
 
+describe('TodayTiles CRE tile', () => {
+  it('shows CRE-sent messages when there are any', () => {
+    // #given
+    const totals = { ...today.totals, messages: 200, cre_messages: 4 };
+    // #when
+    const out = text(render(TodayTiles, { totals }));
+    // #then
+    expect(out).toContain('Sent by CRE');
+    expect(out).toMatch(/\b4\b.*of today/);
+  });
+
+  it('lays six tiles out in three columns and five in the usual strip', () => {
+    // #when
+    const six = render(TodayTiles, { totals: { ...today.totals, cre_messages: 4 } });
+    const five = render(TodayTiles, { totals: { ...today.totals, cre_messages: 0 } });
+    // #then
+    expect(six).toContain('class="stats stats-six"');
+    expect(five).toContain('class="stats"');
+  });
+
+  it('hides when there are none', () => {
+    // #when
+    const out = text(render(TodayTiles, { totals: { ...today.totals, cre_messages: 0 } }));
+    // #then
+    expect(out).not.toContain('Sent by CRE');
+  });
+});
+
 describe('the COMMS feed', () => {
   const msg = (id: string, usd: number | null): LiveMessage => ({ id, send_ts: `2026-10-28T14:00:0${id}.000Z`, status: 'SUCCESS', src: ETH, dst: BASE, token: usd ? 'USDC' : null, usd, sender_label: null });
 
@@ -116,6 +144,27 @@ describe('the COMMS feed', () => {
     expect(rowClass(msg('1', 2e6), false)).toBe('gold');
     expect(rowClass(msg('1', 50_000), true)).toBe('big in');
     expect(rowClass(msg('1', 5), false)).toBeUndefined();
+  });
+
+  it('badges rows sent by a CRE workflow', () => {
+    // #given
+    const names = chainNameMap(CHAINS.chains);
+    const messages = [{ ...msg('1', 5), cre: true }];
+    // #when
+    const out = render(Feed, { messages, names });
+    // #then
+    expect(out).toContain('title="Sent by a Chainlink CRE workflow"');
+    expect(out).toContain('aria-label="Sent by a Chainlink CRE workflow"');
+  });
+
+  it('badges ticker items sent by a CRE workflow', () => {
+    // #given
+    const names = chainNameMap(CHAINS.chains);
+    const messages = [{ ...msg('1', 5), cre: true }];
+    // #when
+    const out = render(HomeTicker, { messages, names });
+    // #then
+    expect(out).toContain('title="Sent by a Chainlink CRE workflow"');
   });
 
   it('crawls the ticker with a hidden repeat once there are enough messages, and holds still below that', () => {

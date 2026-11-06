@@ -24,6 +24,11 @@ function Item({ m, names }: { m: LiveMessage; names: ChainNames }) {
           {m.sender_label} <span className="verified">✓</span>
         </span>
       )}
+      {m.cre && (
+        <span className="comms-cre" title="Sent by a Chainlink CRE workflow">
+          CRE
+        </span>
+      )}
     </span>
   );
 }

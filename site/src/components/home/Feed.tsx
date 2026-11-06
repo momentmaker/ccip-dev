@@ -52,6 +52,11 @@ export default function Feed({ messages, names, size = LOG_SIZE }: { messages: r
                   </span>
                 </span>
               )}
+              {m.cre && (
+                <span className="comms-cre" title="Sent by a Chainlink CRE workflow" aria-label="Sent by a Chainlink CRE workflow">
+                  CRE
+                </span>
+              )}
             </span>
           </span>
           <span className="comms-amt mono">

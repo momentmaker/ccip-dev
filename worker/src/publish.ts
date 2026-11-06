@@ -315,6 +315,7 @@ async function publishLive(c: RunContext, now: Date, book: SenderBook, rows: sto
         token: r.symbol ?? (r.chain !== null && r.token !== null ? symbolOf(symbols, `${r.chain}:${r.token}`) : null),
         usd: usd(r.usd_value),
         sender_label: verifiedLabel(book.resolve(r.src_chain, r.sender)),
+        ...(r.cre === 1 ? { cre: true } : {}),
       })),
     },
     TTL.live,
@@ -349,6 +350,7 @@ async function publishToday(
         ...totals,
         usd_value: usd(totals.usd_value),
         fee_usd: usd(totals.fee_usd),
+        cre_usd: usd(totals.cre_usd ?? 0) ?? 0,
         fee_link_usd: usd(feeLink),
         fee_link_share_pct: feeLinkShare(feeLink, totals.fee_usd),
       },
@@ -455,6 +457,7 @@ export async function historyDays(c: RunContext): Promise<DayTotals[]> {
       ...d,
       usd_value: usd(d.usd_value) ?? 0,
       fee_usd: usd(d.fee_usd),
+      cre_usd: usd(d.cre_usd ?? 0) ?? 0,
       fee_link_usd: usd(g?.link_usd ?? null),
       fee_native_usd: usd(g?.native_usd ?? null),
       fee_stable_usd: usd(g?.stable_usd ?? null),
@@ -556,9 +559,9 @@ function logPublishStep(step: string, ms: number, usage: D1Usage, ok: boolean): 
 }
 
 /**
- * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the top files
- * throw; every other step alerts and lets the rest publish. A step D1 refuses as overloaded waits and re-runs first.
- * Each step logs its time and D1 use (see logPublishStep), then the publish logs its total.
+ * Publishes the history files and returns the alert signatures of the steps it missed. history.json and the dim top files
+ * throw; every other step, top/cre.json included, alerts and lets the rest publish. A step D1 refuses as overloaded waits
+ * and re-runs first. Each step logs its time and D1 use (see logPublishStep), then the publish logs its total.
  */
 export async function publishHistoryFiles(run: RunContext): Promise<string[]> {
   const meter = meterD1(run.env.DB);
@@ -666,6 +669,21 @@ export async function publishHistoryFiles(run: RunContext): Promise<string[]> {
         }),
       );
     }
+    await pauseForD1(c);
+    await measured('top/cre', () =>
+      attempt('top-cre-publish', 'top/cre.json was not published', async () => {
+        const from: Record<TopWindow, string | null> = { '7d': addDays(today, -7), '30d': addDays(today, -30), all: null };
+        const windows = { '7d': [] as Leader[], '30d': [] as Leader[], all: [] as Leader[] };
+        const identities = { '7d': [] as Leader[], '30d': [] as Leader[], all: [] as Leader[] };
+        for (const window of TOP_WINDOWS) {
+          const rows = await store.topBetween(db, 'cre', from[window], lastDay, 1_000, 'messages');
+          const total = rows.reduce((n, r) => n + r.messages, 0);
+          windows[window] = rows.slice(0, 100).map((r) => ({ key: r.key, messages: r.messages, usd: usd(r.usd_value), fee_usd: usd(r.fee_usd), label: senderLabel(c, names, r.key) }));
+          if (book) identities[window] = rankIdentities(identitiesOf(book, rows, []), 'messages', 100).map((i) => identityEntry(i, total));
+        }
+        await putJson(c.env.PUBLIC, 'top/cre.json', { dim: 'cre', since, windows, ...(book ? { identities } : {}) }, TTL.top, now);
+      }),
+    );
     await pauseForD1(c);
     await measured('replay', () =>
       attempt('replay-publish', 'replay.json was not published', async () =>

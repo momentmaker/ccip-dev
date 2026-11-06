@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ATTRIBUTION, PUBLISH_PAUSE_MS, publishHistoryFiles, publishLiveFiles, publishRegistryFiles, putJson, retryPut, weekLeaderRows } from '../src/publish';
-import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, toChecksumAddress, type Dim, type LabelIndex, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
+import { buildLabelIndex, labelKey, LINK_PRICE_KEY, LINK_TOKEN, rollupDay, toChecksumAddress, type Dim, type LabelIndex, type MessageRow, type NetworkInfo } from '@ccip-dev/core';
 import { PUBLIC_SCHEMAS, type PublicFileName } from '@ccip-dev/core/public';
 import { BASE_SENDER_1, BASE_SENDER_2, fakeCcip, fakePrices, listMessage, NETWORKS, XBRIDGE_EVM, XBRIDGE_SOLANA, XSTOCKS_DAY, XSTOCKS_LABELS, XSTOCKS_TOTALS, xstocksBreakdown } from '@ccip-dev/core/testing';
 import { runIngest } from '../src/jobs/ingest';
@@ -1076,8 +1076,8 @@ describe('history files when D1 is overloaded', () => {
     const sleep = vi.spyOn(c.deps, 'sleep');
     // #when
     await publishHistoryFiles(c);
-    // #then five top files, three identity windows and replay.json
-    expect(sleep.mock.calls.filter(([ms]) => ms === PUBLISH_PAUSE_MS)).toHaveLength(9);
+    // #then six top files, three identity windows and replay.json
+    expect(sleep.mock.calls.filter(([ms]) => ms === PUBLISH_PAUSE_MS)).toHaveLength(10);
   });
 
   it("logs each step's time and D1 use as one JSON line, then the publish's total", async () => {
@@ -1092,7 +1092,7 @@ describe('history files when D1 is overloaded', () => {
       fields: lines.every((l) => ['ms', 'd1_ms', 'rows_read', 'queries'].every((f) => typeof l[f] === 'number') && l.ok === true),
       total: lines.at(-1).queries === lines.slice(0, -1).reduce((sum, l) => sum + l.queries, 0),
     }).toEqual({
-      steps: ['history', 'cost', 'day-leaders', 'moments', 'projects', 'sender-book', 'label-coverage', 'sender-identities', 'top/src_chain', 'top/dst_chain', 'top/lane', 'top/token', 'top/sender', 'replay', 'total'],
+      steps: ['history', 'cost', 'day-leaders', 'moments', 'projects', 'sender-book', 'label-coverage', 'sender-identities', 'top/src_chain', 'top/dst_chain', 'top/lane', 'top/token', 'top/sender', 'top/cre', 'replay', 'total'],
       fields: true,
       total: true,
     });
@@ -1129,5 +1129,104 @@ describe('history files when D1 is overloaded', () => {
     const missed = await publishHistoryFiles(harness({ now: NOW }).c);
     // #then
     expect(missed).toEqual([]);
+  });
+});
+
+describe('CRE in the published files', () => {
+  const NOW = '2026-10-08T12:00:00.000Z';
+  afterEach(() => vi.restoreAllMocks());
+  const TODAY = '2026-10-08';
+  const DAY = '2026-10-07';
+  const rows = (day: string) => [
+    liveRow({ id: `${day}-c1`, sendTs: `${day}T11:50:00.000Z`, sender: SENDER }, { cre: 1, usd_value: 9 }),
+    liveRow({ id: `${day}-o1`, sendTs: `${day}T11:51:00.000Z`, sender: SENDER }),
+  ];
+
+  async function finalizeDay(day: string) {
+    const messages = await store.messagesForDay(env.DB, day);
+    const tokens = await store.tokensForDay(env.DB, day);
+    const { totals, breakdown } = rollupDay(day, messages, tokens, await store.firstTokenGroups(env.DB, tokens));
+    await store.replaceDaily(env.DB, totals, breakdown, NOW);
+  }
+
+  it('flags a CRE message in live.json and leaves the flag off the others', async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(TODAY), []);
+    // #when
+    await publishLiveFiles(harness({ now: NOW }).c);
+    // #then
+    const live = await readPublic('live.json');
+    expect({ cre: live.messages.find((m: any) => m.id === `${TODAY}-c1`).cre, other: live.messages.find((m: any) => m.id === `${TODAY}-o1`).cre }).toEqual({ cre: true, other: undefined });
+  });
+
+  it("counts today's CRE messages and their value in today.json", async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(TODAY), []);
+    // #when
+    await publishLiveFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('today.json')).totals).toMatchObject({ cre_messages: 1, cre_usd: 9 });
+  });
+
+  it("counts a finalized day's CRE messages and their value in history.json", async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(DAY), []);
+    await finalizeDay(DAY);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect((await readPublic('history.json')).days.at(-1)).toMatchObject({ day: DAY, cre_messages: 1, cre_usd: 9 });
+  });
+
+  it('publishes the CRE senders in top/cre.json, ranked by messages', async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(DAY), []);
+    await finalizeDay(DAY);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const top = await readPublic('top/cre.json');
+    expect({ dim: top.dim, week: top.windows['7d'][0] }).toMatchObject({ dim: 'cre', week: { key: `${BASE}:${SENDER}`, messages: 1 } });
+  });
+
+  it('ranks the CRE senders by identity, with their share of the CRE messages', async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(DAY), []);
+    await finalizeDay(DAY);
+    const labels = { [`ethereum-mainnet-base-1:${SENDER}`]: { name: 'Maple Finance', kind: 'protocol' as const, slug: 'maple-finance' } };
+    await seedRegistry([NETWORKS.base], []);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW, labels }).c);
+    // #then
+    const top = await readPublic('top/cre.json');
+    expect(top.identities['7d'][0]).toMatchObject({ messages: 1, share_pct: 100 });
+  });
+
+  it('matches its public schema', async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(DAY), []);
+    await finalizeDay(DAY);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    expect(PUBLIC_SCHEMAS['top/cre.json'].safeParse(await readPublic('top/cre.json')).error?.issues ?? []).toEqual([]);
+  });
+
+  it('raises one top-cre-publish alert when the CRE ranking fails, and still publishes replay.json', async () => {
+    // #given the all-time CRE ranking, which only top/cre.json reads, fails
+    const topBetween = store.topBetween;
+    vi.spyOn(store, 'topBetween').mockImplementation((db, dim, fromDay, ...rest) =>
+      dim === 'cre' && fromDay === null ? Promise.reject(new Error('D1 unavailable')) : topBetween(db, dim, fromDay, ...rest),
+    );
+    const { c, alerts } = harness({ now: NOW });
+    // #when
+    const missed = await publishHistoryFiles(c);
+    // #then
+    expect({
+      cre: await env.PUBLIC.get('v1/top/cre.json'),
+      replay: (await env.PUBLIC.get('v1/replay.json')) !== null,
+      missed,
+      alerts,
+    }).toEqual({ cre: null, replay: true, missed: ['top-cre-publish'], alerts: [{ signature: 'top-cre-publish', text: 'top/cre.json was not published: D1 unavailable' }] });
   });
 });
