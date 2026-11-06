@@ -109,6 +109,7 @@ The Chainlink Runtime Environment (CRE) runs workflows on Chainlink nodes. A wor
 - **A lower bound.** It misses a workflow whose contract queues a request and sends CCIP in a later transaction, and a key rotation until the next key refresh is merged; the last 30 days are re-tagged after each key change.
 - **Sampled keys.** Keys come from KeystoneForwarder reports sampled in one window a week (5,000 blocks, up to 5 reports) from 2025-10-17 on, and from the last day's reports daily since 2026-11-05. A key that signed only outside the sampled windows is missed, so counts stay a lower bound. Where no free RPC serves old logs, a chain's history has no weekly samples: on 2026-11-05 that was Jovay and Monad, and BNB Chain had 1 of 55 weeks.
 - History is tagged from 2025-10-17, the CRE Workflow Registry's first record.
+- **In the replay**, each lane-day that carried CRE-sent messages gets its own small sample of teal comets on top of the usual ones. CRE is under 1% of messages, so a share to scale would almost never show; the teal comets mark where and when CRE workflows sent CCIP, not how much.
 
 ## Broadcasts
 

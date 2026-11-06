@@ -2,7 +2,7 @@ import {
   addDays, BREAKDOWN_CONFLICT, buildTokenGroupIndex, LINK_TOKEN, linkFeeKeys, llamaKey, LINK_TOKEN_CHAIN_SELECTOR, normalizeAddress, sanitize, sqlLiteral, tokenGroupEntry, tokenGroupLookup, TOTALS_CONFLICT, type ChainRef, type CoingeckoIdLookup, type Fee,
   type ChainNames, type DailyBreakdown, type DailyTotals, type Dim, type FeeGroupTotals, type LaneDayRow, type LinkFeeTokens, type MessageRow, type NetworkInfo, type NormalizedToken, type PriceInfo,
   type HolderKind, type ReserveTransfer, type SenderChain, type StakingEvent, type TokenGroupIndex, type TokenGroupOf, type TokenRow,
-  CRE_BREAKDOWN_DAY_SQL, CRE_TOTALS_DAY_SQL, DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
+  CRE_BREAKDOWN_DAY_SQL, CRE_LANE_DAY_SQL, CRE_TOTALS_DAY_SQL, DAILY_BREAKDOWN, SENDER_ADDRESS, unlabeledSenderRowsSql, VIA_TOKEN_BACKFILL_DAY_SQL, VIA_TOKEN_CREDIT_DAYS_SQL, viaTokenCreditsSqlOver,
 } from '@ccip-dev/core';
 import { BUDGETED_MOMENTS } from '@ccip-dev/core/broadcasts';
 import { isMonth, monthBounds, previousMonth } from '@ccip-dev/core/month';
@@ -653,7 +653,7 @@ export async function backfillViaTokenDay(db: D1Database, day: string): Promise<
 }
 
 /**
- * Re-tags one day's messages and rebuilds its CRE totals and cre rows, and records `passKey` = `pass` in the same batch,
+ * Re-tags one day's messages and rebuilds its CRE totals, cre rows and cre_lane rows, and records `passKey` = `pass` in the same batch,
  * so a later failure keeps this day's progress. The rolled pointer moves back before the day's month only when the day
  * has cre rows: keys are never removed, so a day without any has no cre rows to change.
  */
@@ -662,6 +662,8 @@ export async function retagCreDay(db: D1Database, day: string, retagSql: string,
     db.prepare(retagSql).bind(day),
     db.prepare("DELETE FROM daily_breakdown WHERE day = ?1 AND dim = 'cre'").bind(day),
     db.prepare(CRE_BREAKDOWN_DAY_SQL).bind(day),
+    db.prepare("DELETE FROM daily_breakdown WHERE day = ?1 AND dim = 'cre_lane'").bind(day),
+    db.prepare(CRE_LANE_DAY_SQL).bind(day),
     db.prepare(CRE_TOTALS_DAY_SQL).bind(day),
     unrollIfCreStatement(db, day),
     db.prepare('INSERT INTO meta (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(passKey, pass),
@@ -721,7 +723,7 @@ export async function firstBreakdownDay(db: D1Database): Promise<string | null> 
   return (await db.prepare('SELECT MIN(day) AS day FROM daily_breakdown').first<{ day: string | null }>())?.day ?? null;
 }
 
-const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token', 'cre'];
+const BREAKDOWN_DIMS: readonly Dim[] = ['src_chain', 'dst_chain', 'lane', 'token', 'sender', 'via_token', 'cre', 'cre_lane'];
 
 /** Rebuilds `month`'s monthly_breakdown rows from its daily rows in one batch, one statement a dim; rolling again is a no-op. */
 export async function rollMonth(db: D1Database, month: string): Promise<void> {
@@ -1226,6 +1228,13 @@ export async function laneHistory(db: D1Database): Promise<LaneDayRow[]> {
   const { results } = await db
     .prepare("SELECT day, key, messages, usd_value FROM daily_breakdown WHERE dim = 'lane' ORDER BY day, key")
     .all<LaneDayRow>();
+  return results;
+}
+
+export const CRE_LANE_HISTORY_SQL = "SELECT day, key, messages, usd_value FROM daily_breakdown WHERE dim = 'cre_lane' ORDER BY day, key";
+
+export async function creLaneHistory(db: D1Database): Promise<LaneDayRow[]> {
+  const { results } = await db.prepare(CRE_LANE_HISTORY_SQL).all<LaneDayRow>();
   return results;
 }
 

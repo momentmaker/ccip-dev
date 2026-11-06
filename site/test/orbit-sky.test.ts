@@ -19,6 +19,24 @@ describe('orbitSky', () => {
     ]);
   });
 
+  it('draws a CRE lane in teal and leaves other lanes as they were', () => {
+    // #given the same chains and lanes, once with one lane marked cre
+    const chains = [chain('a', 10), chain('b', 5)];
+    // #when
+    const plain = orbitSky({ chains, lanes: [{ src: 'a', dst: 'b', usd: 10 }], seed: 1 });
+    const cre = orbitSky({ chains, lanes: [{ src: 'a', dst: 'b', usd: 10, cre: true }], seed: 1 });
+    // #then
+    expect([cre.svg.includes('#40e0c4'), plain.svg.includes('#40e0c4')]).toEqual([true, false]);
+  });
+
+  it('draws a CRE lane in solid teal, without the light blue the ordinary lanes end on', () => {
+    // #when
+    const sky = orbitSky({ chains: [chain('a', 10), chain('b', 5)], lanes: [{ src: 'a', dst: 'b', usd: 10, cre: true }], seed: 1 });
+    // #then
+    expect(sky.svg.match(/stop-color="#40e0c4"/g)).toHaveLength(2);
+    expect(sky.svg).not.toContain('#7de3ff');
+  });
+
   it('places at most 11 coins and skips chains without value', () => {
     // #given 14 chains and one with no value
     const chains = [...Array.from({ length: 14 }, (_, i) => chain(`c${String(i).padStart(2, '0')}`, 14 - i)), chain('zero', 0)];

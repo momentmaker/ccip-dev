@@ -1202,6 +1202,17 @@ describe('CRE in the published files', () => {
     expect(top.identities['7d'][0]).toMatchObject({ messages: 1, share_pct: 100 });
   });
 
+  it('publishes the CRE lanes in replay.json', async () => {
+    // #given
+    await store.upsertListRows(env.DB, rows(DAY), []);
+    await finalizeDay(DAY);
+    // #when
+    await publishHistoryFiles(harness({ now: NOW }).c);
+    // #then
+    const replay = await readPublic('replay.json');
+    expect(replay.cre).toEqual([{ day: DAY, lanes: [[expect.any(Number), 1, 9]] }]);
+  });
+
   it('matches its public schema', async () => {
     // #given
     await store.upsertListRows(env.DB, rows(DAY), []);

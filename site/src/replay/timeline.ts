@@ -44,6 +44,8 @@ export interface Spawn {
   lane: number;
   offset: number;
   usd: number;
+  /** A CRE-sent message's comet: its own sample per CRE lane-day, so CRE shows at all (it is under 1% of messages). */
+  cre?: boolean;
 }
 
 export function daySpawns(lanes: readonly LaneRow[], dayIndex: number): Spawn[] {
@@ -65,9 +67,25 @@ export function daySpawns(lanes: readonly LaneRow[], dayIndex: number): Spawn[] 
   return out.sort((a, b) => a.offset - b.offset);
 }
 
+export function creSpawns(lanes: readonly LaneRow[], dayIndex: number): Spawn[] {
+  const rng = mulberry32(dayIndex * 104729 + 1);
+  const out: Spawn[] = [];
+  for (const [lane, messages, usd] of lanes) {
+    for (let k = 0; k < cometCount(messages); k++) out.push({ lane, offset: rng(), usd: messages > 0 ? usd / messages : 0, cre: true });
+  }
+  return out.sort((a, b) => a.offset - b.offset);
+}
+
+export function keepRatio(count: number, dayLength: number): number {
+  return count === 0 ? 1 : Math.min(1, (COMET_FILL * MAX_REPLAY_COMETS * dayLength) / (count * REPLAY_COMET_S));
+}
+
+export function keepWith(spawns: readonly Spawn[], keep: number, seed: number): Spawn[] {
+  return spawns.filter((_, k) => mulberry32(seed + k)() < keep);
+}
+
 export function keptSpawns(spawns: readonly Spawn[], dayIndex: number, dayLength: number): Spawn[] {
-  const keep = Math.min(1, (COMET_FILL * MAX_REPLAY_COMETS * dayLength) / (spawns.length * REPLAY_COMET_S));
-  return spawns.filter((_, k) => mulberry32(dayIndex * 7919 + k)() < keep);
+  return keepWith(spawns, keepRatio(spawns.length, dayLength), dayIndex * 7919);
 }
 
 export interface FrameCoin {
@@ -109,6 +127,7 @@ export class ReplayModel {
   readonly length: number;
   readonly duration: number;
   private readonly lanesByDay: Map<string, readonly LaneRow[]>;
+  private readonly creByDay: Map<string, readonly LaneRow[]>;
   private readonly cumulative: { messages: number; usd: number }[];
   private readonly starOfChain: number[];
   private readonly firstDayIndex: number[];
@@ -132,6 +151,7 @@ export class ReplayModel {
     this.length = length;
     this.duration = length;
     this.lanesByDay = new Map(replay.days.map((d) => [d.day, d.lanes]));
+    this.creByDay = new Map((replay.cre ?? []).map((d) => [d.day, d.lanes]));
     const historyByDay = new Map(history.map((d) => [d.day, d]));
     let messages = 0;
     let usd = 0;
@@ -163,7 +183,10 @@ export class ReplayModel {
   private spawns(i: number, lanes: readonly LaneRow[]): Spawn[] {
     let cached = this.spawnCache.get(i);
     if (!cached) {
-      cached = keptSpawns(daySpawns(lanes, i), i, this.warp.dayLength(i));
+      const normal = daySpawns(lanes, i);
+      const cre = creSpawns(this.creByDay.get(this.days[i]!) ?? [], i);
+      const keep = keepRatio(normal.length + cre.length, this.warp.dayLength(i));
+      cached = [...keepWith(normal, keep, i * 7919), ...keepWith(cre, keep, i * 7919 + 500_009)];
       this.spawnCache.set(i, cached);
     }
     return cached;
@@ -269,7 +292,7 @@ export class ReplayModel {
         const from = ends ? this.starOfChain[ends[0]] ?? -1 : -1;
         const to = ends ? this.starOfChain[ends[1]] ?? -1 : -1;
         if (from < 0 || to < 0) continue;
-        const kind = cometKind(spawn.usd, spawn.usd > 0 ? 'token' : null);
+        const kind = cometKind(spawn.usd, spawn.usd > 0 ? 'token' : null, spawn.cre === true);
         const size = cometSize(spawn.usd);
         if (progress < 1) comets.push({ from, to, progress, size, kind });
         else if ((progress - 1) * REPLAY_COMET_S < ARRIVAL_S) arrivals.push({ from, to, age: (progress - 1) * REPLAY_COMET_S, size, kind });

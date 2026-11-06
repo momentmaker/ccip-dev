@@ -1,8 +1,10 @@
 import { formatShare, formatUtcDay } from '@ccip-dev/core/format';
 import { shortAddress } from '@ccip-dev/core/names';
-import type { DayTotals, TopFile } from '@ccip-dev/core/public';
+import type { DayTotals, ReplayFile, TopFile } from '@ccip-dev/core/public';
 
 export const CRE_DAYS = 90;
+
+export const hasCreReplay = (replay: Pick<ReplayFile, 'cre'> | null): boolean => (replay?.cre?.length ?? 0) > 0;
 
 export interface CrePoint {
   day: string;

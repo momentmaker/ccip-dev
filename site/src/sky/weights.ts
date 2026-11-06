@@ -42,6 +42,18 @@ export function windowWeights(replay: ReplayFile, fromDay: string | null, toDay:
   return { chains, lanes };
 }
 
+export function creLaneKeys(replay: ReplayFile, fromDay: string, toDay: string): Set<string> {
+  const keys = new Set<string>();
+  for (const d of replay.cre ?? []) {
+    if (d.day < fromDay || d.day > toDay) continue;
+    for (const [lane] of d.lanes) {
+      const ends = replay.lanes[lane];
+      if (ends) keys.add(`${replay.chains[ends[0]]!.selector}>${replay.chains[ends[1]]!.selector}`);
+    }
+  }
+  return keys;
+}
+
 export function trailingWeights(replay: ReplayFile, days: number): Weights {
   const last = lastReplayDay(replay);
   return last ? windowWeights(replay, addDays(last, -(days - 1)), last) : { chains: new Map(), lanes: [] };

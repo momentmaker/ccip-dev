@@ -1,4 +1,4 @@
-import { CRE_BREAKDOWN_DAY_SQL, CRE_FIRST_DAY, creKeySet, creRetagDaySql, NO_TOKEN_GROUPS, rollupDay } from '@ccip-dev/core';
+import { CRE_BREAKDOWN_DAY_SQL, CRE_FIRST_DAY, CRE_LANE_DAY_SQL, creKeySet, creRetagDaySql, NO_TOKEN_GROUPS, rollupDay } from '@ccip-dev/core';
 import { NETWORKS } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -24,6 +24,7 @@ async function seed(day: string, rolledUp: boolean): Promise<void> {
   if (rolledUp) await store.replaceDaily(env.DB, { day, ...TOTALS }, [], NOW);
 }
 
+const BSC = NETWORKS.bsc.chainSelector;
 const flags = async () => (await env.DB.prepare('SELECT message_id, cre FROM messages ORDER BY message_id').all()).results;
 const meta = (key: string) => store.getMeta(env.DB, key);
 
@@ -41,11 +42,60 @@ describe('retagCre', () => {
       { message_id: '2026-11-04-cre', cre: 1 }, { message_id: '2026-11-04-other', cre: 0 },
     ]);
     expect(await meta('cre_keys_version')).toBe('v1');
+    expect(await meta('cre_retag_schema')).toBe('2');
     expect(await meta('cre_retag')).toBeNull();
+    const lanes = (await env.DB.prepare("SELECT key, messages FROM daily_breakdown WHERE dim = 'cre_lane' AND day = '2026-11-04'").all()).results;
+    expect(lanes).toEqual([{ key: `${BASE}>${BSC}`, messages: 1 }]);
     const day = (await env.DB.prepare("SELECT cre_messages, cre_usd FROM daily_totals WHERE day = '2026-11-04'").first());
     expect(day).toEqual({ cre_messages: 1, cre_usd: 9 });
     const rows = (await env.DB.prepare("SELECT key, messages FROM daily_breakdown WHERE dim = 'cre' AND day = '2026-11-04'").all()).results;
     expect(rows).toEqual([{ key: `${BASE}:${SENDER}`, messages: 1 }]);
+  });
+
+  it('runs a full pass when the re-tag schema changed, even with the key version done', async () => {
+    // #given v1 done under schema 1, and a day 40 days back
+    await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    await store.setMeta(env.DB, 'cre_retag_schema', '1');
+    await seed('2026-09-26', true);
+    const { c } = harness({ now: NOW, creKeys: keys('v1') });
+    // #when the runs walk back until the pass ends
+    for (let run = 0; run < 20 && (await meta('cre_retag_schema')) !== '2'; run++) await retagCre(c);
+    // #then the old day is re-tagged and both versions are recorded
+    expect((await flags()).find((r: any) => r.message_id === '2026-09-26-cre')).toEqual({ message_id: '2026-09-26-cre', cre: 1 });
+    expect(await meta('cre_keys_version')).toBe('v1');
+    expect(await meta('cre_retag_schema')).toBe('2');
+    expect(await meta('cre_retag')).toBeNull();
+  });
+
+  it('runs a full pass when the key version is done and no schema was ever recorded', async () => {
+    // #given production after the first pass finished, before schema versions existed
+    await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    const { c } = harness({ now: NOW, creKeys: keys('v1') });
+    // #when
+    await retagCre(c, 1);
+    // #then
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1#2', next: '2026-11-04', from: CRE_FIRST_DAY });
+  });
+
+  it('restarts a pass stored under the old version format as a full pass', async () => {
+    // #given production's in-progress first pass, stored before schema versions existed
+    await store.setMeta(env.DB, 'cre_retag', JSON.stringify({ version: 'v1', next: '2026-10-07', from: CRE_FIRST_DAY }));
+    const { c } = harness({ now: NOW, creKeys: keys('v1') });
+    // #when
+    await retagCre(c, 3);
+    // #then it starts again from today under v1#2 and covers the whole history
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1#2', next: '2026-11-02', from: CRE_FIRST_DAY });
+  });
+
+  it('a key change alone still re-tags only the last 30 days', async () => {
+    // #given v1 done under the current schema
+    await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    await store.setMeta(env.DB, 'cre_retag_schema', '2');
+    const { c } = harness({ now: NOW, creKeys: keys('v2') });
+    // #when
+    await retagCre(c, 1);
+    // #then
+    expect(JSON.parse((await meta('cre_retag'))!).from).toBe('2026-10-07');
   });
 
   it('walks at most maxDays a run and keeps its place in cre_retag', async () => {
@@ -54,12 +104,13 @@ describe('retagCre', () => {
     // #when
     await retagCre(c, 3);
     // #then
-    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1', next: '2026-11-02', from: CRE_FIRST_DAY });
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1#2', next: '2026-11-02', from: CRE_FIRST_DAY });
   });
 
   it('re-tags only the last 30 days after a key change', async () => {
     // #given v1 done, and a day 40 days back whose flag v1 never set
     await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    await store.setMeta(env.DB, 'cre_retag_schema', '2');
     await seed('2026-09-26', true);
     await seed('2026-11-01', true);
     const { c } = harness({ now: NOW, creKeys: keys('v2') });
@@ -81,7 +132,7 @@ describe('retagCre', () => {
     await retagCre(next, 3);
     // #then
     expect(await meta('cre_keys_version')).toBeNull();
-    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v2', next: '2026-11-02', from: CRE_FIRST_DAY });
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v2#2', next: '2026-11-02', from: CRE_FIRST_DAY });
   });
 
   it('tags a day not rolled up yet but writes no cre rows for it: finalize does', async () => {
@@ -110,6 +161,7 @@ describe('retagCre', () => {
     await seed('2026-10-15', true);
     await store.setMeta(env.DB, store.ROLLED_THROUGH_KEY, '2026-10');
     await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    await store.setMeta(env.DB, 'cre_retag_schema', '2');
     const { c } = harness({ now: NOW, creKeys: keys('v2') });
     // #when the 30-day re-tag reaches 2026-10-15
     await retagCre(c);
@@ -124,6 +176,7 @@ describe('retagCre', () => {
     await store.replaceDaily(env.DB, { day: '2026-10-15', ...TOTALS }, [], NOW);
     await store.setMeta(env.DB, store.ROLLED_THROUGH_KEY, '2026-10');
     await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    await store.setMeta(env.DB, 'cre_retag_schema', '2');
     const { c } = harness({ now: NOW, creKeys: keys('v2') });
     // #when the 30-day re-tag reaches 2026-10-15
     await retagCre(c);
@@ -157,7 +210,7 @@ describe('retagCre', () => {
     // #when
     await retagCre(c, 3);
     // #then
-    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1', next: '2026-11-02', from: CRE_FIRST_DAY });
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1#2', next: '2026-11-02', from: CRE_FIRST_DAY });
   });
 
   it('keeps the days it finished when a later day fails', async () => {
@@ -187,7 +240,7 @@ describe('retagCre', () => {
     // #when
     await expect(retagCre(c)).rejects.toThrow('boom');
     // #then 2026-11-05 is done and the next run resumes at 2026-11-04
-    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1', next: '2026-11-04', from: CRE_FIRST_DAY });
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1#2', next: '2026-11-04', from: CRE_FIRST_DAY });
   });
 
   it('searches one day of messages through the day index', async () => {
@@ -200,6 +253,13 @@ describe('retagCre', () => {
   it("indexes a day's cre rows through messages_day", async () => {
     // #when
     const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${CRE_BREAKDOWN_DAY_SQL}`).bind('2026-11-04').all()).results;
+    // #then
+    expect(JSON.stringify(plan)).toMatch(/USING INDEX messages_day/);
+  });
+
+  it("indexes a day's cre lane rows through messages_day", async () => {
+    // #when
+    const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${CRE_LANE_DAY_SQL}`).bind('2026-11-04').all()).results;
     // #then
     expect(JSON.stringify(plan)).toMatch(/USING INDEX messages_day/);
   });
@@ -230,11 +290,16 @@ describe('finalize and retag agree', () => {
       totals: await env.DB.prepare('SELECT cre_messages, cre_usd FROM daily_totals WHERE day = ?').bind(DAY).first(),
       rows: (await env.DB.prepare("SELECT key, messages, usd_value, fee_usd FROM daily_breakdown WHERE day = ? AND dim = 'cre' ORDER BY key").bind(DAY).all()).results,
     });
+    const creLanes = async (day: string) =>
+      (await env.DB.prepare("SELECT key, messages, usd_value, fee_usd FROM daily_breakdown WHERE dim = 'cre_lane' AND day = ? ORDER BY key").bind(day).all()).results;
     const finalized = await snapshot();
+    const lanesBefore = await creLanes(DAY);
     // #when
     await store.retagCreDay(env.DB, DAY, creRetagDaySql(keys('v1')), 'cre_retag', 'test');
     // #then
     expect(finalized.totals).toEqual({ cre_messages: 4, cre_usd: 12 });
     expect(await snapshot()).toEqual(finalized);
+    expect(await creLanes(DAY)).toEqual(lanesBefore);
+    expect(lanesBefore.length).toBeGreaterThan(0);
   });
 });

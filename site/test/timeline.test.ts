@@ -1,6 +1,6 @@
 import type { DayTotals, ReplayFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { ARRIVAL_S, cometCount, daySpawns, mulberry32, REPLAY_COMET_S, ReplayModel } from '../src/replay/timeline';
+import { ARRIVAL_S, cometCount, creSpawns, daySpawns, keepRatio, keepWith, keptSpawns, mulberry32, REPLAY_COMET_S, ReplayModel } from '../src/replay/timeline';
 import { durationWarp } from '../src/replay/director/warp';
 import { buildLayout } from '../src/sky/layout';
 import replayJson from './fixtures/replay.json';
@@ -387,5 +387,71 @@ describe('comet density on busy days', () => {
     m.frameAt(5);
     m.frameAt(25);
     expect(m.frameAt(20)).toEqual(busyModel().frameAt(20));
+  });
+});
+
+describe('creSpawns', () => {
+  it('gives each CRE lane-day its own seeded sample of teal spawns', () => {
+    // #when
+    const spawns = creSpawns([[0, 3, 30], [1, 15, 0]], 5);
+    // #then
+    expect(spawns.filter((s) => s.lane === 0)).toHaveLength(cometCount(3));
+    expect(spawns.filter((s) => s.lane === 1)).toHaveLength(cometCount(15));
+    expect(spawns.every((s) => s.cre === true)).toBe(true);
+    expect(spawns.find((s) => s.lane === 0)!.usd).toBe(10);
+    expect(creSpawns([[0, 3, 30], [1, 15, 0]], 5)).toEqual(spawns);
+    expect(spawns.map((s) => s.offset)).toEqual([...spawns.map((s) => s.offset)].sort((a, b) => a - b));
+  });
+
+  it('is empty without CRE lanes', () => {
+    // #given
+    const lanes: [number, number, number][] = [];
+    // #when
+    const spawns = creSpawns(lanes, 5);
+    // #then
+    expect(spawns).toEqual([]);
+  });
+});
+
+describe('keepRatio and keepWith', () => {
+  it('reproduce keptSpawns for normal spawns', () => {
+    // #given
+    const spawns = daySpawns([[0, 5000, 1e6], [1, 3000, 0]], 9);
+    // #then
+    expect(keepWith(spawns, keepRatio(spawns.length, 0.05), 9 * 7919)).toEqual(keptSpawns(spawns, 9, 0.05));
+  });
+});
+
+describe('ReplayModel with CRE lane-days', () => {
+  const withCre = (cre: ReplayFile['cre']) => new ReplayModel({ ...replay, cre }, history, stars, 60);
+  const comets = (m: ReplayModel) => Array.from({ length: 240 }, (_, k) => m.frameAt(k / 4).sky.comets);
+  const kindsOnDay = (m: ReplayModel, day: number) => {
+    const start = m.dayStart(day);
+    const length = m.warp.dayLength(day);
+    return Array.from({ length: 60 }, (_, k) => m.frameAt(start + (length * k) / 60).sky.comets).flat().map((c) => c.kind);
+  };
+
+  it('is unchanged without CRE, and with an empty CRE list', () => {
+    // #given
+    const plain = comets(model());
+    // #then
+    expect(comets(withCre([]))).toEqual(plain);
+    expect(comets(new ReplayModel({ ...replay, cre: undefined }, history, stars, 60))).toEqual(plain);
+  });
+
+  it('flies teal comets on a CRE day', () => {
+    // #when
+    const m = withCre([{ day: '2023-07-07', lanes: [[0, 4, 0]] }]);
+    // #then
+    expect(kindsOnDay(m, 1)).toContain('cre');
+    expect(kindsOnDay(model(), 1)).not.toContain('cre');
+  });
+
+  it('lets gold win over teal for a million-dollar CRE lane-day', () => {
+    // #when
+    const m = withCre([{ day: '2023-07-07', lanes: [[0, 1, 2_000_000]] }]);
+    // #then
+    expect(kindsOnDay(m, 1)).toContain('gold');
+    expect(kindsOnDay(m, 1)).not.toContain('cre');
   });
 });

@@ -23,8 +23,11 @@ export function monthReplay(replay: ReplayFile, month: string): ReplayFile {
   const chainIds = [...new Set(laneIds.flatMap((lane) => replay.lanes[lane] ?? []))].sort((a, b) => a - b);
   const chainAt = new Map(chainIds.map((c, i) => [c, i]));
   const laneAt = new Map(laneIds.map((l, i) => [l, i]));
+  const cre = monthCre(replay.cre, first, last, laneAt);
+  const { cre: _wholeHistory, ...rest } = replay;
   return {
-    ...replay,
+    ...rest,
+    ...(cre ? { cre } : {}),
     since: first,
     chains: chainIds.map((c) => replay.chains[c]!),
     lanes: laneIds.map((lane) => {
@@ -36,6 +39,17 @@ export function monthReplay(replay: ReplayFile, month: string): ReplayFile {
       lanes: (inMonth.get(day) ?? []).map(([lane, messages, usd]): [number, number, number] => [laneAt.get(lane)!, messages, usd]),
     })),
   };
+}
+
+function monthCre(cre: ReplayFile['cre'], first: string, last: string, laneAt: ReadonlyMap<number, number>): ReplayFile['cre'] {
+  const days = (cre ?? [])
+    .filter((d) => d.day >= first && d.day <= last)
+    .map((d) => ({
+      day: d.day,
+      lanes: d.lanes.flatMap(([lane, messages, usd]): [number, number, number][] => (laneAt.has(lane) ? [[laneAt.get(lane)!, messages, usd]] : [])),
+    }))
+    .filter((d) => d.lanes.length > 0);
+  return days.length > 0 ? days : undefined;
 }
 
 export interface MonthData {

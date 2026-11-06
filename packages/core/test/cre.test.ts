@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { creKeyOf, creKeySet, creRetagDaySql, generatedCreKeys, isCreOrigin, NO_CRE_KEYS, type CreKeyFile } from '../src/cre';
+import { CRE_LANE_DAY_SQL, creKeyOf, creKeySet, creRetagDaySql, generatedCreKeys, isCreOrigin, NO_CRE_KEYS, type CreKeyFile } from '../src/cre';
 
 const BASE = '15971525489660198786';
 const ETH = '5009297550715157269';
@@ -74,6 +74,15 @@ describe('creRetagDaySql', () => {
 
   it('tags nothing with an empty set', () => {
     expect(creRetagDaySql(NO_CRE_KEYS)).toContain('IN (NULL)');
+  });
+});
+
+describe('CRE_LANE_DAY_SQL', () => {
+  it('rebuilds a rolled-up day\u2019s CRE lanes keyed src>dst', () => {
+    // #then
+    expect(CRE_LANE_DAY_SQL).toContain("'cre_lane', src_chain || '>' || dst_chain");
+    expect(CRE_LANE_DAY_SQL).toMatch(/WHERE day = \?1 AND cre = 1 AND EXISTS \(SELECT 1 FROM daily_totals d WHERE d\.day = \?1\)/);
+    expect(CRE_LANE_DAY_SQL).toContain('GROUP BY src_chain, dst_chain');
   });
 });
 

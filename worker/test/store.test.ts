@@ -108,6 +108,23 @@ describe('messages', () => {
     expect(plan.results.map((r) => r.detail)).toContain('SEARCH messages USING INDEX messages_day (day>?)');
   });
 
+  it('reads CRE lane history through the dim index', async () => {
+    // #when
+    const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.CRE_LANE_HISTORY_SQL}`).all()).results;
+    // #then
+    expect(JSON.stringify(plan)).toMatch(/USING (COVERING )?INDEX daily_breakdown_dim/);
+  });
+
+  it('returns CRE lane rows in day and key order', async () => {
+    // #given
+    await store.replaceDaily(env.DB, { day: '2026-11-04', messages: 2, token_messages: 0, usd_value: 0, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0 }, [
+      { day: '2026-11-04', dim: 'cre_lane', key: '1>3', messages: 1, usd_value: 0, fee_usd: null },
+      { day: '2026-11-04', dim: 'cre_lane', key: '1>2', messages: 1, usd_value: 5, fee_usd: null },
+    ], '2026-11-05T00:07:00.000Z');
+    // #then
+    expect((await store.creLaneHistory(env.DB)).map((r) => r.key)).toEqual(['1>2', '1>3']);
+  });
+
   it('looks tokens up by chain and lowercase address through the tokens_chain_lower_address index', async () => {
     // #when
     const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN SELECT chain, address, group_id FROM tokens WHERE ${store.tokenAddressMatch(2)}`).bind('a', '0x1', 'b', '0x2').all<{ detail: string }>();

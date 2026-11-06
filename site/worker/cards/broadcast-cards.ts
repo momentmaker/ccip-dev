@@ -121,7 +121,7 @@ async function dailyTree(day: string, inputs: BroadcastInputs): Promise<VNode | 
   const dayRow = history.days.find((d) => d.day === day);
   if (totals === null || lead === undefined || !hasReplayDay(replay, day)) return null;
   const names = namesOf(replay, chains);
-  const sky = skyFor(replay, names, day, day);
+  const sky = skyFor(replay, names, day, day, {}, { cre: true });
   const record = recordsSetOn(history.days, history.largest_fees ?? [], day)[0];
   return broadcastFrame({
     background: skyNodes(sky, await iconsFor(sky, inputs.icon)),
@@ -149,7 +149,7 @@ async function weeklyTree(monday: string, inputs: BroadcastInputs): Promise<VNod
   const complete = weekDays.every((d) => history.days.some((x) => x.day === d));
   if (!complete || totals === null || week === undefined || !hasReplayDay(replay, addDays(monday, 6))) return null;
   const names = namesOf(replay, chains);
-  const sky = skyFor(replay, names, monday, addDays(monday, 6));
+  const sky = skyFor(replay, names, monday, addDays(monday, 6), {}, { cre: true });
   const weekRows = history.days.filter((d) => weekDays.includes(d.day));
   const sumOf = (pick: (d: (typeof weekRows)[number]) => number) => weekRows.reduce((sum, d) => sum + pick(d), 0);
   const cre = creLine(sumOf((d) => d.messages), sumOf((d) => d.cre_messages ?? 0));

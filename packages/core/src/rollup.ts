@@ -60,6 +60,7 @@ export function rollupDay(day: string, messages: MessageRow[], tokens: TokenRow[
   addMessageGroups('lane', (r) => `${r.src_chain}>${r.dst_chain}`);
   addMessageGroups('sender', senderKey);
   addMessageGroups('cre', (r) => (r.cre === 1 ? senderKey(r) : null));
+  addMessageGroups('cre_lane', (r) => (r.cre === 1 ? `${r.src_chain}>${r.dst_chain}` : null));
 
   // A wallet's direct send, which the sender row already counts: publish moves this part to the project claiming the token.
   const firstTokens = new Map(tokens.filter((t) => t.idx === 0).map((t) => [t.message_id, t]));

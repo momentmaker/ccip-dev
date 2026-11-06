@@ -32,6 +32,7 @@ export interface OrbitLane {
   src: string;
   dst: string;
   usd: number;
+  cre?: true;
 }
 
 export interface OrbitCoin {
@@ -141,7 +142,7 @@ export function orbitSky(o: OrbitOptions): OrbitSky {
     .map((l, i) => {
       const a = at.get(l.src)!;
       const b = at.get(l.dst)!;
-      const [from, to] = i % 2 === 0 ? ['#4a7ff0', '#7de3ff'] : ['#7a5cff', '#4a7ff0'];
+      const [from, to] = l.cre ? ['#40e0c4', '#40e0c4'] : i % 2 === 0 ? ['#4a7ff0', '#7de3ff'] : ['#7a5cff', '#4a7ff0'];
       return `<linearGradient id="lane${i}" gradientUnits="userSpaceOnUse" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient>`;
     })
     .join('');
