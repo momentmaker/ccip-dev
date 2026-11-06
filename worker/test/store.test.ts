@@ -109,7 +109,9 @@ describe('messages', () => {
   });
 
   it('reads CRE lane history through the dim index', async () => {
-    const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN SELECT day, key, messages, usd_value FROM daily_breakdown WHERE dim = 'cre_lane' ORDER BY day, key`).all()).results;
+    // #when
+    const plan = (await env.DB.prepare(`EXPLAIN QUERY PLAN ${store.CRE_LANE_HISTORY_SQL}`).all()).results;
+    // #then
     expect(JSON.stringify(plan)).toMatch(/USING (COVERING )?INDEX daily_breakdown_dim/);
   });
 

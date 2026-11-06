@@ -24,6 +24,7 @@ async function seed(day: string, rolledUp: boolean): Promise<void> {
   if (rolledUp) await store.replaceDaily(env.DB, { day, ...TOTALS }, [], NOW);
 }
 
+const BSC = NETWORKS.bsc.chainSelector;
 const flags = async () => (await env.DB.prepare('SELECT message_id, cre FROM messages ORDER BY message_id').all()).results;
 const meta = (key: string) => store.getMeta(env.DB, key);
 
@@ -41,7 +42,10 @@ describe('retagCre', () => {
       { message_id: '2026-11-04-cre', cre: 1 }, { message_id: '2026-11-04-other', cre: 0 },
     ]);
     expect(await meta('cre_keys_version')).toBe('v1');
+    expect(await meta('cre_retag_schema')).toBe('2');
     expect(await meta('cre_retag')).toBeNull();
+    const lanes = (await env.DB.prepare("SELECT key, messages FROM daily_breakdown WHERE dim = 'cre_lane' AND day = '2026-11-04'").all()).results;
+    expect(lanes).toEqual([{ key: `${BASE}>${BSC}`, messages: 1 }]);
     const day = (await env.DB.prepare("SELECT cre_messages, cre_usd FROM daily_totals WHERE day = '2026-11-04'").first());
     expect(day).toEqual({ cre_messages: 1, cre_usd: 9 });
     const rows = (await env.DB.prepare("SELECT key, messages FROM daily_breakdown WHERE dim = 'cre' AND day = '2026-11-04'").all()).results;
@@ -59,7 +63,18 @@ describe('retagCre', () => {
     // #then the old day is re-tagged and both versions are recorded
     expect((await flags()).find((r: any) => r.message_id === '2026-09-26-cre')).toEqual({ message_id: '2026-09-26-cre', cre: 1 });
     expect(await meta('cre_keys_version')).toBe('v1');
+    expect(await meta('cre_retag_schema')).toBe('2');
     expect(await meta('cre_retag')).toBeNull();
+  });
+
+  it('runs a full pass when the key version is done and no schema was ever recorded', async () => {
+    // #given production after the first pass finished, before schema versions existed
+    await store.setMeta(env.DB, 'cre_keys_version', 'v1');
+    const { c } = harness({ now: NOW, creKeys: keys('v1') });
+    // #when
+    await retagCre(c, 1);
+    // #then
+    expect(JSON.parse((await meta('cre_retag'))!)).toEqual({ version: 'v1#2', next: '2026-11-04', from: CRE_FIRST_DAY });
   });
 
   it('restarts a pass stored under the old version format as a full pass', async () => {

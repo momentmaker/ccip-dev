@@ -1231,10 +1231,10 @@ export async function laneHistory(db: D1Database): Promise<LaneDayRow[]> {
   return results;
 }
 
+export const CRE_LANE_HISTORY_SQL = "SELECT day, key, messages, usd_value FROM daily_breakdown WHERE dim = 'cre_lane' ORDER BY day, key";
+
 export async function creLaneHistory(db: D1Database): Promise<LaneDayRow[]> {
-  const { results } = await db
-    .prepare("SELECT day, key, messages, usd_value FROM daily_breakdown WHERE dim = 'cre_lane' ORDER BY day, key")
-    .all<LaneDayRow>();
+  const { results } = await db.prepare(CRE_LANE_HISTORY_SQL).all<LaneDayRow>();
   return results;
 }
 
