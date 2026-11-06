@@ -1,6 +1,6 @@
 import type { DayTotals, TopFile } from '@ccip-dev/core/public';
 import { describe, expect, it } from 'vitest';
-import { creBand, creLatestCaption, creLeaders, creSeries, creSparkPoints, creTotal } from '../src/lib/cre';
+import { creBand, creLatestCaption, creLeaders, creSeries, creSparkPoints, creTotal, hasCreReplay } from '../src/lib/cre';
 
 const day = (d: string, messages: number, cre: number): DayTotals =>
   ({ day: d, messages, token_messages: 0, usd_value: 0, fee_usd: null, unique_senders: 1, median_delivery_s: null, unpriced_messages: 0, fee_link_usd: null, cre_messages: cre, cre_usd: 0 }) as DayTotals;
@@ -109,5 +109,14 @@ describe('creSparkPoints', () => {
     const out = creSparkPoints(points, 100, 20);
     // #then
     expect(out).toBe('0,20 100,0');
+  });
+});
+
+describe('hasCreReplay', () => {
+  it('is true only when the replay lists CRE days', () => {
+    expect(hasCreReplay({ cre: [{ day: '2026-11-01', lanes: [[0, 1, 0]] }] })).toBe(true);
+    expect(hasCreReplay({ cre: [] })).toBe(false);
+    expect(hasCreReplay({})).toBe(false);
+    expect(hasCreReplay(null)).toBe(false);
   });
 });
