@@ -1,34 +1,13 @@
-# Unconfirmed addresses kept as leads. ReserveFeedBroadcaster contracts built on Re's documented AccessManager and NAV feeds (https://docs.re.xyz/products/smart-contracts); Re does not publish these addresses.
-# Researched 2026-11-06: the CRE reports that trigger the first four come from workflow "cre-nav-ccip-prod" (0x00d2b3a6…) owned by
-# Safe 0x8eec10616802Ef639CA55c98ac856553fAdEfBaD, which Re's smart-contracts page names as its Gnosis Safe; the Safe also owns
-# "cre-nav-reusd-prod" and "cre-nav-reusde-prod" in the public Workflow Registry. The last four read feeds named
-# "reUSD NAV / USD (18 decimals) [NAVCalculator test]" through a NAVCalculator, from a private-registry owner (0x9B5D4fdd…),
-# a different deployer (0x00000066…) and different AccessManagers (0x940A570A…, 0xC2aa1C3A…) that Re's docs do not list.
+# Unconfirmed addresses kept as leads: test broadcasters, not Re's production ones (those are verified in re.toml by the CRE
+# workflow Re's own Safe owns). These four read feeds named "reUSD NAV / USD (18 decimals) [NAVCalculator test]" through a
+# NAVCalculator, built from the same smart-contracts-oracle source as Re's broadcasters, but their CRE workflow (name hash
+# 1228a7afcc) is owned by private-registry key 0x9B5D4fdd… and they come from a different deployer (0x00000066…) and
+# AccessManagers (0x940A570A…, 0xC2aa1C3A…), none of which Re's pages publish. Researched 2026-11-06.
 name = "Re (unconfirmed)"
 x = "re"
 url = "https://www.re.xyz"
 kind = "protocol"
 verified = false
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0xd3dc5432f952021a9c6f23928a4baaf81576db8f"
-note = "ReserveFeedBroadcaster, reUSD NAV (8 decimals) over CCIP"
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0x9a62b428f3f60837023bdad01f6daa160ec51aa7"
-note = "ReserveFeedBroadcaster, reUSD NAV (18 decimals) over CCIP"
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0xf2a0b61550b5a37ec9d4453ad59c685483d56c17"
-note = "ReserveFeedBroadcaster, reUSDe NAV (8 decimals) to Berachain over CCIP"
-
-[[addresses]]
-chain = "ethereum-mainnet"
-address = "0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2"
-note = "ReserveFeedBroadcaster, reUSDe NAV (18 decimals) to Berachain over CCIP"
 
 [[addresses]]
 chain = "ethereum-mainnet"

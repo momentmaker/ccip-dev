@@ -1190,7 +1190,28 @@
     "url": "https://www.re.xyz",
     "kind": "protocol",
     "source": "https://docs.re.xyz/products/smart-contracts (reUSD on Ethereum 0x5086bf358635B81D8C47C66d1C8b9E567Db70c72; \"reUSD and reUSDe move between chains via Chainlink CCIP token pools\")",
-    "addresses": [],
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xd3dc5432f952021a9c6f23928a4baaf81576db8f",
+        "note": "ReserveFeedBroadcaster, reUSD NAV (8 decimals) over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x9a62b428f3f60837023bdad01f6daa160ec51aa7",
+        "note": "ReserveFeedBroadcaster, reUSD NAV (18 decimals) over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xf2a0b61550b5a37ec9d4453ad59c685483d56c17",
+        "note": "ReserveFeedBroadcaster, reUSDe NAV (8 decimals) to Berachain over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2",
+        "note": "ReserveFeedBroadcaster, reUSDe NAV (18 decimals) to Berachain over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+      }
+    ],
     "tokens": [
       {
         "chain": "ethereum-mainnet",

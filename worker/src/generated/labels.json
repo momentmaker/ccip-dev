@@ -608,6 +608,30 @@
     "kind": "protocol",
     "slug": "rare-protocol"
   },
+  "ethereum-mainnet:0xd3dc5432f952021a9c6f23928a4baaf81576db8f": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
+  "ethereum-mainnet:0x9a62b428f3f60837023bdad01f6daa160ec51aa7": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
+  "ethereum-mainnet:0xf2a0b61550b5a37ec9d4453ad59c685483d56c17": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
+  "ethereum-mainnet:0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
   "ethereum-mainnet-base-1:0x671be08d6d3c826c2f6d76915f1b54af484d4077": {
     "name": "Ribbita (TIBBIR)",
     "kind": "app",
