@@ -9,3 +9,43 @@ verified = true
 chain = "ethereum-mainnet"
 address = "0x5086bf358635b81d8c47c66d1c8b9e567db70c72"
 source = "https://docs.re.xyz/products/smart-contracts"
+
+# Source (on-chain control): https://docs.re.xyz/products/smart-contracts#governance-and-access-control names Re's Gnosis Safe
+# 0x8eec10616802Ef639CA55c98ac856553fAdEfBaD. That Safe owns CRE workflow "cre-nav-ccip-prod" (workflowId
+# 0x00d2b3a6f33b0ab9e217ac13752afd0b9964efb1440135aa98418342970cac5e) in the CRE Workflow Registry on Ethereum
+# (0x4Ac54353FA4Fa961AfcC5ec4B118596d3305E7e5, getWorkflowListByOwner), and this broadcaster's CCIP sends arrive via
+# KeystoneForwarder 0x0b93082D9b3C7C97fAcd250082899BAcf3af3885 reports naming that workflowId and owner (checked 2026-11-06).
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xd3dc5432f952021a9c6f23928a4baaf81576db8f"
+note = "ReserveFeedBroadcaster, reUSD NAV (8 decimals) over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+
+# Source (on-chain control): https://docs.re.xyz/products/smart-contracts#governance-and-access-control names Re's Gnosis Safe
+# 0x8eec10616802Ef639CA55c98ac856553fAdEfBaD. That Safe owns CRE workflow "cre-nav-ccip-prod" (workflowId
+# 0x00d2b3a6f33b0ab9e217ac13752afd0b9964efb1440135aa98418342970cac5e) in the CRE Workflow Registry on Ethereum
+# (0x4Ac54353FA4Fa961AfcC5ec4B118596d3305E7e5, getWorkflowListByOwner), and this broadcaster's CCIP sends arrive via
+# KeystoneForwarder 0x0b93082D9b3C7C97fAcd250082899BAcf3af3885 reports naming that workflowId and owner (checked 2026-11-06).
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x9a62b428f3f60837023bdad01f6daa160ec51aa7"
+note = "ReserveFeedBroadcaster, reUSD NAV (18 decimals) over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+
+# Source (on-chain control): https://docs.re.xyz/products/smart-contracts#governance-and-access-control names Re's Gnosis Safe
+# 0x8eec10616802Ef639CA55c98ac856553fAdEfBaD. That Safe owns CRE workflow "cre-nav-ccip-prod" (workflowId
+# 0x00d2b3a6f33b0ab9e217ac13752afd0b9964efb1440135aa98418342970cac5e) in the CRE Workflow Registry on Ethereum
+# (0x4Ac54353FA4Fa961AfcC5ec4B118596d3305E7e5, getWorkflowListByOwner), and this broadcaster's CCIP sends arrive via
+# KeystoneForwarder 0x0b93082D9b3C7C97fAcd250082899BAcf3af3885 reports naming that workflowId and owner (checked 2026-11-06).
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf2a0b61550b5a37ec9d4453ad59c685483d56c17"
+note = "ReserveFeedBroadcaster, reUSDe NAV (8 decimals) to Berachain over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"
+
+# Source (on-chain control): https://docs.re.xyz/products/smart-contracts#governance-and-access-control names Re's Gnosis Safe
+# 0x8eec10616802Ef639CA55c98ac856553fAdEfBaD. That Safe owns CRE workflow "cre-nav-ccip-prod" (workflowId
+# 0x00d2b3a6f33b0ab9e217ac13752afd0b9964efb1440135aa98418342970cac5e) in the CRE Workflow Registry on Ethereum
+# (0x4Ac54353FA4Fa961AfcC5ec4B118596d3305E7e5, getWorkflowListByOwner), and this broadcaster's CCIP sends arrive via
+# KeystoneForwarder 0x0b93082D9b3C7C97fAcd250082899BAcf3af3885 reports naming that workflowId and owner (checked 2026-11-06).
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2"
+note = "ReserveFeedBroadcaster, reUSDe NAV (18 decimals) to Berachain over CCIP, driven by Re's CRE workflow cre-nav-ccip-prod"

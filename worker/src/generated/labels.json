@@ -53,6 +53,18 @@
     "kind": "protocol",
     "slug": "aave"
   },
+  "avalanche-mainnet:0x27fc7d54c893da63c0ae6d57e1b2b13a70690928": {
+    "name": "Aave",
+    "x": "aave",
+    "kind": "protocol",
+    "slug": "aave"
+  },
+  "ethereum-mainnet:0x7f2f96fcdc3a29be75938d2ac3d92e7006919fe6": {
+    "name": "Aave",
+    "x": "aave",
+    "kind": "protocol",
+    "slug": "aave"
+  },
   "ethereum-mainnet:0xac20cd734c65baf48a1476447af7d3e3165dc739": {
     "name": "Arbitrum Foundation",
     "x": "arbitrum",
@@ -537,6 +549,18 @@
     "kind": "issuer",
     "slug": "lido"
   },
+  "ethereum-mainnet-optimism-1:0x328de900860816d29d1367f6903a24d8ed40c997": {
+    "name": "Lido",
+    "x": "lidofinance",
+    "kind": "issuer",
+    "slug": "lido"
+  },
+  "ethereum-mainnet-linea-1:0x328de900860816d29d1367f6903a24d8ed40c997": {
+    "name": "Lido",
+    "x": "lidofinance",
+    "kind": "issuer",
+    "slug": "lido"
+  },
   "ethereum-mainnet:0xe02cf8d7b3ce12fc0626346bca160b548525d807": {
     "name": "Mellow",
     "x": "Mellowprotocol",
@@ -583,6 +607,30 @@
     "name": "Rare Protocol",
     "kind": "protocol",
     "slug": "rare-protocol"
+  },
+  "ethereum-mainnet:0xd3dc5432f952021a9c6f23928a4baaf81576db8f": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
+  "ethereum-mainnet:0x9a62b428f3f60837023bdad01f6daa160ec51aa7": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
+  "ethereum-mainnet:0xf2a0b61550b5a37ec9d4453ad59c685483d56c17": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
+  },
+  "ethereum-mainnet:0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2": {
+    "name": "Re",
+    "x": "re",
+    "kind": "protocol",
+    "slug": "re"
   },
   "ethereum-mainnet-base-1:0x671be08d6d3c826c2f6d76915f1b54af484d4077": {
     "name": "Ribbita (TIBBIR)",
@@ -798,5 +846,41 @@
     "x": "xswap_link",
     "kind": "protocol",
     "slug": "xswap"
+  },
+  "ethereum-mainnet-base-1:0x664efe3859165011b811d8afc127872520e97079": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "kind": "protocol",
+    "slug": "yieldcoin"
+  },
+  "ethereum-mainnet:0xd2f0e776312567e3157577b429bb210a4656fa04": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "kind": "protocol",
+    "slug": "yieldcoin"
+  },
+  "ethereum-mainnet-arbitrum-1:0xd2f0e776312567e3157577b429bb210a4656fa04": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "kind": "protocol",
+    "slug": "yieldcoin"
+  },
+  "ethereum-mainnet-optimism-1:0xd2f0e776312567e3157577b429bb210a4656fa04": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "kind": "protocol",
+    "slug": "yieldcoin"
+  },
+  "avalanche-mainnet:0xd2f0e776312567e3157577b429bb210a4656fa04": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "kind": "protocol",
+    "slug": "yieldcoin"
+  },
+  "polygon-mainnet:0xd2f0e776312567e3157577b429bb210a4656fa04": {
+    "name": "Yieldcoin",
+    "x": "contractlevel",
+    "kind": "protocol",
+    "slug": "yieldcoin"
   }
 }

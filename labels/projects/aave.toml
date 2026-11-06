@@ -21,6 +21,18 @@ chain = "ethereum-mainnet"
 address = "0xed42a7d8559a463722ca4bed50e0cc05a386b0e1"
 note = "Governance V3 CrossChainController (a.DI), sends through its CCIP adapter"
 
+# Source: https://github.com/aave-dao/aave-address-book/blob/main/src/GovernanceV3Avalanche.sol (CROSS_CHAIN_CONTROLLER = 0x27FC7D54C893dA63C0AE6d57e1B2B13A70690928)
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x27fc7d54c893da63c0ae6d57e1b2b13a70690928"
+note = "Governance V3 CrossChainController (a.DI) on Avalanche, sends through its CCIP adapter"
+
+# Source: https://github.com/aave-dao/aave-address-book/blob/main/src/GhoEthereum.sol (GHO_CCIP_BRIDGE = 0x7F2f96fcdC3A29Be75938d2aC3D92E7006919fe6)
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x7f2f96fcdc3a29be75938d2ac3d92e7006919fe6"
+note = "AaveGhoCcipBridge, bridges GHO over CCIP"
+
 [[tokens]]
 chain = "plasma-mainnet"
 address = "0xb77E872A68C62CfC0dFb02C067Ecc3DA23B4bbf3"

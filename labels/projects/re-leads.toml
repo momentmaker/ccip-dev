@@ -1,4 +1,8 @@
-# Unconfirmed addresses kept as leads. ReserveFeedBroadcaster contracts built on Re's documented AccessManager and NAV feeds (https://docs.re.xyz/products/smart-contracts); Re does not publish these addresses.
+# Unconfirmed addresses kept as leads: test broadcasters, not Re's production ones (those are verified in re.toml by the CRE
+# workflow Re's own Safe owns). These four read feeds named "reUSD NAV / USD (18 decimals) [NAVCalculator test]" through a
+# NAVCalculator, built from the same smart-contracts-oracle source as Re's broadcasters, but their CRE workflow (name hash
+# 1228a7afcc) is owned by private-registry key 0x9B5D4fdd… and they come from a different deployer (0x00000066…) and
+# AccessManagers (0x940A570A…, 0xC2aa1C3A…), none of which Re's pages publish. Researched 2026-11-06.
 name = "Re (unconfirmed)"
 x = "re"
 url = "https://www.re.xyz"
@@ -7,20 +11,20 @@ verified = false
 
 [[addresses]]
 chain = "ethereum-mainnet"
-address = "0xd3dc5432f952021a9c6f23928a4baaf81576db8f"
-note = "ReserveFeedBroadcaster, reUSD NAV (8 decimals) over CCIP"
+address = "0x9e08799730f4d5b330068ad9c35d3f063ff3770c"
+note = "ReserveFeedBroadcaster, reUSD NAV [NAVCalculator test] feed 0x9025Cb5d…; configured for BNB Chain and MegaETH"
 
 [[addresses]]
 chain = "ethereum-mainnet"
-address = "0x9a62b428f3f60837023bdad01f6daa160ec51aa7"
-note = "ReserveFeedBroadcaster, reUSD NAV (18 decimals) over CCIP"
+address = "0xa090778d931f82d5a93fc25105798a1a50a3729d"
+note = "Unverified broadcaster, reUSD NAV [NAVCalculator test] feed 0x9025Cb5d…; configured for Arbitrum, Avalanche and Base"
 
 [[addresses]]
 chain = "ethereum-mainnet"
-address = "0xf2a0b61550b5a37ec9d4453ad59c685483d56c17"
-note = "ReserveFeedBroadcaster, reUSDe NAV (8 decimals) to Berachain over CCIP"
+address = "0x3fe5616c324815b7cb13831cfd414020f2a26d28"
+note = "Unverified broadcaster, reUSD NAV [NAVCalculator test] feed 0xd7d4077E…; configured for Arbitrum and Avalanche"
 
 [[addresses]]
 chain = "ethereum-mainnet"
-address = "0x441ed1f9dfaea0e20ccd348c0e4d7ce1ca2b6ac2"
-note = "ReserveFeedBroadcaster, reUSDe NAV (18 decimals) to Berachain over CCIP"
+address = "0xac81c9e70e1ea7871bcea1fef77d198720d34a1c"
+note = "Unverified broadcaster, reUSD NAV [NAVCalculator test] feed 0xd7d4077E…; configured for BNB Chain and MegaETH"
