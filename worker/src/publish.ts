@@ -687,7 +687,7 @@ export async function publishHistoryFiles(run: RunContext): Promise<string[]> {
     await pauseForD1(c);
     await measured('replay', () =>
       attempt('replay-publish', 'replay.json was not published', async () =>
-        putJson(c.env.PUBLIC, 'replay.json', { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db)) }, TTL.replay, now),
+        putJson(c.env.PUBLIC, 'replay.json', { since, ...buildReplay(await store.laneHistory(db), await store.chainDisplayNames(db), await store.creLaneHistory(db)) }, TTL.replay, now),
       ),
     );
     completed = true;
