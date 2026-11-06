@@ -13,6 +13,13 @@ describe('coinCatchKeyframes', () => {
     expect(String(frames[1]!.boxShadow)).toContain('245, 196, 81');
     expect(String(coinCatchKeyframes('data')[1]!.boxShadow)).toContain('201, 214, 245');
   });
+
+  it('glows teal for a CRE comet', () => {
+    // #given a cre catch
+    // #when the glow keyframe is built
+    // #then it carries the cre color
+    expect(String(coinCatchKeyframes('cre')[1]!.boxShadow)).toContain('64, 224, 196');
+  });
 });
 
 describe('catchCoin', () => {

@@ -1,4 +1,4 @@
-export type CometKind = 'token' | 'data' | 'gold';
+export type CometKind = 'token' | 'data' | 'gold' | 'cre';
 
 export interface FrameStar {
   x: number;
@@ -40,9 +40,11 @@ export const COLORS = {
   blue: [74 / 255, 127 / 255, 240 / 255],
   pale: [201 / 255, 214 / 255, 245 / 255],
   gold: [245 / 255, 196 / 255, 81 / 255],
+  cre: [64 / 255, 224 / 255, 196 / 255],
   star: [232 / 255, 234 / 255, 237 / 255],
 } as const;
 
 export function kindColor(kind: CometKind): readonly number[] {
+  if (kind === 'cre') return COLORS.cre;
   return COLORS[kind === 'gold' ? 'gold' : kind === 'token' ? 'blue' : 'pale'];
 }

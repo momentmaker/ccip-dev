@@ -10,7 +10,7 @@ import { projector, type StarPoint } from '../../sky/layout';
 import { cardPosition, cardSize, skyOverlay, whalePosition, type OverlayCoin, type OverlayPoint, type Rect } from '../../sky/overlay';
 import { ContextLossTracker, createRenderer, type SkyRenderer } from '../../sky/renderer';
 import { GlRenderer } from '../../sky/renderer-gl';
-import { CAPTION_MS, COMET_MS, LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
+import { CAPTION_MS, COMET_MS, creCaption, GOLD_USD, LiveScene, type Caption, type LaunchInput } from '../../sky/scene';
 import { skyScale } from '../../sky/weights';
 
 interface Props {
@@ -40,6 +40,8 @@ function captionText(m: LaunchInput, names: ChainNames): string {
 
 interface Whale {
   id: string;
+  eyebrow: string;
+  tone: 'gold' | 'cre';
   dst: string;
   amount: string;
   lane: string;
@@ -117,17 +119,18 @@ export default function SkyCanvas(props: Props) {
       const queue = latest.current.queue.current;
       while (queue.length > 0 && queue[0]!.at <= now) {
         const { message } = queue.shift()!;
-        const input = { id: message.id, src: message.src, dst: message.dst, usd: message.usd, token: message.token };
+        const input = { id: message.id, src: message.src, dst: message.dst, usd: message.usd, token: message.token, cre: message.cre === true };
         const starsBefore = scene.starPoints.length;
         if (latest.current.reducedMotion) {
           scene.flash(input, now);
           latest.current.onLaunch(message, null);
         } else {
-          const caption = scene.launch(input, now, (m) => captionText(m, latest.current.names));
+          const isWhale = (input.usd ?? 0) >= GOLD_USD;
+          const caption = scene.launch(input, now, (m) => (isWhale ? captionText(m, latest.current.names) : creCaption(message.sender_label)));
           latest.current.onLaunch(message, caption);
           if (caption) {
             const names = latest.current.names;
-            const whale = { id: input.id, dst: input.dst, amount: `${formatUsd(input.usd)}${input.token ? ` ${input.token}` : ''}`, lane: `${chainName(names, input.src)} → ${chainName(names, input.dst)}` };
+            const whale: Whale = { id: input.id, eyebrow: isWhale ? 'Whale · $1M+' : caption.text, tone: isWhale ? 'gold' : 'cre', dst: input.dst, amount: `${formatUsd(input.usd)}${input.token ? ` ${input.token}` : ''}`, lane: `${chainName(names, input.src)} → ${chainName(names, input.dst)}` };
             whaleTimers.current.push(
               setTimeout(() => setWhales((list) => [...list.filter((w) => w.id !== whale.id), whale]), COMET_MS),
               setTimeout(() => setWhales((list) => list.filter((w) => w.id !== whale.id)), COMET_MS + CAPTION_MS),
@@ -270,8 +273,8 @@ export default function SkyCanvas(props: Props) {
           const star = pointsRef.current.find((p) => p.selector === w.dst);
           if (!star) return null;
           return (
-            <div key={w.id} className="whale" style={whalePosition(star, { width: widthRef.current, height: heightRef.current }, avoidRef.current)}>
-              <span className="whale-eyebrow">Whale · $1M+</span>
+            <div key={w.id} className={w.tone === 'cre' ? 'whale cre' : 'whale'} style={whalePosition(star, { width: widthRef.current, height: heightRef.current }, avoidRef.current)}>
+              <span className="whale-eyebrow">{w.eyebrow}</span>
               <span className="whale-amt">{w.amount}</span>
               <span className="whale-lane">{w.lane}</span>
             </div>
