@@ -14,6 +14,11 @@ const tree = async (target: Parameters<typeof broadcastTree>[0]) => (await broad
 const withSender = (sender: object): typeof loadFixture => async (name) =>
   name === 'day-leaders.json' ? ({ ...LEADERS, days: LEADERS.days.map((d) => (d.day === DAY ? { ...d, sender } : d)) } as never) : loadFixture(name);
 
+const withCre = (cre: Record<string, number>): typeof loadFixture => async (name) =>
+  name === 'history.json'
+    ? ({ ...HISTORY, days: HISTORY.days.map((d) => (d.day in cre ? { ...d, cre_messages: cre[d.day], cre_usd: 1 } : d)) } as never)
+    : loadFixture(name);
+
 describe('daily broadcast card', () => {
   it('shows the day against its 7-day average, its leaders, and the busiest lane in the strip', async () => {
     // #when
@@ -95,6 +100,37 @@ describe('daily broadcast card', () => {
     const words = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: old }));
     // #then
     expect(words.filter((w) => w.includes('data'))).toEqual([]);
+  });
+});
+
+describe('the CRE line on the daily and weekly cards', () => {
+  const creLines = (words: string[]) => words.filter((w) => w.startsWith('CRE workflows'));
+
+  it("adds the day's CRE message count and share to the daily card", async () => {
+    // #given 30 of the day's 150 messages sent by CRE workflows
+    // #when
+    const words = texts(await broadcastTree({ kind: 'daily', day: DAY }, { ...inputs, load: withCre({ [DAY]: 30 }) }));
+    // #then
+    expect(creLines(words)).toEqual(['CRE workflows: 30 messages (20%)']);
+  });
+
+  it("adds the week's summed CRE message count and share to the weekly card", async () => {
+    // #given 30 CRE messages on one day and 60 on another, of the week's 1,450
+    // #when
+    const words = texts(await broadcastTree({ kind: 'weekly', monday: MONDAY }, { ...inputs, load: withCre({ [DAY]: 30, [RECORD_DAY]: 60 }) }));
+    // #then
+    expect(creLines(words)).toEqual(['CRE workflows: 90 messages (6.2%)']);
+  });
+
+  it('leaves the daily and weekly cards exactly as they were when no message was sent by CRE', async () => {
+    // #given the same history with zero CRE messages on every day, and with the CRE fields absent
+    const zero = withCre(Object.fromEntries(HISTORY.days.map((d) => [d.day, 0])));
+    const targets = [{ kind: 'daily', day: DAY }, { kind: 'weekly', monday: MONDAY }] as const;
+    // #when
+    const trees = await Promise.all(targets.flatMap((t) => [broadcastTree(t, inputs), broadcastTree(t, { ...inputs, load: zero })]));
+    // #then
+    expect([trees[1], trees[3]]).toEqual([trees[0], trees[2]]);
+    expect(trees.flatMap((t) => creLines(texts(t)))).toEqual([]);
   });
 });
 
