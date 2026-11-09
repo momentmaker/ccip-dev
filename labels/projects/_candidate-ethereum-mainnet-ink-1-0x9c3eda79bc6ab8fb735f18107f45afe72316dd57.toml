@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0x9c3eda79"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x9c3eda79bc6ab8fb735f18107f45afe72316dd57"
+note = "candidate: 1 of 1 messages in the last 7 days, $155039 in all, first seen 2026-11-08"
+

@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "TransparentUpgradeableProxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x42c614415cfb8c71bb28314f6d2a21d91c68f588"
+note = "candidate: 1 of 1 messages in the last 7 days, $74751 in all, first seen 2024-04-22"
+

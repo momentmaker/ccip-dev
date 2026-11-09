@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "MantleBridgeSettler"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-mantle-1"
+address = "0x66eeec08e9ddca54e96e7325f5ba1c94de5dce6c"
+note = "candidate: 1 of 1 messages in the last 7 days, $181321 in all, first seen 2026-10-20"
+

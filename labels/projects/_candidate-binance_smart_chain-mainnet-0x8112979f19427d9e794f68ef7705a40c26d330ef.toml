@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "BnbBridgeSettler"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x8112979f19427d9e794f68ef7705a40c26d330ef"
+note = "candidate: 1 of 1 messages in the last 7 days, $208053 in all, first seen 2026-10-25"
+

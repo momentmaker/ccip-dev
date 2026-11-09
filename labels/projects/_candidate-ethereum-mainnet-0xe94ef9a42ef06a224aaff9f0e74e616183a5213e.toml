@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "ConvertToAssetsPublisher"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xe94ef9a42ef06a224aaff9f0e74e616183a5213e"
+note = "candidate: 60 of 60 messages in the last 7 days, $0 in all, first seen 2026-10-14"
+
