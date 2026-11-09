@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "AstarReceiver"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "polkadot-mainnet-astar"
+address = "0x825cddfb8f28f1c09577a20f649e2736886380c4"
+note = "candidate: 3 of 3 messages in the last 7 days, $192721 in all, first seen 2025-01-15"
+

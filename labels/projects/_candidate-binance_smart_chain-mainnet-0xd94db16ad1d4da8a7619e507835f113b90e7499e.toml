@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "Unknown 0xd94db16a"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xd94db16ad1d4da8a7619e507835f113b90e7499e"
+note = "candidate: 111 of 111 messages in the last 7 days, $55591 in all, first seen 2026-11-04"
+

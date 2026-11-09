@@ -1,0 +1,10 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "CCIPCrossChainBridge"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "berachain-mainnet"
+address = "0xf35193da8c10e44af10853ba5a3a1a6f7529e39a"
+note = "candidate: 7 of 7 messages in the last 7 days, $90283 in all, first seen 2026-11-03"
+
