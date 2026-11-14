@@ -25,7 +25,7 @@
     "ethereum-mainnet": "https://ethereum-rpc.publicnode.com",
     "ethereum-mainnet-arbitrum-1": "https://arb1.arbitrum.io/rpc",
     "ethereum-mainnet-base-1": "https://mainnet.base.org",
-    "ethereum-mainnet-blast-1": "https://rpc.blast.io",
+    "ethereum-mainnet-blast-1": "https://blast.api.pocket.network",
     "ethereum-mainnet-hashkey-1": "https://mainnet.hsk.xyz",
     "ethereum-mainnet-ink-1": "https://rpc-gel.inkonchain.com",
     "ethereum-mainnet-linea-1": "https://rpc.linea.build",
@@ -33,7 +33,7 @@
     "ethereum-mainnet-metis-1": "https://metis.drpc.org",
     "ethereum-mainnet-mode-1": "https://mainnet.mode.network",
     "ethereum-mainnet-optimism-1": "https://mainnet.optimism.io",
-    "ethereum-mainnet-polygon-zkevm-1": "https://polygon-zkevm.drpc.org",
+    "ethereum-mainnet-polygon-zkevm-1": "https://zkevm-rpc.com",
     "ethereum-mainnet-scroll-1": "https://rpc.scroll.io",
     "ethereum-mainnet-taiko-1": "https://rpc.taiko.xyz",
     "ethereum-mainnet-unichain-1": "https://mainnet.unichain.org",
@@ -53,7 +53,7 @@
     "kaia-mainnet": "https://public-en.node.kaia.io",
     "kusama-mainnet-moonriver": "https://moonriver.api.pocket.network",
     "lens-mainnet": "https://rpc.lens.xyz",
-    "lisk-mainnet": "https://rpc.api.lisk.com",
+    "lisk-mainnet": "https://lisk.drpc.org",
     "megaeth-mainnet": "https://megaeth.drpc.org",
     "metal-mainnet": "https://rpc.metall2.com",
     "monad-mainnet": "https://monad-mainnet.drpc.org",
@@ -76,11 +76,11 @@
     "soneium-mainnet": "https://rpc.soneium.org",
     "sonic-mainnet": "https://rpc.soniclabs.com",
     "stable-mainnet": "https://rpc.stable.xyz",
-    "tac-mainnet": "https://tac.drpc.org",
+    "tac-mainnet": "https://rpc.tac.build",
     "tempo-mainnet": "https://tempo-mainnet.drpc.org",
     "tron-mainnet-evm": "https://tron.api.pocket.network",
     "wemix-mainnet": "https://api.wemix.com",
-    "xdc-mainnet": "https://rpc.xdcrpc.com",
+    "xdc-mainnet": "https://rpc.xdc.network",
     "zora-mainnet": "https://rpc.zora.energy"
   },
   "explorer": {
@@ -92,7 +92,6 @@
     "ethereum-mainnet-optimism-1": "https://optimism.blockscout.com",
     "ethereum-mainnet-unichain-1": "https://unichain.blockscout.com",
     "ethereum-mainnet-worldchain-1": "https://worldchain-mainnet.explorer.alchemy.com",
-    "gnosis_chain-mainnet": "https://gnosis.blockscout.com",
     "hemi-mainnet": "https://explorer.hemi.xyz",
     "lisk-mainnet": "https://blockscout.lisk.com",
     "megaeth-mainnet": "https://megaeth.blockscout.com",
@@ -105,6 +104,7 @@
   },
   "ethereumLogs": [
     "https://eth.api.pocket.network",
+    "https://xrpc.cl/eth",
     "https://ethereum-json-rpc.stakely.io"
   ]
 }
