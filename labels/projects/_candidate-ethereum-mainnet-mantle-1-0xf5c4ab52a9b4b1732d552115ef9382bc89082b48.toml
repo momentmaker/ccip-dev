@@ -1,0 +1,20 @@
+# Draft from the weekly candidate pipeline. Fill in name, x and kind; set verified = true only with public proof.
+name = "GnosisSafeProxy"
+kind = "unknown"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet-mantle-1"
+address = "0xf5c4ab52a9b4b1732d552115ef9382bc89082b48"
+note = "candidate: 2 of 6 messages in the last 7 days, $187973 in all, first seen 2026-07-02"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf5c4ab52a9b4b1732d552115ef9382bc89082b48"
+note = "candidate: 2 of 6 messages in the last 7 days, $187973 in all, first seen 2026-07-02"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0xf5c4ab52a9b4b1732d552115ef9382bc89082b48"
+note = "candidate: 2 of 6 messages in the last 7 days, $187973 in all, first seen 2026-07-02"
+
