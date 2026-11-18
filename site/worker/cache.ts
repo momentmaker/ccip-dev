@@ -14,6 +14,8 @@ export function cardMaxAge(route: CardRoute, lastFinalizeDay: string | null): nu
     case 'reserve':
     case 'staking':
       return 900;
+    case 'peg':
+      return 300;
     case 'broadcast':
       return BROADCAST_MAX_AGE;
     default:
