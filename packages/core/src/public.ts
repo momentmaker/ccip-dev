@@ -487,6 +487,43 @@ export const PegHistoryFileSchema = z.object({
   }),
 });
 
+const PegRouteSchema = z.object({
+  depth: z.number().nullable(),
+  profit: z.number().nullable(),
+  instant: z.number(),
+  tradeable: z.number(),
+  tradeable_profit: z.number().nullable(),
+  queued_ahead: z.number(),
+});
+
+export const PegEpisodeViewSchema = z.object({
+  id: z.number(),
+  side: PegSideSchema,
+  opened_at: z.string(),
+  closed_at: z.string().nullable(),
+  peak_gap: z.number(),
+  peak_at: z.string(),
+  best_size: z.number().nullable(),
+  best_profit: z.number().nullable(),
+  public: z.boolean(),
+  public_at: z.string().nullable(),
+});
+
+export const PegFileSchema = z.object({
+  ...envelope,
+  thresholds: PegThresholdsSchema,
+  pool: z.string(),
+  spot: z.number(),
+  ema: z.number(),
+  gap: z.number(),
+  ladder: z.array(z.object({ size: z.number(), buy_st: z.number(), sell_st: z.number() })),
+  discount: PegRouteSchema.extend({ next_payout_after: z.string(), claim_window_open: z.boolean() }),
+  premium: PegRouteSchema,
+  routes: z.object({ pool_status: z.enum(['open', 'draining', 'closed']), instant_withdrawals: z.boolean() }),
+  episode: PegEpisodeViewSchema.nullable(),
+  recent_episodes: z.array(PegEpisodeViewSchema),
+});
+
 export const PUBLIC_SCHEMAS = {
   'status.json': StatusFileSchema,
   'live.json': LiveFileSchema,
@@ -508,12 +545,15 @@ export const PUBLIC_SCHEMAS = {
   'projects.json': ProjectsFileSchema,
   'staking.json': StakingFileSchema,
   'peg-history.json': PegHistoryFileSchema,
+  'peg.json': PegFileSchema,
   ...STAKER_SHARD_SCHEMAS,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
 export type PublicFile<N extends PublicFileName> = z.infer<(typeof PUBLIC_SCHEMAS)[N]>;
 
+export type PegFile = z.infer<typeof PegFileSchema>;
+export type PegEpisodeView = z.infer<typeof PegEpisodeViewSchema>;
 export type PegHistoryFile = z.infer<typeof PegHistoryFileSchema>;
 export type StatusFile = z.infer<typeof StatusFileSchema>;
 export type LiveMessage = z.infer<typeof LiveMessageSchema>;
