@@ -43,9 +43,9 @@ export const MONTHLY_MISSING_HOUR_UTC = 6;
 
 /** A recap older than this is news no one needs. */
 export const PEG_CLOSE_MAX_AGE_MS = 86_400_000;
-/** The card reads peg.json through the edge cache; for this long after the post is due, a missing card is waited for quietly. */
 /** An open post for an episode that crossed the public line longer ago than this is stale, e.g. when PEG_PUBLIC was just switched on. */
 export const PEG_OPEN_MAX_AGE_MS = 6 * 3_600_000;
+/** The card reads peg.json through the edge cache; for this long after the post is due, a missing card is waited for quietly. */
 export const PEG_CARD_WAIT_MS = 30 * 60_000;
 
 export type BroadcastRequest =
@@ -66,6 +66,7 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
   if (request.kind === 'monthly') return broadcastMonthly(c, outputs);
   const mode = broadcastMode(c.env);
   if (mode === 'off') return;
+  if (request.kind === 'peg' && !pegConfig(c.env).publicPosts) return;
   const enabled = selectOutputs(outputs, mode);
   if (enabled.length === 0) {
     console.warn(`[broadcast] BROADCASTS is ${mode} but no output is configured`);
@@ -85,7 +86,6 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
 
 /** An open post only while the episode runs and recently went public; a recap for a day after it closes, and only after its open post went out. Sent keys make a re-plan harmless. */
 async function planPeg(c: RunContext, request: Extract<BroadcastRequest, { kind: 'peg' }>): Promise<Planned[]> {
-  if (!pegConfig(c.env).publicPosts) return [];
   const now = c.deps.now().getTime();
   const planned: Planned[] = [];
   for (const episode of request.episodes) {

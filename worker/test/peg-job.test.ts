@@ -4,7 +4,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PEG_RPC_ALERT_AFTER, runPeg } from '../src/jobs/peg';
 import * as store from '../src/store';
-import { harness, readPublic, resetStorage } from './helpers';
+import { harness, readPublic, resetStorage, watchedDb } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -40,6 +40,16 @@ describe('runPeg', () => {
     expect(signatures).toEqual([[], [], ['peg-rpc']]);
     await runPeg(harness({ now: NOW, fetch: fakeFetch(pegRpc()), env: RPC_ENV }).c);
     expect(await store.getMeta(env.DB, 'peg_failures')).toBe('0');
+  });
+
+  it('writes no failure count on a good run after good runs', async () => {
+    // #given a good run has already reset the count
+    await runPeg(harness({ now: NOW, fetch: fakeFetch(pegRpc()), env: RPC_ENV }).c);
+    const watched = watchedDb(/INSERT INTO meta/);
+    // #when the next good run reads
+    await runPeg(harness({ now: NOW, fetch: fakeFetch(pegRpc()), env: RPC_ENV, db: watched.db }).c);
+    // #then only peg_prev is written
+    expect(watched.prepared()).toBe(1);
   });
 
   it('asks once for the mint-cap check the first time the pool has room', async () => {
