@@ -22,12 +22,16 @@ export function pegCurveLine(side: PegSide, live: PegLiveBody): string {
     : `Curve: selling stLINK beats 1:1 up to ${linkText(r.depth)} stLINK (+${r.profit.toFixed(2)} LINK at that size)`;
 }
 
+/** Payouts go out at most every few days, and only inside a claim window. */
+function payoutText(d: PegLiveBody['discount'], now: Date): string {
+  if (Date.parse(d.next_payout_after) > now.getTime()) return `next payout after ${utcStamp(d.next_payout_after)}${d.claim_window_open ? '' : ' (no claim window open)'}`;
+  return d.claim_window_open ? 'next payout possible now' : 'payout possible in the next claim window';
+}
+
 export function pegRouteLine(side: PegSide, live: PegLiveBody, now: Date): string {
   if (side === 'discount') {
     const d = live.discount;
-    const window = d.claim_window_open ? '' : ' (no claim window open)';
-    const payout = Date.parse(d.next_payout_after) > now.getTime() ? `next payout after ${utcStamp(d.next_payout_after)}` : 'payout possible in the next claim window';
-    return `Redeem at 1:1: ${linkText(d.instant)} LINK instant; the rest queues behind ${linkText(d.queued_ahead)} stLINK, ${payout}${window}`;
+    return `Redeem at 1:1: ${linkText(d.instant)} LINK instant; the rest queues behind ${linkText(d.queued_ahead)} stLINK, ${payoutText(d, now)}`;
   }
   const p = live.premium;
   return p.instant > 0 ? `Mint at 1:1: ${linkText(p.instant)} LINK instant` : `Mint at 1:1: queued behind ${linkText(p.queued_ahead)} LINK, stLINK claimed later`;
@@ -39,17 +43,26 @@ export function pegTradeableLine(side: PegSide, live: PegLiveBody): string {
   return `Tradeable now: ${linkText(r.tradeable)} LINK${r.tradeable_profit === null ? '' : ` for +${r.tradeable_profit.toFixed(2)} LINK`}`;
 }
 
+/** Where a public episode's post goes: PEG_PUBLIC and BROADCASTS both have to allow it. */
+export type PegPosting = 'channel' | 'drafts' | 'off';
+
+const POSTING_TEXT: Record<PegPosting, string> = {
+  channel: 'Posting to the channel.',
+  drafts: 'Broadcasts are in drafts mode: the post goes to drafts, not the channel.',
+  off: 'Public posts are off.',
+};
+
 /** Plain text for the owner's alert chat: one message per episode event. */
-export function pegAlertText(e: PegEvent, live: PegLiveBody, opts: { publicLine: number; publicPosts: boolean; bestSize: number | null; now: Date }): string {
+export function pegAlertText(e: PegEvent, live: PegLiveBody, opts: { publicLine: number; posting: PegPosting; bestSize: number | null; now: Date }): string {
   const side = e.episode.side;
   const state = [pegCurveLine(side, live), pegRouteLine(side, live, opts.now), pegTradeableLine(side, live), PEG_PAGE_URL];
   switch (e.kind) {
     case 'opened':
       return [`stLINK at a ${pctText(live.gap)} ${side} (${price(live)})`, ...state].join('\n');
     case 'tier':
-      return [`stLINK ${side} past ${Math.round(e.tier * 100)}%: now ${pctText(live.gap)} (${price(live)})`, ...state].join('\n');
+      return [`stLINK ${side} past ${Math.round(e.tier * 100)}%: peak ${pctText(e.episode.peakGap)}, now ${pctText(live.gap)} (${price(live)})`, ...state].join('\n');
     case 'went_public':
-      return [`stLINK ${side} past the ${pctText(opts.publicLine)} public line: now ${pctText(live.gap)}. ${opts.publicPosts ? 'Posting to the channel.' : 'Public posts are off.'}`, ...state].join('\n');
+      return [`stLINK ${side} past the ${pctText(opts.publicLine)} public line: now ${pctText(live.gap)}. ${POSTING_TEXT[opts.posting]}`, ...state].join('\n');
     case 'closed': {
       const lasted = formatDuration((Date.parse(e.closedAt) - Date.parse(e.episode.openedAt)) / 1000);
       const best = opts.bestSize === null ? [] : [`Best Curve size seen: ${linkText(opts.bestSize)} LINK`];
