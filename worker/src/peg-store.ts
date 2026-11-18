@@ -1,4 +1,4 @@
-import type { PegBar, PegOpen, PegSide } from '@ccip-dev/core';
+import { PEG_MARKER_MIN_LINK, PEG_MARKER_MIN_VAULTS, type PegBar, type PegMarker, type PegMarkerEvent, type PegOpen, type PegSide } from '@ccip-dev/core';
 import { chunks, runBatch } from './store';
 
 const BAR_COLUMNS = 5;
@@ -71,5 +71,45 @@ export async function savePegEpisode(db: D1Database, id: number, f: PegEpisodeUp
 
 export async function recentPegEpisodes(db: D1Database, limit: number): Promise<PegEpisodeRow[]> {
   const { results } = await db.prepare(`SELECT ${EPISODE_COLUMNS} FROM peg_episodes ORDER BY id DESC LIMIT ?`).bind(limit).all<PegEpisodeRow>();
+  return results;
+}
+
+export async function pegMarkerEvents(db: D1Database, afterBlock: number, limit: number): Promise<PegMarkerEvent[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT e.block_number AS blockNumber, e.ts, e.kind, e.amount, h.kind AS holder
+       FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker
+       WHERE e.block_number > ? AND e.kind IN ('staked', 'unbonding')
+       ORDER BY e.block_number, e.log_index LIMIT ?`,
+    )
+    .bind(afterBlock, limit)
+    .all<PegMarkerEvent>();
+  return results;
+}
+
+/** Adds the hours' sums and moves the cursor in one batch, so a retry never counts an event twice. */
+export async function addPegMarkers(db: D1Database, markers: readonly PegMarker[], cursorBlock: number): Promise<void> {
+  const upserts = markers.map((m) =>
+    db
+      .prepare(
+        `INSERT INTO peg_markers (hour, kind, vaults, link) VALUES (?, ?, ?, ?)
+         ON CONFLICT(hour, kind) DO UPDATE SET vaults = peg_markers.vaults + excluded.vaults,
+           link = CASE WHEN excluded.link IS NULL THEN peg_markers.link ELSE COALESCE(peg_markers.link, 0) + excluded.link END`,
+      )
+      .bind(m.hour, m.kind, m.vaults, m.link),
+  );
+  const cursor = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind('peg_marker_block', String(cursorBlock));
+  await db.batch([...upserts, cursor]);
+}
+
+export async function pegMarkers(db: D1Database): Promise<PegMarker[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT hour, kind, vaults, link FROM peg_markers
+       WHERE (kind = 'stakelink_unbonding' AND vaults >= ?) OR (kind = 'stakelink_deposit' AND link >= ?)
+       ORDER BY hour`,
+    )
+    .bind(PEG_MARKER_MIN_VAULTS, PEG_MARKER_MIN_LINK)
+    .all<PegMarker>();
   return results;
 }
