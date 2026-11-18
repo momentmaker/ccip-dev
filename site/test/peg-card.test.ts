@@ -13,18 +13,36 @@ describe('the peg card', () => {
     const words = texts((await pegTree(null, inputs()))!).join('|');
     expect(words).toContain('1 stLINK = 0.99975 LINK');
     expect(words).toContain('ccip.dev/staking/#peg');
+    expect(words).toContain('Last episode ended ');
   });
 
   it('draws an open episode for its public post', async () => {
     const words = texts((await broadcastTree({ kind: 'peg', episode: 7, phase: 'open' }, inputs(opened)))!).join('|');
     expect(words).toContain('DISCOUNT OPEN');
-    expect(words).toContain('−0.84%');
+    expect(words).toContain('−0.91%');
+    expect(words).toContain('peak so far');
+    expect(words).toContain('now: ');
+    expect(words).toContain('Redeem at 1:1 now: ');
+    expect(words).toContain('Opened ');
+    expect(words).not.toContain('Lasted');
+  });
+
+  it('draws only the episode when the live gap has flipped side', async () => {
+    const flipped = { ...opened, gap: 0.009, spot: 1.009 };
+    const words = texts((await broadcastTree({ kind: 'peg', episode: 7, phase: 'open' }, inputs(flipped)))!).join('|');
+    expect(words).toContain('DISCOUNT OPEN');
+    expect(words).toContain('−0.91%');
+    expect(words).not.toContain('+0.90%');
   });
 
   it('draws the recap of a closed episode', async () => {
     const words = texts((await broadcastTree({ kind: 'peg', episode: 2, phase: 'close' }, inputs()))!).join('|');
     expect(words).toContain('PREMIUM CLOSED');
     expect(words).toContain('+5.64%');
+    expect(words).toContain('Lasted ');
+    expect(words).toContain('Best Curve size ');
+    expect(words).toContain('Closed ');
+    expect(words).not.toContain('1 stLINK =');
   });
 
   it('has no card for an episode peg.json does not list yet, or a close that has not happened', async () => {
