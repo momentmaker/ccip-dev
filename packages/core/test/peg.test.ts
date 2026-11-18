@@ -32,6 +32,11 @@ describe('fetchPegBars', () => {
     expect((await fetchPegBars(instantDeps(f), T20, T20 + 3_600)).map((b) => b.hour)).toEqual(['2026-09-25T21:00:00.000Z']);
   });
 
+  it('drops a bar with any price outside 0.5 to 1.5, so one bogus wick is not kept as a record', async () => {
+    const f = fakeFetch(() => jsonResponse({ data: [{ time: T20, open: 1, close: 1, high: 3.2, low: 1 }, { time: T20 + 3_600, open: 1, close: 1, high: 1, low: 0.2 }, { time: T20 + 7_200, open: 1, close: 1, high: 1.01, low: 0.99 }] }));
+    expect((await fetchPegBars(instantDeps(f), T20, T20 + 7_200)).map((b) => b.hour)).toEqual(['2026-09-25T22:00:00.000Z']);
+  });
+
   it('refuses a page longer than one request holds, without calling the API', async () => {
     const f = fakeFetch(() => jsonResponse({ data: [] }));
     await expect(fetchPegBars(instantDeps(f), 0, PEG_PAGE_S + 1)).rejects.toThrow(/over the 777600s/);
