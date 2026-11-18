@@ -73,7 +73,8 @@ CREATE TABLE peg_episodes (       -- the live alert log, one row per episode see
   best_size REAL,                  -- largest profitable Curve size seen, LINK
   best_profit REAL,                -- LINK profit at best_size
   tier INTEGER NOT NULL DEFAULT 0, -- highest private tier announced (1%, 2%, 5% → 1, 2, 3)
-  public INTEGER NOT NULL DEFAULT 0
+  public INTEGER NOT NULL DEFAULT 0,
+  public_at TEXT                   -- when it crossed the public line; times the card wait for its post
 );
 CREATE INDEX peg_episodes_open ON peg_episodes (closed_at) WHERE closed_at IS NULL;
 
@@ -130,8 +131,8 @@ count in `meta.peg_failures`; alert `peg-rpc` after 3 in a row. A dropped sample
   - Redeem: `poolStatus != 2 ? totalQueued + (allowInstantWithdrawals && queuedWithdrawals == 0 ? canWithdraw : 0) : 0`.
   - Mint: `poolStatus == 0 && totalQueued == 0 ? queuedWithdrawals + min(canDeposit, strategyDepositRoom + max(0, unusedDepositLimit − unusedDeposits)) : 0`.
     The `min(...)` cap comes from reading `StakingPool.deposit`'s `InvalidDeposit` check, not from a simulation (it
-    was 0 at the probe). Stage 2 simulates a deposit by `eth_call` the first time `canDeposit > 0` is seen and fixes
-    the formula if it disagrees.
+    was 0 at the probe). The first time `canDeposit > 0` is seen, the job alerts once (`peg-mint-check`) and the runbook's simulation decides
+    whether the formula needs fixing.
 - **Queue state.**
   - Redeem: queued withdrawals ahead (LINK), next payout earliest at `timeOfLastWithdrawal + minTimeBetweenWithdrawals`,
     and whether a claim window is open now.
@@ -157,7 +158,7 @@ count in `meta.peg_failures`; alert `peg-rpc` after 3 in a row. A dropped sample
 }
 ```
 
-`episode` is the open episode, if any: side, opened_at, peak_gap, peak_at, public.
+`episode` is the open episode, if any. `recent_episodes` lists the last 10 (id, side, opened_at, closed_at, peak_gap, peak_at, best_size, best_profit, public, public_at), so a card can draw a closed episode's recap. Both files carry `thresholds`, for the chart's bands.
 
 **`peg-history.json`**, hourly:
 
