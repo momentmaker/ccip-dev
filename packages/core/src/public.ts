@@ -466,6 +466,27 @@ export type StakerShardName = `stakers/${(typeof STAKER_SHARDS)[number]}.json`;
 export const stakerShard = (address: string): StakerShardName => `stakers/${address.slice(2, 3).toLowerCase() as (typeof STAKER_SHARDS)[number]}.json`;
 const STAKER_SHARD_SCHEMAS = Object.fromEntries(STAKER_SHARDS.map((h) => [`stakers/${h}.json`, StakersFileSchema])) as Record<StakerShardName, typeof StakersFileSchema>;
 
+export const PegSideSchema = z.enum(['discount', 'premium']);
+const PegThresholdsSchema = z.object({ private: z.number(), public: z.number() });
+const PegBarRowSchema = z.tuple([z.string(), z.number(), z.number(), z.number(), z.number()]);
+const PegHistoryEpisodeSchema = z.object({ side: PegSideSchema, start: z.string(), end: z.string().nullable(), peak_gap: z.number(), peak_at: z.string(), hours: z.number() });
+const PegExtremeSchema = z.object({ gap: z.number(), hour: z.string() });
+
+export const PegHistoryFileSchema = z.object({
+  ...envelope,
+  thresholds: PegThresholdsSchema,
+  hours: z.array(PegBarRowSchema),
+  days: z.array(PegBarRowSchema),
+  markers: z.array(z.object({ hour: z.string(), kind: z.enum(['stakelink_unbonding', 'stakelink_deposit']), vaults: z.number(), link: z.number().nullable() })),
+  episodes: z.array(PegHistoryEpisodeSchema),
+  records: z.object({
+    deepest_discount: PegExtremeSchema.nullable(),
+    highest_premium: PegExtremeSchema.nullable(),
+    longest: PegHistoryEpisodeSchema.nullable(),
+    last_end: z.string().nullable(),
+  }),
+});
+
 export const PUBLIC_SCHEMAS = {
   'status.json': StatusFileSchema,
   'live.json': LiveFileSchema,
@@ -486,12 +507,14 @@ export const PUBLIC_SCHEMAS = {
   'moments.json': MomentsFileSchema,
   'projects.json': ProjectsFileSchema,
   'staking.json': StakingFileSchema,
+  'peg-history.json': PegHistoryFileSchema,
   ...STAKER_SHARD_SCHEMAS,
 } as const;
 
 export type PublicFileName = keyof typeof PUBLIC_SCHEMAS;
 export type PublicFile<N extends PublicFileName> = z.infer<(typeof PUBLIC_SCHEMAS)[N]>;
 
+export type PegHistoryFile = z.infer<typeof PegHistoryFileSchema>;
 export type StatusFile = z.infer<typeof StatusFileSchema>;
 export type LiveMessage = z.infer<typeof LiveMessageSchema>;
 export type LiveFile = z.infer<typeof LiveFileSchema>;
