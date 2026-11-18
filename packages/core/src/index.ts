@@ -28,3 +28,4 @@ export * from './sql';
 export * from './cre';
 export * from './peg';
 export * from './peg-episodes';
+export * from './peg-live';
