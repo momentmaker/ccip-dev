@@ -73,3 +73,21 @@ describe('the peg card', () => {
     expect(await broadcastTree({ kind: 'peg', episode: 7, phase: 'close' }, inputs(opened))).toBeNull();
   });
 });
+
+describe('the peg card without peg-history.json', () => {
+  const noHistory = (peg = PEG_FILE_FIXTURE) => ({ load: async (name: string) => { if (name === 'peg.json') return peg; throw new Error(`no ${name}`); }, icon: async () => null }) as never;
+
+  it('still draws the live peg from the page', async () => {
+    const tree = await pegTree(null, noHistory());
+    expect(tree).not.toBeNull();
+    const words = texts(tree!).join('|');
+    expect(words).toContain('1 stLINK = 0.99975 LINK');
+    expect(words).not.toContain('Last episode ended');
+  });
+
+  it('draws an open episode and labels its Curve size as current', async () => {
+    const words = texts((await broadcastTree({ kind: 'peg', episode: 7, phase: 'open' }, noHistory(opened)))!).join('|');
+    expect(words).toContain('DISCOUNT OPEN');
+    expect(words).toContain('Curve beats 1:1 now up to ');
+  });
+});
