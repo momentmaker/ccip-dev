@@ -5,10 +5,15 @@ import { buildData, buildDataIfPublished } from '../../lib/build-data';
 import '../../styles/staking-common.css';
 import '../../styles/staking.css';
 
-const [staking, reserve] = await Promise.all([buildDataIfPublished('staking.json'), buildData('reserve.json')]);
+const [staking, reserve, peg, pegHistory] = await Promise.all([
+  buildDataIfPublished('staking.json'),
+  buildData('reserve.json'),
+  buildDataIfPublished('peg.json'),
+  buildDataIfPublished('peg-history.json'),
+]);
 ---
 <Base title="Chainlink Staking" description="Chainlink staking v0.2, live: the full community pool, the exit queue, who refills gaps in seconds, the node operators and the rewards streaming now." cardPath="staking">
   <div class="stk">
-    <StakingView client:load initial={staking} linkPriceUsd={reserve.link_price_usd} />
+    <StakingView client:load initial={staking} linkPriceUsd={reserve.link_price_usd} initialPeg={peg} initialPegHistory={pegHistory} />
   </div>
 </Base>

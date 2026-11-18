@@ -245,3 +245,36 @@
   .stk .band { margin-top: 56px; }
   .stk-nav { margin-inline: -16px; padding-inline: 16px; }
 }
+
+/* stLINK peg */
+.stk .peg-gap { font-variant-numeric: tabular-nums; }
+.stk .peg-gap.down { color: #e58a8a; }
+.stk .peg-gap.up { color: #7fd4a0; }
+.stk .peg-routes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.stk .peg-route { opacity: 0.72; }
+.stk .peg-route.lit { opacity: 1; border-color: var(--teal); box-shadow: 0 0 22px rgba(46, 211, 195, 0.14); }
+.stk .peg-route h3 { margin: 6px 0 12px; font-size: 16px; }
+.stk .peg-route dl, .stk .peg-records { display: grid; gap: 8px; margin: 0; }
+.stk .peg-route dl div, .stk .peg-records div { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.stk .peg-route dt, .stk .peg-records dt { color: var(--muted); font-size: 13px; }
+.stk .peg-route dd, .stk .peg-records dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.stk .peg-chart { margin-top: 14px; }
+.stk .peg-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.stk .peg-ranges { display: flex; gap: 4px; }
+.stk .peg-ranges button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--stk-line); background: none; color: #c9cfda; font: 600 12px var(--font-sans); cursor: pointer; }
+.stk .peg-ranges button[aria-pressed='true'] { border-color: var(--teal); color: var(--fg); }
+.stk .peg-line { fill: none; stroke: var(--teal); stroke-width: 1.6; }
+.stk .peg-zero { stroke: rgba(255, 255, 255, 0.35); }
+.stk .peg-band { stroke: rgba(255, 207, 90, 0.35); stroke-dasharray: 3 4; }
+.stk .peg-band.public { stroke: rgba(255, 207, 90, 0.7); }
+.stk .peg-tick { fill: var(--muted); font: 10px var(--font-mono); text-anchor: end; }
+.stk .peg-span.discount { fill: rgba(229, 138, 138, 0.1); }
+.stk .peg-span.premium { fill: rgba(127, 212, 160, 0.1); }
+.stk .peg-pin line { stroke: rgba(46, 211, 195, 0.35); }
+.stk .peg-pin circle { fill: var(--teal); }
+.stk .peg-dot { fill: #fff; }
+.stk .peg-records { margin-top: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stk .peg-episodes { margin-top: 14px; }
+@media (max-width: 720px) {
+  .stk .peg-routes, .stk .peg-records { grid-template-columns: minmax(0, 1fr); }
+}
