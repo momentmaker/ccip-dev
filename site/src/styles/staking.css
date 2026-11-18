@@ -251,8 +251,9 @@
 .stk .peg-gap.down { color: #e58a8a; }
 .stk .peg-gap.up { color: #7fd4a0; }
 .stk .peg-routes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.stk .peg-route { opacity: 0.72; }
-.stk .peg-route.lit { opacity: 1; border-color: var(--teal); box-shadow: 0 0 22px rgba(46, 211, 195, 0.14); }
+.stk .peg-route { background: transparent; border-style: dashed; }
+.stk .peg-route.lit { background: var(--card); border-style: solid; border-color: var(--teal); box-shadow: 0 0 22px rgba(46, 211, 195, 0.14); }
+.stk .peg-loading { min-height: 640px; }
 .stk .peg-route h3 { margin: 6px 0 12px; font-size: 16px; }
 .stk .peg-route dl, .stk .peg-records { display: grid; gap: 8px; margin: 0; }
 .stk .peg-route dl div, .stk .peg-records div { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -273,6 +274,7 @@
 .stk .peg-pin line { stroke: rgba(46, 211, 195, 0.35); }
 .stk .peg-pin circle { fill: var(--teal); }
 .stk .peg-dot { fill: #fff; }
+.stk .peg-live { fill: var(--bg, #0b0f16); stroke: var(--teal); stroke-width: 1.6; }
 .stk .peg-records { margin-top: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stk .peg-episodes { margin-top: 14px; }
 @media (max-width: 720px) {

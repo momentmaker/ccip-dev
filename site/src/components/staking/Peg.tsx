@@ -51,20 +51,28 @@ export default function Peg({ now }: { now: Date | null }) {
           trackDataError('peg.json');
         },
       );
+    let haveHistory = false;
+    let historyFailures = 0;
+    const loadHistory = () =>
+      fetchPublic('peg-history.json').then(
+        (next) => {
+          if (!live) return;
+          haveHistory = true;
+          setHistory(next);
+          setHistorySettled(true);
+        },
+        () => {
+          if (!live) return;
+          setHistorySettled(true);
+          if (historyFailures++ === 0) trackDataError('peg-history.json');
+        },
+      );
     refresh();
-    fetchPublic('peg-history.json').then(
-      (next) => {
-        if (!live) return;
-        setHistory(next);
-        setHistorySettled(true);
-      },
-      () => {
-        if (!live) return;
-        setHistorySettled(true);
-        trackDataError('peg-history.json');
-      },
-    );
-    const timer = setInterval(refresh, POLL_MS);
+    loadHistory();
+    const timer = setInterval(() => {
+      refresh();
+      if (!haveHistory) loadHistory();
+    }, POLL_MS);
     return () => {
       live = false;
       clearInterval(timer);
@@ -74,7 +82,7 @@ export default function Peg({ now }: { now: Date | null }) {
   if (peg === null && history === null) {
     if (pegSettled && historySettled) return null;
     return (
-      <section className="band" id="peg" aria-labelledby="peg-title">
+      <section className="band peg-loading" id="peg" aria-labelledby="peg-title">
         <div className="band-head">
           <p className="eyebrow">stLINK peg</p>
           <h2 id="peg-title">stLINK on Curve</h2>
@@ -102,7 +110,7 @@ export default function Peg({ now }: { now: Date | null }) {
           <Route peg={peg} side="premium" now={now ?? new Date()} />
         </div>
       )}
-      {history && now && <PegChart history={history} now={now} />}
+      {history && now && <PegChart history={history} now={now} live={peg ? { at: peg.updated_at, gap: peg.gap } : undefined} />}
       {history && now && (
         <dl className="peg-records">
           {recordsView(history, now).map((r) => (
@@ -126,7 +134,7 @@ export default function Peg({ now }: { now: Date | null }) {
             </thead>
             <tbody>
               {episodeRows(history).map((e) => (
-                <tr key={`${e.side}-${e.when}-${e.length}`}>
+                <tr key={e.key}>
                   <td>{e.side}</td>
                   <td>{e.when}</td>
                   <td className="num">{e.length}</td>
