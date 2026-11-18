@@ -98,7 +98,7 @@ async function planPeg(c: RunContext, request: Extract<BroadcastRequest, { kind:
       const opened = await store.getMeta(c.env.DB, broadcastKey({ kind: 'peg', episode: episode.id, phase: 'open' }));
       if (!opened?.startsWith('sent:')) continue;
     }
-    planned.push({ target: { kind: 'peg', episode: episode.id, phase }, facts: { kind: 'peg', phase, episode, live: request.live }, retriesLater: now - Date.parse(due) < PEG_CARD_WAIT_MS });
+    planned.push({ target: { kind: 'peg', episode: episode.id, phase }, facts: { kind: 'peg', phase, episode, live: request.live, now: c.deps.now() }, retriesLater: now - Date.parse(due) < PEG_CARD_WAIT_MS });
   }
   return planned;
 }

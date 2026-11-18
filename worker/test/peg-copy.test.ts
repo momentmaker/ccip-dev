@@ -1,7 +1,7 @@
 import { decodePegReading, pegLiveBody, type PegLiveBody, type PegOpen } from '@ccip-dev/core';
 import { PEG_LIVE_WORDS } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
-import { linkText, pctText, pegAlertText, utcStamp } from '../src/peg-copy';
+import { linkText, pctText, pegAlertText, pegRouteLine, utcStamp } from '../src/peg-copy';
 
 const BASE = pegLiveBody(decodePegReading(PEG_LIVE_WORDS.map((w) => BigInt(w))));
 const live = (over: Partial<PegLiveBody> & { discountOver?: Partial<PegLiveBody['discount']> } = {}): PegLiveBody => ({
@@ -63,5 +63,19 @@ describe('pegAlertText', () => {
     expect(pegAlertText({ kind: 'closed', episode: OPEN, closedAt: '2026-11-18T03:20:00.000Z' }, discount, OPTS)).toBe(
       ['stLINK discount closed after 3h 20m: peak 0.91% at Nov 18 01:10 UTC', 'Best Curve size seen: 38,000 LINK', 'https://ccip.dev/staking/#peg'].join('\n'),
     );
+  });
+});
+
+describe('pegRouteLine', () => {
+  const discount = live({ discountOver: { instant: 17.88, queued_ahead: 0 } });
+
+  it('names the payout time while it is ahead', () => {
+    expect(pegRouteLine('discount', discount, new Date('2026-11-18T03:20:00.000Z'))).toContain('next payout after Nov 18 15:50 UTC');
+  });
+
+  it('does not name a payout time that has passed', () => {
+    const line = pegRouteLine('discount', discount, new Date('2026-11-18T16:00:00.000Z'));
+    expect(line).toContain('payout possible in the next claim window');
+    expect(line).not.toContain('Nov 18 15:50');
   });
 });

@@ -383,7 +383,7 @@ function pegLines(f: PegFacts, text: (s: string) => string): Line[] {
     { text: text(`stLINK ${e.side} on Curve: ${pctText(e.peak_gap)} at its widest so far`) },
     { text: text(`Now: 1 stLINK = ${live.spot.toFixed(4)} LINK`) },
     { text: text(pegCurveLine(e.side, live)) },
-    { text: text(pegRouteLine(e.side, live)), drop: PEG_DROP.route },
+    { text: text(pegRouteLine(e.side, live, f.now)), drop: PEG_DROP.route },
   ];
 }
 

@@ -118,6 +118,7 @@ export interface PegFacts {
   phase: 'open' | 'close';
   episode: PegEpisodeView;
   live: PegLiveBody;
+  now: Date;
 }
 
 export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts | StakingFacts | OperatorFacts | PegFacts;
