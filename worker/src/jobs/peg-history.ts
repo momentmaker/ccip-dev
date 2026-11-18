@@ -12,15 +12,28 @@ const HISTORY_ALERT_AFTER = 6;
 export const PEG_MARKER_BATCH = 5_000;
 const MARKER_BATCHES_PER_RUN = 10;
 
-/** Hourly: a failed fetch alerts after 6 hours in a row, and the bars already stored are published regardless. */
+/**
+ * Hourly. The recent hours refresh first so a failing backfill page never leaves them stale; a failed fetch alerts after 6
+ * hours in a row, and the bars already stored are published regardless. The marker scan fails on its own, loudly, since a
+ * stuck scan is not a fetch problem and this job runs only hourly.
+ */
 export async function runPegHistory(c: RunContext): Promise<void> {
+  let fetchFailure: unknown = null;
+  for (const step of [refreshPeg, backfillPeg]) {
+    try {
+      await step(c);
+    } catch (err) {
+      fetchFailure ??= err;
+    }
+  }
+  if (fetchFailure === null) await store.setMeta(c.env.DB, 'peg_history_failures', '0');
+  else await recordHistoryFailure(c, fetchFailure);
   try {
-    await backfillPeg(c);
-    await refreshPeg(c);
     await scanPegMarkers(c);
-    await store.setMeta(c.env.DB, 'peg_history_failures', '0');
   } catch (err) {
-    await recordHistoryFailure(c, err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`Peg marker scan failed: ${message}`);
+    await c.alert('peg-markers', `The stLINK peg marker scan failed: ${message}`);
   }
   await publishPegHistory(c);
 }
