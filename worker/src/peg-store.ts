@@ -74,15 +74,15 @@ export async function recentPegEpisodes(db: D1Database, limit: number): Promise<
   return results;
 }
 
-export async function pegMarkerEvents(db: D1Database, afterBlock: number, limit: number): Promise<PegMarkerEvent[]> {
+export async function pegMarkerEvents(db: D1Database, afterBlock: number, throughBlock: number, limit: number): Promise<PegMarkerEvent[]> {
   const { results } = await db
     .prepare(
       `SELECT e.block_number AS blockNumber, e.ts, e.kind, e.amount, h.kind AS holder
        FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker
-       WHERE e.block_number > ? AND e.kind IN ('staked', 'unbonding')
+       WHERE e.block_number > ? AND e.block_number <= ? AND e.kind IN ('staked', 'unbonding')
        ORDER BY e.block_number, e.log_index LIMIT ?`,
     )
-    .bind(afterBlock, limit)
+    .bind(afterBlock, throughBlock, limit)
     .all<PegMarkerEvent>();
   return results;
 }

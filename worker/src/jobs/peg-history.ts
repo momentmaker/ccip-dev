@@ -66,13 +66,14 @@ export async function publishPegHistory(c: RunContext): Promise<void> {
   await putJson(c.env.PUBLIC, 'peg-history.json', { attribution: PEG_ATTRIBUTION, thresholds, ...body }, TTL.pegHistory, now);
 }
 
-/** Reads staking_events past a block cursor (the primary key), never by time. Waits for classification so a vault is never read as nobody's. */
+/** Reads staking_events past a block cursor (the primary key), never by time, and only up to the classified block so a vault is never read as nobody's. */
 export async function scanPegMarkers(c: RunContext): Promise<void> {
   const db = c.env.DB;
-  if (await store.hasUnclassifiedStakers(db)) return;
+  const classifiedTo = await store.stakersClassifiedTo(db);
+  if (classifiedTo === null) return;
   let cursor = Number((await store.getMeta(db, 'peg_marker_block')) ?? '0');
   for (let batch = 0; batch < MARKER_BATCHES_PER_RUN; batch++) {
-    const events = await pegStore.pegMarkerEvents(db, cursor, PEG_MARKER_BATCH);
+    const events = await pegStore.pegMarkerEvents(db, cursor, classifiedTo, PEG_MARKER_BATCH);
     if (events.length === 0) return;
     const last = events.at(-1)!.blockNumber;
     // A full batch may end inside a block; that block is read whole next time.

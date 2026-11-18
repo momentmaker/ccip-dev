@@ -150,8 +150,33 @@ describe('runStaking', () => {
 
   it('checks a holder again once its classification is 30 days old', async () => {
     await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 100, logs: LOGS }) }).c);
-    expect(await store.stakersToClassify(env.DB, NOW, 10)).toEqual([]);
-    expect((await store.stakersToClassify(env.DB, '2026-04-01T00:00:00.000Z', 10)).sort()).toEqual([WALLET, LINKPOOL, VAULT, SAFE].sort());
+    expect(await store.staleHolders(env.DB, NOW, 10)).toEqual([]);
+    expect((await store.staleHolders(env.DB, '2026-04-01T00:00:00.000Z', 10)).sort()).toEqual([WALLET, LINKPOOL, VAULT, SAFE].sort());
+  });
+
+  it('moves the classified cursor to the scanned block once every staker is classified', async () => {
+    // #given a full scan and classification
+    await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 100, logs: LOGS }) }).c);
+    // #then the cursor stands where the scan does
+    expect(await store.getMeta(env.DB, 'staking_classified_block')).toBe(await store.getMeta(env.DB, 'staking_scan_block'));
+  });
+
+  it('holds the classified cursor back while classification fails', async () => {
+    await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 100, logs: LOGS, classifyDown: true }) }).c);
+    expect(await store.getMeta(env.DB, 'staking_classified_block')).toBeNull();
+  });
+
+  it('classifies a staker first seen after the cursor in the next run', async () => {
+    // #given a classified history
+    await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 100, logs: LOGS }) }).c);
+    const late = '0x00000000000000000000000000000000000000bb';
+    const newcomer = log({ pool: 'community', kind: 'staked', who: late, block: FIRST + 150, ts: '2026-02-25T00:00:00Z', amounts: [5, 5, 105] });
+    // #when a new staker appears
+    await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 200, logs: [...LOGS, newcomer] }) }).c);
+    // #then it is classified and the cursor follows the scan
+    expect((await store.stakingHolders(env.DB)).get(late)).toBe('wallet');
+    expect(await store.getMeta(env.DB, 'staking_scan_block')).toBe(String(FIRST + 200 - 12));
+    expect(await store.getMeta(env.DB, 'staking_classified_block')).toBe(await store.getMeta(env.DB, 'staking_scan_block'));
   });
 });
 
@@ -170,13 +195,31 @@ describe('scanStaking', () => {
 });
 
 describe('classifying stakers', () => {
-  it('keeps the batches it classified when a later one fails, and checks a contract again once its row is dropped', async () => {
+  it('checks a dropped holder again once the classified cursor is cleared', async () => {
+    // #given a classified history whose contract row is dropped by hand
     const rpc = stakingRpc({ head: FIRST + 100, logs: LOGS });
     await runStaking(harness({ now: NOW, fetch: rpc }).c);
     await env.DB.prepare("DELETE FROM staking_holders WHERE kind = 'contract'").run();
-    expect(await store.hasUnclassifiedStakers(env.DB)).toBe(true);
+    // #when the cursor is cleared, as the runbook says
+    await store.setMeta(env.DB, 'staking_classified_block', null);
     await runStaking(harness({ now: NOW, fetch: rpc }).c);
+    // #then the contract is classified again
     expect((await store.stakingHolders(env.DB)).get(SAFE)).toBe('contract');
-    expect(await store.hasUnclassifiedStakers(env.DB)).toBe(false);
+  });
+
+  it('lists a staker once however many times it staked, and says when the limit cut the list short', async () => {
+    // #given one unclassified wallet that staked three times
+    const again = [FIRST + 6, FIRST + 7].map((block) => log({ pool: 'community', kind: 'staked', who: WALLET, block, ts: '2026-02-21T00:00:00Z', amounts: [1, 41, 101] }));
+    await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 100, logs: [...LOGS, ...again], classifyDown: true }) }).c);
+    // #when listed past the first block, then with a limit of two rows
+    const all = await store.unclassifiedStakers(env.DB, FIRST - 1, 10);
+    const cut = await store.unclassifiedStakers(env.DB, FIRST - 1, 2);
+    // #then repeats collapse and the short list is marked incomplete
+    expect([all.addresses.filter((a) => a === WALLET).length, all.complete, cut.complete]).toEqual([1, true, false]);
+  });
+
+  it('lists only stakers after the given block that have no holder row', async () => {
+    await runStaking(harness({ now: NOW, fetch: stakingRpc({ head: FIRST + 100, logs: LOGS, classifyDown: true }) }).c);
+    expect((await store.unclassifiedStakers(env.DB, FIRST + 2, 10)).addresses.sort()).toEqual([VAULT, SAFE].sort());
   });
 });
