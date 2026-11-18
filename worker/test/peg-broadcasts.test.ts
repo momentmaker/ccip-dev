@@ -36,8 +36,9 @@ describe('public peg posts', () => {
     const { channel, x } = await pegRun('2026-11-18T00:25:00.000Z', [EPISODE]);
     expect(channel.map((b) => b.key)).toEqual(['broadcast:peg:7:open']);
     expect(x).toEqual([]);
-    expect(channel[0]!.telegramHtml).toContain('stLINK trades at a 0.84% discount on Curve');
-    expect(channel[0]!.telegramHtml.trimEnd().split('\n').at(-2)).toBe('Not financial advice.');
+    expect(channel[0]!.telegramHtml).toContain('stLINK discount on Curve: 0.91% at its widest so far');
+    expect(channel[0]!.telegramHtml).toContain('Now: 1 stLINK = 0.9916 LINK');
+    expect(channel[0]!.telegramHtml.trimEnd().split('\n').at(-1)).toBe('Not financial advice.');
   });
 
   it('posts each phase once', async () => {
@@ -60,14 +61,25 @@ describe('public peg posts', () => {
     expect(late.alerts.map((a) => a.signature)).toEqual(['broadcast-image:broadcast:peg:7:open']);
   });
 
-  it('recaps a closed public episode, skipping an open post it no longer needs', async () => {
+  it('recaps a closed public episode whose open post went out', async () => {
+    await pegRun('2026-11-18T00:25:00.000Z', [EPISODE]);
     const closed = { ...EPISODE, closed_at: '2026-11-18T03:20:00.000Z' };
     const { channel } = await pegRun('2026-11-18T03:25:00.000Z', [closed]);
     expect(channel.map((b) => b.key)).toEqual(['broadcast:peg:7:close']);
     expect(channel[0]!.telegramHtml).toContain('The stLINK discount closed after 3h 20m');
   });
 
+  it('does not recap a closed episode whose open post never went out', async () => {
+    const closed = { ...EPISODE, closed_at: '2026-11-18T03:20:00.000Z' };
+    expect((await pegRun('2026-11-18T03:25:00.000Z', [closed])).channel).toEqual([]);
+  });
+
+  it('does not open-post a running public episode that crossed the line over 6 hours ago', async () => {
+    expect((await pegRun('2026-11-18T07:25:00.000Z', [EPISODE])).channel).toEqual([]);
+  });
+
   it('recaps the first episode of a flip as well as opening the second', async () => {
+    await pegRun('2026-11-18T00:25:00.000Z', [EPISODE]);
     const closed = { ...EPISODE, closed_at: '2026-11-18T03:20:00.000Z' };
     const premium = { ...EPISODE, id: 8, side: 'premium' as const, peak_gap: 0.009, opened_at: '2026-11-18T03:15:00.000Z', public_at: '2026-11-18T03:20:00.000Z' };
     const { channel } = await pegRun('2026-11-18T03:25:00.000Z', [premium, closed]);

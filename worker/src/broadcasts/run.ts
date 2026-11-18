@@ -44,6 +44,8 @@ export const MONTHLY_MISSING_HOUR_UTC = 6;
 /** A recap older than this is news no one needs. */
 export const PEG_CLOSE_MAX_AGE_MS = 86_400_000;
 /** The card reads peg.json through the edge cache; for this long after the post is due, a missing card is waited for quietly. */
+/** An open post for an episode that crossed the public line longer ago than this is stale, e.g. when PEG_PUBLIC was just switched on. */
+export const PEG_OPEN_MAX_AGE_MS = 6 * 3_600_000;
 export const PEG_CARD_WAIT_MS = 30 * 60_000;
 
 export type BroadcastRequest =
@@ -75,23 +77,30 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
       : request.kind === 'reserve'
         ? await planReserve(c, request.reserve)
         : request.kind === 'peg'
-          ? planPeg(c, request)
+          ? await planPeg(c, request)
           : await planStaking(c, request.staking);
   for (const p of planned) await deliver(c, p, enabled);
   if (request.kind === 'finalize') await broadcastMoments(c, request.days, outputs);
 }
 
-/** An open post only while the episode runs; a recap for a day after it closes. Sent keys make a re-plan harmless. */
-function planPeg(c: RunContext, request: Extract<BroadcastRequest, { kind: 'peg' }>): Planned[] {
+/** An open post only while the episode runs and recently went public; a recap for a day after it closes, and only after its open post went out. Sent keys make a re-plan harmless. */
+async function planPeg(c: RunContext, request: Extract<BroadcastRequest, { kind: 'peg' }>): Promise<Planned[]> {
   if (!pegConfig(c.env).publicPosts) return [];
   const now = c.deps.now().getTime();
-  return request.episodes.flatMap((episode): Planned[] => {
-    if (!episode.public) return [];
+  const planned: Planned[] = [];
+  for (const episode of request.episodes) {
+    if (!episode.public) continue;
     const phase = episode.closed_at === null ? 'open' : 'close';
     const due = phase === 'open' ? episode.public_at ?? episode.opened_at : episode.closed_at!;
-    if (phase === 'close' && now - Date.parse(due) > PEG_CLOSE_MAX_AGE_MS) return [];
-    return [{ target: { kind: 'peg', episode: episode.id, phase }, facts: { kind: 'peg', phase, episode, live: request.live }, retriesLater: now - Date.parse(due) < PEG_CARD_WAIT_MS }];
-  });
+    if (phase === 'open' && now - Date.parse(due) > PEG_OPEN_MAX_AGE_MS) continue;
+    if (phase === 'close') {
+      if (now - Date.parse(due) > PEG_CLOSE_MAX_AGE_MS) continue;
+      const opened = await store.getMeta(c.env.DB, broadcastKey({ kind: 'peg', episode: episode.id, phase: 'open' }));
+      if (!opened?.startsWith('sent:')) continue;
+    }
+    planned.push({ target: { kind: 'peg', episode: episode.id, phase }, facts: { kind: 'peg', phase, episode, live: request.live }, retriesLater: now - Date.parse(due) < PEG_CARD_WAIT_MS });
+  }
+  return planned;
 }
 
 /** After the finalize posts, the moments due today, under their own switch; one moment's failure never stops the next. */

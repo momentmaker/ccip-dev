@@ -380,14 +380,15 @@ function pegLines(f: PegFacts, text: (s: string) => string): Line[] {
     ];
   }
   return [
-    { text: text(`stLINK trades at a ${pctText(live.gap)} ${e.side} on Curve: 1 stLINK = ${live.spot.toFixed(4)} LINK`) },
+    { text: text(`stLINK ${e.side} on Curve: ${pctText(e.peak_gap)} at its widest so far`) },
+    { text: text(`Now: 1 stLINK = ${live.spot.toFixed(4)} LINK`) },
     { text: text(pegCurveLine(e.side, live)) },
     { text: text(pegRouteLine(e.side, live)), drop: PEG_DROP.route },
   ];
 }
 
 function pegTg(f: PegFacts): Line[] {
-  return [{ text: bold('stLINK peg watch') }, ...pegLines(f, tgText), { text: '' }, { text: 'Not financial advice.' }, { text: '#Chainlink #stLINK $LINK', drop: PEG_DROP.closing }];
+  return [{ text: bold('stLINK peg watch') }, ...pegLines(f, tgText), { text: '' }, { text: '#Chainlink #stLINK $LINK', drop: PEG_DROP.closing }, { text: 'Not financial advice.' }];
 }
 
 /** Never posted, since peg is not among X_KINDS, but composeCopy builds both texts for every broadcast. */
