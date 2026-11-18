@@ -1,3 +1,4 @@
+import { formatDuration } from '@ccip-dev/core/format';
 import type { PegEpisodeView, PegFile, PegHistoryFile } from '@ccip-dev/core/public';
 import { formatGap, linkAmount, priceText, utcStamp } from '../../src/lib/peg-view';
 import { h, type VNode } from '../h';
@@ -29,7 +30,7 @@ const LINE = { fontSize: 26, marginTop: 12, color: COLORS.soft };
 
 function routeLines(peg: PegFile, side: 'discount' | 'premium'): VNode[] {
   const r = peg[side];
-  const lines = [row(r.depth === null ? ['No Curve size beats 1:1'] : ['Curve beats 1:1 up to ', bold(`${linkAmount(r.depth)} LINK`)], LINE)];
+  const lines = [row(r.depth === null ? ['No Curve size beats 1:1'] : ['Curve beats 1:1 up to ', bold(`${linkAmount(r.depth)} ${side === 'discount' ? 'LINK' : 'stLINK'}`)], LINE)];
   lines.push(
     side === 'discount'
       ? row(['Redeem at 1:1 now: ', bold(`${linkAmount(r.instant)} LINK`), ' · ', bold(`${linkAmount(r.queued_ahead)} stLINK`), ' queued'], LINE)
@@ -39,8 +40,8 @@ function routeLines(peg: PegFile, side: 'discount' | 'premium'): VNode[] {
 }
 
 function closeLines(episode: PegEpisodeView): VNode[] {
-  const hours = Math.round((Date.parse(episode.closed_at!) - Date.parse(episode.opened_at)) / 3_600_000);
-  const lines = [row(['Lasted ', bold(`${hours}h`), ' · peak at ', bold(utcStamp(episode.peak_at))], LINE)];
+  const lasted = formatDuration((Date.parse(episode.closed_at!) - Date.parse(episode.opened_at)) / 1000);
+  const lines = [row(['Lasted ', bold(lasted), ' · peak at ', bold(utcStamp(episode.peak_at))], LINE)];
   if (episode.best_size) lines.push(row(['Best Curve size ', bold(`${linkAmount(episode.best_size)} LINK`)], LINE));
   return lines;
 }
@@ -80,14 +81,15 @@ function insight(episode: PegEpisodeView | null, phase: 'open' | 'close' | null,
 /** The live peg for the page's share button (`focus` null), or one episode's open or close for its public post. */
 export async function pegTree(focus: { episode: number; phase: 'open' | 'close' } | null, inputs: BroadcastInputs): Promise<VNode | null> {
   const [peg, history] = await Promise.all([inputs.load('peg.json'), inputs.load('peg-history.json')]);
-  const episode = focus === null ? null : (peg.recent_episodes.find((e) => e.id === focus.episode) ?? null);
-  if (focus !== null && (episode === null || (focus.phase === 'close' && episode.closed_at === null))) return null;
+  const target = focus ?? (peg.episode ? { episode: peg.episode.id, phase: 'open' as const } : null);
+  const episode = target === null ? null : ([peg.episode, ...peg.recent_episodes].find((e) => e?.id === target.episode) ?? null);
+  if (target !== null && (episode === null || (target.phase === 'close' && episode.closed_at === null))) return null;
   const spark = gapSpark(history);
   return broadcastFrame({
     background: spark ? [spark] : [],
     eyebrow: `Chainlink staking · stLINK peg · ${utcStamp(peg.updated_at)}`,
-    body: body(peg, episode, focus?.phase ?? null, history),
-    insight: insight(episode, focus?.phase ?? null, history),
+    body: body(peg, episode, target?.phase ?? null, history),
+    insight: insight(episode, target?.phase ?? null, history),
     cta: PEG_CTA,
   });
 }

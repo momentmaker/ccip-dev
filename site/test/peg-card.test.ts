@@ -16,6 +16,29 @@ describe('the peg card', () => {
     expect(words).toContain('Last episode ended ');
   });
 
+  it('draws a running episode when shared from the page', async () => {
+    const words = texts((await pegTree(null, inputs(opened)))!).join('|');
+    expect(words).toContain('DISCOUNT OPEN');
+    expect(words).toContain('−0.91%');
+    expect(words).toContain('peak so far');
+    expect(words).toContain('Opened ');
+    expect(words).not.toContain('Last episode ended');
+  });
+
+  it('names the premium depth in stLINK', async () => {
+    const premium = { ...OPEN, side: 'premium' as const, peak_gap: 0.009 };
+    const peg = { ...PEG_FILE_FIXTURE, gap: 0.009, spot: 1.009, episode: premium, recent_episodes: [premium], premium: { ...PEG_FILE_FIXTURE.premium, depth: 5_000 } };
+    const words = texts((await broadcastTree({ kind: 'peg', episode: 7, phase: 'open' }, inputs(peg)))!).join('|');
+    expect(words).toContain('5,000 stLINK');
+  });
+
+  it('reads a short recap duration in minutes', async () => {
+    const short = { ...OPEN, opened_at: '2026-11-18T00:00:00.000Z', closed_at: '2026-11-18T00:25:00.000Z' };
+    const peg = { ...PEG_FILE_FIXTURE, recent_episodes: [short] };
+    const words = texts((await broadcastTree({ kind: 'peg', episode: 7, phase: 'close' }, inputs(peg)))!).join('|');
+    expect(words).toContain('25m 0s');
+  });
+
   it('draws an open episode for its public post', async () => {
     const words = texts((await broadcastTree({ kind: 'peg', episode: 7, phase: 'open' }, inputs(opened)))!).join('|');
     expect(words).toContain('DISCOUNT OPEN');
