@@ -1,6 +1,6 @@
 # ccip.dev: the stLINK/LINK peg
 
-**Status:** Approved design · **Date:** 2026-11-17
+**Status:** Implemented · **Date:** 2026-11-17
 
 stLINK is stake.link's rebasing liquid-staking token: 1 stLINK is always redeemable for 1 LINK through stake.link, in
 time. On Curve it trades freely, and sometimes away from 1:1. When it does, there is a trade: buy the cheap side on Curve
