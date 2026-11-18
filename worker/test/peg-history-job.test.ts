@@ -96,6 +96,7 @@ describe('runPegHistory', () => {
 
   it('alerts a failed marker scan at once under its own signature, and still publishes', async () => {
     vi.spyOn(pegStore, 'pegMarkerEvents').mockRejectedValue(new Error('scan broke'));
+    await store.setMeta(env.DB, store.STAKING_CLASSIFIED_KEY, '1');
     const h = harness({ now: '2025-05-20T00:00:00.000Z', fetch: curve() });
     await runPegHistory(h.c);
     expect(h.alerts.map((a) => a.signature)).toEqual(['peg-markers']);

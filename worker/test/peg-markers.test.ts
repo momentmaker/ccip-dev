@@ -18,6 +18,7 @@ const event = (i: number, block: number, ts: string, kind: StakingEvent['kind'],
 async function seed(events: StakingEvent[]) {
   await store.insertStakingEvents(env.DB, events);
   await store.upsertStakingHolders(env.DB, new Map(events.map((e) => [e.staker, 'stakelink' as const])), '2026-09-27T00:00:00.000Z');
+  await store.setMeta(env.DB, 'staking_classified_block', String(Math.max(...events.map((e) => e.blockNumber))));
 }
 
 const NOW = '2026-09-27T00:00:00.000Z';
@@ -38,10 +39,20 @@ describe('scanPegMarkers', () => {
     expect((await pegStore.pegMarkers(env.DB))[0]?.vaults).toBe(12);
   });
 
-  it('waits while any staker is unclassified, so no stake.link vault is missed', async () => {
+  it('waits until stakers are classified, so no stake.link vault is missed', async () => {
     await store.insertStakingEvents(env.DB, [event(0, STAKING_FIRST_BLOCK + 1, '2026-09-23T16:00:00.000Z', 'staked', '20000000000000000000000')]);
     await scanPegMarkers(harness({ now: NOW }).c);
     expect(await store.getMeta(env.DB, 'peg_marker_block')).toBeNull();
+  });
+
+  it('reads no event past the classified cursor', async () => {
+    // #given events in two blocks, with only the first classified through
+    await seed(Array.from({ length: 10 }, (_, i) => event(i, STAKING_FIRST_BLOCK + 1, '2026-09-23T16:00:00.000Z', 'unbonding')));
+    await store.insertStakingEvents(env.DB, Array.from({ length: 10 }, (_, i) => event(50 + i, STAKING_FIRST_BLOCK + 5, '2026-09-23T17:00:00.000Z', 'unbonding')));
+    // #when the marker scan runs
+    await scanPegMarkers(harness({ now: NOW }).c);
+    // #then it stops at the cursor
+    expect(await store.getMeta(env.DB, 'peg_marker_block')).toBe(String(STAKING_FIRST_BLOCK + 1));
   });
 
   it(`never splits a block across batches of ${PEG_MARKER_BATCH}`, async () => {

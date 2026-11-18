@@ -1280,13 +1280,33 @@ export async function stakingEvents(db: D1Database): Promise<StakingEvent[]> {
   }));
 }
 
-/** Stakers never classified, then those last classified before `staleBefore`: a wallet can take EIP-7702 code later. */
-export async function stakersToClassify(db: D1Database, staleBefore: string, limit: number): Promise<string[]> {
+/** Every staker of a `staked` event at or below this block has a holder row. Clearing it makes the next run check all of them again. */
+export const STAKING_CLASSIFIED_KEY = 'staking_classified_block';
+
+export async function stakersClassifiedTo(db: D1Database): Promise<number | null> {
+  const value = await getMeta(db, STAKING_CLASSIFIED_KEY);
+  return value === null ? null : Number(value);
+}
+
+/**
+ * Stakers first seen after `afterBlock` with no holder row, and whether that is all of them. Ordered by block so SQLite walks
+ * the primary key from `afterBlock` (a DISTINCT here makes it scan the staker index, every event); repeats are dropped here.
+ */
+export async function unclassifiedStakers(db: D1Database, afterBlock: number, limit: number): Promise<{ addresses: string[]; complete: boolean }> {
   const { results } = await db
     .prepare(
-      `SELECT DISTINCT e.staker AS address, h.checked_at FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker
-       WHERE e.kind = 'staked' AND (h.address IS NULL OR h.checked_at < ?) ORDER BY h.checked_at IS NOT NULL, h.checked_at LIMIT ?`,
+      `SELECT e.staker AS address FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker
+       WHERE e.block_number > ? AND e.kind = 'staked' AND h.address IS NULL ORDER BY e.block_number LIMIT ?`,
     )
+    .bind(afterBlock, limit)
+    .all<{ address: string }>();
+  return { addresses: [...new Set(results.map((r) => r.address))], complete: results.length < limit };
+}
+
+/** Holders last classified before `staleBefore`, oldest first: a wallet can take EIP-7702 code later. */
+export async function staleHolders(db: D1Database, staleBefore: string, limit: number): Promise<string[]> {
+  const { results } = await db
+    .prepare('SELECT address FROM staking_holders WHERE checked_at < ? ORDER BY checked_at LIMIT ?')
     .bind(staleBefore, limit)
     .all<{ address: string }>();
   return results.map((r) => r.address);
@@ -1302,14 +1322,4 @@ export async function upsertStakingHolders(db: D1Database, kinds: ReadonlyMap<st
 export async function stakingHolders(db: D1Database): Promise<Map<string, HolderKind>> {
   const { results } = await db.prepare('SELECT address, kind FROM staking_holders').all<{ address: string; kind: HolderKind }>();
   return new Map(results.map((r) => [r.address, r.kind]));
-}
-
-/** Whether any staker has never been classified. */
-export async function hasUnclassifiedStakers(db: D1Database): Promise<boolean> {
-  const row = await db
-    .prepare(
-      "SELECT 1 AS missing FROM staking_events e LEFT JOIN staking_holders h ON h.address = e.staker WHERE e.kind = 'staked' AND h.address IS NULL LIMIT 1",
-    )
-    .first<{ missing: number }>();
-  return row !== null;
 }

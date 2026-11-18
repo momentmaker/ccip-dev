@@ -21,9 +21,10 @@ export const STAKING_OPERATOR_NAMES: Readonly<Record<string, string>> = operator
 /** Scans both staking pools hourly, classifies new stakers and, once both are complete, publishes staking.json and the stakers files. */
 export async function runStaking(c: RunContext): Promise<void> {
   const scannedTo = await scanStaking(c);
-  await classifyNewStakers(c);
+  const classified = await classifyNewStakers(c);
+  await reclassifyStaleHolders(c);
   if (scannedTo === null) return;
-  if (await store.hasUnclassifiedStakers(c.env.DB)) {
+  if (!classified) {
     console.warn('Staking files wait for every staker to be classified');
     return;
   }
@@ -66,18 +67,43 @@ async function recordScanFailure(c: RunContext, err: unknown): Promise<void> {
   }
 }
 
-/** Classifies stakers never seen, then stale ones, saving each batch as it goes. A failure leaves the rest for the next hour. */
-export async function classifyNewStakers(c: RunContext): Promise<void> {
-  const now = c.deps.now();
+/**
+ * Classifies the stakers first seen since the classified cursor and moves the cursor to the scanned block. Returns whether
+ * every staker is classified; a failure keeps the batches saved so far and leaves the rest for the next hour.
+ */
+export async function classifyNewStakers(c: RunContext): Promise<boolean> {
+  const db = c.env.DB;
   try {
-    const staleBefore = new Date(now.getTime() - RECLASSIFY_AFTER_DAYS * DAY_MS).toISOString();
-    const addresses = await store.stakersToClassify(c.env.DB, staleBefore, CLASSIFY_PER_RUN);
-    for (let i = 0; i < addresses.length; i += CLASSIFY_BATCH) {
-      const kinds = await classifyStakers(c.deps, logRpcUrls(c.env), addresses.slice(i, i + CLASSIFY_BATCH));
-      await store.upsertStakingHolders(c.env.DB, kinds, now.toISOString());
-    }
+    const scanned = await store.getMeta(db, 'staking_scan_block');
+    if (scanned === null) return true;
+    const from = (await store.stakersClassifiedTo(db)) ?? 0;
+    if (from >= Number(scanned)) return true;
+    const { addresses, complete } = await store.unclassifiedStakers(db, from, CLASSIFY_PER_RUN);
+    await classifyAndSave(c, addresses);
+    if (!complete) return false;
+    await store.setMeta(db, store.STAKING_CLASSIFIED_KEY, scanned);
+    return true;
   } catch (err) {
     console.warn(`Staker classification failed: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+}
+
+/** Checks holders again once their classification is RECLASSIFY_AFTER_DAYS old, oldest first. */
+export async function reclassifyStaleHolders(c: RunContext): Promise<void> {
+  try {
+    const staleBefore = new Date(c.deps.now().getTime() - RECLASSIFY_AFTER_DAYS * DAY_MS).toISOString();
+    await classifyAndSave(c, await store.staleHolders(c.env.DB, staleBefore, CLASSIFY_PER_RUN));
+  } catch (err) {
+    console.warn(`Staker reclassification failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+async function classifyAndSave(c: RunContext, addresses: readonly string[]): Promise<void> {
+  const checkedAt = c.deps.now().toISOString();
+  for (let i = 0; i < addresses.length; i += CLASSIFY_BATCH) {
+    const kinds = await classifyStakers(c.deps, logRpcUrls(c.env), addresses.slice(i, i + CLASSIFY_BATCH));
+    await store.upsertStakingHolders(c.env.DB, kinds, checkedAt);
   }
 }
 
