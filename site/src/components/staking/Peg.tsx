@@ -9,14 +9,14 @@ import PegChart from './PegChart';
 
 const POLL_MS = 60_000;
 
-function Route({ peg, side }: { peg: PegFile; side: 'discount' | 'premium' }) {
+function Route({ peg, side, now }: { peg: PegFile; side: 'discount' | 'premium'; now: Date }) {
   const lit = activeSide(peg.gap) === side;
   return (
     <div className={lit ? 'panel peg-route lit' : 'panel peg-route'}>
       <p className="eyebrow">{side === 'discount' ? 'Discount route' : 'Premium route'}</p>
       <h3>{side === 'discount' ? 'Buy stLINK on Curve → redeem at 1:1' : 'Mint stLINK at 1:1 → sell on Curve'}</h3>
       <dl>
-        {routeRows(peg, side).map((r) => (
+        {routeRows(peg, side, now).map((r) => (
           <div key={r.label}>
             <dt>{r.label}</dt>
             <dd>{r.value}</dd>
@@ -98,8 +98,8 @@ export default function Peg({ now }: { now: Date | null }) {
       </div>
       {peg && (
         <div className="peg-routes">
-          <Route peg={peg} side="discount" />
-          <Route peg={peg} side="premium" />
+          <Route peg={peg} side="discount" now={now ?? new Date()} />
+          <Route peg={peg} side="premium" now={now ?? new Date()} />
         </div>
       )}
       {history && now && <PegChart history={history} now={now} />}
