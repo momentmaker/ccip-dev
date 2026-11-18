@@ -1,7 +1,7 @@
 // packages/core/test/peg-live.test.ts
 import { describe, expect, it } from 'vitest';
 import { curveDepth, decodePegReading, mintInstant, PEG_LADDER, pegCalls, pegLiveBody, profitAt, readPegLive, redeemInstant, type PegReading } from '../src/peg-live';
-import { fakeFetch, PEG_LIVE_WORDS, PEG_WORD, pegAmountWord, pegRpc } from '../src/testing';
+import { fakeFetch, jsonResponse, PEG_LIVE_WORDS, PEG_WORD, pegAmountWord, pegRpc } from '../src/testing';
 
 const words = PEG_LIVE_WORDS.map((w) => BigInt(w));
 const LIVE = decodePegReading(words);
@@ -23,6 +23,23 @@ describe('readPegLive', () => {
   it('tries the next endpoint when one fails', async () => {
     const f = fakeFetch((url) => (url === 'https://rpc.one' ? new Response('', { status: 503 }) : undefined), pegRpc());
     expect((await readPegLive({ fetch: f }, ['https://rpc.one', 'https://rpc.two'])).spot).toBeCloseTo(0.999751, 6);
+  });
+});
+
+describe('readPegLive with a failing call', () => {
+  const revertOn = (failId: number) => (_url: string, init?: RequestInit) => {
+    const body = JSON.parse(String(init!.body)) as { id: number }[];
+    return jsonResponse(body.map(({ id }) => (id === failId ? { jsonrpc: '2.0', id, error: { message: 'execution reverted' } } : { jsonrpc: '2.0', id, result: PEG_LIVE_WORDS[id] })));
+  };
+
+  it('reads a reverted ladder rung as nothing out', async () => {
+    const r = await readPegLive({ fetch: fakeFetch(revertOn(8)) }, ['https://rpc.one']);
+    expect(r.buySt.at(-1)).toBe(0);
+    expect(curveDepth(r.buySt)?.size).toBe(10_000);
+  });
+
+  it('fails the endpoint when the spot call reverts', async () => {
+    await expect(readPegLive({ fetch: fakeFetch(revertOn(0)) }, ['https://rpc.one'])).rejects.toThrow(/every RPC endpoint/);
   });
 });
 

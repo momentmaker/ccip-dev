@@ -1,4 +1,4 @@
-import { ethRpcBatch, onFirstEndpoint, type Fetcher } from './eth-rpc';
+import { ethRpcBatchSettled, isRevert, onFirstEndpoint, type Fetcher } from './eth-rpc';
 import { PEG_POOL, STLINK_TOKEN } from './peg';
 import { linkUnits } from './staking';
 
@@ -102,9 +102,20 @@ export function decodePegReading(w: readonly bigint[]): PegReading {
   };
 }
 
+/** A ladder rung the pool cannot fill reverts; it reads as nothing out, so it is simply not profitable. Any other failed call fails the endpoint. */
 export async function readPegLive(deps: Fetcher, rpcUrls: string[]): Promise<PegReading> {
   const calls = pegCalls();
-  return onFirstEndpoint(rpcUrls, 'stLINK peg read', async (url) => decodePegReading((await ethRpcBatch(deps, url, calls)).map(oneWord)));
+  const rungs = 2 * PEG_LADDER.length;
+  return onFirstEndpoint(rpcUrls, 'stLINK peg read', async (url) => {
+    const settled = await ethRpcBatchSettled(deps, url, calls);
+    return decodePegReading(
+      settled.map((s, i) => {
+        if (s.ok) return oneWord(s.result);
+        if (i >= 2 && i < 2 + rungs && isRevert(s.message)) return 0n;
+        throw new Error(`call ${i} failed: ${s.message}`);
+      }),
+    );
+  });
 }
 
 /** The largest ladder rung whose swap returns more than it puts in. Pool fees are inside get_dy; gas is not. */
