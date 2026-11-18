@@ -493,11 +493,15 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
   percent. An unreadable value, or public at or under private, falls back to both defaults with a warning in the logs.
 - **Public posts** need `PEG_PUBLIC = "on"` and follow `BROADCASTS` (off, drafts to the drafts chat, on to the
   channel). They never go to X.
+- **Switching `PEG_PUBLIC` on**: production `BROADCASTS` is "on", so the channel gets posts within 5 minutes. Only
+  episodes that crossed the public line in the last 6 hours get an open post, and a recap follows only an open post that
+  went out, so nothing old is announced.
 - **`peg-rpc`**: the 5-minute read failed 3 times in a row on every RPC endpoint. Check `RPC_ETHEREUM` and the
   fallbacks.
 - **`peg-bad-read`**: a spot outside 0.5–1.5 was dropped. One is noise; repeats mean a contract changed. Check the pool
   on Etherscan.
 - **`peg-history`**: Curve's price API has failed for 6 hours. The page keeps the last published history.
+- **`peg-markers`**: the hourly stake.link marker scan threw. It alerts at once, and the chart keeps its last markers.
 - **Re-backfill the history**: `wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key IN ('peg_backfill_before', 'peg_backfill_done')"`.
   The next hourly runs page back to 2025-04-19, 10 pages an hour.
 - **Rebuild the markers**: `DELETE FROM peg_markers; DELETE FROM meta WHERE key = 'peg_marker_block';` in one execute.
