@@ -1,5 +1,6 @@
 import { pegLiveBody, readPegLive, stepPeg, type PegEvent, type PegLiveBody, type PegMachine, type PegOpen, type PegReading, type PegSample, type PegThresholds } from '@ccip-dev/core';
 import type { PegEpisodeView } from '@ccip-dev/core/public';
+import { broadcastSafely } from '../broadcasts/run';
 import type { RunContext } from '../context';
 import { pegAlertText } from '../peg-copy';
 import { PEG_ATTRIBUTION, pegConfig } from '../peg-config';
@@ -35,6 +36,7 @@ export async function runPeg(c: RunContext): Promise<void> {
     TTL.peg,
     c.deps.now(),
   );
+  await broadcastSafely(c, { kind: 'peg', live, episodes });
 }
 
 async function readOrCount(c: RunContext): Promise<PegReading | null> {

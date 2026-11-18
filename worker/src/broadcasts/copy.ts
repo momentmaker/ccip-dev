@@ -4,7 +4,8 @@ import { formatCompactCount, formatCount, formatDuration, formatFeeTotal, format
 import { shortAddress } from '@ccip-dev/core/names';
 import { HUNTER_MIN_GRABS, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RecordKind } from '@ccip-dev/core/records';
-import type { BroadcastFacts, CreFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
+import type { BroadcastFacts, CreFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, PegFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
+import { linkText, pctText, pegCurveLine, pegRouteLine, utcStamp } from '../peg-copy';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -366,6 +367,35 @@ function operatorTg(f: OperatorFacts): Line[] {
   return [{ text: bold('Operator watch') }, headline!, ...rest, { text: '' }, { text: '#Chainlink #Staking $LINK', drop: STAKING_DROP.closing }];
 }
 
+const PEG_DROP = { route: 1, closing: 6 } as const;
+
+function pegLines(f: PegFacts, text: (s: string) => string): Line[] {
+  const { episode: e, live } = f;
+  if (f.phase === 'close') {
+    const lasted = formatDuration((Date.parse(e.closed_at!) - Date.parse(e.opened_at)) / 1000);
+    return [
+      { text: text(`The stLINK ${e.side} closed after ${lasted}.`) },
+      { text: text(`Peak: ${pctText(e.peak_gap)} at ${utcStamp(e.peak_at)}${e.best_size ? ` · best Curve size ${linkText(e.best_size)} LINK` : ''}`) },
+      { text: text(`Now: 1 stLINK = ${live.spot.toFixed(4)} LINK`) },
+    ];
+  }
+  return [
+    { text: text(`stLINK ${e.side} on Curve: ${pctText(e.peak_gap)} at its widest so far`) },
+    { text: text(`Now: 1 stLINK = ${live.spot.toFixed(4)} LINK`) },
+    { text: text(pegCurveLine(e.side, live)) },
+    { text: text(pegRouteLine(e.side, live, f.now)), drop: PEG_DROP.route },
+  ];
+}
+
+function pegTg(f: PegFacts): Line[] {
+  return [{ text: bold('stLINK peg watch') }, ...pegLines(f, tgText), { text: '' }, { text: '#Chainlink #stLINK $LINK', drop: PEG_DROP.closing }, { text: 'Not financial advice.' }];
+}
+
+/** Never posted, since peg is not among X_KINDS, but composeCopy builds both texts for every broadcast. */
+function pegX(f: PegFacts): Line[] {
+  return [...pegLines(f, noLinks), { text: 'Not financial advice.' }];
+}
+
 function xLines(f: BroadcastFacts): Line[] {
   switch (f.kind) {
     case 'daily':
@@ -382,6 +412,8 @@ function xLines(f: BroadcastFacts): Line[] {
       return stakingX(f);
     case 'operator':
       return operatorX(f);
+    case 'peg':
+      return pegX(f);
   }
 }
 
@@ -401,6 +433,8 @@ function telegramLines(f: BroadcastFacts): Line[] {
       return stakingTg(f);
     case 'operator':
       return operatorTg(f);
+    case 'peg':
+      return pegTg(f);
   }
 }
 

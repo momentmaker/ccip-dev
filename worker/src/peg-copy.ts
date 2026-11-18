@@ -22,11 +22,12 @@ export function pegCurveLine(side: PegSide, live: PegLiveBody): string {
     : `Curve: selling stLINK beats 1:1 up to ${linkText(r.depth)} stLINK (+${r.profit.toFixed(2)} LINK at that size)`;
 }
 
-export function pegRouteLine(side: PegSide, live: PegLiveBody): string {
+export function pegRouteLine(side: PegSide, live: PegLiveBody, now: Date): string {
   if (side === 'discount') {
     const d = live.discount;
     const window = d.claim_window_open ? '' : ' (no claim window open)';
-    return `Redeem at 1:1: ${linkText(d.instant)} LINK instant; the rest queues behind ${linkText(d.queued_ahead)} stLINK, next payout after ${utcStamp(d.next_payout_after)}${window}`;
+    const payout = Date.parse(d.next_payout_after) > now.getTime() ? `next payout after ${utcStamp(d.next_payout_after)}` : 'payout possible in the next claim window';
+    return `Redeem at 1:1: ${linkText(d.instant)} LINK instant; the rest queues behind ${linkText(d.queued_ahead)} stLINK, ${payout}${window}`;
   }
   const p = live.premium;
   return p.instant > 0 ? `Mint at 1:1: ${linkText(p.instant)} LINK instant` : `Mint at 1:1: queued behind ${linkText(p.queued_ahead)} LINK, stLINK claimed later`;
@@ -41,7 +42,7 @@ export function pegTradeableLine(side: PegSide, live: PegLiveBody): string {
 /** Plain text for the owner's alert chat: one message per episode event. */
 export function pegAlertText(e: PegEvent, live: PegLiveBody, opts: { publicLine: number; publicPosts: boolean; bestSize: number | null; now: Date }): string {
   const side = e.episode.side;
-  const state = [pegCurveLine(side, live), pegRouteLine(side, live), pegTradeableLine(side, live), PEG_PAGE_URL];
+  const state = [pegCurveLine(side, live), pegRouteLine(side, live, opts.now), pegTradeableLine(side, live), PEG_PAGE_URL];
   switch (e.kind) {
     case 'opened':
       return [`stLINK at a ${pctText(live.gap)} ${side} (${price(live)})`, ...state].join('\n');

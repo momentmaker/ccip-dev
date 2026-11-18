@@ -9,6 +9,7 @@ type Episode = PegHistoryFile['episodes'][number];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const DAY_MS = 86_400_000;
+const unit = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
 
 export function formatGap(gap: number): string {
   const pct = (Math.abs(gap) * 100).toFixed(2);
@@ -34,17 +35,18 @@ export interface RouteRow {
   value: string;
 }
 
-export function routeRows(peg: PegFile, side: Side): RouteRow[] {
+export function routeRows(peg: PegFile, side: Side, now: Date): RouteRow[] {
   const r = peg[side];
   const curve = r.depth === null || r.profit === null ? 'no size after fees' : `up to ${linkAmount(r.depth)} ${side === 'discount' ? 'LINK' : 'stLINK'} · +${r.profit.toFixed(2)} LINK`;
   const tradeable = r.tradeable > 0 ? `${linkAmount(r.tradeable)} LINK${r.tradeable_profit === null ? '' : ` · +${r.tradeable_profit.toFixed(2)} LINK`}` : 'none';
   if (side === 'discount') {
     const window = peg.discount.claim_window_open ? '' : ' · no claim window open';
+    const payout = Date.parse(peg.discount.next_payout_after) > now.getTime() ? `next payout after ${utcStamp(peg.discount.next_payout_after)}` : 'payout possible in the next claim window';
     return [
       { label: 'Curve, under 1:1', value: curve },
       { label: 'Redeem at 1:1 now', value: `${linkAmount(r.instant)} LINK` },
       { label: 'Tradeable now', value: tradeable },
-      { label: 'Withdrawal queue', value: `${linkAmount(r.queued_ahead)} stLINK ahead · next payout after ${utcStamp(peg.discount.next_payout_after)}${window}` },
+      { label: 'Withdrawal queue', value: `${linkAmount(r.queued_ahead)} stLINK ahead · ${payout}${window}` },
     ];
   }
   return [
@@ -131,8 +133,11 @@ export function recordsView(history: PegHistoryFile, now: Date): RouteRow[] {
   const rows: RouteRow[] = [];
   if (r.deepest_discount) rows.push({ label: 'Deepest discount', value: `${formatGap(r.deepest_discount.gap)} · ${utcStamp(r.deepest_discount.hour)}` });
   if (r.highest_premium) rows.push({ label: 'Highest premium', value: `${formatGap(r.highest_premium.gap)} · ${utcStamp(r.highest_premium.hour)}` });
-  if (r.longest) rows.push({ label: 'Longest episode', value: `${formatCount(r.longest.hours)} hours · ${r.longest.side} from ${shortDay(r.longest.start)}` });
-  if (r.last_end) rows.push({ label: 'Since the last one', value: `${formatCount(Math.floor((now.getTime() - Date.parse(r.last_end)) / DAY_MS))} days` });
+  if (r.longest) rows.push({ label: 'Longest episode', value: `${unit(r.longest.hours, 'hour')} · ${r.longest.side} from ${shortDay(r.longest.start)}` });
+  if (r.last_end && history.episodes.at(-1)?.end !== null) {
+    const days = Math.floor((now.getTime() - Date.parse(r.last_end)) / DAY_MS);
+    rows.push({ label: 'Since the last one', value: days === 0 ? 'today' : unit(days, 'day') });
+  }
   return rows;
 }
 

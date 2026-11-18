@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PegBar } from '../src/peg';
-import { DEFAULT_PEG_THRESHOLDS, pegEpisodesFromBars, pegHistoryBody, pegRecords, stepPeg, type PegEvent, type PegMachine, type PegSample } from '../src/peg-episodes';
+import { DEFAULT_PEG_THRESHOLDS, pegEpisodesFromBars, pegMarkerHours, pegHistoryBody, pegRecords, stepPeg, type PegEvent, type PegMarkerEvent, type PegMachine, type PegSample } from '../src/peg-episodes';
 
 const SEP_CLOSES = [
   1.0, 1.0, 1.0, 1.0, 0.9998, 0.9998, 1.0, 0.9998, 1.0, 0.9986, 0.9981, 0.9981, 0.9964, 0.995, 0.9953, 0.9953, 0.9953, 0.9953, 0.9953, 0.9953,
@@ -125,5 +125,24 @@ describe('pegHistoryBody', () => {
     expect(body.hours.map((r) => r[0])).toEqual(SEP_BARS.filter((b) => b.hour >= '2026-09-23T00:00:00.000Z').map((b) => b.hour));
     expect(body.days.map((r) => r[0])).toEqual(['2026-09-22T00:00:00.000Z', '2026-09-23T00:00:00.000Z', '2026-09-24T00:00:00.000Z', '2026-09-25T00:00:00.000Z', '2026-09-26T00:00:00.000Z']);
     expect(body.episodes).toHaveLength(2);
+  });
+});
+
+describe('pegMarkerHours', () => {
+  const e = (ts: string, kind: PegMarkerEvent['kind'], holder: string | null, amount: string | null = null): PegMarkerEvent => ({ blockNumber: 1, ts, kind, amount, holder });
+
+  it('sums stake.link vault unbondings and stakes by hour, leaving everyone else out', () => {
+    expect(
+      pegMarkerHours([
+        e('2026-09-23T16:01:00.000Z', 'unbonding', 'stakelink'),
+        e('2026-09-23T16:59:00.000Z', 'unbonding', 'stakelink'),
+        e('2026-09-23T16:30:00.000Z', 'unbonding', 'wallet'),
+        e('2026-09-26T03:10:00.000Z', 'staked', 'stakelink', '6250000000000000000000'),
+        e('2026-09-26T03:20:00.000Z', 'staked', 'stakelink', '6250000000000000000000'),
+      ]),
+    ).toEqual([
+      { hour: '2026-09-23T16:00:00.000Z', kind: 'stakelink_unbonding', vaults: 2, link: null },
+      { hour: '2026-09-26T03:00:00.000Z', kind: 'stakelink_deposit', vaults: 2, link: 12_500 },
+    ]);
   });
 });

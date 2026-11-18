@@ -9,6 +9,7 @@ import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
 import { broadcastTree } from './cards/broadcast-cards';
 import { BROADCAST_SIZE, type BroadcastInputs } from './cards/broadcast-frame';
+import { pegTree } from './cards/peg-card';
 import { stakerTree } from './cards/staking-cards';
 import { reservePageTree } from './cards/reserve-page-card';
 import { stakingPageTree } from './cards/staking-page-card';
@@ -100,7 +101,7 @@ function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, u
   return pending;
 }
 
-async function build(route: Exclude<CardRoute, { kind: 'broadcast' | 'staker' }>, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
+async function build(route: Exclude<CardRoute, { kind: 'broadcast' | 'staker' | 'peg' }>, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
   const load = <N extends PublicFileName>(name: N) => fetchPublic(name, { fetch: deps.fetch });
   switch (route.kind) {
     case 'home':
@@ -216,6 +217,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   if (!route) return new Response('Not found', { status: 404 });
   if (route.kind === 'broadcast') return drawnCard((inputs) => broadcastTree(route.target, inputs), route, url, env, ctx, deps);
   if (route.kind === 'staker') return drawnCard((inputs) => stakerTree(route.address, inputs), route, url, env, ctx, deps);
+  if (route.kind === 'peg') return drawnCard((inputs) => pegTree(null, inputs), route, url, env, ctx, deps);
 
   const cacheKey = new Request(`${url.origin}${url.pathname}`);
 

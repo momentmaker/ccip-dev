@@ -39,12 +39,14 @@ export function pegBarsUrl(fromS: number, toS: number): string {
   return `https://prices.curve.finance/v1/ohlc/ethereum/${PEG_POOL}?${query}`;
 }
 
-/** Hours without swaps repeat the last price. A non-positive price is a gap in Curve's data, not a price, so it is dropped. */
+const BAR_SANE = { min: 0.5, max: 1.5 } as const;
+
+/** Hours without swaps repeat the last price. A price outside the sane band is a gap or a bogus wick in Curve's data, not a price, so the bar is dropped. */
 export async function fetchPegBars(deps: HttpDeps, fromS: number, toS: number): Promise<PegBar[]> {
   if (toS - fromS > PEG_PAGE_S) throw new Error(`A Curve OHLC page of ${toS - fromS}s is over the ${PEG_PAGE_S}s one request holds`);
   const json = await getJson(deps, pegBarsUrl(fromS, toS), { endpoint: OHLC_ENDPOINT, maxRetries: 2 });
   return parseWith(OhlcResponse, json, OHLC_ENDPOINT)
-    .data.filter((b) => [b.open, b.high, b.low, b.close].every((v) => Number.isFinite(v) && v > 0))
+    .data.filter((b) => [b.open, b.high, b.low, b.close].every((v) => Number.isFinite(v) && v >= BAR_SANE.min && v <= BAR_SANE.max))
     .map((b) => ({ hour: new Date(b.time * 1000).toISOString(), open: b.open, high: b.high, low: b.low, close: b.close }));
 }
 

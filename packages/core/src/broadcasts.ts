@@ -19,7 +19,8 @@ export type BroadcastTarget =
   | { kind: 'project'; monday: string }
   | { kind: 'roundup'; monday: string }
   | { kind: 'staking'; monday: string }
-  | { kind: 'operator'; address: string; at: number };
+  | { kind: 'operator'; address: string; at: number }
+  | { kind: 'peg'; episode: number; phase: 'open' | 'close' };
 
 /** The moments the daily budget counts, in the order they take its places. The poll is not among them: it always posts. */
 export const BUDGETED_MOMENTS = ['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'project', 'roundup'] as const;
@@ -39,6 +40,8 @@ export function broadcastKey(t: PostTarget): string {
   switch (t.kind) {
     case 'monthly':
       return `broadcast:monthly:${t.month}`;
+    case 'peg':
+      return `broadcast:peg:${t.episode}:${t.phase}`;
     case 'daily':
       return `broadcast:daily:${t.day}`;
     case 'weekly':
@@ -70,6 +73,8 @@ export function broadcastKey(t: PostTarget): string {
 /** The card's path under /og/, without ".png". */
 export function broadcastCardPath(t: BroadcastTarget): string {
   switch (t.kind) {
+    case 'peg':
+      return `broadcast/peg/${t.episode}/${t.phase}`;
     case 'daily':
       return `broadcast/daily/${t.day}`;
     case 'weekly':
@@ -123,6 +128,7 @@ export function parseBroadcastPath(parts: readonly string[]): BroadcastTarget | 
   if (kind === 'newcomer' && b !== undefined && ((a === 'project' && SLUG_RE.test(b)) || (a === 'address' && NEWCOMER_ADDRESS_RE.test(b)))) return { kind: 'newcomer', key: `${a}:${b}` };
   if (oneOf(WEEKLY_MOMENTS, kind) && b === undefined && isDay(a) && weekStart(a) === a) return { kind, monday: a };
   if (kind === 'staking' && b === undefined && isDay(a) && weekStart(a) === a) return { kind: 'staking', monday: a };
+  if (kind === 'peg' && /^[1-9]\d{0,9}$/.test(a) && (b === 'open' || b === 'close')) return { kind: 'peg', episode: Number(a), phase: b };
   if (kind === 'operator' && EVM_ADDRESS_RE.test(a) && b !== undefined && UNIX_RE.test(b)) return { kind: 'operator', address: a, at: Number(b) };
   return null;
 }

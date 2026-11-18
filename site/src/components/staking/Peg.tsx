@@ -4,18 +4,19 @@ import { trackDataError } from '../../lib/analytics';
 import { fetchPublic } from '../../lib/data';
 import { activeSide, episodeRows, formatGap, priceText, recordsView, routeRows, utcStamp } from '../../lib/peg-view';
 import FreshnessNote from '../FreshnessNote';
+import ShareButton from '../ShareButton';
 import PegChart from './PegChart';
 
 const POLL_MS = 60_000;
 
-function Route({ peg, side }: { peg: PegFile; side: 'discount' | 'premium' }) {
+function Route({ peg, side, now }: { peg: PegFile; side: 'discount' | 'premium'; now: Date }) {
   const lit = activeSide(peg.gap) === side;
   return (
     <div className={lit ? 'panel peg-route lit' : 'panel peg-route'}>
       <p className="eyebrow">{side === 'discount' ? 'Discount route' : 'Premium route'}</p>
       <h3>{side === 'discount' ? 'Buy stLINK on Curve → redeem at 1:1' : 'Mint stLINK at 1:1 → sell on Curve'}</h3>
       <dl>
-        {routeRows(peg, side).map((r) => (
+        {routeRows(peg, side, now).map((r) => (
           <div key={r.label}>
             <dt>{r.label}</dt>
             <dd>{r.value}</dd>
@@ -92,12 +93,13 @@ export default function Peg({ now }: { now: Date | null }) {
           stake.link's stLINK is redeemable 1:1 for LINK in time. On Curve it trades freely: when it drifts, buying the cheap side and closing the loop through stake.link pays, if that route is open now.
           {episode ? ` A ${episode.side} has been running since ${utcStamp(episode.opened_at)}, peaking at ${formatGap(episode.peak_gap)}.` : ''}
         </p>
+        <ShareButton view="peg" headline={peg ? `${priceText(peg.spot)} (${formatGap(peg.gap)})` : 'stLINK on Curve'} url="https://ccip.dev/staking/#peg" cardUrl="/og/peg.png" />
         {peg && <FreshnessNote updatedAt={peg.updated_at} paused={failed} />}
       </div>
       {peg && (
         <div className="peg-routes">
-          <Route peg={peg} side="discount" />
-          <Route peg={peg} side="premium" />
+          <Route peg={peg} side="discount" now={now ?? new Date()} />
+          <Route peg={peg} side="premium" now={now ?? new Date()} />
         </div>
       )}
       {history && now && <PegChart history={history} now={now} />}

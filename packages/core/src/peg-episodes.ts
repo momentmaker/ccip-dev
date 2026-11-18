@@ -1,4 +1,5 @@
 import { barRow, pegDays, type PegBar, type PegBarRow } from './peg';
+import { linkUnits } from './staking';
 
 export type PegSide = 'discount' | 'premium';
 
@@ -167,4 +168,31 @@ export function pegHistoryBody(input: { bars: readonly PegBar[]; markers: readon
     episodes,
     records: pegRecords(input.bars, episodes),
   };
+}
+
+export interface PegMarkerEvent {
+  blockNumber: number;
+  ts: string;
+  kind: 'staked' | 'unbonding';
+  amount: string | null;
+  holder: string | null;
+}
+
+/** The chart pins an hour when this many stake.link vaults began unbonding in it, or they staked this much LINK. */
+export const PEG_MARKER_MIN_VAULTS = 10;
+export const PEG_MARKER_MIN_LINK = 10_000;
+
+/** Every hour's stake.link vault activity; the publish keeps the notable hours. Sums add across runs, so nothing is filtered here. */
+export function pegMarkerHours(events: readonly PegMarkerEvent[]): PegMarker[] {
+  const byKey = new Map<string, PegMarker>();
+  for (const e of events) {
+    if (e.holder !== 'stakelink') continue;
+    const hour = `${e.ts.slice(0, 13)}:00:00.000Z`;
+    const kind: PegMarkerKind = e.kind === 'unbonding' ? 'stakelink_unbonding' : 'stakelink_deposit';
+    const m = byKey.get(`${hour}|${kind}`) ?? { hour, kind, vaults: 0, link: kind === 'stakelink_deposit' ? 0 : null };
+    m.vaults += 1;
+    if (m.link !== null && e.amount !== null) m.link += linkUnits(e.amount);
+    byKey.set(`${hour}|${kind}`, m);
+  }
+  return [...byKey.values()].sort((a, b) => a.hour.localeCompare(b.hour) || a.kind.localeCompare(b.kind));
 }

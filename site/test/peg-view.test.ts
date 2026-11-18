@@ -21,7 +21,7 @@ describe('formats', () => {
 
 describe('routeRows', () => {
   it('describes the discount route', () => {
-    expect(routeRows(PEG_FILE_FIXTURE, 'discount')).toEqual([
+    expect(routeRows(PEG_FILE_FIXTURE, 'discount', NOW)).toEqual([
       { label: 'Curve, under 1:1', value: 'up to 10,000 LINK · +0.53 LINK' },
       { label: 'Redeem at 1:1 now', value: '0.0 LINK' },
       { label: 'Tradeable now', value: 'none' },
@@ -30,12 +30,20 @@ describe('routeRows', () => {
   });
 
   it('describes the premium route', () => {
-    expect(routeRows(PEG_FILE_FIXTURE, 'premium')).toEqual([
+    expect(routeRows(PEG_FILE_FIXTURE, 'premium', NOW)).toEqual([
       { label: 'Curve, over 1:1', value: 'no size after fees' },
       { label: 'Mint at 1:1 now', value: '1,541 LINK' },
       { label: 'Tradeable now', value: 'none' },
       { label: 'Deposit queue', value: 'empty' },
     ]);
+  });
+});
+
+describe('routeRows after the payout time', () => {
+  it('does not name a payout time that has passed', () => {
+    const late = new Date('2026-11-18T16:00:00.000Z');
+    const queue = routeRows(PEG_FILE_FIXTURE, 'discount', late).find((r) => r.label === 'Withdrawal queue')!;
+    expect(queue.value).toBe('1,541 stLINK ahead · payout possible in the next claim window');
   });
 });
 
@@ -88,6 +96,23 @@ describe('episodeRows', () => {
 });
 
 describe('markerLabel and recordsView', () => {
+  const withEnd = (last_end: string | null, episodeEnd: string | null = last_end) => ({
+    ...PEG_HISTORY_FIXTURE,
+    episodes: [{ ...PEG_HISTORY_FIXTURE.episodes[0]!, end: episodeEnd }],
+    records: { ...PEG_HISTORY_FIXTURE.records, last_end, longest: { ...PEG_HISTORY_FIXTURE.records.longest!, hours: 1 } },
+  });
+  const value = (rows: { label: string; value: string }[], label: string) => rows.find((r) => r.label === label)?.value;
+
+  it('uses the singular for one hour and one day, and says today for none', () => {
+    expect(value(recordsView(withEnd('2026-11-17T01:00:00.000Z'), NOW), 'Longest episode')).toBe('1 hour · discount from Sep 22');
+    expect(value(recordsView(withEnd('2026-11-17T01:00:00.000Z'), NOW), 'Since the last one')).toBe('1 day');
+    expect(value(recordsView(withEnd('2026-11-18T00:00:00.000Z'), NOW), 'Since the last one')).toBe('today');
+  });
+
+  it('leaves out the days since the last one while an episode is running', () => {
+    expect(value(recordsView(withEnd('2026-09-26T16:00:00.000Z', null), NOW), 'Since the last one')).toBeUndefined();
+  });
+
   it('words the markers', () => {
     expect(markerLabel({ hour: '', kind: 'stakelink_deposit', vaults: 3, link: 12_500 })).toBe('stake.link vaults staked 12,500 LINK');
   });
