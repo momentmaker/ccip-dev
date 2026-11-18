@@ -267,7 +267,7 @@
 .stk .peg-zero { stroke: rgba(255, 255, 255, 0.35); }
 .stk .peg-band { stroke: rgba(255, 207, 90, 0.35); stroke-dasharray: 3 4; }
 .stk .peg-band.public { stroke: rgba(255, 207, 90, 0.7); }
-.stk .peg-tick { fill: var(--muted); font: 10px var(--font-mono); text-anchor: end; }
+.stk .peg-tick { fill: var(--muted); font: 11px var(--font-mono); text-anchor: end; }
 .stk .peg-span.discount { fill: rgba(229, 138, 138, 0.1); }
 .stk .peg-span.premium { fill: rgba(127, 212, 160, 0.1); }
 .stk .peg-pin line { stroke: rgba(46, 211, 195, 0.35); }
