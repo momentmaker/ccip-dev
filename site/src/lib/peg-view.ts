@@ -1,5 +1,8 @@
+import { linkAmount, payoutWhen, utcStamp } from '@ccip-dev/core/peg-format';
 import type { PegFile, PegHistoryFile } from '@ccip-dev/core/public';
 import { formatCount } from './format';
+
+export { linkAmount, utcStamp };
 
 type Side = 'discount' | 'premium';
 type Row = PegHistoryFile['hours'][number];
@@ -7,7 +10,6 @@ type Marker = PegHistoryFile['markers'][number];
 type Episode = PegHistoryFile['episodes'][number];
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const pad = (n: number) => String(n).padStart(2, '0');
 const DAY_MS = 86_400_000;
 const unit = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
 
@@ -17,15 +19,6 @@ export function formatGap(gap: number): string {
 }
 
 export const priceText = (spot: number) => `1 stLINK = ${spot.toFixed(5)} LINK`;
-export function linkAmount(n: number): string {
-  const oneDecimal = n.toFixed(1);
-  return n < 100 && oneDecimal !== '100.0' ? oneDecimal : formatCount(n);
-}
-
-export function utcStamp(iso: string): string {
-  const d = new Date(iso);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
-}
 
 const shortDay = (iso: string) => `${MONTHS[new Date(iso).getUTCMonth()]} ${new Date(iso).getUTCDate()}`;
 
@@ -43,13 +36,11 @@ export function routeRows(peg: PegFile, side: Side, now: Date): RouteRow[] {
   const curve = r.depth === null || r.profit === null ? 'no size after fees' : `up to ${linkAmount(r.depth)} ${side === 'discount' ? 'LINK' : 'stLINK'} · +${r.profit.toFixed(2)} LINK`;
   const tradeable = r.tradeable > 0 ? `${linkAmount(r.tradeable)} LINK${r.tradeable_profit === null ? '' : ` · +${r.tradeable_profit.toFixed(2)} LINK`}` : 'none';
   if (side === 'discount') {
-    const window = peg.discount.claim_window_open ? '' : ' · no claim window open';
-    const payout = Date.parse(peg.discount.next_payout_after) > now.getTime() ? `next payout after ${utcStamp(peg.discount.next_payout_after)}` : 'payout possible in the next claim window';
     return [
       { label: 'Curve, under 1:1', value: curve },
       { label: 'Redeem at 1:1 now', value: `${linkAmount(r.instant)} LINK` },
       { label: 'Tradeable now', value: tradeable },
-      { label: 'Withdrawal queue', value: `${linkAmount(r.queued_ahead)} stLINK ahead · ${payout}${window}` },
+      { label: 'Withdrawal queue', value: `${linkAmount(r.queued_ahead)} stLINK ahead · ${payoutWhen(peg.discount, now)}` },
     ];
   }
   return [

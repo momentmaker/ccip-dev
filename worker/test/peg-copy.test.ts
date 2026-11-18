@@ -1,7 +1,7 @@
 import { decodePegReading, pegLiveBody, type PegLiveBody, type PegOpen } from '@ccip-dev/core';
 import { PEG_LIVE_WORDS } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
-import { linkText, pctText, pegAlertText, pegRouteLine, utcStamp } from '../src/peg-copy';
+import { pctText, pegAlertText, pegRouteLine } from '../src/peg-copy';
 
 const BASE = pegLiveBody(decodePegReading(PEG_LIVE_WORDS.map((w) => BigInt(w))));
 const live = (over: Partial<PegLiveBody> & { discountOver?: Partial<PegLiveBody['discount']> } = {}): PegLiveBody => ({
@@ -13,11 +13,8 @@ const OPEN: PegOpen = { side: 'discount', openedAt: '2026-11-18T00:00:00.000Z', 
 const OPTS = { publicLine: 0.0075, posting: 'channel' as const, bestSize: 38_000, now: new Date('2026-11-18T03:20:00.000Z') };
 
 describe('formats', () => {
-  it('writes times, gaps and amounts the way the alerts read', () => {
-    expect(utcStamp('2026-11-18T15:50:11.000Z')).toBe('Nov 18 15:50 UTC');
+  it('writes a gap without its sign, the side says which', () => {
     expect(pctText(-0.0084)).toBe('0.84%');
-    expect(linkText(17.88)).toBe('17.9');
-    expect(linkText(38_000)).toBe('38,000');
   });
 });
 

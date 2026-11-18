@@ -1,46 +1,32 @@
 import type { PegEvent, PegLiveBody, PegSide } from '@ccip-dev/core';
-import { formatCount, formatDuration } from '@ccip-dev/core/format';
+import { formatDuration } from '@ccip-dev/core/format';
+import { linkAmount, payoutWhen, utcStamp } from '@ccip-dev/core/peg-format';
 
 export const PEG_PAGE_URL = 'https://ccip.dev/staking/#peg';
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const pad = (n: number) => String(n).padStart(2, '0');
-
-export function utcStamp(iso: string): string {
-  const d = new Date(iso);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
-}
-
 export const pctText = (gap: number) => `${(Math.abs(gap) * 100).toFixed(2)}%`;
-export const linkText = (n: number) => (n < 100 ? n.toFixed(1) : formatCount(n));
 const price = (live: PegLiveBody) => `1 stLINK = ${live.spot.toFixed(4)} LINK`;
 
 export function pegCurveLine(side: PegSide, live: PegLiveBody): string {
   const r = live[side];
   if (r.depth === null || r.profit === null) return 'Curve: no size beats 1:1 after fees';
   return side === 'discount'
-    ? `Curve: buying stLINK beats 1:1 up to ${linkText(r.depth)} LINK (+${r.profit.toFixed(2)} LINK at that size)`
-    : `Curve: selling stLINK beats 1:1 up to ${linkText(r.depth)} stLINK (+${r.profit.toFixed(2)} LINK at that size)`;
-}
-
-/** Payouts go out at most every few days, and only inside a claim window. */
-function payoutText(d: PegLiveBody['discount'], now: Date): string {
-  if (Date.parse(d.next_payout_after) > now.getTime()) return `next payout after ${utcStamp(d.next_payout_after)}${d.claim_window_open ? '' : ' (no claim window open)'}`;
-  return d.claim_window_open ? 'next payout possible now' : 'payout possible in the next claim window';
+    ? `Curve: buying stLINK beats 1:1 up to ${linkAmount(r.depth)} LINK (+${r.profit.toFixed(2)} LINK at that size)`
+    : `Curve: selling stLINK beats 1:1 up to ${linkAmount(r.depth)} stLINK (+${r.profit.toFixed(2)} LINK at that size)`;
 }
 
 export function pegRouteLine(side: PegSide, live: PegLiveBody, now: Date): string {
   if (side === 'discount') {
     const d = live.discount;
-    return `Redeem at 1:1: ${linkText(d.instant)} LINK instant; the rest queues behind ${linkText(d.queued_ahead)} stLINK, ${payoutText(d, now)}`;
+    return `Redeem at 1:1: ${linkAmount(d.instant)} LINK instant; the rest queues behind ${linkAmount(d.queued_ahead)} stLINK, ${payoutWhen(d, now)}`;
   }
   const p = live.premium;
-  return p.instant > 0 ? `Mint at 1:1: ${linkText(p.instant)} LINK instant` : `Mint at 1:1: queued behind ${linkText(p.queued_ahead)} LINK, stLINK claimed later`;
+  return p.instant > 0 ? `Mint at 1:1: ${linkAmount(p.instant)} LINK instant` : `Mint at 1:1: queued behind ${linkAmount(p.queued_ahead)} LINK, stLINK claimed later`;
 }
 
 export function pegTradeableLine(side: PegSide, live: PegLiveBody): string {
   const r = live[side];
   if (r.tradeable <= 0) return 'Tradeable now: none at 1:1 instantly';
-  return `Tradeable now: ${linkText(r.tradeable)} LINK${r.tradeable_profit === null ? '' : ` for +${r.tradeable_profit.toFixed(2)} LINK`}`;
+  return `Tradeable now: ${linkAmount(r.tradeable)} LINK${r.tradeable_profit === null ? '' : ` for +${r.tradeable_profit.toFixed(2)} LINK`}`;
 }
 
 /** Where a public episode's post goes: PEG_PUBLIC and BROADCASTS both have to allow it. */
@@ -65,7 +51,7 @@ export function pegAlertText(e: PegEvent, live: PegLiveBody, opts: { publicLine:
       return [`stLINK ${side} past the ${pctText(opts.publicLine)} public line: now ${pctText(live.gap)}. ${POSTING_TEXT[opts.posting]}`, ...state].join('\n');
     case 'closed': {
       const lasted = formatDuration((Date.parse(e.closedAt) - Date.parse(e.episode.openedAt)) / 1000);
-      const best = opts.bestSize === null ? [] : [`Best Curve size seen: ${linkText(opts.bestSize)} LINK`];
+      const best = opts.bestSize === null ? [] : [`Best Curve size seen: ${linkAmount(opts.bestSize)} LINK`];
       return [`stLINK ${side} closed after ${lasted}: peak ${pctText(e.episode.peakGap)} at ${utcStamp(e.episode.peakAt)}`, ...best, PEG_PAGE_URL].join('\n');
     }
   }

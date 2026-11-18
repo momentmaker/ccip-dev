@@ -42,7 +42,8 @@ describe('routeRows', () => {
 describe('routeRows after the payout time', () => {
   it('does not name a payout time that has passed', () => {
     const late = new Date('2026-11-18T16:00:00.000Z');
-    const queue = routeRows(PEG_FILE_FIXTURE, 'discount', late).find((r) => r.label === 'Withdrawal queue')!;
+    const closed = { ...PEG_FILE_FIXTURE, discount: { ...PEG_FILE_FIXTURE.discount, claim_window_open: false } };
+    const queue = routeRows(closed, 'discount', late).find((r) => r.label === 'Withdrawal queue')!;
     expect(queue.value).toBe('1,541 stLINK ahead · payout possible in the next claim window');
   });
 });
