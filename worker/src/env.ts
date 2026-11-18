@@ -17,4 +17,7 @@ export interface Env {
   X_ACCESS_TOKEN?: string;
   X_ACCESS_SECRET?: string;
   GITHUB_DISPATCH_TOKEN?: string;
+  PEG_ALERT_PRIVATE_PCT?: string;
+  PEG_ALERT_PUBLIC_PCT?: string;
+  PEG_PUBLIC?: string;
 }
