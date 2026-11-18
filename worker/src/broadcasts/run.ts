@@ -1,10 +1,11 @@
-import { addDays, dayOf, weekStart } from '@ccip-dev/core';
+import { addDays, dayOf, weekStart, type PegLiveBody } from '@ccip-dev/core';
 import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarget, type PostTarget } from '@ccip-dev/core/broadcasts';
 import { MONTHLY_VIDEO, monthLabel, monthlyDue, monthlyVideoKey } from '@ccip-dev/core/month';
-import type { StakingFile } from '@ccip-dev/core/public';
+import type { PegEpisodeView, StakingFile } from '@ccip-dev/core/public';
 import { milestonesOn, RECORD_KINDS, recordsSetOn, recordValue, trackedMilestones } from '@ccip-dev/core/records';
 import { operatorMomentFacts, operatorMoments, stakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RunContext } from '../context';
+import { pegConfig } from '../peg-config';
 import type { ReserveBody } from '../publish';
 import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
 import * as store from '../store';
@@ -40,10 +41,16 @@ export const OPERATOR_MAX_AGE_DAYS = 3;
 /** The workflow records last month's video at 01:15 on the 1st; one still missing from this hour on alerts. */
 export const MONTHLY_MISSING_HOUR_UTC = 6;
 
+/** A recap older than this is news no one needs. */
+export const PEG_CLOSE_MAX_AGE_MS = 86_400_000;
+/** The card reads peg.json through the edge cache; for this long after the post is due, a missing card is waited for quietly. */
+export const PEG_CARD_WAIT_MS = 30 * 60_000;
+
 export type BroadcastRequest =
   | { kind: 'finalize'; days: readonly string[] }
   | { kind: 'reserve'; reserve: ReserveBody }
   | { kind: 'staking'; staking: StakingFile }
+  | { kind: 'peg'; live: PegLiveBody; episodes: readonly PegEpisodeView[] }
   | { kind: 'monthly' };
 
 interface Planned {
@@ -63,9 +70,28 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
     return;
   }
   const planned =
-    request.kind === 'finalize' ? await planFinalize(c, request.days) : request.kind === 'reserve' ? await planReserve(c, request.reserve) : await planStaking(c, request.staking);
+    request.kind === 'finalize'
+      ? await planFinalize(c, request.days)
+      : request.kind === 'reserve'
+        ? await planReserve(c, request.reserve)
+        : request.kind === 'peg'
+          ? planPeg(c, request)
+          : await planStaking(c, request.staking);
   for (const p of planned) await deliver(c, p, enabled);
   if (request.kind === 'finalize') await broadcastMoments(c, request.days, outputs);
+}
+
+/** An open post only while the episode runs; a recap for a day after it closes. Sent keys make a re-plan harmless. */
+function planPeg(c: RunContext, request: Extract<BroadcastRequest, { kind: 'peg' }>): Planned[] {
+  if (!pegConfig(c.env).publicPosts) return [];
+  const now = c.deps.now().getTime();
+  return request.episodes.flatMap((episode): Planned[] => {
+    if (!episode.public) return [];
+    const phase = episode.closed_at === null ? 'open' : 'close';
+    const due = phase === 'open' ? episode.public_at ?? episode.opened_at : episode.closed_at!;
+    if (phase === 'close' && now - Date.parse(due) > PEG_CLOSE_MAX_AGE_MS) return [];
+    return [{ target: { kind: 'peg', episode: episode.id, phase }, facts: { kind: 'peg', phase, episode, live: request.live }, retriesLater: now - Date.parse(due) < PEG_CARD_WAIT_MS }];
+  });
 }
 
 /** After the finalize posts, the moments due today, under their own switch; one moment's failure never stops the next. */
