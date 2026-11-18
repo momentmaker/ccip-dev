@@ -30,7 +30,7 @@ const LINE = { fontSize: 26, marginTop: 12, color: COLORS.soft };
 
 function routeLines(peg: PegFile, side: 'discount' | 'premium'): VNode[] {
   const r = peg[side];
-  const lines = [row(r.depth === null ? ['No Curve size beats 1:1'] : ['Curve beats 1:1 up to ', bold(`${linkAmount(r.depth)} ${side === 'discount' ? 'LINK' : 'stLINK'}`)], LINE)];
+  const lines = [row(r.depth === null ? ['No Curve size beats 1:1 now'] : ['Curve beats 1:1 now up to ', bold(`${linkAmount(r.depth)} ${side === 'discount' ? 'LINK' : 'stLINK'}`)], LINE)];
   lines.push(
     side === 'discount'
       ? row(['Redeem at 1:1 now: ', bold(`${linkAmount(r.instant)} LINK`), ' · ', bold(`${linkAmount(r.queued_ahead)} stLINK`), ' queued'], LINE)
@@ -46,7 +46,7 @@ function closeLines(episode: PegEpisodeView): VNode[] {
   return lines;
 }
 
-function body(peg: PegFile, episode: PegEpisodeView | null, phase: 'open' | 'close' | null, history: PegHistoryFile): VNode {
+function body(peg: PegFile, episode: PegEpisodeView | null, phase: 'open' | 'close' | null, history: PegHistoryFile | null): VNode {
   const closing = phase === 'close' && episode !== null;
   const side = episode?.side ?? (peg.gap < 0 ? 'discount' : 'premium');
   const gap = episode ? episode.peak_gap : peg.gap;
@@ -55,7 +55,7 @@ function body(peg: PegFile, episode: PegEpisodeView | null, phase: 'open' | 'clo
   const lines: VNode[] = [];
   if (!episode) {
     lines.push(row([bold(priceText(peg.spot))], LINE));
-    if (Math.abs(peg.gap) >= history.thresholds.private) lines.push(...routeLines(peg, side));
+    if (history && Math.abs(peg.gap) >= history.thresholds.private) lines.push(...routeLines(peg, side));
   } else if (closing) {
     lines.push(row(['peak'], LINE), ...closeLines(episode));
   } else {
@@ -71,20 +71,21 @@ function body(peg: PegFile, episode: PegEpisodeView | null, phase: 'open' | 'clo
   );
 }
 
-function insight(episode: PegEpisodeView | null, phase: 'open' | 'close' | null, history: PegHistoryFile) {
+function insight(episode: PegEpisodeView | null, phase: 'open' | 'close' | null, history: PegHistoryFile | null) {
   if (episode && phase === 'close' && episode.closed_at) return ['Closed ', bold(utcStamp(episode.closed_at))];
   if (episode && phase === 'open') return ['Opened ', bold(utcStamp(episode.opened_at))];
+  if (history === null) return [];
   const last = history.records.last_end;
   return last ? ['Last episode ended ', bold(utcStamp(last))] : ['No episode yet'];
 }
 
 /** The live peg for the page's share button (`focus` null), or one episode's open or close for its public post. */
 export async function pegTree(focus: { episode: number; phase: 'open' | 'close' } | null, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [peg, history] = await Promise.all([inputs.load('peg.json'), inputs.load('peg-history.json')]);
+  const [peg, history] = await Promise.all([inputs.load('peg.json'), inputs.load('peg-history.json').catch(() => null)]);
   const target = focus ?? (peg.episode ? { episode: peg.episode.id, phase: 'open' as const } : null);
   const episode = target === null ? null : ([peg.episode, ...peg.recent_episodes].find((e) => e?.id === target.episode) ?? null);
   if (target !== null && (episode === null || (target.phase === 'close' && episode.closed_at === null))) return null;
-  const spark = gapSpark(history);
+  const spark = history && gapSpark(history);
   return broadcastFrame({
     background: spark ? [spark] : [],
     eyebrow: `Chainlink staking · stLINK peg · ${utcStamp(peg.updated_at)}`,

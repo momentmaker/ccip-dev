@@ -5,7 +5,8 @@ import { shortAddress } from '@ccip-dev/core/names';
 import { HUNTER_MIN_GRABS, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RecordKind } from '@ccip-dev/core/records';
 import type { BroadcastFacts, CreFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, PegFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
-import { linkText, pctText, pegCurveLine, pegRouteLine, utcStamp } from '../peg-copy';
+import { linkAmount, utcStamp } from '@ccip-dev/core/peg-format';
+import { pctText, pegCurveLine, pegRouteLine } from '../peg-copy';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
 
@@ -375,7 +376,7 @@ function pegLines(f: PegFacts, text: (s: string) => string): Line[] {
     const lasted = formatDuration((Date.parse(e.closed_at!) - Date.parse(e.opened_at)) / 1000);
     return [
       { text: text(`The stLINK ${e.side} closed after ${lasted}.`) },
-      { text: text(`Peak: ${pctText(e.peak_gap)} at ${utcStamp(e.peak_at)}${e.best_size ? ` · best Curve size ${linkText(e.best_size)} LINK` : ''}`) },
+      { text: text(`Peak: ${pctText(e.peak_gap)} at ${utcStamp(e.peak_at)}${e.best_size ? ` · best Curve size ${linkAmount(e.best_size)} LINK` : ''}`) },
       { text: text(`Now: 1 stLINK = ${live.spot.toFixed(4)} LINK`) },
     ];
   }

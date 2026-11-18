@@ -128,6 +128,18 @@ describe('pegHistoryBody', () => {
   });
 });
 
+describe('pegHistoryBody markers', () => {
+  it('drops markers from before the first bar, which the chart cannot draw', () => {
+    // #given one marker before the bars begin and one inside them
+    const early = { hour: '2023-12-05T10:00:00.000Z', kind: 'stakelink_unbonding' as const, vaults: 40, link: null };
+    const inside = { hour: SEP_BARS[3]!.hour, kind: 'stakelink_unbonding' as const, vaults: 12, link: null };
+    // #when the body is built
+    const body = pegHistoryBody({ bars: SEP_BARS, markers: [early, inside], thresholds: T, now: new Date('2026-12-22T00:00:00Z') });
+    // #then only the drawable one is kept
+    expect(body.markers).toEqual([inside]);
+  });
+});
+
 describe('pegMarkerHours', () => {
   const e = (ts: string, kind: PegMarkerEvent['kind'], holder: string | null, amount: string | null = null): PegMarkerEvent => ({ blockNumber: 1, ts, kind, amount, holder });
 

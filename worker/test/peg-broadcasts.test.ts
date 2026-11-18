@@ -1,12 +1,13 @@
 import { decodePegReading, pegLiveBody } from '@ccip-dev/core';
 import type { PegEpisodeView } from '@ccip-dev/core/public';
 import { fakeFetch, PEG_LIVE_WORDS } from '@ccip-dev/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Broadcast, BroadcastOutput } from '../src/broadcasts/outputs';
 import { runBroadcasts } from '../src/broadcasts/run';
 import { harness, resetStorage } from './helpers';
 
 beforeEach(resetStorage);
+afterEach(() => vi.restoreAllMocks());
 
 const LIVE = { ...pegLiveBody(decodePegReading(PEG_LIVE_WORDS.map((w) => BigInt(w)))), spot: 0.9916, gap: -0.0084 };
 const EPISODE: PegEpisodeView = {
@@ -48,6 +49,16 @@ describe('public peg posts', () => {
 
   it('posts nothing while PEG_PUBLIC is off', async () => {
     expect((await pegRun('2026-11-18T00:25:00.000Z', [EPISODE], { publicPosts: false })).channel).toEqual([]);
+  });
+
+  it('stays quiet about missing outputs while PEG_PUBLIC is off', async () => {
+    // #given broadcasts on with no output configured, and public peg posts off
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const h = harness({ now: '2026-11-18T00:30:00.000Z', env: { BROADCASTS: 'on', PEG_PUBLIC: 'off' } });
+    // #when the 5-minute peg check asks to broadcast
+    await runBroadcasts(h.c, { kind: 'peg', live: LIVE, episodes: [EPISODE] }, { channel: [], xPost: [], drafts: [], preview: [] });
+    // #then nothing is logged
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('posts nothing for an episode that never went public', async () => {

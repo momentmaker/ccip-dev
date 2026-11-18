@@ -1,6 +1,6 @@
 import { PEG_FILE_FIXTURE, PEG_HISTORY_FIXTURE } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
-import { activeSide, episodeRows, formatGap, gapChart, markerLabel, nearestPoint, priceText, rangeRows, recordsView, routeRows } from '../src/lib/peg-view';
+import { activeSide, episodeRows, formatGap, gapChart, linkAmount, markerLabel, nearestPoint, priceText, rangeRows, recordsView, routeRows } from '../src/lib/peg-view';
 
 const NOW = new Date('2026-11-18T01:40:00.000Z');
 
@@ -42,7 +42,8 @@ describe('routeRows', () => {
 describe('routeRows after the payout time', () => {
   it('does not name a payout time that has passed', () => {
     const late = new Date('2026-11-18T16:00:00.000Z');
-    const queue = routeRows(PEG_FILE_FIXTURE, 'discount', late).find((r) => r.label === 'Withdrawal queue')!;
+    const closed = { ...PEG_FILE_FIXTURE, discount: { ...PEG_FILE_FIXTURE.discount, claim_window_open: false } };
+    const queue = routeRows(closed, 'discount', late).find((r) => r.label === 'Withdrawal queue')!;
     expect(queue.value).toBe('1,541 stLINK ahead · payout possible in the next claim window');
   });
 });
@@ -77,6 +78,38 @@ describe('gapChart', () => {
     expect(c.pins.map((p) => p.label)).toEqual(['80 stake.link vaults began unbonding']);
   });
 
+  describe('live point', () => {
+    const last = PEG_HISTORY_FIXTURE.days.at(-1)![0];
+    const later = new Date(Date.parse(last) + 3_600_000).toISOString();
+
+    it('extends the line to a live reading newer than the last bar', () => {
+      const c = gapChart(PEG_HISTORY_FIXTURE.days, { ...opts, live: { at: later, gap: -0.002 } })!;
+      expect(c.points).toHaveLength(PEG_HISTORY_FIXTURE.days.length + 1);
+      const tip = c.points.at(-1)!;
+      expect(tip.live).toBe(true);
+      expect(tip.x).toBe(590);
+      expect(tip.row[4]).toBeCloseTo(0.998, 9);
+      expect(c.path.split('L')).toHaveLength(PEG_HISTORY_FIXTURE.days.length + 1);
+    });
+
+    it('ignores a live reading that is not newer, or absent', () => {
+      const base = gapChart(PEG_HISTORY_FIXTURE.days, opts)!;
+      expect(gapChart(PEG_HISTORY_FIXTURE.days, { ...opts, live: { at: last, gap: 0.001 } })).toEqual(base);
+      expect(gapChart(PEG_HISTORY_FIXTURE.days, { ...opts, live: undefined })).toEqual(base);
+      expect(base.points.some((p) => p.live)).toBe(false);
+    });
+
+    it('keeps a large live gap inside the plot', () => {
+      const c = gapChart(PEG_HISTORY_FIXTURE.days, { ...opts, live: { at: later, gap: -0.5 } })!;
+      expect(c.points.at(-1)!.y).toBeLessThanOrEqual(200 - 20);
+    });
+  });
+
+  it('rounds path coordinates to one decimal', () => {
+    const c = gapChart(PEG_HISTORY_FIXTURE.days, opts)!;
+    expect(c.path).toMatch(/^(?:[ML]-?\d+(?:\.\d)? -?\d+(?:\.\d)? ?)+$/);
+  });
+
   it('finds the nearest point to the pointer', () => {
     const c = gapChart(PEG_HISTORY_FIXTURE.days, opts)!;
     expect(nearestPoint(c, 45)).toBe(0);
@@ -87,8 +120,8 @@ describe('gapChart', () => {
 describe('episodeRows', () => {
   it('lists episodes newest first, marking one still running', () => {
     expect(episodeRows(PEG_HISTORY_FIXTURE)).toEqual([
-      { side: 'premium', when: 'Sep 25', length: '21h', peak: '+5.64%' },
-      { side: 'discount', when: 'Sep 22', length: '79h', peak: '−0.88%' },
+      { key: PEG_HISTORY_FIXTURE.episodes[1]!.start, side: 'premium', when: 'Sep 25', length: '21h', peak: '+5.64%' },
+      { key: PEG_HISTORY_FIXTURE.episodes[0]!.start, side: 'discount', when: 'Sep 22', length: '79h', peak: '−0.88%' },
     ]);
     const running = { ...PEG_HISTORY_FIXTURE, episodes: [{ ...PEG_HISTORY_FIXTURE.episodes[0]!, end: null }] };
     expect(episodeRows(running)[0]!.length).toBe('79h, running');
@@ -124,5 +157,17 @@ describe('markerLabel and recordsView', () => {
       { label: 'Longest episode', value: '79 hours · discount from Sep 22' },
       { label: 'Since the last one', value: '52 days' },
     ]);
+  });
+});
+
+describe('linkAmount', () => {
+  it('keeps one decimal below 100 and whole numbers above', () => {
+    expect(linkAmount(5.04)).toBe('5.0');
+    expect(linkAmount(99.94)).toBe('99.9');
+    expect(linkAmount(1234.5)).toBe('1,235');
+  });
+
+  it('crosses to the whole-number form when rounding reaches 100', () => {
+    expect(linkAmount(99.96)).toBe('100');
   });
 });

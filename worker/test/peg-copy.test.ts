@@ -1,7 +1,7 @@
 import { decodePegReading, pegLiveBody, type PegLiveBody, type PegOpen } from '@ccip-dev/core';
 import { PEG_LIVE_WORDS } from '@ccip-dev/core/testing';
 import { describe, expect, it } from 'vitest';
-import { linkText, pctText, pegAlertText, pegRouteLine, utcStamp } from '../src/peg-copy';
+import { pctText, pegAlertText, pegRouteLine } from '../src/peg-copy';
 
 const BASE = pegLiveBody(decodePegReading(PEG_LIVE_WORDS.map((w) => BigInt(w))));
 const live = (over: Partial<PegLiveBody> & { discountOver?: Partial<PegLiveBody['discount']> } = {}): PegLiveBody => ({
@@ -10,14 +10,11 @@ const live = (over: Partial<PegLiveBody> & { discountOver?: Partial<PegLiveBody[
   discount: { ...BASE.discount, ...over.discountOver },
 });
 const OPEN: PegOpen = { side: 'discount', openedAt: '2026-11-18T00:00:00.000Z', peakGap: -0.0091, peakAt: '2026-11-18T01:10:00.000Z', tier: 0, public: false };
-const OPTS = { publicLine: 0.0075, publicPosts: true, bestSize: 38_000, now: new Date('2026-11-18T03:20:00.000Z') };
+const OPTS = { publicLine: 0.0075, posting: 'channel' as const, bestSize: 38_000, now: new Date('2026-11-18T03:20:00.000Z') };
 
 describe('formats', () => {
-  it('writes times, gaps and amounts the way the alerts read', () => {
-    expect(utcStamp('2026-11-18T15:50:11.000Z')).toBe('Nov 18 15:50 UTC');
+  it('writes a gap without its sign, the side says which', () => {
     expect(pctText(-0.0084)).toBe('0.84%');
-    expect(linkText(17.88)).toBe('17.9');
-    expect(linkText(38_000)).toBe('38,000');
   });
 });
 
@@ -50,13 +47,16 @@ describe('pegAlertText', () => {
     expect(text).toContain('Mint at 1:1: 1,541 LINK instant');
   });
 
-  it('names a crossed tier', () => {
-    expect(pegAlertText({ kind: 'tier', episode: OPEN, tier: 0.01 }, discount, OPTS).split('\n')[0]).toBe('stLINK discount past 1%: now 0.84% (1 stLINK = 0.9916 LINK)');
+  it('names a crossed tier with the peak that crossed it and the gap now', () => {
+    expect(pegAlertText({ kind: 'tier', episode: OPEN, tier: 0.01 }, discount, OPTS).split('\n')[0]).toBe('stLINK discount past 1%: peak 0.91%, now 0.84% (1 stLINK = 0.9916 LINK)');
   });
 
-  it('says whether crossing the public line posts to the channel', () => {
-    expect(pegAlertText({ kind: 'went_public', episode: OPEN }, discount, OPTS).split('\n')[0]).toBe('stLINK discount past the 0.75% public line: now 0.84%. Posting to the channel.');
-    expect(pegAlertText({ kind: 'went_public', episode: OPEN }, discount, { ...OPTS, publicPosts: false }).split('\n')[0]).toBe('stLINK discount past the 0.75% public line: now 0.84%. Public posts are off.');
+  it.each([
+    ['channel', 'Posting to the channel.'],
+    ['drafts', 'Broadcasts are in drafts mode: the post goes to drafts, not the channel.'],
+    ['off', 'Public posts are off.'],
+  ] as const)('says where crossing the public line posts when posting is %s', (posting, tail) => {
+    expect(pegAlertText({ kind: 'went_public', episode: OPEN }, discount, { ...OPTS, posting }).split('\n')[0]).toBe(`stLINK discount past the 0.75% public line: now 0.84%. ${tail}`);
   });
 
   it('recaps a close with its length, peak and best size', () => {
@@ -74,8 +74,18 @@ describe('pegRouteLine', () => {
   });
 
   it('does not name a payout time that has passed', () => {
-    const line = pegRouteLine('discount', discount, new Date('2026-11-18T16:00:00.000Z'));
+    const line = pegRouteLine('discount', live({ discountOver: { claim_window_open: false } }), new Date('2026-11-18T16:00:00.000Z'));
     expect(line).toContain('payout possible in the next claim window');
     expect(line).not.toContain('Nov 18 15:50');
+  });
+
+  it('does not also say no claim window is open once the payout waits on the next one', () => {
+    const line = pegRouteLine('discount', live({ discountOver: { claim_window_open: false } }), new Date('2026-11-18T16:00:00.000Z'));
+    expect(line).not.toContain('(no claim window open)');
+  });
+
+  it('says a payout is possible now once its time has passed inside an open claim window', () => {
+    const line = pegRouteLine('discount', live({ discountOver: { claim_window_open: true } }), new Date('2026-11-18T16:00:00.000Z'));
+    expect(line).toMatch(/next payout possible now$/);
   });
 });

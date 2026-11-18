@@ -42,7 +42,9 @@ export async function backfillPeg(c: RunContext): Promise<void> {
   const db = c.env.DB;
   if ((await store.getMeta(db, 'peg_backfill_done')) === '1') return;
   const startS = Date.parse(PEG_HISTORY_START) / 1000;
-  let before = Number((await store.getMeta(db, 'peg_backfill_before')) ?? Math.floor(c.deps.now().getTime() / 1000));
+  const stored = await store.getMeta(db, 'peg_backfill_before');
+  let before = stored === null ? Math.floor(c.deps.now().getTime() / 1000) : Number(stored);
+  if (!Number.isFinite(before)) throw new Error(`peg_backfill_before is unreadable: ${stored}`);
   for (let page = 0; page < PEG_PAGES_PER_RUN && before > startS; page++) {
     const from = Math.max(startS, before - PEG_PAGE_S);
     await pegStore.upsertPegHours(db, await fetchPegBars(c.deps, from, before));
@@ -72,12 +74,16 @@ export async function scanPegMarkers(c: RunContext): Promise<void> {
   const classifiedTo = await store.stakersClassifiedTo(db);
   if (classifiedTo === null) return;
   let cursor = Number((await store.getMeta(db, 'peg_marker_block')) ?? '0');
-  for (let batch = 0; batch < MARKER_BATCHES_PER_RUN; batch++) {
+  for (let batch = 0; batch < MARKER_BATCHES_PER_RUN && cursor < classifiedTo; batch++) {
     const events = await pegStore.pegMarkerEvents(db, cursor, classifiedTo, PEG_MARKER_BATCH);
-    if (events.length === 0) return;
-    const last = events.at(-1)!.blockNumber;
+    if (events.length < PEG_MARKER_BATCH) {
+      await pegStore.addPegMarkers(db, pegMarkerHours(events), classifiedTo);
+      return;
+    }
     // A full batch may end inside a block; that block is read whole next time.
-    const whole = events.length === PEG_MARKER_BATCH ? events.filter((e) => e.blockNumber < last) : events;
+    const last = events.at(-1)!.blockNumber;
+    const whole = events.filter((e) => e.blockNumber < last);
+    if (whole.length === 0) console.warn(`[peg] block ${last} alone fills a marker batch of ${PEG_MARKER_BATCH}; the rest of it is skipped`);
     const kept = whole.length > 0 ? whole : events;
     cursor = kept.at(-1)!.blockNumber;
     await pegStore.addPegMarkers(db, pegMarkerHours(kept), cursor);

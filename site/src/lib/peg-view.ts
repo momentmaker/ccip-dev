@@ -1,5 +1,8 @@
+import { linkAmount, payoutWhen, utcStamp } from '@ccip-dev/core/peg-format';
 import type { PegFile, PegHistoryFile } from '@ccip-dev/core/public';
 import { formatCount } from './format';
+
+export { linkAmount, utcStamp };
 
 type Side = 'discount' | 'premium';
 type Row = PegHistoryFile['hours'][number];
@@ -7,7 +10,6 @@ type Marker = PegHistoryFile['markers'][number];
 type Episode = PegHistoryFile['episodes'][number];
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const pad = (n: number) => String(n).padStart(2, '0');
 const DAY_MS = 86_400_000;
 const unit = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
 
@@ -17,12 +19,6 @@ export function formatGap(gap: number): string {
 }
 
 export const priceText = (spot: number) => `1 stLINK = ${spot.toFixed(5)} LINK`;
-export const linkAmount = (n: number) => (n < 100 ? n.toFixed(1) : formatCount(n));
-
-export function utcStamp(iso: string): string {
-  const d = new Date(iso);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
-}
 
 const shortDay = (iso: string) => `${MONTHS[new Date(iso).getUTCMonth()]} ${new Date(iso).getUTCDate()}`;
 
@@ -40,13 +36,11 @@ export function routeRows(peg: PegFile, side: Side, now: Date): RouteRow[] {
   const curve = r.depth === null || r.profit === null ? 'no size after fees' : `up to ${linkAmount(r.depth)} ${side === 'discount' ? 'LINK' : 'stLINK'} · +${r.profit.toFixed(2)} LINK`;
   const tradeable = r.tradeable > 0 ? `${linkAmount(r.tradeable)} LINK${r.tradeable_profit === null ? '' : ` · +${r.tradeable_profit.toFixed(2)} LINK`}` : 'none';
   if (side === 'discount') {
-    const window = peg.discount.claim_window_open ? '' : ' · no claim window open';
-    const payout = Date.parse(peg.discount.next_payout_after) > now.getTime() ? `next payout after ${utcStamp(peg.discount.next_payout_after)}` : 'payout possible in the next claim window';
     return [
       { label: 'Curve, under 1:1', value: curve },
       { label: 'Redeem at 1:1 now', value: `${linkAmount(r.instant)} LINK` },
       { label: 'Tradeable now', value: tradeable },
-      { label: 'Withdrawal queue', value: `${linkAmount(r.queued_ahead)} stLINK ahead · ${payout}${window}` },
+      { label: 'Withdrawal queue', value: `${linkAmount(r.queued_ahead)} stLINK ahead · ${payoutWhen(peg.discount, now)}` },
     ];
   }
   return [
@@ -83,7 +77,7 @@ export interface GapChart {
   zeroY: number;
   bands: { y: number; line: number }[];
   ticks: { y: number; label: string }[];
-  points: { x: number; y: number; row: Row }[];
+  points: { x: number; y: number; row: Row; live?: true }[];
   spans: { x0: number; x1: number; side: Side }[];
   pins: { x: number; label: string }[];
 }
@@ -95,11 +89,18 @@ export interface GapChartOptions {
   thresholds: { private: number; public: number };
   episodes: readonly Episode[];
   markers: readonly Marker[];
+  live?: { at: string; gap: number };
 }
 
-/** Closes as a line around zero; the scale is symmetric so a discount and a premium of the same size look the same. */
-export function gapChart(rows: readonly Row[], o: GapChartOptions): GapChart | null {
-  if (rows.length === 0) return null;
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Closes as a line around zero; the scale is symmetric so a discount and a premium of the same size look the same. A live reading newer than the last bar extends the line. */
+export function gapChart(bars: readonly Row[], o: GapChartOptions): GapChart | null {
+  if (bars.length === 0) return null;
+  const lastBar = Date.parse(bars.at(-1)![0]);
+  const liveMs = o.live ? Date.parse(o.live.at) : Number.NaN;
+  const hasLive = o.live !== undefined && liveMs > lastBar;
+  const rows: readonly Row[] = hasLive ? [...bars, [o.live!.at, 1 + o.live!.gap, 1 + o.live!.gap, 1 + o.live!.gap, 1 + o.live!.gap] as Row] : bars;
   const t0 = Date.parse(rows[0]![0]);
   const t1 = Date.parse(rows.at(-1)![0]);
   const innerW = o.width - o.pad.left - o.pad.right;
@@ -107,10 +108,10 @@ export function gapChart(rows: readonly Row[], o: GapChartOptions): GapChart | n
   const reach = Math.max(o.thresholds.public * 1.25, ...rows.flatMap((r) => [Math.abs(r[2] - 1), Math.abs(r[3] - 1)]));
   const x = (ms: number) => o.pad.left + (t1 === t0 ? innerW : ((ms - t0) / (t1 - t0)) * innerW);
   const y = (gap: number) => o.pad.top + ((reach - gap) / (2 * reach)) * innerH;
-  const points = rows.map((row) => ({ x: x(Date.parse(row[0])), y: y(row[4] - 1), row }));
+  const points = rows.map((row, i) => ({ x: x(Date.parse(row[0])), y: y(row[4] - 1), row, ...(hasLive && i === rows.length - 1 ? { live: true as const } : {}) }));
   const clamp = (ms: number) => Math.min(Math.max(ms, t0), t1);
   return {
-    path: points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' '),
+    path: points.map((p, i) => `${i === 0 ? 'M' : 'L'}${round1(p.x)} ${round1(p.y)}`).join(' '),
     zeroY: y(0),
     bands: [o.thresholds.public, o.thresholds.private, -o.thresholds.private, -o.thresholds.public].map((line) => ({ y: y(line), line })),
     ticks: [reach, 0, -reach].map((g) => ({ y: y(g), label: formatGap(g) })),
@@ -142,6 +143,7 @@ export function recordsView(history: PegHistoryFile, now: Date): RouteRow[] {
 }
 
 export interface EpisodeRow {
+  key: string;
   side: Side;
   when: string;
   length: string;
@@ -152,5 +154,5 @@ export function episodeRows(history: PegHistoryFile, limit = 10): EpisodeRow[] {
   return [...history.episodes]
     .reverse()
     .slice(0, limit)
-    .map((e) => ({ side: e.side, when: shortDay(e.start), length: `${formatCount(e.hours)}h${e.end === null ? ', running' : ''}`, peak: formatGap(e.peak_gap) }));
+    .map((e) => ({ key: e.start, side: e.side, when: shortDay(e.start), length: `${formatCount(e.hours)}h${e.end === null ? ', running' : ''}`, peak: formatGap(e.peak_gap) }));
 }

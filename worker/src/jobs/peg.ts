@@ -1,8 +1,9 @@
 import { pegLiveBody, readPegLive, stepPeg, type PegEvent, type PegLiveBody, type PegMachine, type PegOpen, type PegReading, type PegSample, type PegThresholds } from '@ccip-dev/core';
 import type { PegEpisodeView } from '@ccip-dev/core/public';
+import { broadcastMode } from '../broadcasts/outputs';
 import { broadcastSafely } from '../broadcasts/run';
 import type { RunContext } from '../context';
-import { pegAlertText } from '../peg-copy';
+import { pegAlertText, type PegPosting } from '../peg-copy';
 import { PEG_ATTRIBUTION, pegConfig } from '../peg-config';
 import * as pegStore from '../peg-store';
 import { putJson, TTL } from '../publish';
@@ -43,7 +44,7 @@ async function readOrCount(c: RunContext): Promise<PegReading | null> {
   const db = c.env.DB;
   try {
     const reading = await readPegLive(c.deps, balanceRpcUrls(c.env));
-    await store.setMeta(db, 'peg_failures', '0');
+    if ((await store.getMeta(db, 'peg_failures')) !== '0') await store.setMeta(db, 'peg_failures', '0');
     return reading;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -116,10 +117,16 @@ async function advanceEpisodes(c: RunContext, live: PegLiveBody, config: { thres
   await store.setMeta(db, PREV_KEY, JSON.stringify({ at: now.toISOString(), gap: live.gap } satisfies PegSample));
 
   for (const e of step.events) {
-    const text = pegAlertText(e, live, { publicLine: config.thresholds.public, publicPosts: config.publicPosts, bestSize: bestAtClose.get(e) ?? null, now });
+    const text = pegAlertText(e, live, { publicLine: config.thresholds.public, posting: pegPosting(c, config.publicPosts), bestSize: bestAtClose.get(e) ?? null, now });
     await sendPegAlert(c, e.kind, text);
   }
   return { episodes: (await pegStore.recentPegEpisodes(db, PEG_RECENT)).map(episodeView) };
+}
+
+function pegPosting(c: RunContext, publicPosts: boolean): PegPosting {
+  const mode = broadcastMode(c.env);
+  if (!publicPosts || mode === 'off') return 'off';
+  return mode === 'on' ? 'channel' : 'drafts';
 }
 
 function fields(o: PegOpen, t: Tracked) {

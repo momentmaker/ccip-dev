@@ -6,7 +6,9 @@ const FALLBACK_WIDTH = 720;
 const WIDE_FROM = 560;
 const PAD = { top: 14, right: 12, bottom: 22, left: 52 };
 
-export default function PegChart({ history, now }: { history: PegHistoryFile; now: Date }) {
+const HOUR_MS = 3_600_000;
+
+export default function PegChart({ history, now, live }: { history: PegHistoryFile; now: Date; live?: { at: string; gap: number } }) {
   const [range, setRange] = useState<PegRange>('30D');
   const [hover, setHover] = useState<number | null>(null);
   const [measured, setMeasured] = useState<number | null>(null);
@@ -22,17 +24,21 @@ export default function PegChart({ history, now }: { history: PegHistoryFile; no
     return () => observer.disconnect();
   }, []);
 
+  const hour = Math.floor(now.getTime() / HOUR_MS);
+  const liveAt = live?.at;
+  const liveGap = live?.gap;
   const chart = useMemo(
     () =>
-      gapChart(rangeRows(history, range, now), {
+      gapChart(rangeRows(history, range, new Date(hour * HOUR_MS)), {
         width: W,
         height: H,
         pad: PAD,
         thresholds: history.thresholds,
         episodes: history.episodes,
         markers: history.markers,
+        live: liveAt === undefined || liveGap === undefined ? undefined : { at: liveAt, gap: liveGap },
       }),
-    [history, range, now, W, H],
+    [history, range, hour, liveAt, liveGap, W, H],
   );
   const point = chart && hover !== null ? chart.points[hover] : null;
   return (
@@ -96,13 +102,14 @@ export default function PegChart({ history, now }: { history: PegHistoryFile; no
                 </circle>
               </g>
             ))}
+            {chart.points.at(-1)?.live && <circle cx={chart.points.at(-1)!.x} cy={chart.points.at(-1)!.y} r={3} className="peg-live" />}
             {point && <circle cx={point.x} cy={point.y} r={4} className="peg-dot" />}
           </svg>
         )}
       </div>
-      <p className="foot peg-readout" aria-live="polite">
+      <p className="foot peg-readout">
         {point
-          ? `${utcStamp(point.row[0])} · close ${formatGap(point.row[4] - 1)} · low ${formatGap(point.row[3] - 1)} · high ${formatGap(point.row[2] - 1)}`
+          ? `${utcStamp(point.row[0])}${point.live ? ' (live)' : ''} · close ${formatGap(point.row[4] - 1)} · low ${formatGap(point.row[3] - 1)} · high ${formatGap(point.row[2] - 1)}`
           : `Shaded: episodes past ${formatGap(history.thresholds.private).replace('+', '±')}. Pins: stake.link vault activity.`}
       </p>
     </div>

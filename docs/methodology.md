@@ -287,8 +287,8 @@ its price on Curve's stLINK/LINK-ng pool (`0x7e13…1761`), the main market.
   paid out at most every 3 days inside a claim window. A premium is closed by minting at 1:1, instant only while no LINK
   is queued, into the withdrawal queue and then the pool's room. **Tradeable now** is the smaller of the Curve depth and
   the instant capacity.
-- **Episodes.** An episode opens when the gap stays at or past 0.3% for two 5-minute checks in a row, and closes when it
-  stays under 0.15% or flips side for two. History before launch uses the same rule on hourly closes with one bar, so
+- **Episodes.** An episode opens when the gap stays at or past the private line (0.3%) for two 5-minute checks in a
+  row, and closes when it stays under half that line (0.15%) or flips side for two. History before launch uses the same rule on hourly closes with one bar, so
   the episode list and an alert's numbers can differ slightly.
 - **Episode peak.** Public episode posts and cards show the episode's own peak ("peak so far" while it is open), not the
   live gap at the moment they are drawn.

@@ -94,6 +94,15 @@ describe('runPegHistory', () => {
     expect(await store.getMeta(env.DB, 'peg_history_failures')).toBe('1');
   });
 
+  it('counts an unreadable backfill cursor as a failure instead of stalling quietly', async () => {
+    // #given a corrupt cursor
+    await store.setMeta(env.DB, 'peg_backfill_before', 'garbage');
+    // #when the hourly run goes
+    await runPegHistory(harness({ now: '2025-05-20T00:00:00.000Z', fetch: curve() }).c);
+    // #then it is counted toward the alert
+    expect(await store.getMeta(env.DB, 'peg_history_failures')).toBe('1');
+  });
+
   it('alerts a failed marker scan at once under its own signature, and still publishes', async () => {
     vi.spyOn(pegStore, 'pegMarkerEvents').mockRejectedValue(new Error('scan broke'));
     await store.setMeta(env.DB, store.STAKING_CLASSIFIED_KEY, '1');

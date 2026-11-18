@@ -55,6 +55,22 @@ describe('scanPegMarkers', () => {
     expect(await store.getMeta(env.DB, 'peg_marker_block')).toBe(String(STAKING_FIRST_BLOCK + 1));
   });
 
+  it('moves its cursor to the classified block once it has read everything up to it', async () => {
+    // #given one matching event and a classified cursor further on
+    await seed([event(0, STAKING_FIRST_BLOCK + 1, '2026-09-23T16:00:00.000Z', 'unbonding')]);
+    await store.setMeta(env.DB, 'staking_classified_block', String(STAKING_FIRST_BLOCK + 40));
+    // #when the marker scan runs
+    await scanPegMarkers(harness({ now: NOW }).c);
+    // #then the next run starts from the classified block, not the last match
+    expect(await store.getMeta(env.DB, 'peg_marker_block')).toBe(String(STAKING_FIRST_BLOCK + 40));
+  });
+
+  it('moves its cursor even when nothing new matches', async () => {
+    await store.setMeta(env.DB, 'staking_classified_block', String(STAKING_FIRST_BLOCK + 40));
+    await scanPegMarkers(harness({ now: NOW }).c);
+    expect(await store.getMeta(env.DB, 'peg_marker_block')).toBe(String(STAKING_FIRST_BLOCK + 40));
+  });
+
   it(`never splits a block across batches of ${PEG_MARKER_BATCH}`, async () => {
     const big = Array.from({ length: PEG_MARKER_BATCH + 5 }, (_, i) => event(i, STAKING_FIRST_BLOCK + (i < PEG_MARKER_BATCH - 2 ? 1 : 2), '2026-09-23T16:00:00.000Z', 'unbonding'));
     await seed(big);
@@ -64,7 +80,7 @@ describe('scanPegMarkers', () => {
 
   it('publishes the markers in peg-history.json', async () => {
     await seed(Array.from({ length: 10 }, (_, i) => event(i, STAKING_FIRST_BLOCK + 10, '2026-09-23T16:00:12.000Z', 'unbonding')));
-    const curve = fakeFetch(() => jsonResponse({ data: [{ time: 1_790_366_400, open: 1, high: 1, low: 1, close: 1 }] }));
+    const curve = fakeFetch(() => jsonResponse({ data: [{ time: Date.parse('2026-09-23T16:00:00Z') / 1000, open: 1, high: 1, low: 1, close: 1 }] }));
     await runPegHistory(harness({ now: NOW, fetch: curve }).c);
     expect(PegHistoryFileSchema.parse(await readPublic('peg-history.json')).markers).toHaveLength(1);
   });
