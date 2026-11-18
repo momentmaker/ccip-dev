@@ -12,6 +12,7 @@ import ExitQueue from './ExitQueue';
 import GapHunt from './GapHunt';
 import Hive from './Hive';
 import Operators from './Operators';
+import Peg from './Peg';
 import RewardsTicker from './RewardsTicker';
 import StakerLookup from './StakerLookup';
 import Stakers from './Stakers';
@@ -21,6 +22,7 @@ const FULL_TOLERANCE = 0.001;
 const SECTIONS = [
   ['pool', 'The pool'],
   ['queue', 'Exit queue'],
+  ['peg', 'stLINK peg'],
   ['hunt', 'Gap hunt'],
   ['stakers', 'Stakers'],
   ['card', 'Your card'],
@@ -119,6 +121,7 @@ export default function StakingView({ initial, linkPriceUsd }: { initial: Stakin
       </section>
       <JumpNav />
       {now && <ExitQueue staking={staking} now={now} />}
+      <Peg now={now} />
       <GapHunt staking={staking} />
       <Stakers staking={staking} />
       <div className="panel lookup-panel" id="card">

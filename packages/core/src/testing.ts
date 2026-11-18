@@ -4,12 +4,13 @@ import type { ListMessage, NetworkInfo, RegistryToken } from './ccip/schemas';
 import type { CoingeckoClient, CoingeckoLists } from './coingecko';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
-import type { StakingFile } from './public';
+import type { PegFile, PegHistoryFile, StakingFile } from './public';
 import type { Label, LabelIndex } from './labels';
 import type { SenderChain, SenderRow } from './senders';
 import type { DailyBreakdown, DailyTotals, PriceInfo } from './types';
 import type { RosterFile } from './roster';
 import { PEG_POOL } from './peg';
+import { decodePegReading, pegLiveBody } from './peg-live';
 
 export type FakeRoute = (url: string, init?: RequestInit) => Response | undefined | Promise<Response | undefined>;
 export type FakeFetch = typeof fetch & { calls: { url: string; init?: RequestInit }[] };
@@ -395,3 +396,44 @@ export function pegRpc(over: Partial<Record<number, string>> = {}): FakeRoute {
     return jsonResponse((body as { id: number }[]).map((c) => ({ jsonrpc: '2.0', id: c.id, result: over[c.id] ?? PEG_LIVE_WORDS[c.id] })));
   };
 }
+
+export const PEG_FILE_FIXTURE: PegFile = {
+  schema_version: 1,
+  updated_at: '2026-11-18T01:35:00.000Z',
+  attribution: 'Data: Curve (prices.curve.finance), Ethereum mainnet, stake.link contracts',
+  thresholds: { private: 0.003, public: 0.0075 },
+  ...pegLiveBody(decodePegReading(PEG_LIVE_WORDS.map((w) => BigInt(w)))),
+  episode: null,
+  recent_episodes: [
+    { id: 2, side: 'premium', opened_at: '2026-09-25T20:00:00.000Z', closed_at: '2026-09-26T16:00:00.000Z', peak_gap: 0.0564, peak_at: '2026-09-25T22:00:00.000Z', best_size: 50_000, best_profit: 1_204.5, public: true, public_at: '2026-09-25T20:05:00.000Z' },
+  ],
+};
+
+export const PEG_HISTORY_FIXTURE: PegHistoryFile = {
+  schema_version: 1,
+  updated_at: '2026-11-18T01:00:00.000Z',
+  attribution: PEG_FILE_FIXTURE.attribution,
+  thresholds: { private: 0.003, public: 0.0075 },
+  hours: [
+    ['2026-11-17T23:00:00.000Z', 0.9997, 0.9998, 0.9996, 0.9997],
+    ['2026-11-18T00:00:00.000Z', 0.9997, 0.9998, 0.9995, 0.9996],
+    ['2026-11-18T01:00:00.000Z', 0.9996, 0.9998, 0.9996, 0.99975],
+  ],
+  days: [
+    ['2026-09-23T00:00:00.000Z', 0.9949, 0.9967, 0.9914, 0.9939],
+    ['2026-09-25T00:00:00.000Z', 0.9916, 1.0564, 0.9912, 1.0186],
+    ['2026-11-17T00:00:00.000Z', 0.9997, 0.9998, 0.9996, 0.9997],
+    ['2026-11-18T00:00:00.000Z', 0.9997, 0.9998, 0.9995, 0.99975],
+  ],
+  markers: [{ hour: '2026-09-23T16:00:00.000Z', kind: 'stakelink_unbonding', vaults: 80, link: null }],
+  episodes: [
+    { side: 'discount', start: '2026-09-22T12:00:00.000Z', end: '2026-09-25T19:00:00.000Z', peak_gap: -0.0088, peak_at: '2026-09-25T11:00:00.000Z', hours: 79 },
+    { side: 'premium', start: '2026-09-25T19:00:00.000Z', end: '2026-09-26T16:00:00.000Z', peak_gap: 0.0564, peak_at: '2026-09-25T21:00:00.000Z', hours: 21 },
+  ],
+  records: {
+    deepest_discount: { gap: -0.0088, hour: '2026-09-25T11:00:00.000Z' },
+    highest_premium: { gap: 0.0564, hour: '2026-09-25T21:00:00.000Z' },
+    longest: { side: 'discount', start: '2026-09-22T12:00:00.000Z', end: '2026-09-25T19:00:00.000Z', peak_gap: -0.0088, peak_at: '2026-09-25T11:00:00.000Z', hours: 79 },
+    last_end: '2026-09-26T16:00:00.000Z',
+  },
+};
