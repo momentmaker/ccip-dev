@@ -1,4 +1,4 @@
-import type { PegFile, PegHistoryFile, StakingFile } from '@ccip-dev/core/public';
+import type { StakingFile } from '@ccip-dev/core/public';
 import { useEffect, useState } from 'react';
 import { trackDataError } from '../../lib/analytics';
 import { fetchPublic } from '../../lib/data';
@@ -54,17 +54,7 @@ function Pending() {
   );
 }
 
-export default function StakingView({
-  initial,
-  linkPriceUsd,
-  initialPeg,
-  initialPegHistory,
-}: {
-  initial: StakingFile | null;
-  linkPriceUsd: number | null;
-  initialPeg: PegFile | null;
-  initialPegHistory: PegHistoryFile | null;
-}) {
+export default function StakingView({ initial, linkPriceUsd }: { initial: StakingFile | null; linkPriceUsd: number | null }) {
   const [staking, setStaking] = useState(initial);
   const [failed, setFailed] = useState(false);
   const now = useNow(60_000);
@@ -131,7 +121,7 @@ export default function StakingView({
       </section>
       <JumpNav />
       {now && <ExitQueue staking={staking} now={now} />}
-      <Peg initial={initialPeg} history={initialPegHistory} now={now} />
+      <Peg now={now} />
       <GapHunt staking={staking} />
       <Stakers staking={staking} />
       <div className="panel lookup-panel" id="card">

@@ -1,5 +1,6 @@
 import type { PegFile, PegHistoryFile } from '@ccip-dev/core/public';
 import { useEffect, useState } from 'react';
+import { trackDataError } from '../../lib/analytics';
 import { fetchPublic } from '../../lib/data';
 import { activeSide, episodeRows, formatGap, priceText, recordsView, routeRows, utcStamp } from '../../lib/peg-view';
 import FreshnessNote from '../FreshnessNote';
@@ -25,19 +26,43 @@ function Route({ peg, side }: { peg: PegFile; side: 'discount' | 'premium' }) {
   );
 }
 
-export default function Peg({ initial, history: initialHistory, now }: { initial: PegFile | null; history: PegHistoryFile | null; now: Date | null }) {
-  const [peg, setPeg] = useState(initial);
-  const [history, setHistory] = useState(initialHistory);
+export default function Peg({ now }: { now: Date | null }) {
+  const [peg, setPeg] = useState<PegFile | null>(null);
+  const [history, setHistory] = useState<PegHistoryFile | null>(null);
+  const [pegSettled, setPegSettled] = useState(false);
+  const [historySettled, setHistorySettled] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let live = true;
     const refresh = () =>
       fetchPublic('peg.json').then(
-        (next) => live && (setPeg(next), setFailed(false)),
-        () => live && setFailed(true),
+        (next) => {
+          if (!live) return;
+          setPeg(next);
+          setFailed(false);
+          setPegSettled(true);
+        },
+        () => {
+          if (!live) return;
+          setFailed(true);
+          setPegSettled(true);
+          trackDataError('peg.json');
+        },
       );
-    fetchPublic('peg-history.json').then((next) => live && setHistory(next), () => {});
+    refresh();
+    fetchPublic('peg-history.json').then(
+      (next) => {
+        if (!live) return;
+        setHistory(next);
+        setHistorySettled(true);
+      },
+      () => {
+        if (!live) return;
+        setHistorySettled(true);
+        trackDataError('peg-history.json');
+      },
+    );
     const timer = setInterval(refresh, POLL_MS);
     return () => {
       live = false;
@@ -45,7 +70,18 @@ export default function Peg({ initial, history: initialHistory, now }: { initial
     };
   }, []);
 
-  if (peg === null && history === null) return null;
+  if (peg === null && history === null) {
+    if (pegSettled && historySettled) return null;
+    return (
+      <section className="band" id="peg" aria-labelledby="peg-title">
+        <div className="band-head">
+          <p className="eyebrow">stLINK peg</p>
+          <h2 id="peg-title">stLINK on Curve</h2>
+          <p className="foot">Loading the peg…</p>
+        </div>
+      </section>
+    );
+  }
   const episode = peg?.episode ?? null;
   return (
     <section className="band" id="peg" aria-labelledby="peg-title">
