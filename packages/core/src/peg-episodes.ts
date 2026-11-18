@@ -164,7 +164,7 @@ export function pegHistoryBody(input: { bars: readonly PegBar[]; markers: readon
   return {
     hours: input.bars.filter((b) => b.hour >= since).map(barRow),
     days: pegDays(input.bars).map(barRow),
-    markers: [...input.markers],
+    markers: input.markers.filter((m) => input.bars.length > 0 && m.hour >= input.bars[0]!.hour),
     episodes,
     records: pegRecords(input.bars, episodes),
   };
