@@ -8,7 +8,7 @@ import { harness, readPublic, resetStorage } from './helpers';
 
 beforeEach(resetStorage);
 
-const ENV = { RPC_ETHEREUM: 'https://rpc.one', RPC_FALLBACKS: '', TELEGRAM_BOT_TOKEN: 't', TELEGRAM_ALERT_CHAT_ID: '42' };
+const ENV = { RPC_ETHEREUM: 'https://rpc.one', RPC_FALLBACKS: '', TELEGRAM_BOT_TOKEN: 't', TELEGRAM_ALERT_CHAT_ID: '42', PEG_PUBLIC: 'off' };
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 18, 0, minute)).toISOString();
 
 /** Runs one check at `minute` with stLINK at `spot` LINK; returns the alert-chat messages it sent. */
