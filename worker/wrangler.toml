@@ -28,7 +28,7 @@ TELEGRAM_CHANNEL_ID = "@ccipdev"
 X_POSTS = "on"
 PEG_ALERT_PRIVATE_PCT = "0.3"
 PEG_ALERT_PUBLIC_PCT = "0.75"
-PEG_PUBLIC = "off"
+PEG_PUBLIC = "on"
 
 [observability]
 enabled = true
