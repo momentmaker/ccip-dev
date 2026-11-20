@@ -15,3 +15,8 @@ note = "USDC deposit spoke of the Avalanche 0xA9167757… hub, deployer 0xD52dac
 chain = "avalanche-mainnet"
 address = "0xa916775778c109a96c65b2b639e60425ceacabe5"
 note = "USDC hub of the 0xD52dac34… app; spokes Ethereum 0x5c32d9da…, Base 0xA2E64BB1…, Arbitrum 0xcCE5c4DB…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xcf4d1b59c43f0e19f7e0e0416067e999f12cd1e6"
+note = "DealCoin broadcaster: one mint message over Axelar, CCIP and LayerZero; owner 0xE88c63D2…"

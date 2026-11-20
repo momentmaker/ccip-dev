@@ -1,0 +1,16 @@
+# Source: https://github.com/Veda-Labs/boring-vault/blob/main/script/MerkleRootCreation/Mainnet/CreateSentoraBTCMerkleRoot.s.sol and the same script under Ink/ ("address public boringVault = 0x7Dee0120739b7ec048B469939EFB178ADbbB19B2"; Veda administers Kraken's Bitcoin Vault, with Sentora as strategist)
+name = "Veda"
+x = "veda_labs"
+url = "https://veda.tech"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x7dee0120739b7ec048b469939efb178adbbb19b2"
+note = "Advanced Strategies BTC (sentoraBTC) BoringVault, Kraken Bitcoin Vault"
+
+[[addresses]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x7dee0120739b7ec048b469939efb178adbbb19b2"
+note = "Advanced Strategies BTC (sentoraBTC) BoringVault, Kraken Bitcoin Vault"

@@ -50,6 +50,46 @@
         "chain": "ethereum-mainnet-arbitrum-1",
         "address": "0x5547e38674ecba8fa553475615dfaceb1abc32da",
         "note": "Previous ArbitrumBridgeSettler (0x contracts dashboard, prevAddress)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x8112979f19427d9e794f68ef7705a40c26d330ef",
+        "note": "BnbBridgeSettler (0x contracts dashboard, BridgeSettler)"
+      },
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x7e23639adc34f0b68d97d70c21980f276714a59e",
+        "note": "Previous BnbBridgeSettler (0x contracts dashboard, prevAddress)"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0xaa691df10d9fedf08a6164a1af66328828cdb520",
+        "note": "RobinHoodBridgeSettler (0x contracts dashboard, BridgeSettler)"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0x91cc7096b48e3fa7e4e8db58192be9649baf2221",
+        "note": "Previous RobinHoodBridgeSettler (0x contracts dashboard, prevAddress)"
+      },
+      {
+        "chain": "ethereum-mainnet-mantle-1",
+        "address": "0x66eeec08e9ddca54e96e7325f5ba1c94de5dce6c",
+        "note": "MantleBridgeSettler (0x contracts dashboard, BridgeSettler)"
+      },
+      {
+        "chain": "ethereum-mainnet-mantle-1",
+        "address": "0x868258292d6b4d62330ff4b2e33516c6933fd9ac",
+        "note": "Previous MantleBridgeSettler (0x contracts dashboard, prevAddress)"
+      },
+      {
+        "chain": "ethereum-mainnet-ink-1",
+        "address": "0x9c3eda79bc6ab8fb735f18107f45afe72316dd57",
+        "note": "InkBridgeSettler (0x contracts dashboard, BridgeSettler)"
+      },
+      {
+        "chain": "ethereum-mainnet-ink-1",
+        "address": "0x3740935852ba55174dd2d0871101cd08cac971d0",
+        "note": "Previous InkBridgeSettler (0x contracts dashboard, prevAddress)"
       }
     ],
     "tokens": []
@@ -85,6 +125,11 @@
         "chain": "ethereum-mainnet",
         "address": "0x7f2f96fcdc3a29be75938d2ac3d92e7006919fe6",
         "note": "AaveGhoCcipBridge, bridges GHO over CCIP"
+      },
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xa1c93d2687f7014aaf588c764e3ce80af016229b",
+        "note": "GhoLiquidityCommittee (Aave docs, GHO)"
       }
     ],
     "tokens": [
@@ -171,12 +216,17 @@
     "x": "Bifrost",
     "url": "https://bifrost.io",
     "kind": "protocol",
-    "source": null,
+    "source": "https://github.com/bifrost-io/slpx-contracts (deployments/soneium/SoneiumSlpx.json and deployments/astar/AstarReceiver.json)",
     "addresses": [
       {
         "chain": "soneium-mainnet",
         "address": "0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2",
         "note": "SLPx on Soneium (bifrost-io/slpx-contracts deployments/soneium/SoneiumSlpx.json)"
+      },
+      {
+        "chain": "polkadot-mainnet-astar",
+        "address": "0x825cddfb8f28f1c09577a20f649e2736886380c4",
+        "note": "AstarReceiver, SLPx on Astar (bifrost-io/slpx-contracts deployments/astar)"
       }
     ],
     "tokens": []
@@ -216,12 +266,27 @@
     "x": "SocketProtocol",
     "url": "https://www.socket.tech",
     "kind": "protocol",
-    "source": null,
+    "source": "https://github.com/SocketDotTech/openrouter/blob/main/deployments.csv (openRouterAddress 0x50cFe7c1938dB66A1a6D2e86D36F39FBef3d5c4a for chain ids 1, 8453, 9745 and 143)",
     "addresses": [
       {
         "chain": "ethereum-mainnet",
         "address": "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a",
         "note": "OpenRouter (SocketDotTech/openrouter deployments.csv)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a",
+        "note": "OpenRouter (SocketDotTech/openrouter deployments.csv, chain 8453)"
+      },
+      {
+        "chain": "plasma-mainnet",
+        "address": "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a",
+        "note": "OpenRouter (SocketDotTech/openrouter deployments.csv, chain 9745)"
+      },
+      {
+        "chain": "monad-mainnet",
+        "address": "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a",
+        "note": "OpenRouter (SocketDotTech/openrouter deployments.csv, chain 143)"
       }
     ],
     "tokens": []
@@ -268,6 +333,11 @@
         "chain": "ethereum-mainnet-xlayer-1",
         "address": "0x39cf679eb0ac9075cfb5f94930a367ba1557d955",
         "note": "ChainlinkAdapter (Centrifuge docs, deployments; centrifuge/sdk chain 196)"
+      },
+      {
+        "chain": "pharos-mainnet",
+        "address": "0x39cf679eb0ac9075cfb5f94930a367ba1557d955",
+        "note": "ChainlinkAdapter (centrifuge/sdk deployments, chain 1672)"
       }
     ],
     "tokens": []
@@ -397,6 +467,21 @@
     ],
     "tokens": []
   },
+  "eigenpie": {
+    "name": "Eigenpie",
+    "x": "Eigenpiexyz_io",
+    "url": "https://www.eigenlayer.magpiexyz.io",
+    "kind": "protocol",
+    "source": "https://docs.eigenpiexyz.io/smart-contracts.html (Arbitrum contracts: \"CCIP Bridge https://arbiscan.io/address/0x42c614415cfb8c71bb28314f6d2a21d91c68f588\")",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x42c614415cfb8c71bb28314f6d2a21d91c68f588",
+        "note": "CCIP Bridge; users bridge Eigenpie LRTs (egETH, mswETH, mstETH) to Ethereum"
+      }
+    ],
+    "tokens": []
+  },
   "elizaos": {
     "name": "elizaOS",
     "x": "elizaos",
@@ -448,6 +533,16 @@
         "chain": "gnosis_chain-mainnet",
         "address": "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003",
         "note": "EnsoShortcuts (Enso docs, Gnosis)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003",
+        "note": "EnsoShortcuts (Enso docs, Optimism)"
+      },
+      {
+        "chain": "plasma-mainnet",
+        "address": "0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76",
+        "note": "EnsoShortcuts (Enso docs, Plasma)"
       }
     ],
     "tokens": []
@@ -623,6 +718,11 @@
         "chain": "gnosis_chain-mainnet",
         "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
         "note": "Bridged Frankencoin ZCHF (frankencoin.com/token)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553",
+        "note": "Bridged Frankencoin ZCHF (frankencoin.com/token)"
       }
     ],
     "tokens": [
@@ -669,6 +769,36 @@
         "chain": "avalanche-mainnet",
         "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
         "note": "Airlift (Glacis docs, supported chains)"
+      },
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0x290d54179960984599f16f77dcda81320301b158",
+        "note": "Airlift (Glacis docs, supported chains, chain 999)"
+      },
+      {
+        "chain": "pharos-mainnet",
+        "address": "0x290d54179960984599f16f77dcda81320301b158",
+        "note": "Airlift (Glacis docs, supported chains, chain 1672)"
+      },
+      {
+        "chain": "ronin-mainnet",
+        "address": "0x290d54179960984599f16f77dcda81320301b158",
+        "note": "Airlift (Glacis docs, supported chains, chain 2020)"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0x290d54179960984599f16f77dcda81320301b158",
+        "note": "Airlift (Glacis docs, supported chains, chain 4663)"
+      },
+      {
+        "chain": "plasma-mainnet",
+        "address": "0x290d54179960984599f16f77dcda81320301b158",
+        "note": "Airlift (Glacis docs, supported chains, chain 9745)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0x023fa838682c115c2cfba96ef3791cb5bd931fc7",
+        "note": "Airlift (Glacis docs, supported chains, chain 42161)"
       }
     ],
     "tokens": []
@@ -840,6 +970,11 @@
         "chain": "hyperliquid-mainnet",
         "address": "0xfd739d4e423301ce9385c1fb8850539d657c296d",
         "source": "https://kinetiq.xyz/docs/khype"
+      },
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0x000000000000780555bd0bca3791f89f9542c2d6",
+        "source": "https://kinetiq.xyz/docs/contracts-and-audits"
       }
     ]
   },
@@ -1034,6 +1169,21 @@
       }
     ]
   },
+  "morpho": {
+    "name": "Morpho",
+    "x": "Morpho",
+    "url": "https://morpho.org",
+    "kind": "protocol",
+    "source": "https://docs.morpho.org/get-started/resources/addresses/ (Bundlers (deprecated), Ethereum: \"Bundler3 0x6566194141eefa99Af43Bb5Aa71460Ca2Dc90245\", source morpho-org/bundler3)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x6566194141eefa99af43bb5aa71460ca2dc90245",
+        "note": "Bundler3 multicall (deprecated); users route CCIP sends through it"
+      }
+    ],
+    "tokens": []
+  },
   "mudwater": {
     "name": "Mudwater",
     "x": "BoredApeYC",
@@ -1061,6 +1211,52 @@
         "chain": "robinhood-mainnet",
         "address": "0x241f3caad03db31137f641bef005a32176530024",
         "source": "https://www.npc.com/blog/articles/support-the-current-chain"
+      }
+    ]
+  },
+  "olympus": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "url": "https://www.olympusdao.finance",
+    "kind": "protocol",
+    "source": "https://docs.olympusdao.finance/main/contracts/addresses (CCIPCrossChainBridge 1.0: Mainnet 0xFbf6383dC3F6010d403Ecdf12DDC1311701D143D, Arbitrum 0xb4f620c39F3BA4a1E7aD264fEd6239B0C618DB50, Optimism 0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2, Base 0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678, Bera 0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a, Robinhood 0x5261fBA7B50aA22B19B9edF939b771D109dE991F; Olympus reuses some of these addresses for other contracts on other chains)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0xfbf6383dc3f6010d403ecdf12ddc1311701d143d",
+        "note": "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Mainnet)"
+      },
+      {
+        "chain": "ethereum-mainnet-arbitrum-1",
+        "address": "0xb4f620c39f3ba4a1e7ad264fed6239b0c618db50",
+        "note": "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Arbitrum)"
+      },
+      {
+        "chain": "ethereum-mainnet-optimism-1",
+        "address": "0xcb4e21eb404d80f3e1db781aad9ad6a1217fbbf2",
+        "note": "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Optimism)"
+      },
+      {
+        "chain": "ethereum-mainnet-base-1",
+        "address": "0xebde552d851dd6dfd3d360c596d3f4af6e5f9678",
+        "note": "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Base)"
+      },
+      {
+        "chain": "berachain-mainnet",
+        "address": "0xf35193da8c10e44af10853ba5a3a1a6f7529e39a",
+        "note": "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Bera)"
+      },
+      {
+        "chain": "robinhood-mainnet",
+        "address": "0x5261fba7b50aa22b19b9edf939b771d109de991f",
+        "note": "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Robinhood)"
+      }
+    ],
+    "tokens": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5",
+        "source": "https://docs.olympusdao.finance/main/contracts/addresses"
       }
     ]
   },
@@ -1616,6 +1812,26 @@
       }
     ]
   },
+  "veda": {
+    "name": "Veda",
+    "x": "veda_labs",
+    "url": "https://veda.tech",
+    "kind": "protocol",
+    "source": "https://github.com/Veda-Labs/boring-vault/blob/main/script/MerkleRootCreation/Mainnet/CreateSentoraBTCMerkleRoot.s.sol and the same script under Ink/ (\"address public boringVault = 0x7Dee0120739b7ec048B469939EFB178ADbbB19B2\"; Veda administers Kraken's Bitcoin Vault, with Sentora as strategist)",
+    "addresses": [
+      {
+        "chain": "ethereum-mainnet",
+        "address": "0x7dee0120739b7ec048b469939efb178adbbb19b2",
+        "note": "Advanced Strategies BTC (sentoraBTC) BoringVault, Kraken Bitcoin Vault"
+      },
+      {
+        "chain": "ethereum-mainnet-ink-1",
+        "address": "0x7dee0120739b7ec048b469939efb178adbbb19b2",
+        "note": "Advanced Strategies BTC (sentoraBTC) BoringVault, Kraken Bitcoin Vault"
+      }
+    ],
+    "tokens": []
+  },
   "virtuals-protocol": {
     "name": "Virtuals Protocol",
     "x": "virtuals_io",
@@ -1628,6 +1844,27 @@
         "chain": "robinhood-mainnet",
         "address": "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31",
         "source": "https://whitepaper.virtuals.io/info-hub/important-links-and-resources/virtuals-protocol-contract-addresses"
+      }
+    ]
+  },
+  "world-liberty-financial": {
+    "name": "World Liberty Financial",
+    "x": "worldlibertyfi",
+    "url": "https://worldlibertyfinancial.com",
+    "kind": "issuer",
+    "source": "https://docs.worldlibertyfinancial.com/wlfi-token/contract-addresses (WLFI token, Binance Smart Chain BEP20 0x47474747477b199288bf72a1d702f7fe0fb1deea; \"WLFI supports cross-chain transfers via Chainlink CCIP\")",
+    "addresses": [
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x0f5d119dc9b3af846155ee9b6f4fe184b231bb17",
+        "note": "WLFI buyback Safe (Aster buybacks, per WLFI's X post)"
+      }
+    ],
+    "tokens": [
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x47474747477b199288bf72a1d702f7fe0fb1deea",
+        "source": "https://docs.worldlibertyfinancial.com/wlfi-token/contract-addresses"
       }
     ]
   },
@@ -1762,6 +1999,11 @@
         "chain": "plasma-mainnet",
         "address": "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2",
         "note": "XSwapRouter (chain 9745 in the xswap.link app config)"
+      },
+      {
+        "chain": "polkadot-mainnet-astar",
+        "address": "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04",
+        "note": "XSwapRouter proxy (chain 592 in the xswap.link app config)"
       }
     ],
     "tokens": []

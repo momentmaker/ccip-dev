@@ -35,3 +35,45 @@ note = "ArbitrumBridgeSettler (0x contracts dashboard, BridgeSettler)"
 chain = "ethereum-mainnet-arbitrum-1"
 address = "0x5547e38674ecba8fa553475615dfaceb1abc32da"
 note = "Previous ArbitrumBridgeSettler (0x contracts dashboard, prevAddress)"
+
+# Source: https://contracts.0x.org/ (BridgeSettler table, BSC row: 0x8112979f19427D9e794f68EF7705A40c26d330eF, prevAddress 0x7e23639ADC34F0b68d97D70C21980F276714A59e)
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x8112979f19427d9e794f68ef7705a40c26d330ef"
+note = "BnbBridgeSettler (0x contracts dashboard, BridgeSettler)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x7e23639adc34f0b68d97d70c21980f276714a59e"
+note = "Previous BnbBridgeSettler (0x contracts dashboard, prevAddress)"
+
+# Source: https://contracts.0x.org/ (BridgeSettler table: Robinhood 0xaA691Df10d9fEDF08a6164A1aF66328828cdb520, prevAddress 0x91cC7096b48e3FA7e4e8DB58192Be9649Baf2221; Mantle 0x66EEEc08E9DdcA54e96E7325f5BA1C94de5dcE6c, prevAddress 0x868258292d6B4D62330FF4B2e33516C6933Fd9ac; Ink 0x9c3eDA79bC6Ab8Fb735f18107F45aFE72316Dd57, prevAddress 0x3740935852Ba55174dd2d0871101cd08CAC971D0; the registry's ownerOf(5) returns each current address on its chain)
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0xaa691df10d9fedf08a6164a1af66328828cdb520"
+note = "RobinHoodBridgeSettler (0x contracts dashboard, BridgeSettler)"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x91cc7096b48e3fa7e4e8db58192be9649baf2221"
+note = "Previous RobinHoodBridgeSettler (0x contracts dashboard, prevAddress)"
+
+[[addresses]]
+chain = "ethereum-mainnet-mantle-1"
+address = "0x66eeec08e9ddca54e96e7325f5ba1c94de5dce6c"
+note = "MantleBridgeSettler (0x contracts dashboard, BridgeSettler)"
+
+[[addresses]]
+chain = "ethereum-mainnet-mantle-1"
+address = "0x868258292d6b4d62330ff4b2e33516c6933fd9ac"
+note = "Previous MantleBridgeSettler (0x contracts dashboard, prevAddress)"
+
+[[addresses]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x9c3eda79bc6ab8fb735f18107f45afe72316dd57"
+note = "InkBridgeSettler (0x contracts dashboard, BridgeSettler)"
+
+[[addresses]]
+chain = "ethereum-mainnet-ink-1"
+address = "0x3740935852ba55174dd2d0871101cd08cac971d0"
+note = "Previous InkBridgeSettler (0x contracts dashboard, prevAddress)"

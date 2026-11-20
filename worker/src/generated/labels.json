@@ -35,6 +35,54 @@
     "kind": "protocol",
     "slug": "0x"
   },
+  "binance_smart_chain-mainnet:0x8112979f19427d9e794f68ef7705a40c26d330ef": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "binance_smart_chain-mainnet:0x7e23639adc34f0b68d97d70c21980f276714a59e": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "robinhood-mainnet:0xaa691df10d9fedf08a6164a1af66328828cdb520": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "robinhood-mainnet:0x91cc7096b48e3fa7e4e8db58192be9649baf2221": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "ethereum-mainnet-mantle-1:0x66eeec08e9ddca54e96e7325f5ba1c94de5dce6c": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "ethereum-mainnet-mantle-1:0x868258292d6b4d62330ff4b2e33516c6933fd9ac": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "ethereum-mainnet-ink-1:0x9c3eda79bc6ab8fb735f18107f45afe72316dd57": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
+  "ethereum-mainnet-ink-1:0x3740935852ba55174dd2d0871101cd08cac971d0": {
+    "name": "0x",
+    "x": "0xProject",
+    "kind": "protocol",
+    "slug": "0x"
+  },
   "ethereum-mainnet-arbitrum-1:0xdb8b15b9e0a46c4a7f04f08d7d6da5e60d48d072": {
     "name": "Aave",
     "x": "aave",
@@ -65,6 +113,12 @@
     "kind": "protocol",
     "slug": "aave"
   },
+  "ethereum-mainnet:0xa1c93d2687f7014aaf588c764e3ce80af016229b": {
+    "name": "Aave",
+    "x": "aave",
+    "kind": "protocol",
+    "slug": "aave"
+  },
   "ethereum-mainnet:0xac20cd734c65baf48a1476447af7d3e3165dc739": {
     "name": "Arbitrum Foundation",
     "x": "arbitrum",
@@ -89,7 +143,31 @@
     "kind": "protocol",
     "slug": "bifrost"
   },
+  "polkadot-mainnet-astar:0x825cddfb8f28f1c09577a20f649e2736886380c4": {
+    "name": "Bifrost",
+    "x": "Bifrost",
+    "kind": "protocol",
+    "slug": "bifrost"
+  },
   "ethereum-mainnet:0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a": {
+    "name": "Bungee (Socket)",
+    "x": "SocketProtocol",
+    "kind": "protocol",
+    "slug": "bungee"
+  },
+  "ethereum-mainnet-base-1:0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a": {
+    "name": "Bungee (Socket)",
+    "x": "SocketProtocol",
+    "kind": "protocol",
+    "slug": "bungee"
+  },
+  "plasma-mainnet:0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a": {
+    "name": "Bungee (Socket)",
+    "x": "SocketProtocol",
+    "kind": "protocol",
+    "slug": "bungee"
+  },
+  "monad-mainnet:0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a": {
     "name": "Bungee (Socket)",
     "x": "SocketProtocol",
     "kind": "protocol",
@@ -113,6 +191,11 @@
     "slug": "centrifuge"
   },
   "ethereum-mainnet-xlayer-1:0x39cf679eb0ac9075cfb5f94930a367ba1557d955": {
+    "name": "Centrifuge",
+    "kind": "protocol",
+    "slug": "centrifuge"
+  },
+  "pharos-mainnet:0x39cf679eb0ac9075cfb5f94930a367ba1557d955": {
     "name": "Centrifuge",
     "kind": "protocol",
     "slug": "centrifuge"
@@ -195,6 +278,12 @@
     "kind": "protocol",
     "slug": "eco"
   },
+  "ethereum-mainnet-arbitrum-1:0x42c614415cfb8c71bb28314f6d2a21d91c68f588": {
+    "name": "Eigenpie",
+    "x": "Eigenpiexyz_io",
+    "kind": "protocol",
+    "slug": "eigenpie"
+  },
   "avalanche-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
     "name": "Enso",
     "x": "EnsoBuild",
@@ -226,6 +315,18 @@
     "slug": "enso"
   },
   "gnosis_chain-mainnet:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "kind": "protocol",
+    "slug": "enso"
+  },
+  "ethereum-mainnet-optimism-1:0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003": {
+    "name": "Enso",
+    "x": "EnsoBuild",
+    "kind": "protocol",
+    "slug": "enso"
+  },
+  "plasma-mainnet:0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76": {
     "name": "Enso",
     "x": "EnsoBuild",
     "kind": "protocol",
@@ -369,6 +470,12 @@
     "kind": "issuer",
     "slug": "frankencoin"
   },
+  "ethereum-mainnet-base-1:0xd4dd9e2f021bb459d5a5f6c24c12fe09c5d45553": {
+    "name": "Frankencoin",
+    "x": "frankencoinzchf",
+    "kind": "issuer",
+    "slug": "frankencoin"
+  },
   "ethereum-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
@@ -400,6 +507,42 @@
     "slug": "glacis"
   },
   "avalanche-mainnet:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol",
+    "slug": "glacis"
+  },
+  "hyperliquid-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol",
+    "slug": "glacis"
+  },
+  "pharos-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol",
+    "slug": "glacis"
+  },
+  "ronin-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol",
+    "slug": "glacis"
+  },
+  "robinhood-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol",
+    "slug": "glacis"
+  },
+  "plasma-mainnet:0x290d54179960984599f16f77dcda81320301b158": {
+    "name": "Glacis Labs",
+    "x": "glacislabs",
+    "kind": "protocol",
+    "slug": "glacis"
+  },
+  "ethereum-mainnet-arbitrum-1:0x023fa838682c115c2cfba96ef3791cb5bd931fc7": {
     "name": "Glacis Labs",
     "x": "glacislabs",
     "kind": "protocol",
@@ -567,11 +710,53 @@
     "kind": "protocol",
     "slug": "mellow"
   },
+  "ethereum-mainnet:0x6566194141eefa99af43bb5aa71460ca2dc90245": {
+    "name": "Morpho",
+    "x": "Morpho",
+    "kind": "protocol",
+    "slug": "morpho"
+  },
   "ethereum-mainnet:0x1be98ff2d1fb66abcb9809c6dc90dede1f97eec8": {
     "name": "Mudwater",
     "x": "BoredApeYC",
     "kind": "app",
     "slug": "mudwater"
+  },
+  "ethereum-mainnet:0xfbf6383dc3f6010d403ecdf12ddc1311701d143d": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "kind": "protocol",
+    "slug": "olympus"
+  },
+  "ethereum-mainnet-arbitrum-1:0xb4f620c39f3ba4a1e7ad264fed6239b0c618db50": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "kind": "protocol",
+    "slug": "olympus"
+  },
+  "ethereum-mainnet-optimism-1:0xcb4e21eb404d80f3e1db781aad9ad6a1217fbbf2": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "kind": "protocol",
+    "slug": "olympus"
+  },
+  "ethereum-mainnet-base-1:0xebde552d851dd6dfd3d360c596d3f4af6e5f9678": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "kind": "protocol",
+    "slug": "olympus"
+  },
+  "berachain-mainnet:0xf35193da8c10e44af10853ba5a3a1a6f7529e39a": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "kind": "protocol",
+    "slug": "olympus"
+  },
+  "robinhood-mainnet:0x5261fba7b50aa22b19b9edf939b771d109de991f": {
+    "name": "Olympus",
+    "x": "OlympusDAO",
+    "kind": "protocol",
+    "slug": "olympus"
   },
   "ethereum-mainnet-base-1:0x03578bc4b5fb0cc0ca7a6ad05b06407ae6324a82": {
     "name": "Origin Protocol",
@@ -727,6 +912,24 @@
     "kind": "app",
     "slug": "transporter"
   },
+  "ethereum-mainnet:0x7dee0120739b7ec048b469939efb178adbbb19b2": {
+    "name": "Veda",
+    "x": "veda_labs",
+    "kind": "protocol",
+    "slug": "veda"
+  },
+  "ethereum-mainnet-ink-1:0x7dee0120739b7ec048b469939efb178adbbb19b2": {
+    "name": "Veda",
+    "x": "veda_labs",
+    "kind": "protocol",
+    "slug": "veda"
+  },
+  "binance_smart_chain-mainnet:0x0f5d119dc9b3af846155ee9b6f4fe184b231bb17": {
+    "name": "World Liberty Financial",
+    "x": "worldlibertyfi",
+    "kind": "issuer",
+    "slug": "world-liberty-financial"
+  },
   "ethereum-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",
@@ -842,6 +1045,12 @@
     "slug": "xswap"
   },
   "plasma-mainnet:0x543f4ae34db4d5d11b564b578a2e79221a48ccc2": {
+    "name": "XSwap",
+    "x": "xswap_link",
+    "kind": "protocol",
+    "slug": "xswap"
+  },
+  "polkadot-mainnet-astar:0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04": {
     "name": "XSwap",
     "x": "xswap_link",
     "kind": "protocol",

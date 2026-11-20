@@ -37,3 +37,9 @@ note = "AaveGhoCcipBridge, bridges GHO over CCIP"
 chain = "plasma-mainnet"
 address = "0xb77E872A68C62CfC0dFb02C067Ecc3DA23B4bbf3"
 source = "https://aave.com/docs/ecosystem/gho"
+
+# Source: https://aave.com/docs/ecosystem/gho (Ethereum contracts table: GhoLiquidityCommittee 0xA1c93D2687f7014Aaf588c764E3Ce80aF016229b)
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xa1c93d2687f7014aaf588c764e3ce80af016229b"
+note = "GhoLiquidityCommittee (Aave docs, GHO)"

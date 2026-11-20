@@ -17,6 +17,7 @@
   "ethereum-mainnet:0xc477b6dfd26ec2460b3b92de18837fd476ea7549": "janction",
   "binance_smart_chain-mainnet:0xea37a8de1de2d9d10772eeb569e28bfa5cb17707": "janction",
   "hyperliquid-mainnet:0xfd739d4e423301ce9385c1fb8850539d657c296d": "kinetiq",
+  "hyperliquid-mainnet:0x000000000000780555bd0bca3791f89f9542c2d6": "kinetiq",
   "ethereum-mainnet:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": "lido",
   "ethereum-mainnet:0x8236a87084f8b84306f72007f36f2618a5634494": "lombard",
   "ethereum-mainnet-base-1:0xecac9c5f704e954931349da37f60e39f515c11c1": "lombard",
@@ -37,6 +38,7 @@
   "tempo-mainnet:0x20c0000000000000000000008191667423f70e67": "maple-finance",
   "ethereum-mainnet:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0": "memento",
   "robinhood-mainnet:0x241f3caad03db31137f641bef005a32176530024": "non-playable-coin",
+  "ethereum-mainnet:0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5": "olympus",
   "ethereum-mainnet-base-1:0x7750c092e284e2c7366f50c8306f43c7eb2e82a2": "overtime",
   "binance_smart_chain-mainnet:0xbb1b031c591235408755ff4e0739cb88c5cf2507": "paal-ai",
   "ethereum-mainnet-base-1:0x7094c27f342dbadfbbed005b219431595e33b305": "quickswap",
@@ -78,6 +80,7 @@
   "solana-mainnet:Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk": "useless-coin",
   "binance_smart_chain-mainnet:0xba38b3c706f7a515ff7c8db04daa0a134ec46d2b": "useless-coin",
   "robinhood-mainnet:0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31": "virtuals-protocol",
+  "binance_smart_chain-mainnet:0x47474747477b199288bf72a1d702f7fe0fb1deea": "world-liberty-financial",
   "solana-mainnet:WMTXyYKUMTG3VuZA5beXuHVRLpyTwwaoP7h2i8YpuRH": "world-mobile",
   "ethereum-mainnet-base-1:0xe2f9db0186b13668aec9fe0e15dbd13004ed8d6f": "yesnoerror",
   "ethereum-mainnet:0xf326c8c9a691319f6330e27aa4a39f2d22c88dc5": "zest-protocol"

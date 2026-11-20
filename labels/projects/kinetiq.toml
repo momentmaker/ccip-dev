@@ -8,3 +8,9 @@ verified = true
 chain = "hyperliquid-mainnet"
 address = "0xfD739d4e423301CE9385c1fb8850539D657C296D"
 source = "https://kinetiq.xyz/docs/khype"
+
+# CCIP: https://docs.chain.link/ccip/directory/mainnet/token/KNTQ (Kinetiq's own page gives the address but does not mention CCIP; accepted on the kHYPE standard, 2026-11-20)
+[[tokens]]
+chain = "hyperliquid-mainnet"
+address = "0x000000000000780555bD0BCA3791f89f9542c2d6"
+source = "https://kinetiq.xyz/docs/contracts-and-audits"

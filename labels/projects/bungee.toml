@@ -1,3 +1,4 @@
+# Source: https://github.com/SocketDotTech/openrouter/blob/main/deployments.csv (openRouterAddress 0x50cFe7c1938dB66A1a6D2e86D36F39FBef3d5c4a for chain ids 1, 8453, 9745 and 143)
 name = "Bungee (Socket)"
 x = "SocketProtocol"
 url = "https://www.socket.tech"
@@ -8,3 +9,18 @@ verified = true
 chain = "ethereum-mainnet"
 address = "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a"
 note = "OpenRouter (SocketDotTech/openrouter deployments.csv)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a"
+note = "OpenRouter (SocketDotTech/openrouter deployments.csv, chain 8453)"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a"
+note = "OpenRouter (SocketDotTech/openrouter deployments.csv, chain 9745)"
+
+[[addresses]]
+chain = "monad-mainnet"
+address = "0x50cfe7c1938db66a1a6d2e86d36f39fbef3d5c4a"
+note = "OpenRouter (SocketDotTech/openrouter deployments.csv, chain 143)"

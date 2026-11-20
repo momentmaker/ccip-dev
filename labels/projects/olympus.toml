@@ -1,0 +1,42 @@
+# Source: https://docs.olympusdao.finance/main/contracts/addresses (CCIPCrossChainBridge 1.0: Mainnet 0xFbf6383dC3F6010d403Ecdf12DDC1311701D143D, Arbitrum 0xb4f620c39F3BA4a1E7aD264fEd6239B0C618DB50, Optimism 0xcb4E21Eb404d80F3e1dB781aAd9AD6A1217fbbf2, Base 0xEBDe552D851DD6Dfd3D360C596D3F4aF6e5F9678, Bera 0xF35193DA8C10e44aF10853Ba5a3a1a6F7529E39a, Robinhood 0x5261fBA7B50aA22B19B9edF939b771D109dE991F; Olympus reuses some of these addresses for other contracts on other chains)
+name = "Olympus"
+x = "OlympusDAO"
+url = "https://www.olympusdao.finance"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xfbf6383dc3f6010d403ecdf12ddc1311701d143d"
+note = "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Mainnet)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xb4f620c39f3ba4a1e7ad264fed6239b0c618db50"
+note = "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Arbitrum)"
+
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0xcb4e21eb404d80f3e1db781aad9ad6a1217fbbf2"
+note = "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Optimism)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xebde552d851dd6dfd3d360c596d3f4af6e5f9678"
+note = "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Base)"
+
+[[addresses]]
+chain = "berachain-mainnet"
+address = "0xf35193da8c10e44af10853ba5a3a1a6f7529e39a"
+note = "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Bera)"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x5261fba7b50aa22b19b9edf939b771d109de991f"
+note = "CCIPCrossChainBridge, OHM bridge (Olympus docs, addresses, Robinhood)"
+
+# CCIP: the same addresses page lists OHM V2 Mainnet 0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5 and CCIPLockReleaseTokenPool 1.0 Mainnet 0xa5588e518CE5ee0e4628C005E4edAbD5e87de3aD
+[[tokens]]
+chain = "ethereum-mainnet"
+address = "0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5"
+source = "https://docs.olympusdao.finance/main/contracts/addresses"

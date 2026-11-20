@@ -34,3 +34,34 @@ note = "Airlift (Glacis docs, supported chains)"
 chain = "avalanche-mainnet"
 address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
 note = "Airlift (Glacis docs, supported chains)"
+
+# Source: https://docs.glacislabs.com/airlift/supported-chains-and-tokens (Airlift address table, rows 999, 1672, 2020, 4663, 9745 and 42161)
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "Airlift (Glacis docs, supported chains, chain 999)"
+
+[[addresses]]
+chain = "pharos-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "Airlift (Glacis docs, supported chains, chain 1672)"
+
+[[addresses]]
+chain = "ronin-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "Airlift (Glacis docs, supported chains, chain 2020)"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "Airlift (Glacis docs, supported chains, chain 4663)"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0x290d54179960984599f16f77dcda81320301b158"
+note = "Airlift (Glacis docs, supported chains, chain 9745)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x023fa838682c115c2cfba96ef3791cb5bd931fc7"
+note = "Airlift (Glacis docs, supported chains, chain 42161)"
