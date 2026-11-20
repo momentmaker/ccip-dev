@@ -1,3 +1,4 @@
+# Source: https://github.com/bifrost-io/slpx-contracts (deployments/soneium/SoneiumSlpx.json and deployments/astar/AstarReceiver.json)
 name = "Bifrost"
 x = "Bifrost"
 url = "https://bifrost.io"
@@ -8,3 +9,9 @@ verified = true
 chain = "soneium-mainnet"
 address = "0x9d40ca58ef5392a8fb161ab27c7f61de5dfbf0e2"
 note = "SLPx on Soneium (bifrost-io/slpx-contracts deployments/soneium/SoneiumSlpx.json)"
+
+# Source: https://github.com/bifrost-io/slpx-contracts/blob/main/deployments/astar/AstarReceiver.json ("address": "0x825cddFb8F28f1C09577A20f649E2736886380C4")
+[[addresses]]
+chain = "polkadot-mainnet-astar"
+address = "0x825cddfb8f28f1c09577a20f649e2736886380c4"
+note = "AstarReceiver, SLPx on Astar (bifrost-io/slpx-contracts deployments/astar)"

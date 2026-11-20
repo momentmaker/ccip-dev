@@ -36,3 +36,14 @@ note = "EnsoShortcuts (Enso docs, Base)"
 chain = "gnosis_chain-mainnet"
 address = "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003"
 note = "EnsoShortcuts (Enso docs, Gnosis)"
+
+# Source: https://docs.enso.build/pages/build/reference/deployments (V2 Contracts: EnsoShortcuts on Optimism 10 and Plasma 9745)
+[[addresses]]
+chain = "ethereum-mainnet-optimism-1"
+address = "0x4fe93ebc4ce6ae4f81601cc7ce7139023919e003"
+note = "EnsoShortcuts (Enso docs, Optimism)"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0x0d14f7c957bd15f5bec423f9b1b51e122d90fc76"
+note = "EnsoShortcuts (Enso docs, Plasma)"

@@ -54,3 +54,9 @@ note = "XSwapRouter (chain 143 in the xswap.link app config)"
 chain = "plasma-mainnet"
 address = "0x543f4ae34db4d5d11b564b578a2e79221a48ccc2"
 note = "XSwapRouter (chain 9745 in the xswap.link app config)"
+
+# Source: https://xswap.link (the app's contract config, /assets/index-af7ff37a.js, gives XSwapRouter "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04" for chain id 592)
+[[addresses]]
+chain = "polkadot-mainnet-astar"
+address = "0xe1c14b9f065dead2e89ee35382f8bd42bdb87a04"
+note = "XSwapRouter proxy (chain 592 in the xswap.link app config)"

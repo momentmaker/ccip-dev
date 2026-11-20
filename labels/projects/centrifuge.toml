@@ -13,3 +13,9 @@ note = "ChainlinkAdapter (Centrifuge docs, deployments)"
 chain = "ethereum-mainnet-xlayer-1"
 address = "0x39cf679eb0ac9075cfb5f94930a367ba1557d955"
 note = "ChainlinkAdapter (Centrifuge docs, deployments; centrifuge/sdk chain 196)"
+
+# Source: https://github.com/centrifuge/sdk/blob/main/src/config/deployments.ts (entry 12, pharos, chainId 1672: chainlinkAdapter 0x39CF679Eb0Ac9075CFb5f94930A367Ba1557D955)
+[[addresses]]
+chain = "pharos-mainnet"
+address = "0x39cf679eb0ac9075cfb5f94930a367ba1557d955"
+note = "ChainlinkAdapter (centrifuge/sdk deployments, chain 1672)"

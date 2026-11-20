@@ -1,0 +1,11 @@
+# Source: https://docs.morpho.org/get-started/resources/addresses/ (Bundlers (deprecated), Ethereum: "Bundler3 0x6566194141eefa99Af43Bb5Aa71460Ca2Dc90245", source morpho-org/bundler3)
+name = "Morpho"
+x = "Morpho"
+url = "https://morpho.org"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x6566194141eefa99af43bb5aa71460ca2dc90245"
+note = "Bundler3 multicall (deprecated); users route CCIP sends through it"

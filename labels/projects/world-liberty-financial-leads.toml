@@ -1,0 +1,13 @@
+# Unconfirmed address kept as a lead. WLFI's docs do not list this Safe; its only first-party mention is WLFI's own X post of
+# 2026-11-09 (https://x.com/worldlibertyfi/status/2119867890744619356, "Buybacks will be executed on Aster through this wallet",
+# linking this address on BscScan). It sent WLFI to itself on Ethereum on 2026-11-13.
+name = "World Liberty Financial (unconfirmed)"
+x = "worldlibertyfi"
+url = "https://worldlibertyfinancial.com"
+kind = "issuer"
+verified = false
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x0f5d119dc9b3af846155ee9b6f4fe184b231bb17"
+note = "WLFI buyback Safe (WLFI X post, not in its docs)"

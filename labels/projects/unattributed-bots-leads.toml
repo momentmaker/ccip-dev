@@ -176,3 +176,203 @@ note = "rebalancing bot, BSC leg of the 0xB4630AAb… network: one caller 0x0689
 chain = "aptos-mainnet"
 address = "0x4cd1ecb80e2745077c13c783d1903bd87c26d22997b225a2eddc51331e76d411"
 note = "personal wallet moving USD1, every message to one Ethereum address 0xe6Aa5F20…"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x4d4a34cd0d59312a5392109820d4b7df1c9effe6"
+note = "arbitrage bot v1 (JCT and others), owner 0x9568a788…, delivers to its own Ethereum proxy 0x19973790…"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x7b8460883aabf656feeb8af11a921d0002ecc43d"
+note = "arbitrage bot v2 of 0x4d4a34cd…, owner 0x9568a788…, delivers to its own Ethereum proxy 0x19973790…"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xd94db16ad1d4da8a7619e507835f113b90e7499e"
+note = "arbitrage bot (JCT, ZEST), owner 0xf1975bf0…, caller 0x06893ff4…"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x0000000021526b5c055653a55df60b21b73da999"
+note = "gas-golfed bot proxy, callers end …DEF1, deployer 0x45B4…"
+
+[[addresses]]
+chain = "aptos-mainnet"
+address = "0x3d8304594eac69a1a251a662301a066b9e13de6b2d05ae7491d2d0576df34cdb"
+note = "personal wallet moving USD1, to one EOA 0xccccccf2… on BNB and Ethereum"
+
+[[addresses]]
+chain = "aptos-mainnet"
+address = "0x560a6c376d479fb0f476ba0646a9e61cf7648b3ff60b202ace2f6b38b9898c38"
+note = "personal wallet moving USD1, every message to one Ethereum address 0x5ac37964…"
+
+[[addresses]]
+chain = "soneium-mainnet"
+address = "0xd827d4b8f660db6edd4cf7fdd3365765a6fe5557"
+note = "3-of-5 Safe holding ASTR (also ~5.5M ASTR on Astar); not on Astar or AFC pages"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf5c4ab52a9b4b1732d552115ef9382bc89082b48"
+note = "2-of-4 strategy Safe looping syrupUSDT and GHO through Aave; sibling Safe 0xf7c40919…"
+
+[[addresses]]
+chain = "ethereum-mainnet-mantle-1"
+address = "0xf5c4ab52a9b4b1732d552115ef9382bc89082b48"
+note = "2-of-4 strategy Safe looping syrupUSDT and GHO through Aave; sibling Safe 0xf7c40919…"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0xf5c4ab52a9b4b1732d552115ef9382bc89082b48"
+note = "2-of-4 strategy Safe looping syrupUSDT and GHO through Aave; sibling Safe 0xf7c40919…"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x47cce94b6f5589102316d7f4052e4933a0f8195a"
+note = "inventory arbitrage bot (KNTQ to Base), owner 0x810d1f8c…; same bytecode as 0x428e8cc9…"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x428e8cc9efedf9b115e0e4c850704c30c660c849"
+note = "inventory arbitrage bot, owner 0x79784d62…, executor 0xB1e2c361…; siblings 0xcA0A2515…, 0xD94db16A…"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xbde459e2da59f0dd7696dff40f78da44133f1c55"
+note = "multi-token arbitrage proxy, one caller 0x99e06797…, delivers to that wallet"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0xbde459e2da59f0dd7696dff40f78da44133f1c55"
+note = "multi-token arbitrage proxy, one caller 0x99e06797…, delivers to that wallet"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0xbde459e2da59f0dd7696dff40f78da44133f1c55"
+note = "multi-token arbitrage proxy, one caller 0x99e06797…, delivers to that wallet"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xbde459e2da59f0dd7696dff40f78da44133f1c55"
+note = "multi-token arbitrage proxy, one caller 0x99e06797…, delivers to that wallet"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xbde459e2da59f0dd7696dff40f78da44133f1c55"
+note = "multi-token arbitrage proxy, one caller 0x99e06797…, delivers to that wallet"
+
+[[addresses]]
+chain = "robinhood-mainnet"
+address = "0xbde459e2da59f0dd7696dff40f78da44133f1c55"
+note = "multi-token arbitrage proxy, one caller 0x99e06797…, delivers to that wallet"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "avalanche-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "berachain-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x65a8f07bd9a8598e1b5b6c0a88f4779dbc077675"
+note = "personal wallet, cross-chain arbitrage to itself (mostly KNTQ)"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xabb1878023c40eb5c15c317c053f93713a823717"
+note = "personal wallet, KNTQ arbitrage with its own Base contract 0x7046AF5C…"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0xabb1878023c40eb5c15c317c053f93713a823717"
+note = "personal wallet, KNTQ arbitrage with its own Base contract 0x7046AF5C…"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x88888888888d691c3df551852e53a6a2b7b01eeb"
+note = "vanity personal wallet, KNTQ to its own Base contracts 0xF7c5b816…, 0xf0B50FDA…"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0xfb7e2f3c47940af4dc4df67f716de542ce0a75cc"
+note = "personal wallet bridging KNTQ to itself"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0xfb7e2f3c47940af4dc4df67f716de542ce0a75cc"
+note = "personal wallet bridging KNTQ to itself"
+
+[[addresses]]
+chain = "hyperliquid-mainnet"
+address = "0x1f66ce859532ea5c9df03252760ca80939851cd9"
+note = "personal wallet bridging KNTQ to itself"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x1f66ce859532ea5c9df03252760ca80939851cd9"
+note = "personal wallet bridging KNTQ to itself"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x05d487ca1e8e4fc9f685ea1182d1b6156297353a"
+note = "2-of-3 strategy Safe (sUSDe/USDT loops on Aave), sent GHO to itself on Plasma"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf484725b49dcdfb6c9162ef34cb61ecf1dd0db01"
+note = "1-of-3 yield-farming Safe, sends GHO to itself on Plasma; executor 0xc72aac40…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xf7c40919a01780fe6f477c1535de0a969854bb48"
+note = "2-of-4 yield-farming Safe moving GHO; sibling Safe 0xf5c4ab52…"
+
+[[addresses]]
+chain = "plasma-mainnet"
+address = "0xf7c40919a01780fe6f477c1535de0a969854bb48"
+note = "2-of-4 yield-farming Safe moving GHO; sibling Safe 0xf5c4ab52…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xd8f6502402c46b2a13bc41caa8d5f314c5ba4301"
+note = "3-of-9 Safe sending syrupUSDC to itself on Monad; executor 0x7e343b7f…"
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0xc613b5c2bff2955761c27fc3bfc4e91ce12472a7"
+note = "1-of-2 Safe sending syrupUSDG to itself on Ethereum"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xca0a2515effdb383a572eea1edbb52b2d11a862c"
+note = "inventory arbitrage bot (OKX aggregator buys, multi-bridge), deployer 0xB4630AAb…; siblings 0x428e8cc9…, 0xD94db16A…"
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0x09afc08c78d192274bc86af1693f3455d6a6b93e"
+note = "3-of-5 personal treasury Safe, sent USDC to itself on Base"

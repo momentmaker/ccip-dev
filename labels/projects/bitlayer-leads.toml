@@ -1,0 +1,24 @@
+# Unconfirmed addresses kept as leads. Three Safe 1.3.0 proxies on Bitlayer with the same four owners (3 of 4), each locking
+# BTR in Bitlayer's CCIP Lock Contract 0x786248b6… for Ethereum. Likely Bitlayer allocation wallets: one locked 69,562,500 BTR,
+# close to the "bridged to Ethereum multisig" line of https://blog.bitlayer.org/btr-token-transparency-report-v1/, and another
+# sent BTR to the report's ETH Investor Multisig 0x87f79415…. No Bitlayer page lists the Safes themselves.
+name = "Bitlayer (unconfirmed)"
+x = "BitlayerLabs"
+url = "https://www.bitlayer.org"
+kind = "protocol"
+verified = false
+
+[[addresses]]
+chain = "bitcoin-mainnet-bitlayer-1"
+address = "0xb20a4750ab9702a2ff9c7ab51123d594544c71ee"
+note = "3-of-4 Safe locking BTR for Ethereum (likely a Bitlayer allocation wallet)"
+
+[[addresses]]
+chain = "bitcoin-mainnet-bitlayer-1"
+address = "0x89b0010d75c3ba9703a7c8024c54fa64732c531e"
+note = "3-of-4 Safe locking BTR for Ethereum (likely a Bitlayer allocation wallet)"
+
+[[addresses]]
+chain = "bitcoin-mainnet-bitlayer-1"
+address = "0x09f43f27eca9e8a5500b99b2cc74ddede6bd65c8"
+note = "3-of-4 Safe locking BTR for Ethereum (likely a Bitlayer allocation wallet)"

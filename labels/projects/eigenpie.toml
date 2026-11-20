@@ -1,0 +1,11 @@
+# Source: https://docs.eigenpiexyz.io/smart-contracts.html (Arbitrum contracts: "CCIP Bridge https://arbiscan.io/address/0x42c614415cfb8c71bb28314f6d2a21d91c68f588")
+name = "Eigenpie"
+x = "Eigenpiexyz_io"
+url = "https://www.eigenlayer.magpiexyz.io"
+kind = "protocol"
+verified = true
+
+[[addresses]]
+chain = "ethereum-mainnet-arbitrum-1"
+address = "0x42c614415cfb8c71bb28314f6d2a21d91c68f588"
+note = "CCIP Bridge; users bridge Eigenpie LRTs (egETH, mswETH, mstETH) to Ethereum"

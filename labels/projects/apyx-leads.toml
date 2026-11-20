@@ -1,0 +1,13 @@
+# Unconfirmed address kept as a lead. ConvertToAssetsPublisher publishes apyUSD's convertToAssets(1e18) rate over CCIP to Monad
+# every ~35 minutes. Its deployer 0xD6bB3f97… also deployed aptUSD, which Apyx's docs list, and its code layout matches
+# apyx-labs/evm-contracts, but no Apyx page or repo lists this address (deployer evidence only).
+name = "Apyx (unconfirmed)"
+x = "apyx_fi"
+url = "https://apyx.fi"
+kind = "issuer"
+verified = false
+
+[[addresses]]
+chain = "ethereum-mainnet"
+address = "0xe94ef9a42ef06a224aaff9f0e74e616183a5213e"
+note = "ConvertToAssetsPublisher, apyUSD rate to Monad (deployer also deployed aptUSD)"
