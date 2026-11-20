@@ -50,6 +50,8 @@ const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 const plainName = (p: Player) => noLinks(p.name);
 export const tgName = (p: Player) => escapeHtml(noLinks(p.name));
 export const tgText = (s: string) => escapeHtml(noLinks(s));
+/** Formatters write plain text such as "<0.1%", and Telegram rejects a "<" that opens no tag; the captions' only tag is <b>. */
+export const escapeStrayLt = (html: string) => html.replace(/<(?!\/?b>)/g, '&lt;');
 
 const utc = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...options });
 const WEEKDAY = utc({ weekday: 'short', month: 'short', day: 'numeric' });
@@ -448,6 +450,6 @@ export interface Copy {
 export function composeCopy(facts: BroadcastFacts): Copy {
   return {
     xText: oneCashtag(fitLines(xLines(facts), (t) => xLength(t) <= X_MAX)),
-    telegramHtml: fitLines(telegramLines(facts), (t) => t.length <= TELEGRAM_CAPTION_MAX),
+    telegramHtml: escapeStrayLt(fitLines(telegramLines(facts), (t) => t.length <= TELEGRAM_CAPTION_MAX)),
   };
 }

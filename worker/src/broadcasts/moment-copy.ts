@@ -3,7 +3,7 @@ import { formatCount, formatFeeTotal, formatShare, formatUsd, growthMultiple } f
 import { calledShare, type BoardName, type Countdown } from '@ccip-dev/core/moments';
 import { formatProgressUsd, formatThresholdUsd, type MilestoneMetric } from '@ccip-dev/core/records';
 import type { Poll } from '@ccip-dev/core/public';
-import { arrow, bold, fitLines, longDay, noLinks, plural, postDay, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
+import { arrow, bold, escapeStrayLt, fitLines, longDay, noLinks, plural, postDay, shortDay, TELEGRAM_CAPTION_MAX, tgName, tgText, weekRange, X_MAX, type Copy, type Line } from './copy';
 import type { CountdownFacts, MomentFacts, Mover, MoverName, MoversFacts, NewcomerFacts, PollFacts, ProjectSpotlightFacts, RoundupFacts, SpotlightFacts, WelcomeFacts } from './moment-facts';
 import type { Player } from './tags';
 import { oneCashtag, xLength } from './x-length';
@@ -352,5 +352,5 @@ function momentTelegram(f: MomentFacts): Line[] {
 /** A moment's X text and Telegram caption. The poll has no X draft, so its X text is empty. */
 export function composeMomentCopy(f: MomentFacts): Copy {
   const xText = f.kind === 'poll' ? '' : f.kind === 'roundup' ? roundupXText(f) : fitLines(momentX(f), fitsX);
-  return { xText: oneCashtag(xText), telegramHtml: fitLines(momentTelegram(f), fitsTelegram) };
+  return { xText: oneCashtag(xText), telegramHtml: escapeStrayLt(fitLines(momentTelegram(f), fitsTelegram)) };
 }
