@@ -379,7 +379,7 @@ Alerts arrive in the Telegram chat. Every sent alert also logs `{"alert_sent": <
 | `broadcast-run:<key>` | One moment failed in a way its own alerts did not catch (for example a D1 error while claiming its key); the moments after it were still posted. Read the error in the alert and the Worker logs. The hourly runs retry it while it is due; a key it left `pending:` is retried once the claim is an hour old. |
 | `reserve-read` | The Reserve balance read failed several hours in a row. Check the RPC endpoints. |
 | `reserve-scan` | The Reserve transfer scan failed several hours in a row. Check the RPC endpoints. |
-| `staking-scan` | The staking event scan failed three hours in a row. Check the RPC endpoints; the scan resumes from `staking_scan_block`. To re-scan, set it back (as for `reserve_scan_block` in "Health checks"): events are keyed by block and log index, so nothing is counted twice. |
+| `staking-scan` | The staking event scan failed three hours in a row. Check the RPC endpoints; the scan resumes from `staking_scan_block`. To re-scan, set it back (as for `reserve_scan_block` in "Health checks"): events are keyed by block and log index, so nothing is counted twice. Stakers are classified up to `staking_classified_block`, and staking.json and the peg markers wait for it to reach the scan; to check every staker again (after deleting `staking_holders` rows, say), delete that key and the next hourly run reads all events once. |
 | `job-failed:staking` | Publishing `staking.json` failed, usually the pool state read on every RPC endpoint. The next hour retries. |
 | `reserve-outflow:<tx>` | LINK left the Reserve. Open the transaction on Etherscan. See "Missed Reserve outflow alert" if a crash may have eaten one. |
 | `reserve-mismatch` | Transfers do not net to the balance. Re-scan from an earlier block (see "Health checks"). |
@@ -486,6 +486,33 @@ If the ingest resume walk never finishes, delete its two meta keys. The next run
   a planned follow-up).
 - **Nothing is lost:** once the API recovers, or with the backfill crawler (`pnpm backfill:sources`, which skips
   poison messages), the gap can be filled. `status.json` shows the delay meanwhile.
+
+## stLINK peg
+
+- **Thresholds** are wrangler vars: `PEG_ALERT_PRIVATE_PCT` (default 0.3) and `PEG_ALERT_PUBLIC_PCT` (0.75), in
+  percent. An unreadable value, or public at or under private, falls back to both defaults with a warning in the logs.
+- **Public posts** need `PEG_PUBLIC = "on"` and follow `BROADCASTS` (off, drafts to the drafts chat, on to the
+  channel). They never go to X.
+- **Switching `PEG_PUBLIC` on**: production `BROADCASTS` is "on", so the channel gets posts within 5 minutes. Only
+  episodes that crossed the public line in the last 6 hours get an open post, and a recap follows only an open post that
+  went out, so nothing old is announced.
+- **`peg-rpc`**: the 5-minute read failed 3 times in a row on every RPC endpoint. Check `RPC_ETHEREUM` and the
+  fallbacks.
+- **`peg-bad-read`**: a spot outside 0.5–1.5 was dropped. One is noise; repeats mean a contract changed. Check the pool
+  on Etherscan.
+- **`peg-history`**: Curve's price API has failed for 6 hours. The page keeps the last published history.
+- **`peg-markers`**: the hourly stake.link marker scan threw. It alerts at once, and the chart keeps its last markers.
+- **Re-backfill the history**: `wrangler d1 execute ccip-dev --remote --command "DELETE FROM meta WHERE key IN ('peg_backfill_before', 'peg_backfill_done')"`.
+  The next hourly runs page back to 2025-04-19, 10 pages an hour.
+- **Rebuild the markers**: `DELETE FROM peg_markers; DELETE FROM meta WHERE key = 'peg_marker_block';` in one execute.
+- **stLINK peg: mint capacity check** (`peg-mint-check`). The instant-mint figure caps the pool's room by
+  `unusedDepositLimit`, read from the contract rather than simulated. When the alert fires:
+  1. Read `premium.instant` from `https://data.ccip.dev/v1/peg.json`.
+  2. Simulate LINK `transferAndCall(PriorityPool, amount, abi.encode(false, FundFlowController.getDepositData(amount)))`
+     with `eth_call` from an address holding enough LINK (the Curve pool works), for `amount` = `premium.instant` and
+     for `premium.instant + 1000`.
+  3. If the first reverts, the cap is too high: fix `mintInstant` in `packages/core/src/peg-live.ts` with a test. If
+     the second succeeds, the cap is too low.
 
 ## Website (ccip.dev)
 

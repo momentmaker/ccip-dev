@@ -194,6 +194,15 @@ describe('moment Telegram captions', () => {
     // #then
     expect(lines).toEqual(['🔮 Last week: CCIP fees rose 13% to $9.0K. 50% of you called it.', '🔮 Last week: Arbitrum → Ethereum moved the most value ($9.6M). 30% of you called it.']);
   });
+
+  it('escapes a fee change under 0.1%, which Telegram would read as a tag', () => {
+    // #given fees that fell by less than 0.1%
+    const flat: Poll = { ...POLL.poll, week: '2026-10-05', answer: 'down', outcome: { key: 'fees', label: 'CCIP fees', value: 9_000, change_pct: -0.04 }, votes: [50, 25, 25], total_votes: 4 };
+    // #when
+    const line = composeMomentCopy({ ...POLL, last: flat }).telegramHtml.split('\n')[0];
+    // #then
+    expect(line).toBe('🔮 Last week: CCIP fees fell &lt;0.1% to $9.0K. 25% of you called it.');
+  });
 });
 
 describe('moment tags', () => {

@@ -1,7 +1,7 @@
 import { recordValueText } from '@ccip-dev/core/broadcasts';
 import { formatCount, formatFeeTotal, formatShare, formatUsd, formatUsdDown } from '@ccip-dev/core/format';
 import type { RecordKind } from '@ccip-dev/core/records';
-import { bold, fitLines, noLinks, plural, shortDay, TELEGRAM_CAPTION_MAX, tgText, X_MAX, type Copy, type Line } from './copy';
+import { bold, escapeStrayLt, fitLines, noLinks, plural, shortDay, TELEGRAM_CAPTION_MAX, tgText, X_MAX, type Copy, type Line } from './copy';
 import type { MonthlyFacts } from './monthly';
 import { oneCashtag, xLength } from './x-length';
 
@@ -61,6 +61,6 @@ function monthlyTelegram(f: MonthlyFacts): Line[] {
 export function composeMonthlyCopy(f: MonthlyFacts): Copy {
   return {
     xText: oneCashtag(fitLines(monthlyX(f), (t) => xLength(t) <= X_MAX)),
-    telegramHtml: fitLines(monthlyTelegram(f), (t) => t.length <= TELEGRAM_CAPTION_MAX),
+    telegramHtml: escapeStrayLt(fitLines(monthlyTelegram(f), (t) => t.length <= TELEGRAM_CAPTION_MAX)),
   };
 }

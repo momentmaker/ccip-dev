@@ -1,4 +1,5 @@
-import { addDays, feeClassifier, mostlyViaToken, rankIdentities, senderKeyAddress } from '@ccip-dev/core';
+import { addDays, feeClassifier, mostlyViaToken, rankIdentities, senderKeyAddress, type PegLiveBody } from '@ccip-dev/core';
+import type { PegEpisodeView } from '@ccip-dev/core/public';
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, reserveDepositFacts, weekTotalsFacts,
   type DayTotalsFacts, type RecordDriver, type ReserveDepositFacts, type WeekTotalsFacts,
@@ -111,7 +112,15 @@ export interface OperatorFacts {
   moment: OperatorMomentFacts;
 }
 
-export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts | StakingFacts | OperatorFacts;
+export interface PegFacts {
+  kind: 'peg';
+  phase: 'open' | 'close';
+  episode: PegEpisodeView;
+  live: PegLiveBody;
+  now: Date;
+}
+
+export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts | StakingFacts | OperatorFacts | PegFacts;
 
 export interface FactsSource {
   history: DayTotals[];

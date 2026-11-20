@@ -4,11 +4,13 @@ import type { ListMessage, NetworkInfo, RegistryToken } from './ccip/schemas';
 import type { CoingeckoClient, CoingeckoLists } from './coingecko';
 import { UpstreamHttpError, type HttpDeps } from './http';
 import type { PricesClient } from './prices';
-import type { StakingFile } from './public';
+import type { PegFile, PegHistoryFile, StakingFile } from './public';
 import type { Label, LabelIndex } from './labels';
 import type { SenderChain, SenderRow } from './senders';
 import type { DailyBreakdown, DailyTotals, PriceInfo } from './types';
 import type { RosterFile } from './roster';
+import { PEG_POOL } from './peg';
+import { decodePegReading, pegLiveBody } from './peg-live';
 
 export type FakeRoute = (url: string, init?: RequestInit) => Response | undefined | Promise<Response | undefined>;
 export type FakeFetch = typeof fetch & { calls: { url: string; init?: RequestInit }[] };
@@ -365,3 +367,73 @@ export const STAKING_FIXTURE = {
   ],
   stakelink: { community_vaults: 408, community_link: 6_116_488, operator_vaults: 15, operator_link: 1_125_000 },
 } satisfies StakingFile;
+
+const pegWord = (hex: string) => `0x${hex.padStart(64, '0')}`;
+
+/** The 5-minute peg batch as mainnet answered it on 2026-11-18, in pegCalls() order. */
+export const PEG_LIVE_WORDS: readonly string[] = [
+  '0ddfd468ad68b1a5', '0ddfd3241fe482f5',
+  '3637b74cc47eeab8e5', '010f13edc6a35e758acb', '021e2146740dfb94c2ca', '054b220e04b467167cff', '0a959b37e0ab0330a727', '1527ec7c2a1bbf14ff68', '2f562f3987f01aec53f3',
+  '3630cf1f9b7e3eb970', '010ef1588d717cff63b3', '021ddbd947f538cb4630', '054a701ed2609e904ff4', '0a94165e8c4e12d5a6d2', '15236cd412fd765be7fe', '29f443b8f4406c889e7b',
+  '0', '0', '0', '0', '03d2140b40240175089b', '010f0cf064dd59200000',
+  '0', '011f697916460a278ce290', '538a4a8a6d387293b0', '6af9d4b3', '3f480', '1',
+].map(pegWord);
+
+export const PEG_WORD = {
+  spot: 0, ema: 1, poolStatus: 16, totalQueued: 17, canDeposit: 18, strategyDepositRoom: 19, unusedDeposits: 20, unusedDepositLimit: 21,
+  allowInstantWithdrawals: 22, canWithdraw: 23, queuedWithdrawals: 24, lastWithdrawal: 25, minGap: 26, claimActive: 27,
+} as const;
+
+/** A word for an 18-decimal amount, for overriding PEG_LIVE_WORDS. */
+export const pegAmountWord = (amount: number) => pegWord((BigInt(Math.round(amount * 1e6)) * 10n ** 12n).toString(16));
+
+/** Answers the peg batch (any JSON-RPC batch whose first call is to the Curve pool) with PEG_LIVE_WORDS, some overridden by index. */
+export function pegRpc(over: Partial<Record<number, string>> = {}): FakeRoute {
+  return (_url, init) => {
+    if (init?.body === undefined) return undefined;
+    const body = JSON.parse(String(init.body)) as unknown;
+    if (!Array.isArray(body) || (body[0] as { params?: [{ to?: string }] })?.params?.[0]?.to !== PEG_POOL) return undefined;
+    return jsonResponse((body as { id: number }[]).map((c) => ({ jsonrpc: '2.0', id: c.id, result: over[c.id] ?? PEG_LIVE_WORDS[c.id] })));
+  };
+}
+
+export const PEG_FILE_FIXTURE: PegFile = {
+  schema_version: 1,
+  updated_at: '2026-11-18T01:35:00.000Z',
+  attribution: 'Data: Curve (prices.curve.finance), Ethereum mainnet, stake.link contracts',
+  thresholds: { private: 0.003, public: 0.0075 },
+  ...pegLiveBody(decodePegReading(PEG_LIVE_WORDS.map((w) => BigInt(w)))),
+  episode: null,
+  recent_episodes: [
+    { id: 2, side: 'premium', opened_at: '2026-09-25T20:00:00.000Z', closed_at: '2026-09-26T16:00:00.000Z', peak_gap: 0.0564, peak_at: '2026-09-25T22:00:00.000Z', best_size: 50_000, best_profit: 1_204.5, public: true, public_at: '2026-09-25T20:05:00.000Z' },
+  ],
+};
+
+export const PEG_HISTORY_FIXTURE: PegHistoryFile = {
+  schema_version: 1,
+  updated_at: '2026-11-18T01:00:00.000Z',
+  attribution: PEG_FILE_FIXTURE.attribution,
+  thresholds: { private: 0.003, public: 0.0075 },
+  hours: [
+    ['2026-11-17T23:00:00.000Z', 0.9997, 0.9998, 0.9996, 0.9997],
+    ['2026-11-18T00:00:00.000Z', 0.9997, 0.9998, 0.9995, 0.9996],
+    ['2026-11-18T01:00:00.000Z', 0.9996, 0.9998, 0.9996, 0.99975],
+  ],
+  days: [
+    ['2026-09-23T00:00:00.000Z', 0.9949, 0.9967, 0.9914, 0.9939],
+    ['2026-09-25T00:00:00.000Z', 0.9916, 1.0564, 0.9912, 1.0186],
+    ['2026-11-17T00:00:00.000Z', 0.9997, 0.9998, 0.9996, 0.9997],
+    ['2026-11-18T00:00:00.000Z', 0.9997, 0.9998, 0.9995, 0.99975],
+  ],
+  markers: [{ hour: '2026-09-23T16:00:00.000Z', kind: 'stakelink_unbonding', vaults: 80, link: null }],
+  episodes: [
+    { side: 'discount', start: '2026-09-22T12:00:00.000Z', end: '2026-09-25T19:00:00.000Z', peak_gap: -0.0088, peak_at: '2026-09-25T11:00:00.000Z', hours: 79 },
+    { side: 'premium', start: '2026-09-25T19:00:00.000Z', end: '2026-09-26T16:00:00.000Z', peak_gap: 0.0564, peak_at: '2026-09-25T21:00:00.000Z', hours: 21 },
+  ],
+  records: {
+    deepest_discount: { gap: -0.0088, hour: '2026-09-25T11:00:00.000Z' },
+    highest_premium: { gap: 0.0564, hour: '2026-09-25T21:00:00.000Z' },
+    longest: { side: 'discount', start: '2026-09-22T12:00:00.000Z', end: '2026-09-25T19:00:00.000Z', peak_gap: -0.0088, peak_at: '2026-09-25T11:00:00.000Z', hours: 79 },
+    last_end: '2026-09-26T16:00:00.000Z',
+  },
+};

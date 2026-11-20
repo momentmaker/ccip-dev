@@ -213,3 +213,16 @@ describe('reserveDepositFacts', () => {
     expect(reserveDepositFacts(old, '0x05')?.depositCount).toBe(3);
   });
 });
+
+describe('the peg target', () => {
+  it('keys and paths each phase of an episode', () => {
+    const open = { kind: 'peg', episode: 3, phase: 'open' } as const;
+    expect(broadcastKey(open)).toBe('broadcast:peg:3:open');
+    expect(broadcastCardPath(open)).toBe('broadcast/peg/3/open');
+    expect(parseBroadcastPath('broadcast/peg/3/close'.split('/'))).toEqual({ kind: 'peg', episode: 3, phase: 'close' });
+  });
+
+  it.each(['broadcast/peg/0/open', 'broadcast/peg/3/middle', 'broadcast/peg/x/open', 'broadcast/peg/3'])('rejects %s', (path) => {
+    expect(parseBroadcastPath(path.split('/'))).toBeNull();
+  });
+});

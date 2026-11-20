@@ -269,6 +269,33 @@ The numbers on ccip.dev, and the JSON files behind them at `https://data.ccip.de
   (Chainlink's reference data directory, Dune's spellbook or stake.link's app config). Unnamed operators show their
   address.
 
+## stLINK peg
+
+stLINK is stake.link's rebasing liquid-staking token, redeemable 1:1 for LINK through stake.link in time. ccip.dev tracks
+its price on Curve's stLINK/LINK-ng pool (`0x7e13…1761`), the main market.
+
+- **History:** hourly OHLC of stLINK in LINK from Curve's price API (`prices.curve.finance`), from 2025-04-19. Hours
+  without swaps repeat the last price.
+- **Live:** every 5 minutes, one batch of `eth_call`s: the pool's spot (`get_p`) and EMA (`price_oracle`), swap quotes
+  (`get_dy`) for 1k–250k in each direction, and stake.link's PriorityPool, StakingPool, WithdrawalPool and
+  FundFlowController state. A `get_dy` rung that reverts reads as an unprofitable rung (0 out); any other failed call
+  fails the read and the next RPC endpoint is tried.
+- **Gap** is spot − 1: negative is a discount, positive a premium.
+- **Curve depth** is the largest quoted size whose swap beats 1:1 after the pool's fees. Gas is not counted.
+- **The 1:1 leg.** A discount is closed by redeeming stLINK at 1:1. That is instant only against LINK queued for deposit
+  (or from the pool, when stake.link allows instant withdrawals and nobody waits); the rest joins the withdrawal queue,
+  paid out at most every 3 days inside a claim window. A premium is closed by minting at 1:1, instant only while no LINK
+  is queued, into the withdrawal queue and then the pool's room. **Tradeable now** is the smaller of the Curve depth and
+  the instant capacity.
+- **Episodes.** An episode opens when the gap stays at or past the private line (0.3%) for two 5-minute checks in a
+  row, and closes when it stays under half that line (0.15%) or flips side for two. History before launch uses the same rule on hourly closes with one bar, so
+  the episode list and an alert's numbers can differ slightly.
+- **Episode peak.** Public episode posts and cards show the episode's own peak ("peak so far" while it is open), not the
+  live gap at the moment they are drawn.
+- **Markers** pin hours when 10 or more stake.link vaults began unbonding, or they staked 10,000 LINK or more. They show
+  timing, not cause.
+- Not financial advice.
+
 ## Cross-check
 @CCIPMetrics posts its "#CCIP today" totals just after midnight UTC. Each post is dated the day it is posted and
 covers the previous UTC day: on every day below, its transaction count equals our message count for the previous

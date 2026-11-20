@@ -217,6 +217,15 @@ describe('Telegram captions', () => {
     );
   });
 
+  it('escapes a change under 0.1%, which Telegram would read as a tag, as the 2026-11-19 daily needed', () => {
+    // #given messages within 0.1% of the 7-day average
+    const flat: DailyFacts = { ...DAILY, totals: { ...DAILY.totals, messages: { value: 1313, pct: -0.04 } } };
+    // #when
+    const line = composeCopy(flat).telegramHtml.split('\n')[1];
+    // #then
+    expect(line).toBe('1,313 messages (▼ &lt;0.1% vs the 7-day average)');
+  });
+
   it('escapes names, and drops lines to stay within 1,024 characters', () => {
     // #given a sender name with HTML in it, and lane names too long for a caption
     const escaped = composeCopy(withLeaders({ sender: { key: 's', player: p('A<b>&C'), messages: 1, sharePct: null, viaToken: false } })).telegramHtml;

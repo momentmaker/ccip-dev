@@ -18,7 +18,8 @@
     "./senders": "./src/senders.ts",
     "./staking": "./src/staking.ts",
     "./staking-stats": "./src/staking-stats.ts",
-    "./staking-broadcasts": "./src/staking-broadcasts.ts"
+    "./staking-broadcasts": "./src/staking-broadcasts.ts",
+    "./peg-format": "./src/peg-format.ts"
   },
   "scripts": {
     "test": "vitest run",

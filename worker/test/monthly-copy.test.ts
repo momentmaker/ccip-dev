@@ -48,6 +48,15 @@ describe('composeMonthlyCopy', () => {
     );
   });
 
+  it('escapes a LINK share under 0.1% inside its bold, which Telegram would read as a tag', () => {
+    // #given a month whose fees were almost all paid in other tokens
+    const { telegramHtml } = composeMonthlyCopy(facts({ linkSharePct: 0.04 }));
+    // #when
+    const line = telegramHtml.split('\n')[2];
+    // #then
+    expect(line).toBe('Senders paid <b>$64.3K</b> in fees, <b>&lt;0.1%</b> of it in LINK.');
+  });
+
   it('leaves out the fees, the arrivals, the records and the lane when the month has none', () => {
     // #when
     const copy = composeMonthlyCopy(facts({ fees: null, linkSharePct: null, records: [], joined: [], busiestLane: null }));
