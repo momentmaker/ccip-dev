@@ -376,3 +376,13 @@ note = "inventory arbitrage bot (OKX aggregator buys, multi-bridge), deployer 0x
 chain = "ethereum-mainnet"
 address = "0x09afc08c78d192274bc86af1693f3455d6a6b93e"
 note = "3-of-5 personal treasury Safe, sent USDC to itself on Base"
+
+[[addresses]]
+chain = "pharos-mainnet"
+address = "0x08cd62babd8dac7404504792df30c12fc5384df5"
+note = "plain wallet with ~4k txs per chain; only public mention is a third-party hackathon README"
+
+[[addresses]]
+chain = "ethereum-mainnet-base-1"
+address = "0x08cd62babd8dac7404504792df30c12fc5384df5"
+note = "plain wallet with ~4k txs per chain; only public mention is a third-party hackathon README"
