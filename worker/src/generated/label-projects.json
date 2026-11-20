@@ -970,6 +970,11 @@
         "chain": "hyperliquid-mainnet",
         "address": "0xfd739d4e423301ce9385c1fb8850539d657c296d",
         "source": "https://kinetiq.xyz/docs/khype"
+      },
+      {
+        "chain": "hyperliquid-mainnet",
+        "address": "0x000000000000780555bd0bca3791f89f9542c2d6",
+        "source": "https://kinetiq.xyz/docs/contracts-and-audits"
       }
     ]
   },
@@ -1848,7 +1853,13 @@
     "url": "https://worldlibertyfinancial.com",
     "kind": "issuer",
     "source": "https://docs.worldlibertyfinancial.com/wlfi-token/contract-addresses (WLFI token, Binance Smart Chain BEP20 0x47474747477b199288bf72a1d702f7fe0fb1deea; \"WLFI supports cross-chain transfers via Chainlink CCIP\")",
-    "addresses": [],
+    "addresses": [
+      {
+        "chain": "binance_smart_chain-mainnet",
+        "address": "0x0f5d119dc9b3af846155ee9b6f4fe184b231bb17",
+        "note": "WLFI buyback Safe (Aster buybacks, per WLFI's X post)"
+      }
+    ],
     "tokens": [
       {
         "chain": "binance_smart_chain-mainnet",

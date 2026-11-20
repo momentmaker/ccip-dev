@@ -9,3 +9,9 @@ verified = true
 chain = "binance_smart_chain-mainnet"
 address = "0x47474747477b199288bf72a1d702f7fe0fb1deea"
 source = "https://docs.worldlibertyfinancial.com/wlfi-token/contract-addresses"
+
+# Source: https://x.com/worldlibertyfi/status/2119867890744619356 (WLFI's own post, 2026-11-09: "Buybacks will be executed on Aster through this wallet: https://bscscan.com/address/0x0f5d119dC9b3AF846155Ee9b6F4fe184b231BB17"; accepted 2026-11-20)
+[[addresses]]
+chain = "binance_smart_chain-mainnet"
+address = "0x0f5d119dc9b3af846155ee9b6f4fe184b231bb17"
+note = "WLFI buyback Safe (Aster buybacks, per WLFI's X post)"

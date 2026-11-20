@@ -924,6 +924,12 @@
     "kind": "protocol",
     "slug": "veda"
   },
+  "binance_smart_chain-mainnet:0x0f5d119dc9b3af846155ee9b6f4fe184b231bb17": {
+    "name": "World Liberty Financial",
+    "x": "worldlibertyfi",
+    "kind": "issuer",
+    "slug": "world-liberty-financial"
+  },
   "ethereum-mainnet:0x9ec0e4a4c411493773e01e2abf4d42395788846b": {
     "name": "xStocks",
     "x": "xStocksFi",

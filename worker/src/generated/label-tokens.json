@@ -17,6 +17,7 @@
   "ethereum-mainnet:0xc477b6dfd26ec2460b3b92de18837fd476ea7549": "janction",
   "binance_smart_chain-mainnet:0xea37a8de1de2d9d10772eeb569e28bfa5cb17707": "janction",
   "hyperliquid-mainnet:0xfd739d4e423301ce9385c1fb8850539d657c296d": "kinetiq",
+  "hyperliquid-mainnet:0x000000000000780555bd0bca3791f89f9542c2d6": "kinetiq",
   "ethereum-mainnet:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": "lido",
   "ethereum-mainnet:0x8236a87084f8b84306f72007f36f2618a5634494": "lombard",
   "ethereum-mainnet-base-1:0xecac9c5f704e954931349da37f60e39f515c11c1": "lombard",
