@@ -8,6 +8,7 @@ import {
 import directory from '../../../config/ccip-directory.json';
 import type { RunContext } from '../context';
 import { passportConfig, postState, type PassportConfig } from '../passport-config';
+import { publishPassport, type Publication, type PublishGroup, type PublishRow } from '../passport-publish';
 import * as passportStore from '../passport-store';
 import { chainEndpoint } from '../rpc';
 import * as store from '../store';
@@ -51,7 +52,7 @@ export async function runPassport(c: RunContext): Promise<void> {
   const notes = passportNotesHash(c.passportNotes);
   if ((await store.getMeta(db, META.evaluated)) === today) {
     if ((await store.getMeta(db, META.notes)) !== notes) {
-      await evaluateDay(c, { today, since, config });
+      await publishPassport(c, await evaluateDay(c, { today, since, config }));
       await store.setMeta(db, META.notes, notes);
     }
     return;
@@ -60,7 +61,7 @@ export async function runPassport(c: RunContext): Promise<void> {
 
   const untried = await readChains(c, await chainsToRead(c, today), today);
   if (untried.length > 0 && now.getUTCHours() < CLOSE_HOUR_UTC) return;
-  await evaluateDay(c, { today, since, config });
+  await publishPassport(c, await evaluateDay(c, { today, since, config }));
   await store.setMeta(db, META.evaluated, today);
   await store.setMeta(db, META.notes, notes);
   if (untried.length > 0) {
@@ -342,6 +343,7 @@ interface DayTally {
   names: Record<string, string>;
   pending: string[];
   produced: Set<string>;
+  results: Map<string, CheckResult[]>;
 }
 
 const rowKeysOf = (r: CheckResult): string[] =>
@@ -350,8 +352,9 @@ const rowKeysOf = (r: CheckResult): string[] =>
 /**
  * Evaluates every group from the stored readings (U5), steps each result's wire state (U6), confirms arrivals, and replaces
  * the day's post records. A second evaluation on the same day replays from each state's `before`, so it replaces the first.
+ * Returns what publishing needs, from the rows and readings already loaded here, so the files cost no second read of them.
  */
-async function evaluateDay(c: RunContext, input: DayInput): Promise<void> {
+async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication> {
   const db = c.env.DB;
   const refs = await store.chainRefs(db);
   const selectors = new Map([...refs.values()].map((ref) => [ref.name, ref.selector]));
@@ -374,6 +377,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<void> {
   await passportStore.clearEvaluationLog(db, day.today);
   const listedFrom = listedSince(c);
   const groups = new Map<string, Member[]>();
+  const delisted = new Map<string, PublishRow[]>();
   for (const r of registry) {
     const key = rowKey(r.chain, r.address);
     const stored = storedRows.get(key);
@@ -381,13 +385,17 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<void> {
     const marked = stored?.delisted_day != null;
     if (!listed && !marked) await write(passportStore.delistStatement(db, r.chain, r.address, day.today));
     if (listed && marked) await write(passportStore.delistStatement(db, r.chain, r.address, null));
-    if (!listed) continue;
     const groupId = r.group_id ?? key;
-    const member: Member = { key, registry: r, stored, design: designReason(refs.get(r.chain)), firstSeen: dayOf(r.first_seen) };
+    const design = designReason(refs.get(r.chain));
+    if (!listed) {
+      delisted.set(groupId, [...(delisted.get(groupId) ?? []), { registry: r, stored, design, delistedOn: stored?.delisted_day ?? day.today }]);
+      continue;
+    }
+    const member: Member = { key, registry: r, stored, design, firstSeen: dayOf(r.first_seen) };
     groups.set(groupId, [...(groups.get(groupId) ?? []), member]);
   }
 
-  const tally: DayTally = { changes: [], arrivals: [], names: {}, pending: [], produced: new Set() };
+  const tally: DayTally = { changes: [], arrivals: [], names: {}, pending: [], produced: new Set(), results: new Map() };
   for (const [groupId, members] of groups) {
     await write(...evaluateGroup(db, groupId, members, unitsByRow, day, tally));
   }
@@ -405,6 +413,13 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<void> {
     const tokens = records.length - 1 + summary.groupIds.length;
     await c.alert('passport-cap', `${tokens} tokens have Passport posts on ${day.today}: ${WIRE_TOKEN_POSTS} get their own post and ${summary.groupIds.length} share the summary`);
   }
+
+  const pages: PublishGroup[] = [...new Set([...groups.keys(), ...delisted.keys()])].map((id) => ({
+    id,
+    rows: [...(groups.get(id) ?? []).map((m): PublishRow => ({ registry: m.registry, stored: m.stored, design: m.design, delistedOn: null })), ...(delisted.get(id) ?? [])],
+    results: tally.results.get(id) ?? [],
+  }));
+  return { mode: day.config.mode, day: day.today, since: day.since, refs, groups: pages };
 }
 
 function displayName(members: readonly Member[]): string {
@@ -443,6 +458,7 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
     reading: m.stored?.reading ? (JSON.parse(m.stored.reading) as StoredReading) : null,
   }));
   const results = evaluateChecks({ rows, corrections: day.corrections, previous: stored.map((u) => JSON.parse(u.result) as CheckResult), verifierNames: VERIFIER_NAMES, today });
+  tally.results.set(groupId, results);
 
   const readToday = (m: Member) => m.stored?.read_day === today && m.stored.reading !== null;
   // A row whose arrival confirmed today is still arriving, so a second evaluation that day confirms it the same way.

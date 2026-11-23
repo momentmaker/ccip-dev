@@ -244,6 +244,40 @@ export async function clearEvaluationLog(db: D1Database, day: string): Promise<v
   await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind IN (${placeholders(EVALUATION_LOG_KINDS.length)})`).bind(day, ...EVALUATION_LOG_KINDS).run();
 }
 
+export interface ChangeRow {
+  id: number;
+  chain: string;
+  address: string;
+  day: string;
+  kind: string;
+  /** null for a first reading, whose detail is the whole reading and is not published. */
+  detail: string | null;
+}
+
+const CHANGES_PAGE = 500;
+export const CHANGES_PAGE_SQL = `SELECT id, chain, address, day, kind, CASE WHEN kind = 'first-reading' THEN NULL ELSE detail END AS detail
+  FROM passport_changes WHERE id > ? ORDER BY id LIMIT ?`;
+
+/** The whole change log in id order, a page of CHANGES_PAGE at a time. */
+export async function changeLog(db: D1Database): Promise<ChangeRow[]> {
+  const rows: ChangeRow[] = [];
+  let after = 0;
+  for (;;) {
+    const { results } = await db.prepare(CHANGES_PAGE_SQL).bind(after, CHANGES_PAGE).all<ChangeRow>();
+    rows.push(...results);
+    if (results.length < CHANGES_PAGE) return rows;
+    after = results.at(-1)!.id;
+  }
+}
+
+export const POSTS_SINCE_SQL = 'SELECT facts FROM passport_posts WHERE day >= ? ORDER BY day';
+
+/** Post records from `day` on, by passport_posts_day; a day holds at most eleven. */
+export async function postsSince(db: D1Database, day: string): Promise<PassportPostRecord[]> {
+  const { results } = await db.prepare(POSTS_SINCE_SQL).bind(day).all<{ facts: string }>();
+  return results.map((r) => JSON.parse(r.facts) as PassportPostRecord);
+}
+
 /** One day's post records replace that day's earlier ones in one batch. */
 export async function replacePosts(db: D1Database, day: string, records: readonly PassportPostRecord[], state: 'due' | 'seeded'): Promise<void> {
   const insert = db.prepare('INSERT INTO passport_posts (id, day, kind, group_id, facts, state) VALUES (?, ?, ?, ?, ?, ?)');

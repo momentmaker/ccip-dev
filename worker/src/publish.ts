@@ -13,7 +13,7 @@ export type ReserveBody = Omit<ReserveFile, 'schema_version' | 'updated_at' | 'a
 
 export const SCHEMA_VERSION = 1;
 export const ATTRIBUTION = 'Data: Chainlink CCIP API, DefiLlama';
-export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, staking: 300, peg: 60, pegHistory: 300, replay: 300, cost: 300, leaders: 300, moments: 300, projects: 300, chains: 3600, tokens: 3600 } as const;
+export const TTL = { live: 30, today: 30, status: 30, history: 300, top: 300, reserve: 300, staking: 300, peg: 60, pegHistory: 300, replay: 300, cost: 300, leaders: 300, moments: 300, projects: 300, passport: 300, chains: 3600, tokens: 3600 } as const;
 
 const LIVE_WINDOW_MINUTES = 15;
 
@@ -36,16 +36,19 @@ export async function retryPut<T>(key: string, put: () => Promise<T>, sleep: (ms
   return put();
 }
 
+/** Puts `<prefix>v1/<name>`; a prefix keeps a rehearsal's files apart from the published ones. */
 export async function putJson(
   bucket: R2Bucket,
   name: string,
   body: Record<string, unknown>,
   maxAgeSeconds: number,
   now: Date,
+  prefix = '',
 ): Promise<void> {
   const doc = { schema_version: SCHEMA_VERSION, updated_at: now.toISOString(), attribution: ATTRIBUTION, ...body };
-  await retryPut(`v1/${name}`, () =>
-    bucket.put(`v1/${name}`, JSON.stringify(doc), {
+  const key = `${prefix}v1/${name}`;
+  await retryPut(key, () =>
+    bucket.put(key, JSON.stringify(doc), {
       httpMetadata: { contentType: 'application/json; charset=utf-8', cacheControl: `public, max-age=${maxAgeSeconds}` },
     }),
   );
