@@ -324,21 +324,18 @@ export async function postsSince(db: D1Database, day: string): Promise<PassportP
 const dueKey = (id: string) => `passport:due:${id}`;
 
 /**
- * The ids among `ids` whose broadcast was claimed or sent: the broadcast's key, or one of its `#<output>` rows, is in meta.
- * An output row alone means one output sent while another failed, so the record is already partly out.
+ * The ids among `ids`, records of `day`, whose broadcast was claimed or sent: the broadcast's key, or one of its
+ * `#<output>` rows, is in meta. An output row alone means one output sent while another failed, so the record is already
+ * partly out. One range read over the day's broadcast keys: D1 refuses a compound SELECT of more than five terms.
  */
-async function claimedPosts(db: D1Database, ids: readonly string[]): Promise<Set<string>> {
-  const claimed = new Set<string>();
-  for (const chunk of chunks([...ids], Math.floor(PARAMS / 4))) {
-    const sql = chunk.map(() => 'SELECT ? AS id WHERE EXISTS (SELECT 1 FROM meta WHERE key = ? OR (key >= ? AND key < ?))').join(' UNION ALL ');
-    const params = chunk.flatMap((id) => {
-      const key = broadcastKey({ kind: 'passport', id });
-      return [id, key, `${key}#`, `${key}$`];
-    });
-    const { results } = await db.prepare(sql).bind(...params).all<{ id: string }>();
-    for (const r of results) claimed.add(r.id);
-  }
-  return claimed;
+async function claimedPosts(db: D1Database, day: string, ids: readonly string[]): Promise<Set<string>> {
+  const prefix = broadcastKey({ kind: 'passport', id: day });
+  const { results } = await db.prepare('SELECT key FROM meta WHERE key >= ? AND key < ?').bind(`${prefix}-`, `${prefix}.`).all<{ key: string }>();
+  const keys = results.map((r) => r.key);
+  return new Set(ids.filter((id) => {
+    const key = broadcastKey({ kind: 'passport', id });
+    return keys.some((k) => k === key || k.startsWith(`${key}#`));
+  }));
 }
 
 /**
@@ -349,7 +346,7 @@ async function claimedPosts(db: D1Database, ids: readonly string[]): Promise<Set
 export async function replacePosts(db: D1Database, day: string, records: readonly PassportPostRecord[], state: 'due' | 'seeded'): Promise<void> {
   const { results: old } = await db.prepare('SELECT id, state FROM passport_posts WHERE day = ?').bind(day).all<{ id: string; state: string }>();
   const seeded = new Set(old.filter((r) => r.state === 'seeded').map((r) => r.id));
-  const kept = await claimedPosts(db, old.map((r) => r.id));
+  const kept = await claimedPosts(db, day, old.map((r) => r.id));
   const written = new Set(records.map((r) => r.id));
   const insert = db.prepare('INSERT INTO passport_posts (id, day, kind, group_id, facts, state) VALUES (?, ?, ?, ?, ?, ?)');
   const replaced = old.filter((r) => !kept.has(r.id));

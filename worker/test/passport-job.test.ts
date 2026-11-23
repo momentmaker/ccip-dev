@@ -733,4 +733,20 @@ describe('runPassport post records evaluated again', () => {
     // #then
     expect({ count: before.length, after }).toEqual({ count: 1, after: [] });
   });
+
+  it('evaluates again a day holding eleven post records, one of them sent', async () => {
+    // #given eleven tokens first seen after launch on a chain no endpoint reads, so each arrives unreadable on D3
+    await seed([NOWHERE], [{ chain: NOWHERE, address: NO_POOL.token }]);
+    await run(at(D1), () => []);
+    const late = Array.from({ length: 11 }, (_, i) => ({ chain: NOWHERE, address: `0x${(i + 1).toString(16).padStart(40, '0')}`, group: `group-${i}`, seenAt: `${D2}T00:30:00.000Z` }));
+    await seed([NOWHERE], late);
+    await run(at(D2), () => []);
+    await run(at(D3), () => []);
+    const before = await posts();
+    await store.setMeta(env.DB, `broadcast:passport:${before[0]!.id}`, 'sent:2026-11-26T01:05:00.000Z');
+    // #when
+    await run(at(D3, 2), () => [], ON, { passportNotes: clearing('ffffffffffffffff') });
+    // #then
+    expect({ count: before.length, after: await posts() }).toEqual({ count: 11, after: before });
+  });
 });
