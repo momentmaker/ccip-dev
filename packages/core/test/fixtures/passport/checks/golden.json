@@ -1,0 +1,2669 @@
+{
+  "methodVersion": 1,
+  "results": {
+    "hooks200": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "15971525489660198786",
+          "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+        },
+        "key": "single-key/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583",
+        "value": "flagged",
+        "reason": "single-key",
+        "readOn": "2026-11-23",
+        "basis": "b612e3ecd58f3f1c",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "BurnMintTokenPool 2.0.0",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0xf940b3780adfe1e56194b76055b086e83a82c1ee",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0x1829a3f35f4ef621f410e2c487499a8e933da885",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "hooksOwner",
+              "address": "0xf940b3780adfe1e56194b76055b086e83a82c1ee",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "poolOwner",
+            "registryAdministrator",
+            "hooksOwner"
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "15971525489660198786",
+          "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+        },
+        "remoteChain": "2308837218439511688",
+        "key": "rate-limit/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/2308837218439511688",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            },
+            {
+              "direction": "inbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "15971525489660198786",
+          "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+        },
+        "remoteChain": "4051577828743386545",
+        "key": "rate-limit/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/4051577828743386545",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "15971525489660198786",
+          "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+        },
+        "remoteChain": "5009297550715157269",
+        "key": "rate-limit/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/5009297550715157269",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "15971525489660198786",
+          "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+        },
+        "remoteChain": "11344663589394136015",
+        "key": "rate-limit/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/11344663589394136015",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "15971525489660198786",
+            "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+          },
+          {
+            "chain": "2308837218439511688",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/2308837218439511688:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "15971525489660198786",
+            "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+          },
+          {
+            "chain": "4051577828743386545",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/4051577828743386545:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "15971525489660198786",
+            "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+          },
+          {
+            "chain": "5009297550715157269",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/5009297550715157269:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "15971525489660198786",
+            "token": "0x9818b6c09f5ecc843060927e8587c427c7c93583"
+          },
+          {
+            "chain": "11344663589394136015",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/15971525489660198786:0x9818b6c09f5ecc843060927e8587c427c7c93583/11344663589394136015:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "burnMint151": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "key": "single-key/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+        "value": "clear",
+        "reason": "multi-signer",
+        "readOn": "2026-11-23",
+        "basis": "9b182085d1b42578",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "BurnMintTokenPool 1.5.1",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0xecf08409a5e35aa58a887cf892c6af6648727281",
+              "kind": "safe",
+              "signers": 3,
+              "keys": 4
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0xecf08409a5e35aa58a887cf892c6af6648727281",
+              "kind": "safe",
+              "signers": 3,
+              "keys": 4
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": []
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "remoteChain": "124615329519749607",
+        "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/124615329519749607",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "ccip-1x"
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "remoteChain": "4426351306075016396",
+        "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4426351306075016396",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "remoteChain": "4949039107694359620",
+        "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4949039107694359620",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "remoteChain": "8481857512324358265",
+        "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/8481857512324358265",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "remoteChain": "11344663589394136015",
+        "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/11344663589394136015",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+        },
+        "remoteChain": "15971525489660198786",
+        "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/15971525489660198786",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+          },
+          {
+            "chain": "124615329519749607",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/124615329519749607:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+          },
+          {
+            "chain": "4426351306075016396",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4426351306075016396:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+          },
+          {
+            "chain": "4949039107694359620",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4949039107694359620:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+          },
+          {
+            "chain": "8481857512324358265",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/8481857512324358265:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+          },
+          {
+            "chain": "11344663589394136015",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/11344663589394136015:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+          },
+          {
+            "chain": "15971525489660198786",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/15971525489660198786:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "andProxy150": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "key": "single-key/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5",
+        "value": "flagged",
+        "reason": "single-key",
+        "readOn": "2026-11-23",
+        "basis": "07687325dda61ca5",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "BurnMintTokenPoolAndProxy 1.5.0",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0x2c305888a456e7004663bc12a74395e637eabcbc",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0x2c305888a456e7004663bc12a74395e637eabcbc",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "poolOwner",
+            "registryAdministrator"
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "1923510103922296319",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/1923510103922296319",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "3734403246176062136",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/3734403246176062136",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "4051577828743386545",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/4051577828743386545",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "4949039107694359620",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/4949039107694359620",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "6433500567565415381",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/6433500567565415381",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "11344663589394136015",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/11344663589394136015",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+        },
+        "remoteChain": "15971525489660198786",
+        "key": "rate-limit/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/15971525489660198786",
+        "value": "flagged",
+        "reason": "limit-off",
+        "readOn": "2026-11-23",
+        "basis": "ca1a34120bad6c57",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "off"
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "1923510103922296319",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/1923510103922296319:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "3734403246176062136",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/3734403246176062136:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "4051577828743386545",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/4051577828743386545:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "4949039107694359620",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/4949039107694359620:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "6433500567565415381",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/6433500567565415381:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "11344663589394136015",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/11344663589394136015:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5"
+          },
+          {
+            "chain": "15971525489660198786",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x94025780a1ab58868d9b2dbbb775f44b32e8e6e5/15971525489660198786:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "customEnergy": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x709ab533d18e652ecd56423d71c0241a0ee56a3b"
+        },
+        "key": "single-key/5009297550715157269:0x709ab533d18e652ecd56423d71c0241a0ee56a3b",
+        "value": "not readable",
+        "reason": "pool-type-not-recognised",
+        "readOn": "2026-11-23",
+        "basis": "97cf58ccc9f17579",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "EnergyTokenPool 1.0.0",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0xe637218e7528ddbc5568b15f23725540041a6b20",
+              "kind": "safe",
+              "signers": 3,
+              "keys": 5
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0xe637218e7528ddbc5568b15f23725540041a6b20",
+              "kind": "safe",
+              "signers": 3,
+              "keys": 5
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "hooksOwner",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": []
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x709ab533d18e652ecd56423d71c0241a0ee56a3b"
+        },
+        "remoteChain": "124615329519749607",
+        "key": "rate-limit/5009297550715157269:0x709ab533d18e652ecd56423d71c0241a0ee56a3b/124615329519749607",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1041670000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "ccip-1x"
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x709ab533d18e652ecd56423d71c0241a0ee56a3b"
+          },
+          {
+            "chain": "124615329519749607",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x709ab533d18e652ecd56423d71c0241a0ee56a3b/124615329519749607:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "gho151": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "key": "single-key/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+        "value": "not readable",
+        "reason": "party-unidentified",
+        "readOn": "2026-11-23",
+        "basis": "dad09eb8f65148c4",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "LockReleaseTokenPool 1.5.1",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0x5300a1a15135ea4dc7ad5a167152c01efc9b192a",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0x5300a1a15135ea4dc7ad5a167152c01efc9b192a",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": "0xc5bcc58be6172769ca1a78b8a45752e3c5059c39",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": "0xb54f773211331f3889b74624d341e49328e83473",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "poolOwner",
+            "registryAdministrator",
+            "rateLimitAdmin",
+            "proxyAdmin"
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "465200170687744372",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/465200170687744372",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "1556008542357238666",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/1556008542357238666",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "3016212468291539606",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/3016212468291539606",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "3461204551265785888",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/3461204551265785888",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "4949039107694359620",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/4949039107694359620",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "6433500567565415381",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/6433500567565415381",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "8481857512324358265",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/8481857512324358265",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "9335212494177455608",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/9335212494177455608",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+        },
+        "remoteChain": "15971525489660198786",
+        "key": "rate-limit/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/15971525489660198786",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "8600000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "465200170687744372",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/465200170687744372:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "1556008542357238666",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/1556008542357238666:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "3016212468291539606",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/3016212468291539606:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "3461204551265785888",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/3461204551265785888:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "4949039107694359620",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/4949039107694359620:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "6433500567565415381",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/6433500567565415381:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "8481857512324358265",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/8481857512324358265:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "9335212494177455608",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/9335212494177455608:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f"
+          },
+          {
+            "chain": "15971525489660198786",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f/15971525489660198786:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "lockRelease16Dev": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+        },
+        "key": "single-key/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0",
+        "value": "flagged",
+        "reason": "single-key",
+        "readOn": "2026-11-23",
+        "basis": "98217a0c0fa2d540",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "LockReleaseTokenPool 1.6.x-dev",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0x5cdeed57bb3c0e3089914d9c59cb92b5cf7482a6",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0x5cdeed57bb3c0e3089914d9c59cb92b5cf7482a6",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "poolOwner",
+            "registryAdministrator"
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+        },
+        "remoteChain": "4051577828743386545",
+        "key": "rate-limit/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0/4051577828743386545",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1041666400000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+        },
+        "remoteChain": "6433500567565415381",
+        "key": "rate-limit/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0/6433500567565415381",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1041666400000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+        },
+        "remoteChain": "15971525489660198786",
+        "key": "rate-limit/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0/15971525489660198786",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1041666400000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+          },
+          {
+            "chain": "4051577828743386545",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0/4051577828743386545:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+          },
+          {
+            "chain": "6433500567565415381",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0/6433500567565415381:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0"
+          },
+          {
+            "chain": "15971525489660198786",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x5f64ab1544d28732f0a24f4713c2c8ec0da089f0/15971525489660198786:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "noHooks200": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+        },
+        "key": "single-key/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815",
+        "value": "flagged",
+        "reason": "single-key",
+        "readOn": "2026-11-23",
+        "basis": "f374ae3586d351e1",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "LockReleaseTokenPool 2.0.0",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0x0c6bbfd2d5666d44bf28580edeec0263692c8316",
+              "kind": "safe",
+              "signers": 3,
+              "keys": 5
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0x0c6bbfd2d5666d44bf28580edeec0263692c8316",
+              "kind": "safe",
+              "signers": 3,
+              "keys": 5
+            },
+            {
+              "role": "rateLimitAdmin",
+              "address": "0x5a54bbae78a3f043a1a41d6f9eb39fb2a1f766c7",
+              "kind": "wallet",
+              "signers": 1,
+              "keys": null
+            },
+            {
+              "role": "hooksOwner",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "rateLimitAdmin"
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+        },
+        "remoteChain": "124615329519749607",
+        "key": "rate-limit/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/124615329519749607",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1749999999999999999998400",
+              "tokens": null,
+              "usd": null
+            },
+            {
+              "finality": "fast",
+              "limit": "on",
+              "units": "3602",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "ccip-1x"
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+        },
+        "remoteChain": "2308837218439511688",
+        "key": "rate-limit/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/2308837218439511688",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1749999999999999999998400",
+              "tokens": null,
+              "usd": null
+            },
+            {
+              "finality": "fast",
+              "limit": "on",
+              "units": "3602",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+        },
+        "remoteChain": "4949039107694359620",
+        "key": "rate-limit/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/4949039107694359620",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1749999999999999999998400",
+              "tokens": null,
+              "usd": null
+            },
+            {
+              "finality": "fast",
+              "limit": "on",
+              "units": "1150000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+        },
+        "remoteChain": "7801139999541420232",
+        "key": "rate-limit/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/7801139999541420232",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1749999999999999999998400",
+              "tokens": null,
+              "usd": null
+            },
+            {
+              "finality": "fast",
+              "limit": "on",
+              "units": "1150000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+        },
+        "remoteChain": "8481857512324358265",
+        "key": "rate-limit/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/8481857512324358265",
+        "value": "clear",
+        "reason": "limit-on",
+        "readOn": "2026-11-23",
+        "basis": "4b4234c621599316",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [
+            {
+              "finality": "standard",
+              "limit": "on",
+              "units": "1749999999999999999998400",
+              "tokens": null,
+              "usd": null
+            },
+            {
+              "finality": "fast",
+              "limit": "on",
+              "units": "1150000000000000000000000",
+              "tokens": null,
+              "usd": null
+            }
+          ],
+          "receivingInbound": "not readable",
+          "verifiers": [
+            {
+              "direction": "outbound",
+              "state": "listed",
+              "verifiers": [
+                {
+                  "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                  "name": "Committee Verifier (Default)"
+                }
+              ],
+              "threshold": null
+            }
+          ]
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+          },
+          {
+            "chain": "124615329519749607",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/124615329519749607:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+          },
+          {
+            "chain": "2308837218439511688",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/2308837218439511688:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+          },
+          {
+            "chain": "4949039107694359620",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/4949039107694359620:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+          },
+          {
+            "chain": "7801139999541420232",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/7801139999541420232:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      },
+      {
+        "check": "pool-pointer",
+        "rows": [
+          {
+            "chain": "5009297550715157269",
+            "token": "0x280839980a7ed0d7717f64125fe241012e5f5815"
+          },
+          {
+            "chain": "8481857512324358265",
+            "token": null
+          }
+        ],
+        "key": "pool-pointer/5009297550715157269:0x280839980a7ed0d7717f64125fe241012e5f5815/8481857512324358265:*",
+        "value": "not readable",
+        "reason": "remote-chain-not-in-group",
+        "readOn": "2026-11-23",
+        "basis": "ebbc7d7395ec15b6",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "sides": []
+        }
+      }
+    ],
+    "noPool": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0x325dc9ebcec31940c658acaca45f8293418d811e"
+        },
+        "key": "single-key/5009297550715157269:0x325dc9ebcec31940c658acaca45f8293418d811e",
+        "value": "not readable",
+        "reason": "party-unidentified",
+        "readOn": "2026-11-23",
+        "basis": "b0fb1d8aaa9beda7",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": null,
+          "parties": [
+            {
+              "role": "registryAdministrator",
+              "address": "0x44835bbba9d40deda9b64858095ecfb2693c9449",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "registryAdministrator"
+          ]
+        }
+      }
+    ],
+    "usdcProxy": [
+      {
+        "check": "single-key",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "key": "single-key/5009297550715157269:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "value": "not readable",
+        "reason": "party-unidentified",
+        "readOn": "2026-11-23",
+        "basis": "6d9dc1f27d982ad1",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "poolType": "USDCTokenPoolProxy 2.0.0",
+          "parties": [
+            {
+              "role": "poolOwner",
+              "address": "0x44835bbba9d40deda9b64858095ecfb2693c9449",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "registryAdministrator",
+              "address": "0x44835bbba9d40deda9b64858095ecfb2693c9449",
+              "kind": "unidentified",
+              "signers": null,
+              "keys": null
+            },
+            {
+              "role": "proxyAdmin",
+              "address": null,
+              "kind": "absent",
+              "signers": null,
+              "keys": null
+            }
+          ],
+          "decidedBy": [
+            "poolOwner",
+            "registryAdministrator"
+          ]
+        }
+      },
+      {
+        "check": "rate-limit",
+        "row": {
+          "chain": "5009297550715157269",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "remoteChain": null,
+        "key": "rate-limit/5009297550715157269:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/*",
+        "value": "not readable",
+        "reason": "proxy-pool",
+        "readOn": "2026-11-23",
+        "basis": "63b8008e429a7639",
+        "corrected": false,
+        "methodVersion": 1,
+        "facts": {
+          "perHour": [],
+          "receivingInbound": null,
+          "verifiers": []
+        }
+      }
+    ]
+  }
+}

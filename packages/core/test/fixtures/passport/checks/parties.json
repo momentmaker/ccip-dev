@@ -1,0 +1,79 @@
+{
+  "recorded": "classifyParties (method version 1) on 2026-11-23: https://base-rpc.publicnode.com at block 61258612; https://ethereum-rpc.publicnode.com at block 26478252",
+  "parties": {
+    "15971525489660198786": {
+      "0x1829a3f35f4ef621f410e2c487499a8e933da885": {
+        "kind": "wallet",
+        "signers": 1
+      },
+      "0xf940b3780adfe1e56194b76055b086e83a82c1ee": {
+        "kind": "wallet",
+        "signers": 1
+      }
+    },
+    "5009297550715157269": {
+      "0x0c6bbfd2d5666d44bf28580edeec0263692c8316": {
+        "kind": "safe",
+        "signers": 3,
+        "safe": {
+          "singleton": "0x41675c099f32341bf84bfc5382af534df5c7461a",
+          "release": "1.4.1",
+          "threshold": 3,
+          "owners": 5
+        }
+      },
+      "0x2c305888a456e7004663bc12a74395e637eabcbc": {
+        "kind": "wallet",
+        "signers": 1
+      },
+      "0x44835bbba9d40deda9b64858095ecfb2693c9449": {
+        "kind": "unidentified",
+        "signers": null,
+        "reason": "a timelock whose proposer 0xd6597750bf74dcaec57e0f9ad2ec998d837005bf is unidentified: it answers like a Safe, but its masterCopy 0x2ed1a552c03f843a2db7de10ad390d24bb66cee0 is not a pinned Safe singleton on chain 1"
+      },
+      "0x5300a1a15135ea4dc7ad5a167152c01efc9b192a": {
+        "kind": "unidentified",
+        "signers": null,
+        "reason": "its code matches no known type"
+      },
+      "0x5a54bbae78a3f043a1a41d6f9eb39fb2a1f766c7": {
+        "kind": "wallet",
+        "signers": 1
+      },
+      "0x5cdeed57bb3c0e3089914d9c59cb92b5cf7482a6": {
+        "kind": "wallet",
+        "signers": 1
+      },
+      "0xb54f773211331f3889b74624d341e49328e83473": {
+        "kind": "unidentified",
+        "signers": null,
+        "reason": "its code matches no known type"
+      },
+      "0xc5bcc58be6172769ca1a78b8a45752e3c5059c39": {
+        "kind": "unidentified",
+        "signers": null,
+        "reason": "its code matches no known type"
+      },
+      "0xe637218e7528ddbc5568b15f23725540041a6b20": {
+        "kind": "safe",
+        "signers": 3,
+        "safe": {
+          "singleton": "0x41675c099f32341bf84bfc5382af534df5c7461a",
+          "release": "1.4.1",
+          "threshold": 3,
+          "owners": 5
+        }
+      },
+      "0xecf08409a5e35aa58a887cf892c6af6648727281": {
+        "kind": "safe",
+        "signers": 3,
+        "safe": {
+          "singleton": "0x41675c099f32341bf84bfc5382af534df5c7461a",
+          "release": "1.4.1",
+          "threshold": 3,
+          "owners": 4
+        }
+      }
+    }
+  }
+}
