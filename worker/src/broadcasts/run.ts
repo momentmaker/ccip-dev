@@ -404,6 +404,13 @@ async function checkImage(c: RunContext, url: string): Promise<{ png: Uint8Array
   }
 }
 
+function composeFor(facts: Planned['facts']): Copy {
+  if (facts.kind === 'monthly') return composeMonthlyCopy(facts);
+  if (facts.kind === 'passport') return composePassportCopy(facts);
+  if (isMomentFacts(facts)) return composeMomentCopy(facts);
+  return composeCopy(facts);
+}
+
 /**
  * Claims the key, then sends the checked card (the read video, for the monthly broadcast) to each output that has not sent yet; every output that sends is marked under
  * `${key}#${name}`. The broadcast is marked sent only once all its outputs are, otherwise the claim is released and the next
@@ -415,14 +422,7 @@ async function deliver(c: RunContext, p: Planned, enabled: readonly BroadcastOut
   const key = broadcastKey(p.target);
   let copy: Copy;
   try {
-    copy =
-      p.facts.kind === 'monthly'
-        ? composeMonthlyCopy(p.facts)
-        : p.facts.kind === 'passport'
-          ? composePassportCopy(p.facts)
-          : isMomentFacts(p.facts)
-            ? composeMomentCopy(p.facts)
-            : composeCopy(p.facts);
+    copy = composeFor(p.facts);
   } catch (err) {
     await c.alert(`broadcast-copy:${key}`, `${key} was not posted: ${err instanceof Error ? err.message : String(err)}`);
     return;

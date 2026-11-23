@@ -1,9 +1,10 @@
+import type { BroadcastMode } from './broadcasts/outputs';
 import type { Env } from './env';
 
 /** KTD20: `dry` reads and stores but publishes nothing; any value other than `dry` or `on` is off. */
 export type PassportMode = 'off' | 'dry' | 'on';
 /** Gates Telegram posts only; any value other than `drafts` or `on` is off. */
-export type PassportPublic = 'off' | 'drafts' | 'on';
+export type PassportPublic = BroadcastMode;
 
 export interface PassportConfig {
   mode: PassportMode;
