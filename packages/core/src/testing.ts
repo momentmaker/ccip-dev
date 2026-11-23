@@ -400,7 +400,7 @@ export function pegRpc(over: Partial<Record<number, string>> = {}): FakeRoute {
 
 /** A recorded call's answer: its return data, a revert, or an out-of-gas error that also fails any aggregate3 batch holding it. */
 export type RecordedCall = `0x${string}` | 'revert' | 'burn';
-export type EvmHiccup = 429 | 500 | 'timeout' | 'header not found';
+export type EvmHiccup = 429 | 500 | 503 | { status: 429 | 503; retryAfter: string } | 'timeout' | 'header not found';
 
 export interface FakeEvmChainOptions {
   chainId: number;
@@ -471,6 +471,7 @@ export function fakeEvmChain(opts: FakeEvmChainOptions): FakeEvmChain {
     const hiccup = hiccups[body.method]?.shift();
     if (hiccup === 'timeout') throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
     if (typeof hiccup === 'number') return new Response('', { status: hiccup });
+    if (typeof hiccup === 'object') return new Response('', { status: hiccup.status, headers: { 'retry-after': hiccup.retryAfter } });
     const result = (value: unknown) => jsonResponse({ jsonrpc: '2.0', id: body.id, result: value });
     const error = (code: number, message: string) => jsonResponse({ jsonrpc: '2.0', id: body.id, error: { code, message } });
     if (hiccup === 'header not found') return error(-32000, hiccup);

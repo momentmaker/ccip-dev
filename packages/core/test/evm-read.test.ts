@@ -41,9 +41,14 @@ async function read(fake: FakeEvmChain, calls: readonly EvmCall[], batchSize?: n
   return readCalls(deps, pinned, calls, batchSize);
 }
 
+const PINNED_CHAIN = { rpcUrl: RPC, chainId: 1, block: BLOCK, blockHash: `0x${BLOCK.toString(16).padStart(64, '0')}`, timestamp: TIMESTAMP };
+
 /** Reads at the recorded block without opening, so a fake's hiccups land on the reads alone. */
-const readAtBlock = (fake: FakeEvmChain, calls: readonly EvmCall[], multicall3: boolean) =>
-  readCalls(depsFor(fake), { rpcUrl: RPC, chainId: 1, block: BLOCK, blockHash: `0x${BLOCK.toString(16).padStart(64, '0')}`, timestamp: TIMESTAMP, multicall3 }, calls);
+const readAtBlock = (fake: FakeEvmChain, calls: readonly EvmCall[], multicall3: boolean) => readCalls(depsFor(fake), { ...PINNED_CHAIN, multicall3 }, calls);
+
+/** Reads one by one at the recorded block, recording each wait between attempts in `sleeps`. */
+const readAtBlockSleeping = (fake: FakeEvmChain, calls: readonly EvmCall[], sleeps: number[]) =>
+  readCalls({ ...depsFor(fake), sleep: async (ms) => { sleeps.push(ms); } }, { ...PINNED_CHAIN, multicall3: false }, calls);
 
 describe('openChain', () => {
   it('pins the block 12 behind the latest and trusts Multicall3 once its code and chain id check out', async () => {
@@ -139,10 +144,42 @@ describe('readCalls', () => {
     expect(await readAtBlock(chain({ hiccups: { eth_call: ['header not found'] } }), [OWNER, TOKEN], true)).toEqual([ANSWERED_OWNER, ANSWERED_TOKEN]);
   });
 
-  it('throws after three failed attempts', async () => {
-    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: [429, 'timeout', 500] } });
-    await expect(read(fake, [OWNER])).rejects.toMatchObject({ name: 'ChainReadError', kind: 'endpoint' });
-    expect(ethCalls(fake)).toHaveLength(3);
+  it('throws after three failed attempts, 0.5 s and 1 s apart, when the endpoint is not rate limiting', async () => {
+    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: ['timeout', 500, 'timeout'] } });
+    const sleeps: number[] = [];
+    await expect(readAtBlockSleeping(fake, [OWNER], sleeps)).rejects.toMatchObject({ name: 'ChainReadError', kind: 'endpoint' });
+    expect({ attempts: ethCalls(fake).length, sleeps }).toEqual({ attempts: 3, sleeps: [500, 1000] });
+  });
+
+  it('answers after an HTTP 429, waiting 1 s', async () => {
+    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: [429] } });
+    const sleeps: number[] = [];
+    expect({ results: await readAtBlockSleeping(fake, [OWNER], sleeps), sleeps }).toEqual({ results: [ANSWERED_OWNER], sleeps: [1000] });
+  });
+
+  it('waits the 2 s an HTTP 429 asks for in its Retry-After', async () => {
+    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: [{ status: 429, retryAfter: '2' }] } });
+    const sleeps: number[] = [];
+    expect({ results: await readAtBlockSleeping(fake, [OWNER], sleeps), sleeps }).toEqual({ results: [ANSWERED_OWNER], sleeps: [2000] });
+  });
+
+  it('waits no more than 10 s for a Retry-After of a minute', async () => {
+    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: [{ status: 503, retryAfter: '60' }] } });
+    const sleeps: number[] = [];
+    expect({ results: await readAtBlockSleeping(fake, [OWNER], sleeps), sleeps }).toEqual({ results: [ANSWERED_OWNER], sleeps: [10_000] });
+  });
+
+  it('throws as an endpoint error after four HTTP 429s, 1 s, 2 s and 4 s apart', async () => {
+    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: [429, 429, 429, 429] } });
+    const sleeps: number[] = [];
+    await expect(readAtBlockSleeping(fake, [OWNER], sleeps)).rejects.toMatchObject({ name: 'ChainReadError', kind: 'endpoint' });
+    expect({ attempts: ethCalls(fake).length, sleeps }).toEqual({ attempts: 4, sleeps: [1000, 2000, 4000] });
+  });
+
+  it('answers on the fourth attempt after three HTTP 503s, 1 s, 2 s and 4 s apart', async () => {
+    const fake = chain({ multicall3: 'absent', hiccups: { eth_call: [503, 503, 503] } });
+    const sleeps: number[] = [];
+    expect({ results: await readAtBlockSleeping(fake, [OWNER], sleeps), sleeps }).toEqual({ results: [ANSWERED_OWNER], sleeps: [1000, 2000, 4000] });
   });
 
   it('throws when the endpoint stops answering a Multicall3 batch and its halves', async () => {

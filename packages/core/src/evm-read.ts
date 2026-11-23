@@ -1,11 +1,14 @@
 import { z } from 'zod';
 import { decodeAggregate3, decodeValue, encodeAggregate3, HEX_DATA, MULTICALL3, type EvmCall } from './evm-abi';
 import { ethRpc, HEX_QUANTITY, isRevert, NO_RESULT, toHex, type Fetcher } from './eth-rpc';
-import type { HttpDeps } from './http';
+import { retryAfterMs, type HttpDeps } from './http';
 
 export const READ_DEFAULTS = { confirmations: 12, maxAgeS: 3 * 3600, batchSize: 100 } as const;
 const ATTEMPTS = 3;
 const BACKOFF_MS = 500;
+const RATE_LIMITED_ATTEMPTS = 4;
+const RATE_LIMITED_BACKOFF_MS = 1000;
+const MAX_RETRY_AFTER_MS = 10_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 export type ChainReadErrorKind = 'wrong-chain' | 'stale-node' | 'endpoint';
@@ -41,6 +44,7 @@ export type CallResult = { status: 'answered'; data: string } | { status: 'rever
 const BlockHeader = z.object({ hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/), timestamp: z.string().regex(HEX_QUANTITY) });
 /** Errors that say nothing about the call itself: rate limits, server errors and a node that does not hold the block yet. */
 const RETRYABLE = /^HTTP (429|5\d\d)$|rate limit|too many requests|limit exceeded|header not found|block not found|unknown block|missing trie node|timeout|timed out/i;
+const RATE_LIMITED = /^HTTP (429|503)$/;
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -50,16 +54,28 @@ function isRetryable(err: unknown): boolean {
   return transport || err.message === NO_RESULT || RETRYABLE.test(err.message);
 }
 
-/** One JSON-RPC request, retried on a retryable error; after the last attempt the endpoint counts as no longer answering. */
+/**
+ * One JSON-RPC request, retried on a retryable error; after the last attempt the endpoint counts as no longer answering.
+ * An HTTP 429 or 503 gets a longer schedule, or the wait its Retry-After asks for, up to MAX_RETRY_AFTER_MS.
+ */
 async function request(deps: HttpDeps, rpcUrl: string, method: string, params: unknown[]): Promise<unknown> {
-  const timed: Fetcher = { fetch: (input, init) => deps.fetch(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }) };
+  const last = { retryAfterMs: null as number | null };
+  const timed: Fetcher = {
+    fetch: async (input, init) => {
+      const res = await deps.fetch(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      last.retryAfterMs = retryAfterMs(res);
+      return res;
+    },
+  };
   for (let attempt = 1; ; attempt++) {
     try {
       return await ethRpc(timed, rpcUrl, method, params);
     } catch (err) {
       if (!isRetryable(err)) throw err;
-      if (attempt >= ATTEMPTS) throw new ChainReadError('endpoint', `${rpcUrl}: ${method} failed ${ATTEMPTS} times, last with ${messageOf(err)}`);
-      await deps.sleep(BACKOFF_MS * 2 ** (attempt - 1));
+      const limited = RATE_LIMITED.test(messageOf(err));
+      if (attempt >= (limited ? RATE_LIMITED_ATTEMPTS : ATTEMPTS)) throw new ChainReadError('endpoint', `${rpcUrl}: ${method} failed ${attempt} times, last with ${messageOf(err)}`);
+      const backoff = (limited ? RATE_LIMITED_BACKOFF_MS : BACKOFF_MS) * 2 ** (attempt - 1);
+      await deps.sleep(limited ? Math.min(last.retryAfterMs ?? backoff, MAX_RETRY_AFTER_MS) : backoff);
     }
   }
 }
