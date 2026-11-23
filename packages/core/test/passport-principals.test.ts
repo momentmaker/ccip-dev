@@ -39,7 +39,7 @@ const LIVE = {
   linkTimelock: '0x44835bbba9d40deda9b64858095ecfb2693c9449',
   linkProposerMcms: '0xe53289f32c8e690b7173aa33affe9b6b0cb0012f',
   linkBypasserMcms: '0x117ec8ad107976e1dbcc21717ff78407bc36aadc',
-  unpinnedSafe: '0xd6597750bf74dcaec57e0f9ad2ec998d837005bf',
+  linkProposerSafe: '0xd6597750bf74dcaec57e0f9ad2ec998d837005bf',
   safe130OneOfOne: '0x59a0f98345f54bab245a043488ece7fcecd7b596',
   safe141OneOfOne: '0x4240d629511a849d0a641600a32bdc5611d43b56',
   safe130TwoOfThree: '0x62c212084ed4d2c1451c2e778f8ea9a15a47616b',
@@ -254,7 +254,17 @@ describe('classifyParties: Safes', () => {
   });
 
   it('leaves a contract that answers getOwners and getThreshold unidentified when its masterCopy is not pinned', async () => {
-    expect(await classifyOne(ethereum, LIVE.unpinnedSafe)).toMatchObject({ kind: 'unidentified', signers: null, reason: expect.stringContaining('0x2ed1a552c03f843a2db7de10ad390d24bb66cee0') });
+    const unpinned = '0x00000000000000000000000000000000000051fe';
+    const over = withEthereum({ [evmCallKey(LIVE.linkProposerSafe, PROBE.masterCopy)]: answer(addressWord(unpinned)) }, {});
+    expect(await classifyOne(ethereum, LIVE.linkProposerSafe, over)).toMatchObject({ kind: 'unidentified', signers: null, reason: expect.stringContaining(unpinned) });
+  });
+
+  it('counts the threshold of the LINK proposer Safe, whose self-built 1.3.0 singleton is pinned for Ethereum', async () => {
+    expect(await classifyOne(ethereum, LIVE.linkProposerSafe)).toEqual({
+      kind: 'safe',
+      signers: 6,
+      safe: { singleton: '0x2ed1a552c03f843a2db7de10ad390d24bb66cee0', release: '1.3.0', threshold: 6, owners: 12 },
+    });
   });
 
   it('leaves a Safe whose getOwners answer is longer than the cap unidentified', async () => {
@@ -331,8 +341,8 @@ describe('classifyParties: timelocks', () => {
     });
   });
 
-  it('leaves the live Ethereum LINK timelock unidentified, because one proposer is a Safe on an unpinned singleton', async () => {
-    expect(await classifyOne(ethereum, LIVE.linkTimelock)).toMatchObject({ kind: 'unidentified', signers: null, reason: expect.stringContaining(LIVE.unpinnedSafe) });
+  it('takes the weakest member of the live Ethereum LINK timelock, its proposer Safe included', async () => {
+    expect(await classifyOne(ethereum, LIVE.linkTimelock)).toMatchObject({ kind: 'timelock', signers: 4, timelock: { minDelay: '10800' } });
   });
 
   it('leaves a contract that answers getMinDelay but does not list role members unidentified', async () => {

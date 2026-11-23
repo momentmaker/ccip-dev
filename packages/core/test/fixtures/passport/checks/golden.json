@@ -1,5 +1,5 @@
 {
-  "methodVersion": 1,
+  "methodVersion": 2,
   "results": {
     "hooks200": [
       {
@@ -14,7 +14,7 @@
         "readOn": "2026-11-23",
         "basis": "b612e3ecd58f3f1c",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "BurnMintTokenPool 2.0.0",
           "parties": [
@@ -74,7 +74,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -122,7 +122,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -159,7 +159,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -196,7 +196,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -238,7 +238,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -261,7 +261,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -284,7 +284,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -307,7 +307,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -326,7 +326,7 @@
         "readOn": "2026-11-23",
         "basis": "9b182085d1b42578",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "BurnMintTokenPool 1.5.1",
           "parties": [
@@ -375,7 +375,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -405,7 +405,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -442,7 +442,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -479,7 +479,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -516,7 +516,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -553,7 +553,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -595,7 +595,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -618,7 +618,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -641,7 +641,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -664,7 +664,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -687,7 +687,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -710,7 +710,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -729,7 +729,7 @@
         "readOn": "2026-11-23",
         "basis": "07687325dda61ca5",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "BurnMintTokenPoolAndProxy 1.5.0",
           "parties": [
@@ -781,7 +781,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -818,7 +818,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -855,7 +855,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -892,7 +892,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -929,7 +929,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -966,7 +966,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1003,7 +1003,7 @@
         "readOn": "2026-11-23",
         "basis": "ca1a34120bad6c57",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1045,7 +1045,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1068,7 +1068,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1091,7 +1091,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1114,7 +1114,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1137,7 +1137,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1160,7 +1160,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1183,7 +1183,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1202,7 +1202,7 @@
         "readOn": "2026-11-23",
         "basis": "97cf58ccc9f17579",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "EnergyTokenPool 1.0.0",
           "parties": [
@@ -1258,7 +1258,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1296,7 +1296,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1315,7 +1315,7 @@
         "readOn": "2026-11-23",
         "basis": "dad09eb8f65148c4",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "LockReleaseTokenPool 1.5.1",
           "parties": [
@@ -1369,7 +1369,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1409,7 +1409,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1449,7 +1449,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1489,7 +1489,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1529,7 +1529,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1569,7 +1569,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1609,7 +1609,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1649,7 +1649,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1689,7 +1689,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -1734,7 +1734,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1757,7 +1757,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1780,7 +1780,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1803,7 +1803,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1826,7 +1826,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1849,7 +1849,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1872,7 +1872,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1895,7 +1895,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1918,7 +1918,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -1937,7 +1937,7 @@
         "readOn": "2026-11-23",
         "basis": "98217a0c0fa2d540",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "LockReleaseTokenPool 1.6.x-dev",
           "parties": [
@@ -1989,7 +1989,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2029,7 +2029,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2069,7 +2069,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2114,7 +2114,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2137,7 +2137,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2160,7 +2160,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2179,7 +2179,7 @@
         "readOn": "2026-11-23",
         "basis": "f374ae3586d351e1",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "LockReleaseTokenPool 2.0.0",
           "parties": [
@@ -2237,7 +2237,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2277,7 +2277,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2324,7 +2324,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2371,7 +2371,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2418,7 +2418,7 @@
         "readOn": "2026-11-23",
         "basis": "4b4234c621599316",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [
             {
@@ -2470,7 +2470,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2493,7 +2493,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2516,7 +2516,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2539,7 +2539,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2562,7 +2562,7 @@
         "readOn": "2026-11-23",
         "basis": "ebbc7d7395ec15b6",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "sides": []
         }
@@ -2581,7 +2581,7 @@
         "readOn": "2026-11-23",
         "basis": "b0fb1d8aaa9beda7",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": null,
           "parties": [
@@ -2612,7 +2612,7 @@
         "readOn": "2026-11-23",
         "basis": "6d9dc1f27d982ad1",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "poolType": "USDCTokenPoolProxy 2.0.0",
           "parties": [
@@ -2657,7 +2657,7 @@
         "readOn": "2026-11-23",
         "basis": "63b8008e429a7639",
         "corrected": false,
-        "methodVersion": 1,
+        "methodVersion": 2,
         "facts": {
           "perHour": [],
           "receivingInbound": null,

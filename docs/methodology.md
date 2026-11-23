@@ -416,6 +416,11 @@ from chain once a day, and every result carries the date of its reading.
 ### Method log
 - 2026-11-23: method 1. Five checks: single key, rate limit, most out per hour, pool pointers and verifier line. Pinned
   Safe singletons from safe-global's deployments as of 2026-11-23; timelocks resolved to a depth of three.
+- 2026-11-23: method 2. One Safe singleton outside safe-global's deployments is recognised on Ethereum:
+  `0x2ed1a552c03f843a2db7de10ad390d24bb66cee0`, a self-compiled Safe 1.3.0 that backs a proposer of LINK's CCIP admin
+  timelock. Its verified source matches Safe 1.3.0 except that setting a guard requires the guard to declare ERC-165
+  support, which cannot let fewer signers act. LINK's Ethereum admin now reads as a timelock whose weakest party needs 4
+  signers, where method 1 read it as not readable.
 
 ## Cross-check
 @CCIPMetrics posts its "#CCIP today" totals just after midnight UTC. Each post is dated the day it is posted and

@@ -1,10 +1,50 @@
 {
-  "methodVersion": 1,
+  "methodVersion": 2,
   "results": {
     "ethereum/0x44835bbba9d40deda9b64858095ecfb2693c9449": {
-      "kind": "unidentified",
-      "signers": null,
-      "reason": "a timelock whose proposer 0xd6597750bf74dcaec57e0f9ad2ec998d837005bf is unidentified: it answers like a Safe, but its masterCopy 0x2ed1a552c03f843a2db7de10ad390d24bb66cee0 is not a pinned Safe singleton on chain 1"
+      "kind": "timelock",
+      "signers": 4,
+      "timelock": {
+        "minDelay": "10800",
+        "members": [
+          {
+            "address": "0xe53289f32c8e690b7173aa33affe9b6b0cb0012f",
+            "roles": [
+              "proposer"
+            ],
+            "kind": "mcms",
+            "signers": 4
+          },
+          {
+            "address": "0xd6597750bf74dcaec57e0f9ad2ec998d837005bf",
+            "roles": [
+              "proposer"
+            ],
+            "kind": "safe",
+            "signers": 6
+          },
+          {
+            "address": "0xd9757aa52907798d1af2fda7a6c0cc733e5acf7e",
+            "roles": [
+              "proposer"
+            ],
+            "kind": "mcms",
+            "signers": 4
+          },
+          {
+            "address": "0x117ec8ad107976e1dbcc21717ff78407bc36aadc",
+            "roles": [
+              "bypasser"
+            ],
+            "kind": "mcms",
+            "signers": 8
+          }
+        ],
+        "decidedBy": [
+          "0xe53289f32c8e690b7173aa33affe9b6b0cb0012f",
+          "0xd9757aa52907798d1af2fda7a6c0cc733e5acf7e"
+        ]
+      }
     },
     "ethereum/0x59a0f98345f54bab245a043488ece7fcecd7b596": {
       "kind": "safe",
@@ -79,9 +119,14 @@
       }
     },
     "ethereum/0xd6597750bf74dcaec57e0f9ad2ec998d837005bf": {
-      "kind": "unidentified",
-      "signers": null,
-      "reason": "it answers like a Safe, but its masterCopy 0x2ed1a552c03f843a2db7de10ad390d24bb66cee0 is not a pinned Safe singleton on chain 1"
+      "kind": "safe",
+      "signers": 6,
+      "safe": {
+        "singleton": "0x2ed1a552c03f843a2db7de10ad390d24bb66cee0",
+        "release": "1.3.0",
+        "threshold": 6,
+        "owners": 12
+      }
     },
     "ethereum/0xd9757aa52907798d1af2fda7a6c0cc733e5acf7e": {
       "kind": "mcms",

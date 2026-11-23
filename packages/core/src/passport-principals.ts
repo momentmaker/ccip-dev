@@ -3,7 +3,7 @@ import { readCalls, readCode, type CallResult, type PinnedChain } from './evm-re
 import type { HttpDeps } from './http';
 
 /** Stamps every stored reading and result (KTD13); raise it whenever a rule here or in the checklist evaluation changes. */
-export const METHOD_VERSION = 1;
+export const METHOD_VERSION = 2;
 
 export type SafeRelease = '1.3.0' | '1.3.0 L2' | '1.4.1' | '1.4.1 L2' | '1.5.0' | '1.5.0 L2';
 
@@ -27,6 +27,15 @@ const SAFE = {
   V150_L2_CANONICAL: '0xedd160febbd92e350d4d398fb636302fccd67c7e',
 } as const;
 
+/**
+ * Safe singletons outside safe-deployments, each reviewed by hand before pinning. The Ethereum one backs a proposer of
+ * LINK's CCIP admin timelock: a self-compiled GnosisSafe from safe-global's main branch shortly after 1.3.0 (Sourcify exact
+ * match). Its only behavioural change from 1.3.0 is that setGuard checks ERC-165, which cannot let fewer signers act.
+ */
+const REVIEWED_SAFE = {
+  V130_SELF_BUILT_ETHEREUM: '0x2ed1a552c03f843a2db7de10ad390d24bb66cee0',
+} as const;
+
 const SAFE_SINGLETON_RELEASES: Readonly<Record<string, SafeRelease>> = {
   [SAFE.V130_CANONICAL]: '1.3.0',
   [SAFE.V130_EIP155]: '1.3.0',
@@ -40,10 +49,11 @@ const SAFE_SINGLETON_RELEASES: Readonly<Record<string, SafeRelease>> = {
   [SAFE.V141_L2_ZKSYNC]: '1.4.1 L2',
   [SAFE.V150_CANONICAL]: '1.5.0',
   [SAFE.V150_L2_CANONICAL]: '1.5.0 L2',
+  [REVIEWED_SAFE.V130_SELF_BUILT_ETHEREUM]: '1.3.0',
 };
 
 export const SAFE_SINGLETONS: Readonly<Record<number, readonly string[]>> = {
-  1: [SAFE.V130_CANONICAL, SAFE.V130_EIP155, SAFE.V130_L2_CANONICAL, SAFE.V130_L2_EIP155, SAFE.V141_CANONICAL, SAFE.V141_L2_CANONICAL, SAFE.V150_CANONICAL, SAFE.V150_L2_CANONICAL],
+  1: [SAFE.V130_CANONICAL, SAFE.V130_EIP155, SAFE.V130_L2_CANONICAL, SAFE.V130_L2_EIP155, SAFE.V141_CANONICAL, SAFE.V141_L2_CANONICAL, SAFE.V150_CANONICAL, SAFE.V150_L2_CANONICAL, REVIEWED_SAFE.V130_SELF_BUILT_ETHEREUM],
   10: [SAFE.V130_CANONICAL, SAFE.V130_EIP155, SAFE.V130_L2_CANONICAL, SAFE.V130_L2_EIP155, SAFE.V141_CANONICAL, SAFE.V141_L2_CANONICAL, SAFE.V150_CANONICAL, SAFE.V150_L2_CANONICAL],
   25: [SAFE.V130_CANONICAL, SAFE.V130_EIP155, SAFE.V130_L2_CANONICAL, SAFE.V130_L2_EIP155, SAFE.V141_CANONICAL, SAFE.V141_L2_CANONICAL],
   30: [SAFE.V130_CANONICAL, SAFE.V130_L2_CANONICAL, SAFE.V141_CANONICAL, SAFE.V141_L2_CANONICAL],
