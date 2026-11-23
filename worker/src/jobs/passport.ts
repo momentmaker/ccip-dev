@@ -1,8 +1,8 @@
 import {
-  ChainReadError, classifyParties, confirmArrivals, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, passportCorrections, passportNotesHash,
-  planPassportPosts, readPassportChain, stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
+  bySelector, ChainReadError, classifyParties, confirmArrivals, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, PARTY_ROLES, passportCorrections,
+  passportNotesHash, planPassportPosts, readPassportChain, stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
   type ArrivalItem, type ArrivalReading, type ArrivingRow, type ChainRef, type CheckResult, type CheckValue, type Correction, type DesignReason, type HttpDeps, type LaneOnRamps,
-  type PartyClassification, type Parties, type PassportRow, type RawLane, type RawSettings, type Readable, type RateLimit, type RowReading, type StoredReading,
+  type PartyClassification, type PassportRow, type RawLane, type RawSettings, type Readable, type RateLimit, type RowReading, type StoredReading,
   type WireChange, type WireOutcome, type WireUnitState,
 } from '@ccip-dev/core';
 import directory from '../../../config/ccip-directory.json';
@@ -11,6 +11,7 @@ import type { RunContext } from '../context';
 import { passportConfig, postState, type PassportConfig } from '../passport-config';
 import { publishPassport, type Publication, type PublishGroup, type PublishRow } from '../passport-publish';
 import * as passportStore from '../passport-store';
+import { groupBy, rowKey } from '../passport-store';
 import { chainEndpoint } from '../rpc';
 import * as store from '../store';
 
@@ -34,7 +35,6 @@ const WRITE_BATCH = 100;
 
 const META = { mode: 'passport:mode', since: 'passport:since', evaluated: 'passport:evaluated', onRamps: 'passport:onramps', notes: 'passport:notes' } as const;
 const VERIFIER_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = directory.verifiers;
-const ROLES: readonly (keyof Parties)[] = ['poolOwner', 'registryAdministrator', 'rateLimitAdmin', 'hooksOwner', 'proxyAdmin'];
 const TOP_SETTINGS = ['administrator', 'pendingAdministrator', 'pool', 'poolType', 'hooks', 'allowedFinality'] as const satisfies readonly (keyof RawSettings)[];
 const LANE_SETTINGS = ['remoteToken', 'remotePools', 'outbound', 'inbound', 'fastOutbound', 'fastInbound', 'poolVerifiers', 'laneVerifiers'] as const satisfies readonly (keyof RawLane)[];
 
@@ -97,18 +97,18 @@ async function startRecord(db: D1Database, config: PassportConfig, today: string
 }
 
 const listedSince = (c: RunContext) => new Date(c.deps.now().getTime() - LISTED_WITHIN_DAYS * DAY_MS).toISOString();
-const rowKey = (chain: string, address: string) => `${chain}:${address}`;
-const bySelector = (a: { ref: ChainRef }, b: { ref: ChainRef }) => (BigInt(a.ref.selector) < BigInt(b.ref.selector) ? -1 : 1);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** KTD8: rows on these chains are never read, and every result on them is "not readable" with this reason. */
-function designReason(ref: ChainRef | undefined): DesignReason | null {
-  if (ref === undefined) return 'no-endpoint';
-  if (ref.family !== 'EVM') return 'non-evm-chain';
+type ChainAccess = { design: DesignReason } | { design: null; rpcUrl: string; registry: string };
+
+/** KTD8: rows on a chain with a design reason are never read, and every result on them is "not readable" with that reason. */
+function chainAccess(ref: ChainRef | undefined): ChainAccess {
+  if (ref === undefined) return { design: 'no-endpoint' };
+  if (ref.family !== 'EVM') return { design: 'non-evm-chain' };
   const endpoint = chainEndpoint(ref);
-  if (endpoint.ok) return null;
-  return endpoint.reason === 'no endpoint' ? 'no-endpoint' : 'no-registry';
+  if (endpoint.ok) return { design: null, rpcUrl: endpoint.rpcUrl, registry: endpoint.tokenAdminRegistry };
+  return { design: endpoint.reason === 'no endpoint' ? 'no-endpoint' : 'no-registry' };
 }
 
 interface ReadableChain {
@@ -128,15 +128,15 @@ async function chainsToRead(c: RunContext, today: string): Promise<ReadableChain
   const refs = await store.chainRefs(db);
   const candidates = (await passportStore.listedChains(db, listedSince(c))).flatMap((selector) => {
     const ref = refs.get(selector);
-    if (ref === undefined || designReason(ref) !== null) return [];
-    const endpoint = chainEndpoint(ref);
-    return endpoint.ok ? [{ ref, rpcUrl: endpoint.rpcUrl, registry: endpoint.tokenAdminRegistry }] : [];
+    if (ref === undefined) return [];
+    const access = chainAccess(ref);
+    return access.design === null ? [{ ref, rpcUrl: access.rpcUrl, registry: access.registry }] : [];
   });
   const states = await passportStore.chainStates(db, candidates.map((ch) => ch.ref.selector));
   return candidates
     .map((ch) => ({ ...ch, state: states.get(ch.ref.selector) }))
     .filter((ch) => needsReading(ch.state, today))
-    .sort(bySelector);
+    .sort((a, b) => bySelector(a.ref.selector, b.ref.selector));
 }
 
 /** Reads chains while the budget allows a whole chain; returns those still untried, a chain awaiting its second try included. */
@@ -169,7 +169,7 @@ async function laneOnRamps(c: RunContext, today: string): Promise<LaneOnRamps> {
 
 type ReadRow = Extract<RowReading, { status: 'read' }>;
 
-const partyAddresses = (settings: RawSettings) => ROLES.flatMap((role) => {
+const partyAddresses = (settings: RawSettings) => PARTY_ROLES.flatMap((role) => {
   const party = settings.parties[role];
   return party.state === 'address' ? [party.address.toLowerCase()] : [];
 });
@@ -237,7 +237,7 @@ function partiesOf(settings: RawSettings, classified: ReadonlyMap<string, PartyC
 
 function rowWrite(chain: string, address: string, reading: StoredReading, previous: StoredReading | null): passportStore.RowReadingWrite {
   if (previous === null) return { address, reading, method: METHOD_VERSION, changed: [], logs: [{ chain, address, day: reading.readOn, kind: 'first-reading', detail: reading }] };
-  const logs = settingChanges(previous, reading).map((detail) => ({ chain, address, day: reading.readOn, kind: detail.setting === 'pool' ? 'pool-replaced' : 'setting', detail }));
+  const logs = settingChanges(previous, reading).map((detail): passportStore.LogEntry => ({ chain, address, day: reading.readOn, kind: detail.setting === 'pool' ? 'pool-replaced' : 'setting', detail }));
   return { address, reading, method: METHOD_VERSION, changed: chainValueChanges(previous.settings, reading.settings), logs };
 }
 
@@ -248,7 +248,7 @@ interface SettingChange {
 }
 
 const lanesBySelector = (lanes: readonly RawLane[]) => new Map(lanes.map((l) => [l.remoteChainSelector, l]));
-const selectorsOf = (a: ReadonlyMap<string, RawLane>, b: ReadonlyMap<string, RawLane>) => [...new Set([...a.keys(), ...b.keys()])].sort((x, y) => (BigInt(x) < BigInt(y) ? -1 : 1));
+const selectorsOf = (a: ReadonlyMap<string, RawLane>, b: ReadonlyMap<string, RawLane>) => [...new Set([...a.keys(), ...b.keys()])].sort(bySelector);
 
 /** KTD9: one entry per configuration value that differs, with its old and new value; a party's signer facts count too. */
 function settingChanges(previous: StoredReading, next: StoredReading): SettingChange[] {
@@ -257,7 +257,7 @@ function settingChanges(previous: StoredReading, next: StoredReading): SettingCh
     if (!same(from, to)) out.push({ setting, from, to });
   };
   for (const key of TOP_SETTINGS) diff(key, previous.settings[key], next.settings[key]);
-  for (const role of ROLES) {
+  for (const role of PARTY_ROLES) {
     const from = previous.settings.parties[role];
     const to = next.settings.parties[role];
     if (!same(from, to)) out.push({ setting: `parties.${role}`, from, to });
@@ -285,7 +285,7 @@ const limitSwitch = (limit: Readable<RateLimit>) => ('value' in limit ? limit.va
 /** KTD13: the chain values a result rests on that differ from the stored reading, keyed so a result can find its own. */
 function chainValueChanges(previous: RawSettings, next: RawSettings): string[] {
   const keys: string[] = [];
-  for (const role of ROLES) if (!same(previous.parties[role], next.parties[role])) keys.push(`party:${role}`);
+  for (const role of PARTY_ROLES) if (!same(previous.parties[role], next.parties[role])) keys.push(`party:${role}`);
   if (previous.pool !== next.pool) keys.push('pool');
   if (!('value' in previous.lanes) || !('value' in next.lanes)) {
     if (!same(previous.lanes, next.lanes)) keys.push('lanes');
@@ -330,10 +330,8 @@ interface CorrectionDetail {
  * each corrected unit had before the day's first evaluation.
  */
 async function takeCorrectionLog(db: D1Database, day: string): Promise<Map<string, CheckValue | null>> {
-  const { results } = await db.prepare(`SELECT detail FROM passport_changes WHERE day = ? AND kind = 'correction'`).bind(day).all<{ detail: string }>();
-  await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind = 'correction'`).bind(day).run();
-  return new Map(results.map((r) => {
-    const detail = JSON.parse(r.detail) as CorrectionDetail;
+  return new Map((await passportStore.takeCorrectionLog(db, day)).map((logged) => {
+    const detail = JSON.parse(logged) as CorrectionDetail;
     return [detail.unit, detail.from];
   }));
 }
@@ -372,11 +370,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
   const registry = await passportStore.registryRows(db);
   const storedRows = new Map((await passportStore.storedRows(db)).map((r) => [rowKey(r.chain, r.address), r]));
   const storedUnits = await passportStore.storedUnits(db);
-  const unitsByRow = new Map<string, passportStore.StoredUnit[]>();
-  for (const u of storedUnits) {
-    const key = rowKey(u.chain, u.address);
-    unitsByRow.set(key, [...(unitsByRow.get(key) ?? []), u]);
-  }
+  const unitsByRow = groupBy(storedUnits, (u) => rowKey(u.chain, u.address));
 
   const queue: D1PreparedStatement[] = [];
   const write = async (...statements: D1PreparedStatement[]) => {
@@ -386,8 +380,8 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
 
   await passportStore.clearEvaluationLog(db, day.today);
   const listedFrom = listedSince(c);
-  const groups = new Map<string, Member[]>();
-  const delisted = new Map<string, PublishRow[]>();
+  const listedRows: Member[] = [];
+  const delistedRows: PublishRow[] = [];
   for (const r of registry) {
     const key = rowKey(r.chain, r.address);
     const stored = storedRows.get(key);
@@ -395,15 +389,13 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
     const marked = stored?.delisted_day != null;
     if (!listed && !marked) await write(passportStore.delistStatement(db, r.chain, r.address, day.today));
     if (listed && marked) await write(passportStore.delistStatement(db, r.chain, r.address, null));
-    const groupId = r.group_id ?? key;
-    const design = designReason(refs.get(r.chain));
-    if (!listed) {
-      delisted.set(groupId, [...(delisted.get(groupId) ?? []), { registry: r, stored, design, delistedOn: stored?.delisted_day ?? day.today }]);
-      continue;
-    }
-    const member: Member = { key, registry: r, stored, design, firstSeen: dayOf(r.first_seen) };
-    groups.set(groupId, [...(groups.get(groupId) ?? []), member]);
+    const design = chainAccess(refs.get(r.chain)).design;
+    if (listed) listedRows.push({ key, registry: r, stored, design, firstSeen: dayOf(r.first_seen) });
+    else delistedRows.push({ registry: r, stored, design, delistedOn: stored?.delisted_day ?? day.today });
   }
+  const groupIdOf = (r: passportStore.RegistryRow) => r.group_id ?? rowKey(r.chain, r.address);
+  const groups = groupBy(listedRows, (m) => groupIdOf(m.registry));
+  const delisted = groupBy(delistedRows, (r) => groupIdOf(r.registry));
 
   const tally: DayTally = { changes: [], arrivals: [], names: {}, pending: [], produced: new Set(), results: new Map() };
   for (const [groupId, members] of groups) {
@@ -439,9 +431,9 @@ function displayName(members: readonly Member[]): string {
 }
 
 /** Whether a result's chain values changed in today's reading of one of its rows (KTD13). */
-function valuesChanged(result: CheckResult, members: readonly Member[]): boolean {
+function valuesChanged(result: CheckResult, members: readonly Member[], changedOf: (m: Member) => readonly string[]): boolean {
   return members.some((m) => {
-    const changed = JSON.parse(m.stored?.changed ?? '[]') as string[];
+    const changed = changedOf(m);
     if (result.check === 'single-key') return changed.some((k) => k.startsWith('party:'));
     if (result.check === 'rate-limit') return changed.some((k) => k === 'lanes' || (result.remoteChain !== null && (k === `lane:${result.remoteChain}` || k === `switch:${result.remoteChain}`)));
     const other = result.rows.find((r) => r.chain !== m.registry.chain)?.chain;
@@ -466,11 +458,13 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
     decimals: m.registry.decimals,
     priceUsd: null,
     unreadableByDesign: m.design,
-    reading: m.stored?.reading ? (JSON.parse(m.stored.reading) as StoredReading) : null,
+    reading: m.stored ? passportStore.readingOf(m.stored) : null,
   }));
   const results = evaluateChecks({ rows, corrections: day.corrections, previous: stored.map((u) => JSON.parse(u.result) as CheckResult), verifierNames: VERIFIER_NAMES, today });
   tally.results.set(groupId, results);
 
+  const changed = new Map<Member, string[]>();
+  const changedOf = (m: Member) => changed.get(m) ?? changed.set(m, JSON.parse(m.stored?.changed ?? '[]') as string[]).get(m)!;
   const readToday = (m: Member) => m.stored?.read_day === today && m.stored.reading !== null;
   // A row whose arrival confirmed today is still arriving, so a second evaluation that day confirms it the same way.
   const arriving = (m: Member) => m.firstSeen > since && (m.stored?.arrival_day == null || m.stored.arrival_day === today);
@@ -498,12 +492,12 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
   for (const result of results) {
     tally.produced.add(result.key);
     const unitMembers = rowKeysOf(result).map((k) => byKey.get(k)!);
+    const [first] = unitMembers;
     const previous = storedByUnit.get(result.key);
     if (result.corrected) {
       const logged = day.correctedFrom.get(result.key);
       const from = logged !== undefined ? logged : previous ? (JSON.parse(previous.result) as CheckResult).value : null;
       if (from !== result.value) {
-        const [first] = unitMembers;
         const detail: CorrectionDetail = { unit: result.key, from, to: result.value, basis: result.basis };
         statements.push(passportStore.logStatement(db, { chain: first!.registry.chain, address: first!.registry.address, day: today, kind: 'correction', detail }));
       }
@@ -516,7 +510,7 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
             result: result.value,
             method: result.methodVersion,
             baseline: unitMembers.some((m) => m.stored?.first_read_day === today || confirming.has(m.key)),
-            chainValuesChanged: valuesChanged(result, unitMembers),
+            chainValuesChanged: valuesChanged(result, unitMembers, changedOf),
             corrected: result.corrected,
           }
         : { read: false };
@@ -524,13 +518,11 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
       wire = step.state;
       if (step.event !== null) tally.changes.push({ ...step.event, groupId, unit: result.key });
       if (step.log !== null) {
-        const [first] = unitMembers;
         statements.push(passportStore.logStatement(db, { chain: first!.registry.chain, address: first!.registry.address, day: today, kind: step.log, detail: { unit: result.key, from: step.state.before?.result ?? null, to: result.value } }));
       }
       if (wire.pending !== null && wire.pending.day === today) tally.pending.push(`${name} ${result.key}: ${wire.announced ?? 'unannounced'} → ${wire.pending.result}`);
     }
     if (previous?.result !== JSON.stringify(result) || previous.wire !== JSON.stringify(wire)) {
-      const [first] = unitMembers;
       statements.push(passportStore.unitStatement(db, { unit: result.key, chain: first!.registry.chain, address: first!.registry.address, result, wire }));
     }
   }

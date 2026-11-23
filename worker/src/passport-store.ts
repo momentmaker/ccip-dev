@@ -1,6 +1,6 @@
-import type { CheckResult, PassportPostRecord, StoredReading, WireUnitState } from '@ccip-dev/core';
+import type { CheckResult, PassportPostRecord, StoredReading, WireLog, WireUnitState } from '@ccip-dev/core';
 import { broadcastKey } from '@ccip-dev/core/broadcasts';
-import { chunks } from './store';
+import { chunks, placeholders } from './store';
 
 /** D1 binds at most 100 parameters per statement. */
 const PARAMS = 90;
@@ -9,7 +9,20 @@ const BATCH_SIZE = 100;
 export const EVALUATION_PAGE = 25;
 const UNITS_PAGE = 200;
 
-const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(', ');
+/** A registry row's key, `<selector>:<address>`. */
+export const rowKey = (chain: string, address: string): string => `${chain}:${address}`;
+
+/** Items by key, each group in input order and the groups in the order their first item came. */
+export function groupBy<T>(items: Iterable<T>, key: (item: T) => string): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    const group = out.get(k);
+    if (group === undefined) out.set(k, [item]);
+    else group.push(item);
+  }
+  return out;
+}
 
 export interface ChainState {
   chain: string;
@@ -85,11 +98,14 @@ export async function storedReadings(db: D1Database, chain: string): Promise<Map
   return new Map(results.map((r) => [r.address, { reading: r.reading === null ? null : (JSON.parse(r.reading) as StoredReading), firstReadDay: r.first_read_day }]));
 }
 
+/** What a passport_changes row records. */
+export type ChangeKind = 'first-reading' | 'setting' | 'pool-replaced' | WireLog | 'correction';
+
 export interface LogEntry {
   chain: string;
   address: string;
   day: string;
-  kind: string;
+  kind: ChangeKind;
   detail: unknown;
 }
 
@@ -162,6 +178,18 @@ export interface StoredRow {
   arrival: string | null;
   arrival_day: string | null;
   delisted_day: string | null;
+}
+
+const readings = new WeakMap<StoredRow, StoredReading>();
+
+/** A stored row's reading, parsed once however many times it is asked for. */
+export function readingOf(row: StoredRow): StoredReading | null {
+  if (!row.reading) return null;
+  const known = readings.get(row);
+  if (known !== undefined) return known;
+  const reading = JSON.parse(row.reading) as StoredReading;
+  readings.set(row, reading);
+  return reading;
 }
 
 export const ROWS_PAGE_SQL = `SELECT chain, address, reading, read_day, first_read_day, changed, arrival, arrival_day, delisted_day FROM passport_rows
@@ -239,10 +267,16 @@ export function delistStatement(db: D1Database, chain: string, address: string, 
 }
 
 /** The log kinds an evaluation writes; a second evaluation that day deletes them first. */
-export const EVALUATION_LOG_KINDS = ['re-classified'] as const;
+export const EVALUATION_LOG_KINDS = ['re-classified'] as const satisfies readonly ChangeKind[];
 
 export async function clearEvaluationLog(db: D1Database, day: string): Promise<void> {
   await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind IN (${placeholders(EVALUATION_LOG_KINDS.length)})`).bind(day, ...EVALUATION_LOG_KINDS).run();
+}
+
+/** Deletes the day's correction log rows and returns their details, unparsed. */
+export async function takeCorrectionLog(db: D1Database, day: string): Promise<string[]> {
+  const { results } = await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind = 'correction' RETURNING detail`).bind(day).all<{ detail: string }>();
+  return results.map((r) => r.detail);
 }
 
 export interface ChangeRow {

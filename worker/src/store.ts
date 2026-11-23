@@ -23,7 +23,7 @@ export function chunks<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(', ');
+export const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(', ');
 
 export async function runBatch(db: D1Database, statements: D1PreparedStatement[]): Promise<void> {
   for (const batch of chunks(statements, BATCH_SIZE)) await db.batch(batch);

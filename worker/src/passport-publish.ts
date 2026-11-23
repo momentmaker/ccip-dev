@@ -1,7 +1,7 @@
 import {
-  addDays, buildTokenGroupIndex, CHECK_KINDS, groupName, llamaKey, normalizeAddress, passportNoteKey, rollupChecks, tokenClaims, tokenGroupEntry,
+  addDays, buildTokenGroupIndex, bySelector, CHECK_KINDS, groupName, llamaKey, normalizeAddress, passportNoteKey, rollupChecks, tokenClaims, tokenGroupEntry,
   type ArrivalItem, type ChainRef, type CheckKind, type CheckResult, type CheckValue, type DesignReason, type PassportPostRecord, type PassportStatement, type PerHourFigure,
-  type PoolPointerResult, type RateLimitResult, type RowRef, type SingleKeyResult, type StoredReading, type TokenAmount,
+  type PoolPointerResult, type RateLimitResult, type RowRef, type SingleKeyResult, type TokenAmount,
 } from '@ccip-dev/core';
 import {
   PASSPORT_SHARDS, passportShard, type PassportChainRow, type PassportEvent, type PassportLane, type PassportLogEntry, type PassportStatementView, type PassportToken,
@@ -10,6 +10,7 @@ import { byName } from '@ccip-dev/core/roster';
 import type { RunContext } from './context';
 import type { PassportMode } from './passport-config';
 import * as passportStore from './passport-store';
+import { groupBy, rowKey } from './passport-store';
 import { fallbackLoader, priceFallback } from './price-fallback';
 import { putJson, TTL, usd } from './publish';
 import { triggerSiteBuild } from './site-build';
@@ -48,9 +49,7 @@ export interface Publication {
   groups: PublishGroup[];
 }
 
-const rowKey = (chain: string, address: string) => `${chain}:${address}`;
 const keyOf = (r: PublishRow) => rowKey(r.registry.chain, r.registry.address);
-const bySelector = (a: string, b: string) => (BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0);
 const ZERO_ADDRESS = /^0x0+$/;
 
 /**
@@ -79,12 +78,6 @@ export async function publishPassport(c: RunContext, p: Publication): Promise<vo
   for (const [name, list] of shards) await put(name, { ...head, tokens: list });
   await put('passport-events.json', { from, events });
   if (p.mode === 'on') await triggerSiteBuild(c);
-}
-
-function groupBy<T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> {
-  const out = new Map<string, T[]>();
-  for (const item of items) out.set(key(item), [...(out.get(key(item)) ?? []), item]);
-  return out;
 }
 
 /**
@@ -181,7 +174,7 @@ const indexLine = ({ rows, log: _log, ...line }: PassportToken) => ({ ...line, a
 
 function poolOf(stored: passportStore.StoredRow | undefined): string | null {
   if (!stored?.reading) return null;
-  const { pool } = (JSON.parse(stored.reading) as StoredReading).settings;
+  const { pool } = passportStore.readingOf(stored)!.settings;
   return ZERO_ADDRESS.test(pool) ? null : pool;
 }
 

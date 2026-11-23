@@ -60,7 +60,7 @@ describe('saveChainReading', () => {
 
   it('writes more rows than one batch holds', async () => {
     // #given
-    const rows = Array.from({ length: 130 }, (_, i) => {
+    const rows = Array.from({ length: 130 }, (_, i): passportStore.RowReadingWrite => {
       const address = `0x${i.toString(16).padStart(40, '0')}`;
       return { address, reading: reading(address), method: 1, changed: [], logs: [{ chain: ETHEREUM, address, day: DAY, kind: 'first-reading', detail: {} }] };
     });
