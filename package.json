@@ -20,6 +20,7 @@
     "backfill:fees:upload": "tsx --env-file=.env scripts/backfill/fees/upload.ts",
     "endpoints:refresh": "tsx scripts/refresh-endpoints.ts",
     "directory:refresh": "tsx scripts/refresh-directory.ts",
+    "passport:record": "tsx scripts/passport-record.ts",
     "cre-keys:refresh": "tsx scripts/cre-keys/refresh.ts",
     "fee-groups:generate": "tsx scripts/fee-groups/generate.ts",
     "labels:build": "tsx scripts/build-labels.ts",
