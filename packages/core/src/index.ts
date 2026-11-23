@@ -5,6 +5,7 @@ export * from './time';
 export * from './ccip/schemas';
 export * from './ccip/client';
 export * from './ccip/cursor';
+export * from './ccip/lanes';
 export * from './value';
 export * from './fee-aliases';
 export * from './fee-groups';

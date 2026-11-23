@@ -1,0 +1,466 @@
+import {
+  ChainReadError, classifyParties, confirmArrivals, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, planPassportPosts, readPassportChain,
+  stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
+  type ArrivalItem, type ArrivalReading, type ArrivingRow, type ChainRef, type CheckResult, type Correction, type DesignReason, type HttpDeps, type LaneOnRamps,
+  type PartyClassification, type Parties, type PassportRow, type RawLane, type RawSettings, type Readable, type RateLimit, type RowReading, type StoredReading,
+  type WireChange, type WireOutcome, type WireUnitState,
+} from '@ccip-dev/core';
+import directory from '../../../config/ccip-directory.json';
+import type { RunContext } from '../context';
+import { passportConfig, postState, type PassportConfig } from '../passport-config';
+import * as passportStore from '../passport-store';
+import { chainEndpoint } from '../rpc';
+import * as store from '../store';
+
+/** The first run at or after 01:00 UTC starts the day's reading, after the 00:07 finalize. */
+export const START_HOUR_UTC = 1;
+/** From the 22:00 UTC run the day is evaluated with whatever was read. */
+export const CLOSE_HOUR_UTC = 22;
+export const RUN_BUDGET_MS = 4 * 60_000;
+/**
+ * A chain starts only while this much of the run's budget remains, and fails for the day past it. The recorded fixtures
+ * cost 12 requests for one row and 15 for two; Ethereum, the largest chain at 222 rows, comes to about 670, which at the
+ * 150-250 ms a keyless endpoint takes is two to three minutes.
+ */
+export const CHAIN_TIME_LIMIT_MS = 3 * 60_000;
+const LISTED_WITHIN_DAYS = 7;
+const TRIES_PER_DAY = 2;
+const CHAIN_ALERT_AFTER = 3;
+const ARRIVAL_READINGS_KEPT = 2;
+const DAY_MS = 86_400_000;
+const WRITE_BATCH = 100;
+
+const META = { mode: 'passport:mode', since: 'passport:since', evaluated: 'passport:evaluated', onRamps: 'passport:onramps' } as const;
+const VERIFIER_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = directory.verifiers;
+const ROLES: readonly (keyof Parties)[] = ['poolOwner', 'registryAdministrator', 'rateLimitAdmin', 'hooksOwner', 'proxyAdmin'];
+const TOP_SETTINGS = ['administrator', 'pendingAdministrator', 'pool', 'poolType', 'hooks', 'allowedFinality'] as const satisfies readonly (keyof RawSettings)[];
+const LANE_SETTINGS = ['remoteToken', 'remotePools', 'outbound', 'inbound', 'fastOutbound', 'fastInbound', 'poolVerifiers', 'laneVerifiers'] as const satisfies readonly (keyof RawLane)[];
+
+/**
+ * KTD17: one reading per chain per day inside the hourly cron. From 01:00 UTC each run reads chains within its budget;
+ * once every chain has been tried, or from 22:00 UTC, the day is evaluated once. `corrections` are the operator's (KTD15).
+ */
+export async function runPassport(c: RunContext, corrections: readonly Correction[] = []): Promise<void> {
+  const config = passportConfig(c.env);
+  if (config.mode === 'off') return;
+  const db = c.env.DB;
+  const now = c.deps.now();
+  const today = dayOf(now);
+  const since = await startRecord(db, config, today);
+  if ((await store.getMeta(db, META.evaluated)) === today) return;
+  if (now.getUTCHours() < START_HOUR_UTC) return;
+
+  const untried = await readChains(c, await chainsToRead(c, today), today);
+  if (untried.length > 0 && now.getUTCHours() < CLOSE_HOUR_UTC) return;
+  await evaluateDay(c, { today, since, corrections, config });
+  await store.setMeta(db, META.evaluated, today);
+  if (untried.length > 0) {
+    await c.alert('passport-incomplete', `The Passport reading for ${today} was evaluated incomplete at ${now.getUTCHours()}:00 UTC; not read: ${untried.map((ch) => ch.ref.name).join(', ')}`);
+  }
+}
+
+/** The launch watermark. The first run with PASSPORT on clears whatever a dry run stored and starts the record (KTD20). */
+async function startRecord(db: D1Database, config: PassportConfig, today: string): Promise<string> {
+  const mode = await store.getMeta(db, META.mode);
+  if (config.mode === 'on' && mode !== 'on') {
+    await passportStore.clearPassport(db);
+    await store.setMeta(db, META.since, today);
+    await store.setMeta(db, META.mode, 'on');
+    return today;
+  }
+  if (mode === null) {
+    await store.setMeta(db, META.since, today);
+    await store.setMeta(db, META.mode, config.mode);
+    return today;
+  }
+  return (await store.getMeta(db, META.since)) ?? today;
+}
+
+const listedSince = (c: RunContext) => new Date(c.deps.now().getTime() - LISTED_WITHIN_DAYS * DAY_MS).toISOString();
+const rowKey = (chain: string, address: string) => `${chain}:${address}`;
+const bySelector = (a: { ref: ChainRef }, b: { ref: ChainRef }) => (BigInt(a.ref.selector) < BigInt(b.ref.selector) ? -1 : 1);
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/** KTD8: rows on these chains are never read, and every result on them is "not readable" with this reason. */
+function designReason(ref: ChainRef | undefined): DesignReason | null {
+  if (ref === undefined) return 'no-endpoint';
+  if (ref.family !== 'EVM') return 'non-evm-chain';
+  const endpoint = chainEndpoint(ref);
+  if (endpoint.ok) return null;
+  return endpoint.reason === 'no endpoint' ? 'no-endpoint' : 'no-registry';
+}
+
+interface ReadableChain {
+  ref: ChainRef;
+  rpcUrl: string;
+  registry: string;
+  state: passportStore.ChainState | undefined;
+}
+
+/** A chain is done for the day once it read, or once its second try failed. */
+const needsReading = (state: passportStore.ChainState | undefined, today: string) =>
+  state === undefined || (state.okDay !== today && !(state.triedDay === today && state.attempts >= TRIES_PER_DAY));
+
+/** The chains still to read today, in selector order: the cursor is each chain's own state in passport_chains. */
+async function chainsToRead(c: RunContext, today: string): Promise<ReadableChain[]> {
+  const db = c.env.DB;
+  const refs = await store.chainRefs(db);
+  const candidates = (await passportStore.listedChains(db, listedSince(c))).flatMap((selector) => {
+    const ref = refs.get(selector);
+    if (ref === undefined || designReason(ref) !== null) return [];
+    const endpoint = chainEndpoint(ref);
+    return endpoint.ok ? [{ ref, rpcUrl: endpoint.rpcUrl, registry: endpoint.tokenAdminRegistry }] : [];
+  });
+  const states = await passportStore.chainStates(db, candidates.map((ch) => ch.ref.selector));
+  return candidates
+    .map((ch) => ({ ...ch, state: states.get(ch.ref.selector) }))
+    .filter((ch) => needsReading(ch.state, today))
+    .sort(bySelector);
+}
+
+/** Reads chains while the budget allows a whole chain; returns those still untried, a chain awaiting its second try included. */
+async function readChains(c: RunContext, chains: readonly ReadableChain[], today: string): Promise<ReadableChain[]> {
+  const deadline = c.deps.now().getTime() + RUN_BUDGET_MS;
+  let onRamps: LaneOnRamps | null = null;
+  const untried: ReadableChain[] = [];
+  for (const chain of chains) {
+    if (deadline - c.deps.now().getTime() < CHAIN_TIME_LIMIT_MS) {
+      untried.push(chain);
+      continue;
+    }
+    onRamps ??= await laneOnRamps(c, today);
+    if ((await readChain(c, chain, onRamps[chain.ref.selector] ?? {}, today)) === 'retry') untried.push(chain);
+  }
+  return untried;
+}
+
+/** Each lane's OnRamp from the keyless lanes endpoint, fetched once a day; a failed fetch fails the run, which retries next hour. */
+async function laneOnRamps(c: RunContext, today: string): Promise<LaneOnRamps> {
+  const stored = await store.getMeta(c.env.DB, META.onRamps);
+  if (stored !== null) {
+    const kept = JSON.parse(stored) as { day: string; onRamps: LaneOnRamps };
+    if (kept.day === today) return kept.onRamps;
+  }
+  const onRamps = await listLaneOnRamps(c.deps, c.env.CCIP_API_BASE);
+  await store.setMeta(c.env.DB, META.onRamps, JSON.stringify({ day: today, onRamps }));
+  return onRamps;
+}
+
+type ReadRow = Extract<RowReading, { status: 'read' }>;
+
+const partyAddresses = (settings: RawSettings) => ROLES.flatMap((role) => {
+  const party = settings.parties[role];
+  return party.state === 'address' ? [party.address.toLowerCase()] : [];
+});
+
+/**
+ * One chain at one pinned block (KTD5): registry rows, then their parties. A request made past the chain's time limit
+ * stops the reading. A failure is tried once more in a later run before it counts; one past the time limit counts at once.
+ */
+async function readChain(c: RunContext, chain: ReadableChain, onRamps: Readonly<Record<string, string>>, today: string): Promise<'read' | 'retry' | 'failed'> {
+  const db = c.env.DB;
+  const { ref, state } = chain;
+  const limitAt = c.deps.now().getTime() + CHAIN_TIME_LIMIT_MS;
+  const pastLimit = () => c.deps.now().getTime() >= limitAt;
+  const overLimit = () => new ChainReadError('endpoint', `${ref.name}: the reading passed its ${CHAIN_TIME_LIMIT_MS / 1000} s time limit`);
+  const deps: HttpDeps = {
+    sleep: c.deps.sleep,
+    clock: c.deps.clock,
+    fetch: (input, init) => (pastLimit() ? Promise.reject(overLimit()) : c.deps.fetch(input, init)),
+  };
+  const tries = (state?.triedDay === today ? state.attempts : 0) + 1;
+  try {
+    const tokens = await passportStore.listedTokens(db, ref.selector, listedSince(c));
+    const pinned = await openChain(deps, chain.rpcUrl, { chainId: Number(ref.chainId), lastBlock: state?.lastBlock ?? null });
+    const readings = await readPassportChain(deps, pinned, { registry: chain.registry, onRamps, tokens });
+    const read = readings.filter((r): r is ReadRow => r.status === 'read');
+    const parties = await classifyParties(deps, pinned, read.flatMap((r) => partyAddresses(r.settings)));
+    if (pastLimit()) throw overLimit();
+
+    const readOn = dayOf(new Date(pinned.timestamp * 1000));
+    const stored = await passportStore.storedReadings(db, ref.selector);
+    const original = new Map(tokens.map((t) => [t.toLowerCase(), t]));
+    const rows = read.map((r) => {
+      const address = original.get(r.token) ?? r.token;
+      const reading: StoredReading = { readOn, settings: r.settings, parties: partiesOf(r.settings, parties) };
+      return rowWrite(ref.selector, address, reading, stored.get(address)?.reading ?? null);
+    });
+    await passportStore.saveChainReading(db, ref.selector, rows, {
+      chain: ref.selector, lastBlock: pinned.block, okDay: today, failures: 0, transport: pinned.multicall3 ? 'multicall3' : 'single', triedDay: today, attempts: tries,
+    });
+    const unread = readings.filter((r) => r.status === 'unread');
+    if (unread.length > 0) {
+      const named = unread.map((r) => `${original.get(r.token) ?? r.token} (${r.failures[0]})`).join('; ');
+      await c.alert(`passport-calls:${ref.selector}`, `Passport kept the stored reading of ${unread.length} rows on ${ref.name} whose calls failed: ${named}`);
+    }
+    return 'read';
+  } catch (err) {
+    const final = pastLimit() || tries >= TRIES_PER_DAY;
+    const failures = (state?.failures ?? 0) + (final ? 1 : 0);
+    console.warn(`Passport reading of ${ref.name} failed (try ${tries}): ${messageOf(err)}`);
+    await passportStore.saveChainState(db, {
+      chain: ref.selector, lastBlock: state?.lastBlock ?? null, okDay: state?.okDay ?? null, failures, transport: state?.transport ?? null, triedDay: today, attempts: final ? TRIES_PER_DAY : tries,
+    });
+    if (final && failures >= CHAIN_ALERT_AFTER) await c.alert(`passport-chain:${ref.selector}`, `Passport could not read ${ref.name} on ${failures} days in a row: ${messageOf(err)}`);
+    return final ? 'failed' : 'retry';
+  }
+}
+
+function partiesOf(settings: RawSettings, classified: ReadonlyMap<string, PartyClassification>): Record<string, PartyClassification> {
+  return Object.fromEntries(partyAddresses(settings).map((address) => {
+    const party = classified.get(address);
+    if (party === undefined) throw new Error(`party ${address} of token ${settings.token} was not classified`);
+    return [address, party];
+  }));
+}
+
+function rowWrite(chain: string, address: string, reading: StoredReading, previous: StoredReading | null): passportStore.RowReadingWrite {
+  if (previous === null) return { address, reading, method: METHOD_VERSION, changed: [], logs: [{ chain, address, day: reading.readOn, kind: 'first-reading', detail: reading }] };
+  const logs = settingChanges(previous, reading).map((detail) => ({ chain, address, day: reading.readOn, kind: detail.setting === 'pool' ? 'pool-replaced' : 'setting', detail }));
+  return { address, reading, method: METHOD_VERSION, changed: chainValueChanges(previous.settings, reading.settings), logs };
+}
+
+interface SettingChange {
+  setting: string;
+  from: unknown;
+  to: unknown;
+}
+
+const lanesBySelector = (lanes: readonly RawLane[]) => new Map(lanes.map((l) => [l.remoteChainSelector, l]));
+const selectorsOf = (a: ReadonlyMap<string, RawLane>, b: ReadonlyMap<string, RawLane>) => [...new Set([...a.keys(), ...b.keys()])].sort((x, y) => (BigInt(x) < BigInt(y) ? -1 : 1));
+
+/** KTD9: one entry per configuration value that differs, with its old and new value; a party's signer facts count too. */
+function settingChanges(previous: StoredReading, next: StoredReading): SettingChange[] {
+  const out: SettingChange[] = [];
+  const diff = (setting: string, from: unknown, to: unknown) => {
+    if (!same(from, to)) out.push({ setting, from, to });
+  };
+  for (const key of TOP_SETTINGS) diff(key, previous.settings[key], next.settings[key]);
+  for (const role of ROLES) {
+    const from = previous.settings.parties[role];
+    const to = next.settings.parties[role];
+    if (!same(from, to)) out.push({ setting: `parties.${role}`, from, to });
+    else if (to.state === 'address') diff(`signers.${role}`, previous.parties[to.address.toLowerCase()], next.parties[to.address.toLowerCase()]);
+  }
+  const before = previous.settings.lanes;
+  const after = next.settings.lanes;
+  if (!('value' in before) || !('value' in after)) {
+    diff('lanes', before, after);
+    return out;
+  }
+  const a = lanesBySelector(before.value);
+  const b = lanesBySelector(after.value);
+  for (const selector of selectorsOf(a, b)) {
+    const from = a.get(selector);
+    const to = b.get(selector);
+    if (from === undefined || to === undefined) diff(`lanes.${selector}`, from ?? null, to ?? null);
+    else for (const field of LANE_SETTINGS) diff(`lanes.${selector}.${field}`, from[field], to[field]);
+  }
+  return out;
+}
+
+const limitSwitch = (limit: Readable<RateLimit>) => ('value' in limit ? limit.value.isEnabled : limit.reason);
+
+/** KTD13: the chain values a result rests on that differ from the stored reading, keyed so a result can find its own. */
+function chainValueChanges(previous: RawSettings, next: RawSettings): string[] {
+  const keys: string[] = [];
+  for (const role of ROLES) if (!same(previous.parties[role], next.parties[role])) keys.push(`party:${role}`);
+  if (previous.pool !== next.pool) keys.push('pool');
+  if (!('value' in previous.lanes) || !('value' in next.lanes)) {
+    if (!same(previous.lanes, next.lanes)) keys.push('lanes');
+    return keys;
+  }
+  const a = lanesBySelector(previous.lanes.value);
+  const b = lanesBySelector(next.lanes.value);
+  for (const selector of selectorsOf(a, b)) {
+    const from = a.get(selector);
+    const to = b.get(selector);
+    if (from === undefined || to === undefined) keys.push(`lane:${selector}`);
+    else {
+      if (limitSwitch(from.outbound) !== limitSwitch(to.outbound)) keys.push(`switch:${selector}`);
+      if (!same(from.remoteToken, to.remoteToken)) keys.push(`remoteToken:${selector}`);
+      if (!same(from.remotePools, to.remotePools)) keys.push(`remotePools:${selector}`);
+    }
+  }
+  return keys;
+}
+
+interface DayInput {
+  today: string;
+  since: string;
+  corrections: readonly Correction[];
+  config: PassportConfig;
+}
+
+interface Member {
+  key: string;
+  registry: passportStore.RegistryRow;
+  stored: passportStore.StoredRow | undefined;
+  design: DesignReason | null;
+  firstSeen: string;
+}
+
+/** What evaluating every group adds up to for the day. */
+interface DayTally {
+  changes: WireChange[];
+  arrivals: ArrivalItem[];
+  names: Record<string, string>;
+  pending: string[];
+  produced: Set<string>;
+}
+
+const rowKeysOf = (r: CheckResult): string[] =>
+  r.check === 'pool-pointer' ? r.rows.flatMap((x) => (x.token === null ? [] : [rowKey(x.chain, x.token)])) : [rowKey(r.row.chain, r.row.token)];
+
+/**
+ * Evaluates every group from the stored readings (U5), steps each result's wire state (U6), confirms arrivals, and replaces
+ * the day's post records. A second evaluation on the same day replays from each state's `before`, so it replaces the first.
+ */
+async function evaluateDay(c: RunContext, day: DayInput): Promise<void> {
+  const db = c.env.DB;
+  const refs = await store.chainRefs(db);
+  const registry = await passportStore.registryRows(db);
+  const storedRows = new Map((await passportStore.storedRows(db)).map((r) => [rowKey(r.chain, r.address), r]));
+  const storedUnits = await passportStore.storedUnits(db);
+  const unitsByRow = new Map<string, passportStore.StoredUnit[]>();
+  for (const u of storedUnits) {
+    const key = rowKey(u.chain, u.address);
+    unitsByRow.set(key, [...(unitsByRow.get(key) ?? []), u]);
+  }
+
+  const queue: D1PreparedStatement[] = [];
+  const write = async (...statements: D1PreparedStatement[]) => {
+    queue.push(...statements);
+    if (queue.length >= WRITE_BATCH) await store.runBatch(db, queue.splice(0));
+  };
+
+  await passportStore.clearEvaluationLog(db, day.today);
+  const listedFrom = listedSince(c);
+  const groups = new Map<string, Member[]>();
+  for (const r of registry) {
+    const key = rowKey(r.chain, r.address);
+    const stored = storedRows.get(key);
+    const listed = r.last_seen >= listedFrom;
+    const marked = stored?.delisted_day != null;
+    if (!listed && !marked) await write(passportStore.delistStatement(db, r.chain, r.address, day.today));
+    if (listed && marked) await write(passportStore.delistStatement(db, r.chain, r.address, null));
+    if (!listed) continue;
+    const groupId = r.group_id ?? key;
+    const member: Member = { key, registry: r, stored, design: designReason(refs.get(r.chain)), firstSeen: dayOf(r.first_seen) };
+    groups.set(groupId, [...(groups.get(groupId) ?? []), member]);
+  }
+
+  const tally: DayTally = { changes: [], arrivals: [], names: {}, pending: [], produced: new Set() };
+  for (const [groupId, members] of groups) {
+    await write(...evaluateGroup(db, groupId, members, unitsByRow, day, tally));
+  }
+  for (const u of storedUnits) if (!tally.produced.has(u.unit)) await write(passportStore.deleteUnitStatement(db, u.unit));
+  await store.runBatch(db, queue.splice(0));
+
+  const records = planPassportPosts({ day: day.today, changes: tally.changes, arrivals: tally.arrivals, names: tally.names });
+  await passportStore.replacePosts(db, day.today, records, postState(day.config));
+
+  if (tally.pending.length > 0) {
+    await c.alert('passport-pending', `Passport results went pending on ${day.today} and post if the next successful reading agrees: ${tally.pending.join('; ')}`);
+  }
+  const summary = records.find((r) => r.kind === 'summary');
+  if (summary !== undefined) {
+    const tokens = records.length - 1 + summary.groupIds.length;
+    await c.alert('passport-cap', `${tokens} tokens have Passport posts on ${day.today}: ${WIRE_TOKEN_POSTS} get their own post and ${summary.groupIds.length} share the summary`);
+  }
+}
+
+function displayName(members: readonly Member[]): string {
+  const name = groupName(members.map((m) => ({ chain: m.registry.chain, token: m.registry.address, symbol: m.registry.symbol, name: m.registry.name })));
+  return name.symbol === null ? name.name : `${name.name} (${name.symbol})`;
+}
+
+/** Whether a result's chain values changed in today's reading of one of its rows (KTD13). */
+function valuesChanged(result: CheckResult, members: readonly Member[]): boolean {
+  return members.some((m) => {
+    const changed = JSON.parse(m.stored?.changed ?? '[]') as string[];
+    if (result.check === 'single-key') return changed.some((k) => k.startsWith('party:'));
+    if (result.check === 'rate-limit') return changed.some((k) => k === 'lanes' || (result.remoteChain !== null && (k === `lane:${result.remoteChain}` || k === `switch:${result.remoteChain}`)));
+    const other = result.rows.find((r) => r.chain !== m.registry.chain)?.chain;
+    return changed.some((k) => k === 'lanes' || k === 'pool' || (other !== undefined && [`lane:${other}`, `remoteToken:${other}`, `remotePools:${other}`].includes(k)));
+  });
+}
+
+function evaluateGroup(db: D1Database, groupId: string, members: readonly Member[], unitsByRow: ReadonlyMap<string, readonly passportStore.StoredUnit[]>, day: DayInput, tally: DayTally): D1PreparedStatement[] {
+  const { today, since } = day;
+  const statements: D1PreparedStatement[] = [];
+  const byKey = new Map(members.map((m) => [m.key, m]));
+  const name = displayName(members);
+  tally.names[groupId] = name;
+
+  const stored = members.flatMap((m) => unitsByRow.get(m.key) ?? []);
+  const storedByUnit = new Map(stored.map((u) => [u.unit, u]));
+  const rows: PassportRow[] = members.map((m) => ({
+    chain: m.registry.chain,
+    token: m.registry.address,
+    symbol: m.registry.symbol,
+    name: m.registry.name,
+    decimals: m.registry.decimals,
+    priceUsd: null,
+    unreadableByDesign: m.design,
+    reading: m.stored?.reading ? (JSON.parse(m.stored.reading) as StoredReading) : null,
+  }));
+  const results = evaluateChecks({ rows, corrections: day.corrections, previous: stored.map((u) => JSON.parse(u.result) as CheckResult), verifierNames: VERIFIER_NAMES, today });
+
+  const readToday = (m: Member) => m.stored?.read_day === today && m.stored.reading !== null;
+  // A row whose arrival confirmed today is still arriving, so a second evaluation that day confirms it the same way.
+  const arriving = (m: Member) => m.firstSeen > since && (m.stored?.arrival_day == null || m.stored.arrival_day === today);
+  const flagged = results.filter((r) => r.value === 'flagged');
+  const arrivingRows: ArrivingRow[] = members.filter(arriving).map((m) => {
+    let readings = (m.stored?.arrival ? JSON.parse(m.stored.arrival) : []) as ArrivalReading[];
+    if (readToday(m)) {
+      const flags = flagged.filter((r) => rowKeysOf(r).includes(m.key)).map((r) => r.key).sort();
+      readings = [...readings.filter((r) => r.day !== today), { day: today, flags }].slice(-ARRIVAL_READINGS_KEPT);
+    }
+    return { row: m.key, chain: m.registry.chain, groupId, firstSeen: m.firstSeen, readableByDesign: m.design === null, readings };
+  });
+  const settled = members.filter((m) => !arriving(m)).map((m) => ({ groupId, chain: m.registry.chain, flags: flagged.filter((r) => rowKeysOf(r)[0] === m.key).length }));
+  const items = confirmArrivals({ today, since, arriving: arrivingRows, settled });
+  tally.arrivals.push(...items);
+  const confirming = new Set(items.flatMap((i) => i.chains.map((ch) => ch.row)));
+  for (const r of arrivingRows) {
+    const m = byKey.get(r.row)!;
+    const arrivalDay = confirming.has(r.row) ? today : null;
+    if (m.stored?.arrival !== JSON.stringify(r.readings) || (m.stored?.arrival_day ?? null) !== arrivalDay) {
+      statements.push(passportStore.arrivalStatement(db, m.registry.chain, m.registry.address, r.readings, arrivalDay));
+    }
+  }
+
+  for (const result of results) {
+    tally.produced.add(result.key);
+    const unitMembers = rowKeysOf(result).map((k) => byKey.get(k)!);
+    const previous = storedByUnit.get(result.key);
+    let wire: WireUnitState = previous ? (JSON.parse(previous.wire) as WireUnitState) : WIRE_UNREAD;
+    if (!unitMembers.some((m) => arriving(m) && !confirming.has(m.key))) {
+      const outcome: WireOutcome = unitMembers.every(readToday)
+        ? {
+            read: true,
+            result: result.value,
+            method: result.methodVersion,
+            baseline: unitMembers.some((m) => m.stored?.first_read_day === today || confirming.has(m.key)),
+            chainValuesChanged: valuesChanged(result, unitMembers),
+            corrected: result.corrected,
+          }
+        : { read: false };
+      const step = stepWireUnit(wire, outcome, today);
+      wire = step.state;
+      if (step.event !== null) tally.changes.push({ ...step.event, groupId, unit: result.key });
+      if (step.log !== null) {
+        const [first] = unitMembers;
+        statements.push(passportStore.logStatement(db, { chain: first!.registry.chain, address: first!.registry.address, day: today, kind: step.log, detail: { unit: result.key, from: step.state.before?.result ?? null, to: result.value } }));
+      }
+      if (wire.pending !== null && wire.pending.day === today) tally.pending.push(`${name} ${result.key}: ${wire.announced ?? 'unannounced'} → ${wire.pending.result}`);
+    }
+    if (previous?.result !== JSON.stringify(result) || previous.wire !== JSON.stringify(wire)) {
+      const [first] = unitMembers;
+      statements.push(passportStore.unitStatement(db, { unit: result.key, chain: first!.registry.chain, address: first!.registry.address, result, wire }));
+    }
+  }
+  return statements;
+}

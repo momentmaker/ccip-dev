@@ -14,6 +14,7 @@ import * as store from '../src/store';
 const TABLES = [
   'messages', 'message_tokens', 'daily_totals', 'daily_breakdown', 'chains', 'tokens', 'arrivals',
   'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids', 'reserve_transfers', 'staking_events', 'staking_holders', 'day_leaders', 'monthly_breakdown', 'peg_hours', 'peg_episodes', 'peg_markers',
+  'passport_chains', 'passport_rows', 'passport_units', 'passport_changes', 'passport_posts',
 ];
 
 export async function resetStorage(): Promise<void> {
