@@ -156,6 +156,17 @@ describe('passport index', () => {
     ]);
   });
 
+  it('writes a summary\'s counts with thousands separators, as the Telegram copy does', () => {
+    // #given
+    const summary = INDEX.latest.find((e) => e.kind === 'summary')!;
+    const tokens = Array.from({ length: 1248 }, (_, i) => ({ token_id: `${ETHEREUM}:0x${i.toString(16).padStart(40, '0')}`, name: null }));
+    const busy = { ...summary, tokens, counts: { raised: 0, cleared: 0, new_token: 1248, new_chain: 0 } };
+    // #when
+    const view = passportIndexView({ ...INDEX, latest: [busy] }, NAMES);
+    // #then
+    expect(view.published && view.latest[0]!.text).toBe('1,248 more tokens: 1,248 new tokens');
+  });
+
   it('shows the not-yet-published line and no Passport menu entry before passport.json is published', () => {
     // #then
     expect({ view: passportIndexView(null, NAMES), nav: passportNavItems(null) }).toEqual({ view: { published: false }, nav: [] });

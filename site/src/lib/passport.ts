@@ -1,4 +1,5 @@
 import type { CheckKind, CheckValue, ReasonCode } from '@ccip-dev/core';
+import { passportPlural } from '@ccip-dev/core/broadcasts';
 import {
   passportShard, type PassportChainRow, type PassportEvent, type PassportIndexFile, type PassportLane, type PassportLogEntry, type PassportShardFile, type PassportShardName,
   type PassportStatementView, type PassportToken,
@@ -90,8 +91,6 @@ const LANE_SETTING_LABEL: Record<string, string> = {
   poolVerifiers: 'Pool\'s verifiers',
   laneVerifiers: 'Lane\'s verifiers',
 };
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export function reasonNote(code: string): string {
   if (!Object.hasOwn(NOTES, code)) throw new Error(`no plain note for the passport reason code "${code}"`);
@@ -196,12 +195,12 @@ function latestView(event: PassportEvent, names: ChainNames, pages: ReadonlyMap<
   if (event.kind === 'summary') {
     const c = event.counts;
     const parts = [
-      c.raised > 0 ? `${plural(c.raised, 'flag')} raised` : null,
-      c.cleared > 0 ? `${plural(c.cleared, 'flag')} cleared` : null,
-      c.new_token > 0 ? plural(c.new_token, 'new token') : null,
-      c.new_chain > 0 ? plural(c.new_chain, 'new chain') : null,
+      c.raised > 0 ? `${passportPlural(c.raised, 'flag')} raised` : null,
+      c.cleared > 0 ? `${passportPlural(c.cleared, 'flag')} cleared` : null,
+      c.new_token > 0 ? passportPlural(c.new_token, 'new token') : null,
+      c.new_chain > 0 ? passportPlural(c.new_chain, 'new chain') : null,
     ].filter((p) => p !== null);
-    return { day: event.day, date: formatUtcDay(event.day), text: `${plural(event.tokens.length, 'more token')}: ${parts.join(', ')}`, links: event.tokens.flatMap((t) => link(t.token_id, t.name ?? 'Unnamed token')) };
+    return { day: event.day, date: formatUtcDay(event.day), text: `${passportPlural(event.tokens.length, 'more token')}: ${parts.join(', ')}`, links: event.tokens.flatMap((t) => link(t.token_id, t.name ?? 'Unnamed token')) };
   }
   const parts = [
     ...event.changes.map((ch) => `${CHECK_LABEL[ch.check]} flag ${ch.correction ? `${ch.kind} by a correction` : ch.kind} ${unitPlace(ch, names)}`),
@@ -274,11 +273,11 @@ function partyKind(p: Party): string {
     case 'delegated-wallet':
       return 'wallet with delegated code (EIP-7702), 1 key';
     case 'safe':
-      return p.keys === null ? `Safe, needs ${plural(p.signers ?? 0, 'key')}` : `Safe, ${p.signers} of ${p.keys} keys`;
+      return p.keys === null ? `Safe, needs ${passportPlural(p.signers ?? 0, 'key')}` : `Safe, ${p.signers} of ${p.keys} keys`;
     case 'mcms':
-      return p.keys === null ? `MCMS, needs ${plural(p.signers ?? 0, 'signer')}` : `MCMS, ${p.signers} of ${p.keys} signers`;
+      return p.keys === null ? `MCMS, needs ${passportPlural(p.signers ?? 0, 'signer')}` : `MCMS, ${p.signers} of ${p.keys} signers`;
     case 'timelock':
-      return `timelock, weakest member needs ${plural(p.signers ?? 0, 'signer')}`;
+      return `timelock, weakest member needs ${passportPlural(p.signers ?? 0, 'signer')}`;
     case 'absent':
       return 'none set';
     case 'no-key':
@@ -404,7 +403,7 @@ function chainSection(row: PassportChainRow, ctx: PageContext, symbol: string): 
     singleKey: row.single_key === null ? null : singleKeyView(row.single_key, ctx.day),
     lanes,
     folded,
-    foldedLabel: folded.length === 0 ? null : lanes.length === 0 ? `${plural(folded.length, 'lane')}, none flagged` : `${plural(folded.length, 'more lane')}`,
+    foldedLabel: folded.length === 0 ? null : lanes.length === 0 ? `${passportPlural(folded.length, 'lane')}, none flagged` : `${passportPlural(folded.length, 'more lane')}`,
   };
 }
 
@@ -455,7 +454,7 @@ function describeValue(value: unknown): string | null {
   if ('value' in v) return describeValue(v.value);
   if ('reason' in v) return 'not readable';
   if (typeof v.isEnabled === 'boolean') return v.isEnabled ? 'limit on' : 'limit off';
-  if (typeof v.kind === 'string' && (typeof v.signers === 'number' || v.signers === null)) return v.signers === null ? v.kind : `${v.kind}, ${plural(v.signers as number, 'signer')}`;
+  if (typeof v.kind === 'string' && (typeof v.signers === 'number' || v.signers === null)) return v.signers === null ? v.kind : `${v.kind}, ${passportPlural(v.signers as number, 'signer')}`;
   return null;
 }
 
