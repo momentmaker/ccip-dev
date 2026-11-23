@@ -139,7 +139,10 @@ async function chainsToRead(c: RunContext, today: string): Promise<ReadableChain
     .sort((a, b) => bySelector(a.ref.selector, b.ref.selector));
 }
 
-/** Reads chains while the budget allows a whole chain; returns those still untried, a chain awaiting its second try included. */
+/**
+ * Reads chains while the budget allows a whole chain; returns those still untried, a chain awaiting its second try or
+ * a block from today included.
+ */
 async function readChains(c: RunContext, chains: readonly ReadableChain[], today: string): Promise<ReadableChain[]> {
   const deadline = c.deps.now().getTime() + RUN_BUDGET_MS;
   let onRamps: LaneOnRamps | null = null;
@@ -177,6 +180,9 @@ const partyAddresses = (settings: RawSettings) => PARTY_ROLES.flatMap((role) => 
 /**
  * One chain at one pinned block (KTD5): registry rows, then their parties. A request made past the chain's time limit
  * stops the reading. A failure is tried once more in a later run before it counts; one past the time limit counts at once.
+ * A pinned block from before today's midnight is left for a later run, with no try used and nothing written: a reading
+ * dated the day before would never count as read today nor set its rows' baseline (R33). From 03:00 UTC every block
+ * openChain accepts is from today.
  */
 async function readChain(c: RunContext, chain: ReadableChain, onRamps: Readonly<Record<string, string>>, today: string): Promise<'read' | 'retry' | 'failed'> {
   const db = c.env.DB;
@@ -193,12 +199,13 @@ async function readChain(c: RunContext, chain: ReadableChain, onRamps: Readonly<
   try {
     const tokens = await passportStore.listedTokens(db, ref.selector, listedSince(c));
     const pinned = await openChain(deps, chain.rpcUrl, { chainId: Number(ref.chainId), lastBlock: state?.lastBlock ?? null });
+    const readOn = dayOf(new Date(pinned.timestamp * 1000));
+    if (readOn !== today) return 'retry';
     const readings = await readPassportChain(deps, pinned, { registry: chain.registry, onRamps, tokens });
     const read = readings.filter((r): r is ReadRow => r.status === 'read');
     const parties = await classifyParties(deps, pinned, read.flatMap((r) => partyAddresses(r.settings)));
     if (pastLimit()) throw overLimit();
 
-    const readOn = dayOf(new Date(pinned.timestamp * 1000));
     const stored = await passportStore.storedReadings(db, ref.selector);
     const original = new Map(tokens.map((t) => [t.toLowerCase(), t]));
     const rows = read.map((r) => {
@@ -357,6 +364,9 @@ interface DayTally {
 const rowKeysOf = (r: CheckResult): string[] =>
   r.check === 'pool-pointer' ? r.rows.flatMap((x) => (x.token === null ? [] : [rowKey(x.chain, x.token)])) : [rowKey(r.row.chain, r.row.token)];
 
+/** A unit key's parts after its check: its row keys, and for a lane a remote selector or `*`, which name no row. */
+const unitRowKeys = (unit: string): string[] => unit.split('/').slice(1);
+
 /**
  * Evaluates every group from the stored readings (U5), steps each result's wire state (U6), confirms arrivals, and replaces
  * the day's post records. A second evaluation on the same day replays from each state's `before`, so it replaces the first.
@@ -401,7 +411,11 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
   for (const [groupId, members] of groups) {
     await write(...evaluateGroup(db, groupId, members, unitsByRow, day, tally));
   }
-  for (const u of storedUnits) if (!tally.produced.has(u.unit)) await write(passportStore.deleteUnitStatement(db, u.unit));
+  // A delisted row keeps its units, so its announced flags stand if the registry lists it again.
+  const delistedKeys = new Set(delistedRows.map((r) => rowKey(r.registry.chain, r.registry.address)));
+  for (const u of storedUnits) {
+    if (!tally.produced.has(u.unit) && !unitRowKeys(u.unit).some((k) => delistedKeys.has(k))) await write(passportStore.deleteUnitStatement(db, u.unit));
+  }
   await store.runBatch(db, queue.splice(0));
 
   const records = planPassportPosts({ day: day.today, changes: tally.changes, arrivals: tally.arrivals, names: tally.names });

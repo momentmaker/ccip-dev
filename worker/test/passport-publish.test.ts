@@ -29,6 +29,7 @@ const TOKEN = BURN_MINT.token;
 
 const net = (name: string, chainSelector: string, chainId: string): NetworkInfo => ({ name, displayName: name, chainSelector, chainId, chainFamily: 'EVM', environment: 'mainnet' });
 const ETHEREUM = net('ethereum-mainnet', '5009297550715157269', '1');
+const NOWHERE = net('nowhere-mainnet', '1111111111111111111', '777');
 
 const RPC: Record<string, string> = endpoints.rpc;
 const LANES_URL = 'https://api.ccip.chain.link/v2/lanes';
@@ -306,6 +307,21 @@ describe('publishing the Passport files', () => {
         changes: [{ kind: 'raised', correction: false, unit: SINGLE_KEY, check: 'single-key', chain: ETHEREUM.chainSelector, address: TOKEN, remote_chain: null, remote_address: null }],
       },
     ]);
+  });
+
+  it('keeps the summary event in the index\'s latest list on a day with eleven tokens to post', async () => {
+    // #given eleven tokens first seen after launch on a chain no endpoint reads, so each arrives unreadable on D3
+    await store.upsertChains(env.DB, [NOWHERE], '2026-10-01T00:00:00.000Z');
+    const late = Array.from({ length: 11 }, (_, i) => normalizeRegistryToken({
+      chainSelector: NOWHERE.chainSelector, address: `0x${(i + 1).toString(16).padStart(40, '0')}`, symbol: `T${i}`, name: `Token ${i}`, decimals: 18, groupId: `group-${i}`,
+    }));
+    await day(at(D1));
+    await store.upsertTokens(env.DB, late, `${D2}T00:30:00.000Z`);
+    await day(at(D2));
+    // #when
+    await day(at(D3));
+    // #then
+    expect((await index()).latest.filter((e) => e.kind === 'summary').map((e) => e.day)).toEqual([D3]);
   });
 
   it('leaves post records older than 60 days out of the events file', async () => {

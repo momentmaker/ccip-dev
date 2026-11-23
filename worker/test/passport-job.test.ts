@@ -1,4 +1,4 @@
-import { normalizeRegistryToken, passportNotesHash, type NetworkInfo, type PassportCorrection, type PassportNotes, type PassportStatement } from '@ccip-dev/core';
+import { addDays, normalizeRegistryToken, passportNotesHash, type NetworkInfo, type PassportCorrection, type PassportNotes, type PassportStatement } from '@ccip-dev/core';
 import { evmCallKey, fakeEvmChain, fakeFetch, jsonResponse, type EvmHiccup, type FakeRoute, type RecordedCall } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -48,6 +48,9 @@ const D1 = '2026-11-24';
 const D2 = '2026-11-25';
 const D3 = '2026-11-26';
 const D4 = '2026-11-27';
+/** Eight days after the seeded rows were last listed, and eight days later still. */
+const DELISTED = '2026-12-01';
+const RELISTED = '2026-12-09';
 const at = (day: string, hour = 1) => `${day}T${String(hour).padStart(2, '0')}:00:00.000Z`;
 
 const word = (address: string) => address.slice(2).padStart(64, '0');
@@ -69,14 +72,15 @@ interface ChainSpec {
   chainId?: number;
   hiccups?: Partial<Record<string, EvmHiccup[]>>;
   onRequest?: (method: string) => void;
+  blockAt?: string;
 }
 
-/** One chain's endpoint at its URL in config/endpoints.json, its blocks stamped 00:30 UTC on `day`. */
+/** One chain's endpoint at its URL in config/endpoints.json, its blocks stamped `blockAt`, or 00:30 UTC on `day`. */
 function chainRoute(spec: ChainSpec, day: string): FakeRoute {
   const fake = fakeEvmChain({
     chainId: spec.chainId ?? Number(spec.chain.chainId),
     latest: BLOCK + 12,
-    timestamp: Date.parse(`${day}T00:30:00.000Z`) / 1000,
+    timestamp: Date.parse(spec.blockAt ?? `${day}T00:30:00.000Z`) / 1000,
     calls: spec.calls,
     code: principals.code,
     storage: spec.storage,
@@ -312,13 +316,28 @@ describe('runPassport readings and log', () => {
     expect({ urls, value: result.value, reason: result.reason }).toEqual({ urls: [], value: 'not readable', reason: 'no-endpoint' });
   });
 
-  it('does not read a row the registry last listed eight days ago, and marks it "no longer listed"', async () => {
+  it('does not read a row the registry last listed eight days ago, marks it "no longer listed" and keeps its stored results', async () => {
     // #given
-    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token, seenAt: '2026-11-16T00:00:00.000Z' }]);
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token }]);
+    await run(at(D1), () => [NO_LANES, chainRoute(noPoolOn(ETHEREUM), D1)]);
+    const stored = await units();
     // #when
-    const { urls } = await run(at(D1), () => []);
+    const { urls } = await run(at(DELISTED), () => []);
     // #then
-    expect({ urls, delisted: (await passportRow(ETHEREUM, NO_POOL.token))?.delisted_day, units: await units() }).toEqual({ urls: [], delisted: D1, units: [] });
+    expect({ urls, delisted: (await passportRow(ETHEREUM, NO_POOL.token))?.delisted_day, units: await units() }).toEqual({ urls: [], delisted: DELISTED, units: stored });
+  });
+
+  it('posts nothing for a standing flag when a row no longer listed for eight days is listed again', async () => {
+    // #given a single-wallet owner flagged and announced at launch, then the row unlisted from DELISTED to RELISTED
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    await run(at(DELISTED), () => []);
+    await run(at(addDays(RELISTED, -1)), () => []);
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: BURN_MINT.token, seenAt: `${RELISTED}T00:00:00.000Z` }]);
+    // #when
+    for (const day of [RELISTED, addDays(RELISTED, 1), addDays(RELISTED, 2)]) await burnMintDay(day, WALLET);
+    // #then
+    expect({ delisted: (await passportRow(ETHEREUM, BURN_MINT.token))?.delisted_day, posts: await posts() }).toEqual({ delisted: null, posts: [] });
   });
 });
 
@@ -413,6 +432,23 @@ describe('runPassport across hourly runs', () => {
     // #then
     const chainAlerts = alerts.filter((a) => a.signature.startsWith('passport-chain'));
     expect({ alerts: chainAlerts.length, named: chainAlerts[0]?.text.includes(ETHEREUM.name), failures: (await chainState(ETHEREUM))?.failures }).toEqual({ alerts: 1, named: true, failures: 0 });
+  });
+
+  it('skips a chain whose pinned block is from the day before without using a try, and a later run that day reads it as the baseline', async () => {
+    // #given
+    await seedBurnMint();
+    await run(at(D1), () => [ETH_LANES, chainRoute({ chain: ETHEREUM, calls: burnMintCalls(WALLET), storage: BURN_MINT.storage, blockAt: '2026-11-23T23:30:00.000Z' }, D1)]);
+    const skipped = { row: await passportRow(ETHEREUM, BURN_MINT.token), state: await chainState(ETHEREUM), evaluated: await meta('passport:evaluated') };
+    // #when
+    await burnMintDay(D1, WALLET, ON, 2);
+    await burnMintDay(D2, WALLET);
+    await burnMintDay(D3, WALLET);
+    // #then
+    expect({ skipped, firstRead: (await passportRow(ETHEREUM, BURN_MINT.token))?.first_read_day, posts: await posts() }).toEqual({
+      skipped: { row: null, state: null, evaluated: null },
+      firstRead: D1,
+      posts: [],
+    });
   });
 
   it('evaluates what it has at 22:00 UTC with chains untried, and alerts that the day is incomplete', async () => {

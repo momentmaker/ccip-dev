@@ -18,7 +18,10 @@ import * as store from './store';
 
 /** passport-events.json holds the post records of this many days before the evaluated day, and that day. */
 export const EVENTS_DAYS = 60;
-/** The index's latest-changes list. */
+/**
+ * The index's latest-changes list holds this many events and every other event of the newest day, because a summary
+ * post links there and sorts after that day's ten token posts.
+ */
 export const LATEST_EVENTS = 10;
 /** With PASSPORT dry the files go to ARCHIVE under this prefix (KTD20). */
 export const DRY_PREFIX = 'passport-dry/';
@@ -72,7 +75,9 @@ export async function publishPassport(c: RunContext, p: Publication): Promise<vo
   const [bucket, prefix] = p.mode === 'on' ? [c.env.PUBLIC, ''] : [c.env.ARCHIVE, DRY_PREFIX];
   const put = (name: string, body: Record<string, unknown>) => putJson(bucket, name, body, TTL.passport, now, prefix);
   const head = { day: p.day, since: p.since };
-  await put('passport.json', { ...head, tokens: tokens.map(indexLine), latest: events.slice(0, LATEST_EVENTS) });
+  const newestDay = events[0]?.day;
+  const latest = events.filter((e, i) => i < LATEST_EVENTS || e.day === newestDay);
+  await put('passport.json', { ...head, tokens: tokens.map(indexLine), latest });
   const shards = new Map<string, PassportToken[]>(PASSPORT_SHARDS.map((h) => [`passport/${h}.json`, []]));
   for (const t of tokens) shards.get(passportShard(t.id))!.push(t);
   for (const [name, list] of shards) await put(name, { ...head, tokens: list });
