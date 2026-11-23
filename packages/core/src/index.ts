@@ -33,3 +33,4 @@ export * from './peg-episodes';
 export * from './peg-live';
 export * from './passport-read';
 export * from './passport-principals';
+export * from './passport-wire';
