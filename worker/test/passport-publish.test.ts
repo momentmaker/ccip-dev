@@ -1,5 +1,5 @@
 import { normalizeRegistryToken, type NetworkInfo, type PassportNotes, type PassportPostRecord, type PassportStatement, type ProjectRegistry, type StoredReading, type TokenLabels } from '@ccip-dev/core';
-import { PASSPORT_SHARDS, PUBLIC_SCHEMAS, type PassportEvent, type PassportIndexFile, type PassportShardFile, type PassportToken, type PublicFileName } from '@ccip-dev/core/public';
+import { PASSPORT_SCHEMAS, PASSPORT_SHARDS, type PassportEvent, type PassportFileName, type PassportIndexFile, type PassportShardFile, type PassportToken } from '@ccip-dev/core/public-passport';
 import { evmCallKey, fakeEvmChain, fakeFetch, jsonResponse, type FakeRoute, type RecordedCall } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -46,8 +46,8 @@ const at = (day: string, hour = 1) => `${day}T${String(hour).padStart(2, '0')}:0
 const word = (address: string) => address.slice(2).padStart(64, '0');
 
 const SINGLE_KEY = `single-key/${ETHEREUM.chainSelector}:${TOKEN}`;
-const SHARD_NAMES = PASSPORT_SHARDS.map((h) => `passport/${h}.json` as PublicFileName);
-const FILE_NAMES: PublicFileName[] = ['passport.json', 'passport-events.json', ...SHARD_NAMES];
+const SHARD_NAMES = PASSPORT_SHARDS.map((h) => `passport/${h}.json` as PassportFileName);
+const FILE_NAMES: PassportFileName[] = ['passport.json', 'passport-events.json', ...SHARD_NAMES];
 
 const uint = (n: bigint) => n.toString(16).padStart(64, '0');
 /** The recording has every limit off; the Arbitrum lane's outbound limit is switched on here: 100,000 tokens, refilling 10 a second. */
@@ -146,7 +146,7 @@ describe('publishing the Passport files', () => {
     await day(at(D1));
     // #then
     const failing: string[] = [];
-    for (const name of FILE_NAMES) if (!PUBLIC_SCHEMAS[name].safeParse(await readPublic(name)).success) failing.push(name);
+    for (const name of FILE_NAMES) if (!PASSPORT_SCHEMAS[name].safeParse(await readPublic(name)).success) failing.push(name);
     expect(failing).toEqual([]);
   });
 

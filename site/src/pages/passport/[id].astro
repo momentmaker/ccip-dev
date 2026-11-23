@@ -5,7 +5,7 @@ import PassportResult from '../../components/PassportResult.astro';
 import ShareButton from '../../components/ShareButton';
 import Base from '../../layouts/Base.astro';
 import { SITE_URL } from '../../config';
-import { buildData, buildDataIfPublished } from '../../lib/build-data';
+import { buildData, buildDataIfPublished, buildPassportData } from '../../lib/build-data';
 import { formatUtcDay } from '../../lib/format';
 import { methodologyHref } from '../../lib/metric-anchors';
 import { chainNameMap, shortAddress } from '../../lib/names';
@@ -14,7 +14,7 @@ import { projectHref, projectSlugs } from '../../lib/projects';
 
 export async function getStaticPaths() {
   const index = await publishedPassportIndex();
-  const shards = await Promise.all(passportShardNames(index).map((name) => buildData(name)));
+  const shards = await Promise.all(passportShardNames(index).map((name) => buildPassportData(name)));
   return passportPaths(index, shards);
 }
 

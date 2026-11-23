@@ -5,7 +5,7 @@ import {
 } from '@ccip-dev/core';
 import {
   PASSPORT_SHARDS, passportShard, type PassportChainRow, type PassportEvent, type PassportLane, type PassportLogEntry, type PassportStatementView, type PassportToken,
-} from '@ccip-dev/core/public';
+} from '@ccip-dev/core/public-passport';
 import { byName } from '@ccip-dev/core/roster';
 import type { RunContext } from './context';
 import type { PassportMode } from './passport-config';

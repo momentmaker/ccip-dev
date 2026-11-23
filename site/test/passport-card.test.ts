@@ -21,7 +21,7 @@ const CHAINS = {
   ],
 };
 const DATA: Record<string, unknown> = { 'passport/0.json': shard0, 'passport/3.json': shard3, 'chains.json': CHAINS };
-const inputs = { load: async (name: string) => DATA[name], icon: async () => null } as never;
+const inputs = { load: async (name: string) => DATA[name], loadPassport: async (name: string) => DATA[name], icon: async () => null } as never;
 
 describe('the passport card', () => {
   it('holds the token name, its chains and the flagged check\'s label', async () => {

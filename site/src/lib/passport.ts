@@ -1,9 +1,9 @@
 import {
   passportShard, type PassportChainRow, type PassportEvent, type PassportIndexFile, type PassportLane, type PassportLogEntry, type PassportShardFile, type PassportShardName,
   type PassportStatementView, type PassportToken,
-} from '@ccip-dev/core/public';
+} from '@ccip-dev/core/public-passport';
 import { REPO_URL, X_HANDLE, X_URL } from '../config';
-import { buildDataIfPublished } from './build-data';
+import { buildPassportDataIfPublished } from './build-data';
 import { passportSlug } from './card-paths';
 import { formatUsd, formatUtcDay } from './format';
 import { methodologyHref, type MetricKey } from './metric-anchors';
@@ -104,7 +104,7 @@ export const passportHref = (id: string): string => `/passport/${passportSlug(id
 
 let published: Promise<PassportIndexFile | null> | undefined;
 /** passport.json once per build, null before its first publish; every page's header asks, so it is read and warned about once. */
-export const publishedPassportIndex = (): Promise<PassportIndexFile | null> => (published ??= buildDataIfPublished('passport.json'));
+export const publishedPassportIndex = (): Promise<PassportIndexFile | null> => (published ??= buildPassportDataIfPublished('passport.json'));
 
 export function passportNavItems(index: PassportIndexFile | null): { href: string; label: string }[] {
   return index === null ? [] : [{ href: '/passport/', label: 'Passport' }];

@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
     "./public": "./src/public.ts",
+    "./public-passport": "./src/public-passport.ts",
     "./time": "./src/time.ts",
     "./format": "./src/format.ts",
     "./names": "./src/names.ts",

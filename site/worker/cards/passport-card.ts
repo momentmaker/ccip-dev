@@ -1,10 +1,15 @@
 import { formatUtcDay } from '@ccip-dev/core/format';
 import { chainName, chainNameMap } from '@ccip-dev/core/names';
-import { passportShard, type PassportToken } from '@ccip-dev/core/public';
+import { passportShard, type PassportFile, type PassportFileName, type PassportToken } from '@ccip-dev/core/public-passport';
 import { passportSlug } from '../../src/lib/card-paths';
 import { CHECK_LABEL, RESULT_LABEL, type CheckKind, type CheckValue } from '../../src/lib/passport';
 import { h, type VNode } from '../h';
 import { bigText, bold, broadcastFrame, cardDay, COLORS, columnLine, momentColumn, nameSize, pill, PILLS, row, type BroadcastInputs } from './broadcast-frame';
+
+/** A passport card reads its shard through its own loader, so fetchPublic and the browser never carry the passport schemas. */
+export interface PassportInputs extends BroadcastInputs {
+  loadPassport: <N extends PassportFileName>(name: N) => Promise<PassportFile<N>>;
+}
 
 const CHECKS: readonly CheckKind[] = ['single-key', 'rate-limit', 'pool-pointer'];
 const CHIP: Record<CheckValue | 'none', { color: string; label: string }> = {
@@ -33,8 +38,8 @@ function resultRow(check: CheckKind, value: CheckValue | 'none'): VNode {
 }
 
 /** A token's passport page card: its name, chains and three rolled-up results, flagged first, read from its shard. */
-export async function passportTree(id: string, inputs: BroadcastInputs): Promise<VNode | null> {
-  const [shard, chains] = await Promise.all([inputs.load(passportShard(id)), inputs.load('chains.json')]);
+export async function passportTree(id: string, inputs: PassportInputs): Promise<VNode | null> {
+  const [shard, chains] = await Promise.all([inputs.loadPassport(passportShard(id)), inputs.load('chains.json')]);
   const token = shard.tokens.find((t) => t.id === id);
   if (token === undefined) return null;
   const names = chainNameMap(chains.chains);

@@ -1,4 +1,4 @@
-import { PassportIndexFileSchema, PassportShardFileSchema, PassportSingleKeySchema, type PassportChainRow, type PassportIndexFile, type PassportLane, type PassportToken } from '@ccip-dev/core/public';
+import { PassportIndexFileSchema, PassportShardFileSchema, PassportSingleKeySchema, type PassportChainRow, type PassportIndexFile, type PassportLane, type PassportToken } from '@ccip-dev/core/public-passport';
 import { describe, expect, it } from 'vitest';
 import { filterPassportRows } from '../src/lib/passport-filter';
 import {
