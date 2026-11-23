@@ -341,11 +341,11 @@ interface CorrectionDetail {
 }
 
 /**
- * The day's correction log rows are rewritten by every evaluation that day, so this removes them and returns the value
- * each corrected unit had before the day's first evaluation.
+ * The day's correction log rows are rewritten by every evaluation that day, so they hold the value each corrected unit
+ * had before the day's first evaluation.
  */
-async function takeCorrectionLog(db: D1Database, day: string): Promise<Map<string, CheckValue | null>> {
-  return new Map((await passportStore.takeCorrectionLog(db, day)).map((logged) => {
+async function correctedFrom(db: D1Database, day: string): Promise<Map<string, CheckValue | null>> {
+  return new Map((await passportStore.correctionLog(db, day)).map((logged) => {
     const detail = JSON.parse(logged) as CorrectionDetail;
     return [detail.unit, detail.from];
   }));
@@ -367,6 +367,7 @@ interface DayTally {
   pending: string[];
   produced: Set<string>;
   results: Map<string, CheckResult[]>;
+  corrections: passportStore.LogEntry[];
 }
 
 const rowKeysOf = (r: CheckResult): string[] =>
@@ -384,7 +385,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
   const db = c.env.DB;
   const refs = await store.chainRefs(db);
   const selectors = new Map([...refs.values()].map((ref) => [ref.name, ref.selector]));
-  const day: Evaluation = { ...input, corrections: passportCorrections(c.passportNotes, selectors), correctedFrom: await takeCorrectionLog(db, input.today) };
+  const day: Evaluation = { ...input, corrections: passportCorrections(c.passportNotes, selectors), correctedFrom: await correctedFrom(db, input.today) };
   const registry = await passportStore.registryRows(db);
   const storedRows = new Map((await passportStore.storedRows(db)).map((r) => [rowKey(r.chain, r.address), r]));
   const storedUnits = await passportStore.storedUnits(db);
@@ -415,7 +416,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
   const groups = groupBy(listedRows, (m) => groupIdOf(m.registry));
   const delisted = groupBy(delistedRows, (r) => groupIdOf(r.registry));
 
-  const tally: DayTally = { changes: [], arrivals: [], names: {}, pending: [], produced: new Set(), results: new Map() };
+  const tally: DayTally = { changes: [], arrivals: [], names: {}, pending: [], produced: new Set(), results: new Map(), corrections: [] };
   for (const [groupId, members] of groups) {
     await write(...evaluateGroup(db, groupId, members, unitsByRow, day, tally));
   }
@@ -425,6 +426,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
     if (!tally.produced.has(u.unit) && !unitRowKeys(u.unit).some((k) => delistedKeys.has(k))) await write(passportStore.deleteUnitStatement(db, u.unit));
   }
   await store.runBatch(db, queue.splice(0));
+  await passportStore.replaceCorrectionLog(db, day.today, tally.corrections);
 
   const records = planPassportPosts({ day: day.today, changes: tally.changes, arrivals: tally.arrivals, names: tally.names });
   await passportStore.replacePosts(db, day.today, records, postState(day.config));
@@ -521,7 +523,7 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
       const from = logged !== undefined ? logged : previous ? (JSON.parse(previous.result) as CheckResult).value : null;
       if (from !== result.value) {
         const detail: CorrectionDetail = { unit: result.key, from, to: result.value, basis: result.basis };
-        statements.push(passportStore.logStatement(db, { chain: first!.registry.chain, address: first!.registry.address, day: today, kind: 'correction', detail }));
+        tally.corrections.push({ chain: first!.registry.chain, address: first!.registry.address, day: today, kind: 'correction', detail });
       }
     }
     let wire: WireUnitState = previous ? (JSON.parse(previous.wire) as WireUnitState) : WIRE_UNREAD;

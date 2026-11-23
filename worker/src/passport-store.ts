@@ -273,10 +273,18 @@ export async function clearEvaluationLog(db: D1Database, day: string): Promise<v
   await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind IN (${placeholders(EVALUATION_LOG_KINDS.length)})`).bind(day, ...EVALUATION_LOG_KINDS).run();
 }
 
-/** Deletes the day's correction log rows and returns their details, unparsed. */
-export async function takeCorrectionLog(db: D1Database, day: string): Promise<string[]> {
-  const { results } = await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind = 'correction' RETURNING detail`).bind(day).all<{ detail: string }>();
+/** The day's correction log rows' details, unparsed. */
+export async function correctionLog(db: D1Database, day: string): Promise<string[]> {
+  const { results } = await db.prepare(`SELECT detail FROM passport_changes WHERE day = ? AND kind = 'correction' ORDER BY id`).bind(day).all<{ detail: string }>();
   return results.map((r) => r.detail);
+}
+
+/**
+ * The day's correction log rows give way to `entries` in one batch, so an evaluation that dies before it leaves the
+ * earlier rows, and each corrected unit's value before the day, in place for the next one.
+ */
+export async function replaceCorrectionLog(db: D1Database, day: string, entries: readonly LogEntry[]): Promise<void> {
+  await db.batch([db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind = 'correction'`).bind(day), ...entries.map((e) => logStatement(db, e))]);
 }
 
 export interface ChangeRow {

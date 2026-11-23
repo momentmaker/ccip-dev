@@ -667,6 +667,24 @@ describe('runPassport statements and corrections', () => {
     expect((await correctionLog()).map((l) => [l.day, l.detail.from, l.detail.to])).toEqual([[D2, 'flagged', 'clear']]);
   });
 
+  it.each([
+    ['reading the registry, before any write', /FROM tokens ORDER BY chain, address/],
+    ['replacing the correction log, after the unit rows landed', /DELETE FROM passport_changes WHERE day = \? AND kind = 'correction'/],
+  ])('keeps the day\'s correction log row, with its original from, when an evaluation that day dies %s and is run again', async (_case, failAt) => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    const corrected = correcting((await singleKey()).basis);
+    await burnMintDay(D2, WALLET, ON, 1, { passportNotes: corrected });
+    const changedNotes = { ...corrected, statements: [STATEMENT] };
+    const failing = watchedDb(failAt, { fail: true });
+    await expect(run(at(D2, 2), () => [], ON, { passportNotes: changedNotes, db: failing.db })).rejects.toThrow('D1_ERROR');
+    // #when
+    await run(at(D2, 3), () => [], ON, { passportNotes: changedNotes });
+    // #then
+    expect((await correctionLog()).map((l) => [l.day, l.detail.from, l.detail.to])).toEqual([[D2, 'flagged', 'clear']]);
+  });
+
   it('drops the day\'s correction log row when the correction is removed that day', async () => {
     // #given
     await seedBurnMint();
