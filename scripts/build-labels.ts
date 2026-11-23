@@ -1,6 +1,8 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, generatedCreKeys, validateChainHandles, validateRegistry, validateStakingOperators, type CreKeyFile } from '@ccip-dev/core';
+import {
+  buildHandles, buildLabelIndex, buildProjectRegistry, buildTokenLabels, generatedCreKeys, validateChainHandles, validatePassportNotes, validateRegistry, validateStakingOperators, type CreKeyFile,
+} from '@ccip-dev/core';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -16,7 +18,9 @@ const chainFile = await readFile(path.join(ROOT, 'labels/chain-x.json'), 'utf8')
 const { handles: chainHandles, errors: chainErrors } = validateChainHandles(chainFile, chainNames);
 const operatorFile = await readFile(path.join(ROOT, 'labels/staking-operators.json'), 'utf8');
 const { names: operatorNames, errors: operatorErrors } = validateStakingOperators(operatorFile);
-const allErrors = [...errors, ...chainErrors, ...operatorErrors];
+const passportFile = await readFile(path.join(ROOT, 'labels/passport.toml'), 'utf8');
+const { notes: passportNotes, errors: passportErrors } = validatePassportNotes(passportFile, chainNames);
+const allErrors = [...errors, ...chainErrors, ...operatorErrors, ...passportErrors];
 const creFile = JSON.parse(await readFile(path.join(ROOT, 'config/cre-keys.json'), 'utf8')) as CreKeyFile;
 let creKeys: ReturnType<typeof generatedCreKeys> | null = null;
 try {
@@ -30,7 +34,7 @@ if (allErrors.length > 0) {
   process.exit(1);
 }
 if (process.argv.includes('--check')) {
-  console.log(`labels ok: ${projects.length} project file(s), ${Object.keys(chainHandles).length} chain handle(s), ${Object.keys(operatorNames).length} staking operator(s), ${creKeys?.keys.length ?? 0} CRE key(s)`);
+  console.log(`labels ok: ${projects.length} project file(s), ${Object.keys(chainHandles).length} chain handle(s), ${Object.keys(operatorNames).length} staking operator(s), ${creKeys?.keys.length ?? 0} CRE key(s), ${passportNotes.statements.length} Passport statement(s), ${passportNotes.corrections.length} Passport correction(s)`);
 } else {
   const generated = path.join(ROOT, 'worker/src/generated');
   await mkdir(generated, { recursive: true });
@@ -50,4 +54,6 @@ if (process.argv.includes('--check')) {
   console.log(`wrote ${Object.keys(operatorNames).length} staking operator name(s) to worker/src/generated/staking-operators.json`);
   await writeFile(path.join(generated, 'cre-keys.json'), `${JSON.stringify(creKeys, null, 2)}\n`);
   console.log(`wrote ${creKeys!.keys.length} CRE node key(s) to worker/src/generated/cre-keys.json`);
+  await writeFile(path.join(generated, 'passport-notes.json'), `${JSON.stringify(passportNotes, null, 2)}\n`);
+  console.log(`wrote ${passportNotes.statements.length} Passport statement(s) and ${passportNotes.corrections.length} correction(s) to worker/src/generated/passport-notes.json`);
 }

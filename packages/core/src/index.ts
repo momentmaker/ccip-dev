@@ -36,3 +36,4 @@ export * from './passport-read';
 export * from './passport-principals';
 export * from './passport-wire';
 export * from './passport-checks';
+export * from './passport-notes';

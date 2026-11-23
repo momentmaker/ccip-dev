@@ -1,4 +1,4 @@
-import { normalizeRegistryToken, type NetworkInfo } from '@ccip-dev/core';
+import { normalizeRegistryToken, passportNotesHash, type NetworkInfo, type PassportCorrection, type PassportNotes, type PassportStatement } from '@ccip-dev/core';
 import { evmCallKey, fakeEvmChain, fakeFetch, jsonResponse, type EvmHiccup, type FakeRoute, type RecordedCall } from '@ccip-dev/core/testing';
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -10,7 +10,7 @@ import noPool from '../../packages/core/test/fixtures/passport/pools/ethereum-no
 import principals from '../../packages/core/test/fixtures/passport/principals/ethereum.json';
 import { CHAIN_TIME_LIMIT_MS, RUN_BUDGET_MS, runPassport } from '../src/jobs/passport';
 import * as store from '../src/store';
-import { harness, resetStorage, type Harness } from './helpers';
+import { harness, resetStorage, watchedDb, type Harness } from './helpers';
 
 beforeEach(resetStorage);
 
@@ -118,8 +118,13 @@ interface Run {
   urls: string[];
 }
 
+interface RunOptions {
+  passportNotes?: PassportNotes;
+  db?: D1Database;
+}
+
 /** One hourly run at `iso`; `advance` moves the run's clock, as a slow endpoint would. */
-async function run(iso: string, routes: (advance: (ms: number) => void) => FakeRoute[], switches: Record<string, string> = ON): Promise<Run> {
+async function run(iso: string, routes: (advance: (ms: number) => void) => FakeRoute[], switches: Record<string, string> = ON, options: RunOptions = {}): Promise<Run> {
   let now = Date.parse(iso);
   let h: Harness | null = null;
   const advance = (ms: number) => {
@@ -127,7 +132,7 @@ async function run(iso: string, routes: (advance: (ms: number) => void) => FakeR
     h?.setNow(new Date(now).toISOString());
   };
   const f = fakeFetch(...routes(advance));
-  h = harness({ now: iso, fetch: f, env: switches });
+  h = harness({ now: iso, fetch: f, env: switches, ...options });
   await runPassport(h.c);
   return { alerts: h.alerts, urls: f.calls.map((c) => c.url) };
 }
@@ -135,8 +140,8 @@ async function run(iso: string, routes: (advance: (ms: number) => void) => FakeR
 const ETH_LANES = lanesRoute({ [ETHEREUM.chainSelector]: { ...BURN_MINT.onRamps, ...NO_HOOKS.onRamps } });
 
 /** One daily run against Ethereum holding the BurnMint row with the given owner. */
-function burnMintDay(day: string, owner: string, switches: Record<string, string> = ON, hour = 1): Promise<Run> {
-  return run(at(day, hour), () => [ETH_LANES, chainRoute({ chain: ETHEREUM, calls: burnMintCalls(owner), storage: BURN_MINT.storage }, day)], switches);
+function burnMintDay(day: string, owner: string, switches: Record<string, string> = ON, hour = 1, options: RunOptions = {}): Promise<Run> {
+  return run(at(day, hour), () => [ETH_LANES, chainRoute({ chain: ETHEREUM, calls: burnMintCalls(owner), storage: BURN_MINT.storage }, day)], switches, options);
 }
 
 const seedBurnMint = () => seed([ETHEREUM], [{ chain: ETHEREUM, address: BURN_MINT.token }]);
@@ -489,5 +494,126 @@ describe('runPassport evaluation', () => {
       count: true,
       records: [...Array.from({ length: 10 }, () => 'token'), 'summary'],
     });
+  });
+});
+
+describe('runPassport statements and corrections', () => {
+  const singleKey = async () => JSON.parse((await units()).find((u) => u.unit === SINGLE_KEY)!.result) as { value: string; reason: string; basis: string; corrected: boolean };
+  const announced = async () => (await units()).find((u) => u.unit === SINGLE_KEY)!.announced;
+  const correctionLog = async () => (await changes()).filter((c) => c.kind === 'correction').map((c) => ({ day: c.day, address: c.address, detail: JSON.parse(c.detail) }));
+  const correcting = (basis: string): PassportNotes => ({
+    statements: [],
+    corrections: [{ chain: ETHEREUM.name, token: BURN_MINT.token.toLowerCase(), check: 'single-key', remoteChain: null, remoteToken: null, basis, value: 'clear', reason: 'multi-signer', correctedOn: D2 } satisfies PassportCorrection],
+  });
+  const STATEMENT: PassportStatement = {
+    chain: ETHEREUM.name, token: BURN_MINT.token.toLowerCase(), check: 'single-key', remoteChain: null, remoteToken: null, answers: 'flagged',
+    text: 'The deployer key moves to a Safe next week.', saidOn: D2, attachedOn: D3, verifiedVia: 'x', verifiedSource: 'example',
+  };
+
+  it('covers AE9: a correction with a matching basis changes the result, and the log row is a correction', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    const { basis } = await singleKey();
+    // #when
+    await burnMintDay(D2, WALLET, ON, 1, { passportNotes: correcting(basis) });
+    // #then
+    const result = await singleKey();
+    expect({ value: result.value, corrected: result.corrected, log: await correctionLog() }).toEqual({
+      value: 'clear',
+      corrected: true,
+      log: [{ day: D2, address: BURN_MINT.token, detail: { unit: SINGLE_KEY, from: 'flagged', to: 'clear', basis } }],
+    });
+  });
+
+  it('covers AE9: a correction that holds on the next reading posts the clearing as a correction', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    const notes = correcting((await singleKey()).basis);
+    await burnMintDay(D2, WALLET, ON, 1, { passportNotes: notes });
+    // #when
+    await burnMintDay(D3, WALLET, ON, 1, { passportNotes: notes });
+    // #then
+    expect({ changes: JSON.parse((await posts())[0]!.facts).changes, log: (await correctionLog()).length }).toEqual({
+      changes: [{ kind: 'cleared', day: D3, correction: true, groupId: GROUP, unit: SINGLE_KEY }],
+      log: 1,
+    });
+  });
+
+  it('changes nothing for a correction whose basis no longer matches the reading', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    // #when
+    await burnMintDay(D2, WALLET, ON, 1, { passportNotes: correcting('ffffffffffffffff') });
+    // #then
+    const result = await singleKey();
+    expect({ value: result.value, corrected: result.corrected, log: await correctionLog() }).toEqual({ value: 'flagged', corrected: false, log: [] });
+  });
+
+  it('covers AE7: a statement on a flagged result leaves the result, the announced state and the day\'s post records unchanged', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, SAFE);
+    await burnMintDay(D2, WALLET);
+    await burnMintDay(D3, WALLET);
+    const before = { units: await units(), posts: await posts() };
+    const notes: PassportNotes = { statements: [STATEMENT], corrections: [] };
+    // #when
+    await run(at(D3, 2), () => [], ON, { passportNotes: notes });
+    // #then
+    expect({ notes: await meta('passport:notes'), value: (await singleKey()).value, announced: await announced(), units: await units(), posts: await posts() }).toEqual({
+      notes: passportNotesHash(notes),
+      value: 'flagged',
+      announced: 'flagged',
+      ...before,
+    });
+  });
+
+  it('does not evaluate again in an hourly run whose notes are unchanged', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    const watched = watchedDb(/FROM tokens ORDER BY chain, address/);
+    // #when
+    await run(at(D1, 2), () => [], ON, { db: watched.db });
+    // #then
+    expect(watched.prepared()).toBe(0);
+  });
+
+  it('evaluates again in an hourly run whose notes changed after the day was evaluated, with no reading', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    const notes = correcting((await singleKey()).basis);
+    // #when
+    const { urls } = await run(at(D1, 2), () => [], ON, { passportNotes: notes });
+    // #then
+    expect({ urls, value: (await singleKey()).value, notes: await meta('passport:notes') }).toEqual({ urls: [], value: 'clear', notes: passportNotesHash(notes) });
+  });
+
+  it('replaces the day\'s correction log row when the notes change again that day', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    await burnMintDay(D2, WALLET);
+    const corrected = correcting((await singleKey()).basis);
+    await run(at(D2, 2), () => [], ON, { passportNotes: corrected });
+    // #when
+    await run(at(D2, 3), () => [], ON, { passportNotes: { ...corrected, statements: [STATEMENT] } });
+    // #then
+    expect((await correctionLog()).map((l) => [l.day, l.detail.from, l.detail.to])).toEqual([[D2, 'flagged', 'clear']]);
+  });
+
+  it('drops the day\'s correction log row when the correction is removed that day', async () => {
+    // #given
+    await seedBurnMint();
+    await burnMintDay(D1, WALLET);
+    await run(at(D1, 2), () => [], ON, { passportNotes: correcting((await singleKey()).basis) });
+    // #when
+    await run(at(D1, 3), () => [], ON, { passportNotes: { statements: [], corrections: [] } });
+    // #then
+    expect({ value: (await singleKey()).value, log: await correctionLog() }).toEqual({ value: 'flagged', log: [] });
   });
 });

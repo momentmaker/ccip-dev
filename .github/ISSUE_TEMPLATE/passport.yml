@@ -1,0 +1,48 @@
+name: Passport result
+description: Tell us a Token Passport result is wrong, or send your team's statement about one.
+title: "Passport: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Each Token Passport result comes from an onchain reading, and the reading stays the authority: a statement is shown beside the result as your team's own words with its date, and does not clear a flag. If the reading itself is wrong, we correct it and the page's log marks the change as a correction. You can also send a direct message to ccip.dev's account on X.
+
+        We attach a statement only when we can tie it to the project: through the project's X account or website, or through a message signed by the address that controls the token's pool. Entries go in `labels/passport.toml`.
+  - type: input
+    id: token
+    attributes:
+      label: Token
+      description: The token's address, or the link to its Passport page.
+    validations:
+      required: true
+  - type: input
+    id: chain
+    attributes:
+      label: Chain
+      description: The CCIP chain name, as in labels/ccip-chains.json, for example ethereum-mainnet-base-1.
+    validations:
+      required: true
+  - type: dropdown
+    id: check
+    attributes:
+      label: Which check
+      options:
+        - Single key
+        - Rate limit (name the lane's other chain below)
+        - Pools point at each other (name the lane's other chain below)
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+      description: What the page shows, what is true instead, and anything that shows it, such as a transaction or a block explorer link. For a statement, write it as you want it shown.
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who you are and how we can verify it
+      description: The project's X handle or website where we can confirm this request, or a message signed by the address that controls the pool, with the signature and the signing address.
+    validations:
+      required: true

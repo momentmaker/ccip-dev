@@ -1,7 +1,7 @@
 import {
-  ChainReadError, classifyParties, confirmArrivals, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, planPassportPosts, readPassportChain,
-  stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
-  type ArrivalItem, type ArrivalReading, type ArrivingRow, type ChainRef, type CheckResult, type Correction, type DesignReason, type HttpDeps, type LaneOnRamps,
+  ChainReadError, classifyParties, confirmArrivals, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, passportCorrections, passportNotesHash,
+  planPassportPosts, readPassportChain, stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
+  type ArrivalItem, type ArrivalReading, type ArrivingRow, type ChainRef, type CheckResult, type CheckValue, type Correction, type DesignReason, type HttpDeps, type LaneOnRamps,
   type PartyClassification, type Parties, type PassportRow, type RawLane, type RawSettings, type Readable, type RateLimit, type RowReading, type StoredReading,
   type WireChange, type WireOutcome, type WireUnitState,
 } from '@ccip-dev/core';
@@ -30,7 +30,7 @@ const ARRIVAL_READINGS_KEPT = 2;
 const DAY_MS = 86_400_000;
 const WRITE_BATCH = 100;
 
-const META = { mode: 'passport:mode', since: 'passport:since', evaluated: 'passport:evaluated', onRamps: 'passport:onramps' } as const;
+const META = { mode: 'passport:mode', since: 'passport:since', evaluated: 'passport:evaluated', onRamps: 'passport:onramps', notes: 'passport:notes' } as const;
 const VERIFIER_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = directory.verifiers;
 const ROLES: readonly (keyof Parties)[] = ['poolOwner', 'registryAdministrator', 'rateLimitAdmin', 'hooksOwner', 'proxyAdmin'];
 const TOP_SETTINGS = ['administrator', 'pendingAdministrator', 'pool', 'poolType', 'hooks', 'allowedFinality'] as const satisfies readonly (keyof RawSettings)[];
@@ -38,22 +38,31 @@ const LANE_SETTINGS = ['remoteToken', 'remotePools', 'outbound', 'inbound', 'fas
 
 /**
  * KTD17: one reading per chain per day inside the hourly cron. From 01:00 UTC each run reads chains within its budget;
- * once every chain has been tried, or from 22:00 UTC, the day is evaluated once. `corrections` are the operator's (KTD15).
+ * once every chain has been tried, or from 22:00 UTC, the day is evaluated once. KTD21: a later run that day whose
+ * bundled statements and corrections differ from those last evaluated with evaluates the day again.
  */
-export async function runPassport(c: RunContext, corrections: readonly Correction[] = []): Promise<void> {
+export async function runPassport(c: RunContext): Promise<void> {
   const config = passportConfig(c.env);
   if (config.mode === 'off') return;
   const db = c.env.DB;
   const now = c.deps.now();
   const today = dayOf(now);
   const since = await startRecord(db, config, today);
-  if ((await store.getMeta(db, META.evaluated)) === today) return;
+  const notes = passportNotesHash(c.passportNotes);
+  if ((await store.getMeta(db, META.evaluated)) === today) {
+    if ((await store.getMeta(db, META.notes)) !== notes) {
+      await evaluateDay(c, { today, since, config });
+      await store.setMeta(db, META.notes, notes);
+    }
+    return;
+  }
   if (now.getUTCHours() < START_HOUR_UTC) return;
 
   const untried = await readChains(c, await chainsToRead(c, today), today);
   if (untried.length > 0 && now.getUTCHours() < CLOSE_HOUR_UTC) return;
-  await evaluateDay(c, { today, since, corrections, config });
+  await evaluateDay(c, { today, since, config });
   await store.setMeta(db, META.evaluated, today);
+  await store.setMeta(db, META.notes, notes);
   if (untried.length > 0) {
     await c.alert('passport-incomplete', `The Passport reading for ${today} was evaluated incomplete at ${now.getUTCHours()}:00 UTC; not read: ${untried.map((ch) => ch.ref.name).join(', ')}`);
   }
@@ -289,8 +298,33 @@ function chainValueChanges(previous: RawSettings, next: RawSettings): string[] {
 interface DayInput {
   today: string;
   since: string;
-  corrections: readonly Correction[];
   config: PassportConfig;
+}
+
+/** What evaluating one group needs beyond the day: the operator's corrections and what each corrected unit showed before the day. */
+interface Evaluation extends DayInput {
+  corrections: readonly Correction[];
+  correctedFrom: ReadonlyMap<string, CheckValue | null>;
+}
+
+interface CorrectionDetail {
+  unit: string;
+  from: CheckValue | null;
+  to: CheckValue;
+  basis: string;
+}
+
+/**
+ * The day's correction log rows are rewritten by every evaluation that day, so this removes them and returns the value
+ * each corrected unit had before the day's first evaluation.
+ */
+async function takeCorrectionLog(db: D1Database, day: string): Promise<Map<string, CheckValue | null>> {
+  const { results } = await db.prepare(`SELECT detail FROM passport_changes WHERE day = ? AND kind = 'correction'`).bind(day).all<{ detail: string }>();
+  await db.prepare(`DELETE FROM passport_changes WHERE day = ? AND kind = 'correction'`).bind(day).run();
+  return new Map(results.map((r) => {
+    const detail = JSON.parse(r.detail) as CorrectionDetail;
+    return [detail.unit, detail.from];
+  }));
 }
 
 interface Member {
@@ -317,9 +351,11 @@ const rowKeysOf = (r: CheckResult): string[] =>
  * Evaluates every group from the stored readings (U5), steps each result's wire state (U6), confirms arrivals, and replaces
  * the day's post records. A second evaluation on the same day replays from each state's `before`, so it replaces the first.
  */
-async function evaluateDay(c: RunContext, day: DayInput): Promise<void> {
+async function evaluateDay(c: RunContext, input: DayInput): Promise<void> {
   const db = c.env.DB;
   const refs = await store.chainRefs(db);
+  const selectors = new Map([...refs.values()].map((ref) => [ref.name, ref.selector]));
+  const day: Evaluation = { ...input, corrections: passportCorrections(c.passportNotes, selectors), correctedFrom: await takeCorrectionLog(db, input.today) };
   const registry = await passportStore.registryRows(db);
   const storedRows = new Map((await passportStore.storedRows(db)).map((r) => [rowKey(r.chain, r.address), r]));
   const storedUnits = await passportStore.storedUnits(db);
@@ -387,7 +423,7 @@ function valuesChanged(result: CheckResult, members: readonly Member[]): boolean
   });
 }
 
-function evaluateGroup(db: D1Database, groupId: string, members: readonly Member[], unitsByRow: ReadonlyMap<string, readonly passportStore.StoredUnit[]>, day: DayInput, tally: DayTally): D1PreparedStatement[] {
+function evaluateGroup(db: D1Database, groupId: string, members: readonly Member[], unitsByRow: ReadonlyMap<string, readonly passportStore.StoredUnit[]>, day: Evaluation, tally: DayTally): D1PreparedStatement[] {
   const { today, since } = day;
   const statements: D1PreparedStatement[] = [];
   const byKey = new Map(members.map((m) => [m.key, m]));
@@ -436,6 +472,15 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
     tally.produced.add(result.key);
     const unitMembers = rowKeysOf(result).map((k) => byKey.get(k)!);
     const previous = storedByUnit.get(result.key);
+    if (result.corrected) {
+      const logged = day.correctedFrom.get(result.key);
+      const from = logged !== undefined ? logged : previous ? (JSON.parse(previous.result) as CheckResult).value : null;
+      if (from !== result.value) {
+        const [first] = unitMembers;
+        const detail: CorrectionDetail = { unit: result.key, from, to: result.value, basis: result.basis };
+        statements.push(passportStore.logStatement(db, { chain: first!.registry.chain, address: first!.registry.address, day: today, kind: 'correction', detail }));
+      }
+    }
     let wire: WireUnitState = previous ? (JSON.parse(previous.wire) as WireUnitState) : WIRE_UNREAD;
     if (!unitMembers.some((m) => arriving(m) && !confirming.has(m.key))) {
       const outcome: WireOutcome = unitMembers.every(readToday)
