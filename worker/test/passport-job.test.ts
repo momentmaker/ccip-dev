@@ -539,6 +539,41 @@ describe('runPassport evaluation', () => {
     expect({ reclassified: twice.log.filter((c) => c.kind === 're-classified').length, same: twice }).toEqual({ reclassified: 1, same: once });
   });
 
+  it('confirms a readable token that arrives after launch on its second agreeing reading, in one post that a second evaluation that day does not repeat', async () => {
+    // #given the record starts on D1 and the BurnMint row, its owner a single wallet, is first listed on D2
+    await run(at(D1), () => []);
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: BURN_MINT.token, seenAt: `${D2}T00:30:00.000Z` }]);
+    const row = `${ETHEREUM.chainSelector}:${BURN_MINT.token}`;
+    const flags = [...['11344663589394136015', '124615329519749607', '15971525489660198786', '4426351306075016396', '4949039107694359620', '8481857512324358265'].map((remote) => `rate-limit/${row}/${remote}`), SINGLE_KEY];
+    const arrivalOf = () => env.DB.prepare('SELECT arrival, arrival_day FROM passport_rows WHERE chain = ? AND address = ?').bind(ETHEREUM.chainSelector, BURN_MINT.token).first<{ arrival: string; arrival_day: string | null }>();
+    const unmatched: PassportNotes = {
+      statements: [],
+      corrections: [{ chain: ETHEREUM.name, token: BURN_MINT.token.toLowerCase(), check: 'single-key', remoteChain: null, remoteToken: null, basis: 'ffffffffffffffff', value: 'clear', reason: 'multi-signer', correctedOn: D3 }],
+    };
+    await burnMintDay(D2, WALLET);
+    const firstReading = { row: await arrivalOf(), announced: [...new Set((await units()).map((u) => u.announced))], posts: await posts() };
+    // #when
+    await burnMintDay(D3, WALLET);
+    const confirmed = { row: await arrivalOf(), posts: (await posts()).map((p) => JSON.parse(p.facts)) };
+    await run(at(D3, 2), () => [], ON, { passportNotes: unmatched });
+    // #then
+    expect({
+      firstReading,
+      confirmed,
+      again: { notes: await meta('passport:notes'), row: await arrivalOf(), posts: (await posts()).map((p) => JSON.parse(p.facts)) },
+    }).toEqual({
+      firstReading: { row: { arrival: JSON.stringify([{ day: D2, flags }]), arrival_day: null }, announced: [null], posts: [] },
+      confirmed: {
+        row: { arrival: JSON.stringify([{ day: D2, flags }, { day: D3, flags }]), arrival_day: D3 },
+        posts: [{
+          id: `${D3}-${GROUP}`, day: D3, kind: 'token', groupId: GROUP, name: 'BMT Token (BMT)', changes: [],
+          arrivals: [{ kind: 'new token', groupId: GROUP, chains: [{ row, chain: ETHEREUM.chainSelector, readable: true, flags }], otherChainFlags: 0 }],
+        }],
+      },
+      again: { notes: passportNotesHash(unmatched), row: confirmed.row, posts: confirmed.posts },
+    });
+  });
+
   it('alerts once with the count on a day that reaches the post cap', async () => {
     // #given eleven tokens first seen after launch on a chain no endpoint reads, so each arrives unreadable
     await seed([NOWHERE], [{ chain: NOWHERE, address: NO_POOL.token }]);
