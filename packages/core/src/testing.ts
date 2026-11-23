@@ -11,6 +11,7 @@ import type { DailyBreakdown, DailyTotals, PriceInfo } from './types';
 import type { RosterFile } from './roster';
 import { PEG_POOL } from './peg';
 import { decodePegReading, pegLiveBody } from './peg-live';
+import { MULTICALL3 } from './evm-abi';
 
 export type FakeRoute = (url: string, init?: RequestInit) => Response | undefined | Promise<Response | undefined>;
 export type FakeFetch = typeof fetch & { calls: { url: string; init?: RequestInit }[] };
@@ -395,6 +396,109 @@ export function pegRpc(over: Partial<Record<number, string>> = {}): FakeRoute {
     if (!Array.isArray(body) || (body[0] as { params?: [{ to?: string }] })?.params?.[0]?.to !== PEG_POOL) return undefined;
     return jsonResponse((body as { id: number }[]).map((c) => ({ jsonrpc: '2.0', id: c.id, result: over[c.id] ?? PEG_LIVE_WORDS[c.id] })));
   };
+}
+
+/** A recorded call's answer: its return data, a revert, or an out-of-gas error that also fails any aggregate3 batch holding it. */
+export type RecordedCall = `0x${string}` | 'revert' | 'burn';
+export type EvmHiccup = 429 | 500 | 'timeout' | 'header not found';
+
+export interface FakeEvmChainOptions {
+  chainId: number;
+  latest: number;
+  /** Unix seconds, answered for every block. */
+  timestamp: number;
+  /** Answers by evmCallKey(to, data). */
+  calls: Record<string, RecordedCall>;
+  /** Multicall3 with no code, or answering getChainId() with another id. Deployed and honest when left out. */
+  multicall3?: 'absent' | { chainId: number };
+  /** Failures for a method's requests, first to last, before it answers normally. */
+  hiccups?: Partial<Record<string, EvmHiccup[]>>;
+}
+
+export type FakeEvmChain = FakeRoute & { requests: { method: string; params: unknown[] }[] };
+
+export const evmCallKey = (to: string, data: string) => `${to.toLowerCase()}:${data.toLowerCase()}`;
+
+const abiWord = (n: number | bigint) => BigInt(n).toString(16).padStart(64, '0');
+
+/** aggregate3's calls, read straight from the calldata layout rather than through the codec under test. */
+function aggregate3Calls(calldata: string): { to: string; data: string }[] {
+  const hex = calldata.slice(10);
+  const num = (at: number) => Number(BigInt(`0x${hex.slice(at * 2, at * 2 + 64)}`));
+  const start = num(0);
+  const content = start + 32;
+  return Array.from({ length: num(start) }, (_, i) => {
+    const tuple = content + num(content + 32 * i);
+    const bytes = tuple + num(tuple + 64);
+    const data = bytes + 32;
+    return { to: `0x${hex.slice(tuple * 2 + 24, tuple * 2 + 64)}`, data: `0x${hex.slice(data * 2, (data + num(bytes)) * 2)}` };
+  });
+}
+
+function aggregate3Answer(results: { success: boolean; data: string }[]): string {
+  const heads: string[] = [];
+  const tails: string[] = [];
+  let offset = 32 * results.length;
+  for (const r of results) {
+    const data = r.data.slice(2);
+    const tail = `${abiWord(r.success ? 1 : 0)}${abiWord(0x40)}${abiWord(data.length / 2)}${data.padEnd(Math.ceil(data.length / 64) * 64, '0')}`;
+    heads.push(abiWord(offset));
+    tails.push(tail);
+    offset += tail.length / 2;
+  }
+  return `0x${abiWord(0x20)}${abiWord(results.length)}${heads.join('')}${tails.join('')}`;
+}
+
+/** One EVM chain's JSON-RPC endpoint: its id, blocks, Multicall3 and the view calls in a recorded map, one request at a time. */
+export function fakeEvmChain(opts: FakeEvmChainOptions): FakeEvmChain {
+  const requests: { method: string; params: unknown[] }[] = [];
+  const hiccups = Object.fromEntries(Object.entries(opts.hiccups ?? {}).map(([m, h]) => [m, [...(h ?? [])]]));
+  const multicallId = opts.multicall3 === undefined ? opts.chainId : opts.multicall3 === 'absent' ? null : opts.multicall3.chainId;
+  const recorded = (to: string, data: string): RecordedCall => {
+    const answer = opts.calls[evmCallKey(to, data)];
+    if (answer === undefined) throw new Error(`fakeEvmChain: no recorded answer for ${evmCallKey(to, data)}`);
+    return answer;
+  };
+  const route: FakeRoute = (_url, init) => {
+    if (init?.body === undefined) return undefined;
+    const body = JSON.parse(String(init.body)) as { id: number; method: string; params: unknown[] };
+    if (Array.isArray(body) || typeof body.method !== 'string') return undefined;
+    requests.push({ method: body.method, params: body.params });
+    const hiccup = hiccups[body.method]?.shift();
+    if (hiccup === 'timeout') throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    if (typeof hiccup === 'number') return new Response('', { status: hiccup });
+    const result = (value: unknown) => jsonResponse({ jsonrpc: '2.0', id: body.id, result: value });
+    const error = (code: number, message: string) => jsonResponse({ jsonrpc: '2.0', id: body.id, error: { code, message } });
+    if (hiccup === 'header not found') return error(-32000, hiccup);
+    switch (body.method) {
+      case 'eth_chainId':
+        return result(`0x${opts.chainId.toString(16)}`);
+      case 'eth_blockNumber':
+        return result(`0x${opts.latest.toString(16)}`);
+      case 'eth_getBlockByNumber': {
+        const n = Number(BigInt(String(body.params[0])));
+        return result(n > opts.latest ? null : { number: `0x${n.toString(16)}`, hash: `0x${abiWord(n)}`, timestamp: `0x${opts.timestamp.toString(16)}` });
+      }
+      case 'eth_getCode':
+        return result(String(body.params[0]).toLowerCase() === MULTICALL3.address && multicallId !== null ? '0x6080604052' : '0x');
+      case 'eth_call': {
+        const { to, data } = body.params[0] as { to: string; data: string };
+        if (to.toLowerCase() === MULTICALL3.address && multicallId !== null) {
+          if (data === MULTICALL3.getChainId) return result(`0x${abiWord(multicallId)}`);
+          const answers = aggregate3Calls(data).map((c) => recorded(c.to, c.data));
+          if (answers.includes('burn')) return error(-32000, 'out of gas');
+          return result(aggregate3Answer(answers.map((a) => (a === 'revert' ? { success: false, data: '0x' } : { success: true, data: a }))));
+        }
+        const answer = recorded(to, data);
+        if (answer === 'revert') return error(3, 'execution reverted');
+        if (answer === 'burn') return error(-32000, 'out of gas');
+        return result(answer);
+      }
+      default:
+        return error(-32601, `the method ${body.method} does not exist/is not available`);
+    }
+  };
+  return Object.assign(route, { requests });
 }
 
 export const PEG_FILE_FIXTURE: PegFile = {

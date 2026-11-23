@@ -15,6 +15,8 @@ export * from './rows';
 export * from './rollup';
 export * from './prices';
 export * from './eth-rpc';
+export * from './evm-abi';
+export * from './evm-read';
 export * from './reserve';
 export * from './reserve-stats';
 export * from './staking';
