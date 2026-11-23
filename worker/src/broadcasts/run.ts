@@ -1,10 +1,13 @@
 import { addDays, dayOf, weekStart, type PegLiveBody } from '@ccip-dev/core';
 import { broadcastCardPath, broadcastKey, isDepositTransfer, type BroadcastTarget, type PostTarget } from '@ccip-dev/core/broadcasts';
 import { MONTHLY_VIDEO, monthLabel, monthlyDue, monthlyVideoKey } from '@ccip-dev/core/month';
+import { chainNameMap } from '@ccip-dev/core/names';
 import type { PegEpisodeView, StakingFile } from '@ccip-dev/core/public';
 import { milestonesOn, RECORD_KINDS, recordsSetOn, recordValue, trackedMilestones } from '@ccip-dev/core/records';
 import { operatorMomentFacts, operatorMoments, stakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RunContext } from '../context';
+import { composePassportCopy, passportPostUrl } from '../passport-copy';
+import * as passportStore from '../passport-store';
 import { pegConfig } from '../peg-config';
 import type { ReserveBody } from '../publish';
 import { LATE_FINALIZE_HOUR_UTC } from '../schedule';
@@ -17,7 +20,7 @@ import { CARRY_DAYS, dueMoments, pickMoments, type DueMoment } from './moment-pl
 import { loadMonthlyFacts, type MonthlyFacts } from './monthly';
 import { composeMonthlyCopy } from './monthly-copy';
 import {
-  broadcastMode, broadcastOutputs, momentMode, outputsFor, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastMedia, type BroadcastOutput, type OutputSet,
+  broadcastMode, broadcastOutputs, momentMode, outputsFor, passportMode, selectOutputs, selectPollOutputs, type Broadcast, type BroadcastMedia, type BroadcastOutput, type OutputSet,
 } from './outputs';
 
 export const SITE_ORIGIN = 'https://ccip.dev';
@@ -48,11 +51,17 @@ export const PEG_OPEN_MAX_AGE_MS = 6 * 3_600_000;
 /** The card reads peg.json through the edge cache; for this long after the post is due, a missing card is waited for quietly. */
 export const PEG_CARD_WAIT_MS = 30 * 60_000;
 
+/** KTD22: a Passport post waits for its card and page this long after it became due, then is dropped with an alert. */
+export const PASSPORT_POST_MAX_AGE_MS = 48 * 3_600_000;
+/** Records from this many days back cover every one still due, and those just past their 48 hours, which alert once. */
+const PASSPORT_LOOKBACK_DAYS = 3;
+
 export type BroadcastRequest =
   | { kind: 'finalize'; days: readonly string[] }
   | { kind: 'reserve'; reserve: ReserveBody }
   | { kind: 'staking'; staking: StakingFile }
   | { kind: 'peg'; live: PegLiveBody; episodes: readonly PegEpisodeView[] }
+  | { kind: 'passport' }
   | { kind: 'monthly' };
 
 interface Planned {
@@ -64,7 +73,7 @@ interface Planned {
 
 export async function runBroadcasts(c: RunContext, request: BroadcastRequest, outputs: OutputSet = broadcastOutputs(c)): Promise<void> {
   if (request.kind === 'monthly') return broadcastMonthly(c, outputs);
-  const mode = broadcastMode(c.env);
+  const mode = request.kind === 'passport' ? passportMode(c.env) : broadcastMode(c.env);
   if (mode === 'off') return;
   if (request.kind === 'peg' && !pegConfig(c.env).publicPosts) return;
   const enabled = selectOutputs(outputs, mode);
@@ -72,16 +81,64 @@ export async function runBroadcasts(c: RunContext, request: BroadcastRequest, ou
     console.warn(`[broadcast] BROADCASTS is ${mode} but no output is configured`);
     return;
   }
-  const planned =
-    request.kind === 'finalize'
-      ? await planFinalize(c, request.days)
-      : request.kind === 'reserve'
-        ? await planReserve(c, request.reserve)
-        : request.kind === 'peg'
-          ? await planPeg(c, request)
-          : await planStaking(c, request.staking);
-  for (const p of planned) await deliver(c, p, enabled);
+  for (const p of await plan(c, request)) await deliver(c, p, enabled);
   if (request.kind === 'finalize') await broadcastMoments(c, request.days, outputs);
+}
+
+function plan(c: RunContext, request: Exclude<BroadcastRequest, { kind: 'monthly' }>): Promise<Planned[]> {
+  switch (request.kind) {
+    case 'finalize':
+      return planFinalize(c, request.days);
+    case 'reserve':
+      return planReserve(c, request.reserve);
+    case 'peg':
+      return planPeg(c, request);
+    case 'passport':
+      return planPassport(c);
+    case 'staking':
+      return planStaking(c, request.staking);
+  }
+}
+
+/**
+ * KTD22: each due post record not yet sent, once its token page answers HTTP 200; deliver then waits quietly while its card
+ * answers 404. A record still unsent 48 hours after it became due is dropped with one alert.
+ */
+async function planPassport(c: RunContext): Promise<Planned[]> {
+  const db = c.env.DB;
+  const now = c.deps.now();
+  const posts = await passportStore.duePosts(db, addDays(dayOf(now), -PASSPORT_LOOKBACK_DAYS));
+  const marks = await store.getMetas(db, posts.map((p) => broadcastKey({ kind: 'passport', id: p.record.id })));
+  const unsent = posts.filter((p) => !marks.get(broadcastKey({ kind: 'passport', id: p.record.id }))?.startsWith('sent:'));
+  if (unsent.length === 0) return [];
+  const names = chainNameMap([...(await store.chainDisplayNames(db))].map(([selector, n]) => ({ selector, name: n.name, display_name: n.display_name })));
+  const planned: Planned[] = [];
+  for (const { record, dueSince } of unsent) {
+    const key = broadcastKey({ kind: 'passport', id: record.id });
+    if (now.getTime() - Date.parse(dueSince) >= PASSPORT_POST_MAX_AGE_MS) {
+      await alertOnce(c, `passport-post-dropped:${record.id}`, `${key} was not posted: its card or page did not answer in the 48 hours after it became due at ${dueSince}`);
+      continue;
+    }
+    const page = passportPostUrl(record);
+    const problem = await pageProblem(c, page);
+    if (problem !== null) {
+      console.warn(`[broadcast] ${key} waits for its page ${page}, which ${problem}`);
+      continue;
+    }
+    planned.push({ target: { kind: 'passport', id: record.id }, facts: { kind: 'passport', record, names }, retriesLater: true });
+  }
+  return planned;
+}
+
+/** null once the page answers HTTP 200, otherwise what it did. */
+async function pageProblem(c: RunContext, url: string): Promise<string | null> {
+  try {
+    const res = await c.deps.fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
+    await res.body?.cancel();
+    return res.status === 200 ? null : `answered HTTP ${res.status}`;
+  } catch (err) {
+    return `did not answer (${err instanceof Error ? err.name : 'error'})`;
+  }
 }
 
 /** An open post only while the episode runs and recently went public; a recap for a day after it closes, and only after its open post went out. Sent keys make a re-plan harmless. */
@@ -358,7 +415,14 @@ async function deliver(c: RunContext, p: Planned, enabled: readonly BroadcastOut
   const key = broadcastKey(p.target);
   let copy: Copy;
   try {
-    copy = p.facts.kind === 'monthly' ? composeMonthlyCopy(p.facts) : isMomentFacts(p.facts) ? composeMomentCopy(p.facts) : composeCopy(p.facts);
+    copy =
+      p.facts.kind === 'monthly'
+        ? composeMonthlyCopy(p.facts)
+        : p.facts.kind === 'passport'
+          ? composePassportCopy(p.facts)
+          : isMomentFacts(p.facts)
+            ? composeMomentCopy(p.facts)
+            : composeCopy(p.facts);
   } catch (err) {
     await c.alert(`broadcast-copy:${key}`, `${key} was not posted: ${err instanceof Error ? err.message : String(err)}`);
     return;

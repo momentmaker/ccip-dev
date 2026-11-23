@@ -1,4 +1,5 @@
 import type { CheckResult, PassportPostRecord, StoredReading, WireUnitState } from '@ccip-dev/core';
+import { broadcastKey } from '@ccip-dev/core/broadcasts';
 import { chunks } from './store';
 
 /** D1 binds at most 100 parameters per statement. */
@@ -278,13 +279,72 @@ export async function postsSince(db: D1Database, day: string): Promise<PassportP
   return results.map((r) => JSON.parse(r.facts) as PassportPostRecord);
 }
 
-/** One day's post records replace that day's earlier ones in one batch. */
+const dueKey = (id: string) => `passport:due:${id}`;
+
+/**
+ * The ids among `ids` whose broadcast was claimed or sent: the broadcast's key, or one of its `#<output>` rows, is in meta.
+ * An output row alone means one output sent while another failed, so the record is already partly out.
+ */
+async function claimedPosts(db: D1Database, ids: readonly string[]): Promise<Set<string>> {
+  const claimed = new Set<string>();
+  for (const chunk of chunks([...ids], Math.floor(PARAMS / 4))) {
+    const sql = chunk.map(() => 'SELECT ? AS id WHERE EXISTS (SELECT 1 FROM meta WHERE key = ? OR (key >= ? AND key < ?))').join(' UNION ALL ');
+    const params = chunk.flatMap((id) => {
+      const key = broadcastKey({ kind: 'passport', id });
+      return [id, key, `${key}#`, `${key}$`];
+    });
+    const { results } = await db.prepare(sql).bind(...params).all<{ id: string }>();
+    for (const r of results) claimed.add(r.id);
+  }
+  return claimed;
+}
+
+/**
+ * One day's post records replace that day's earlier ones in one batch, but KTD16 holds for a record already claimed or sent:
+ * it stays exactly as it was, so a second evaluation that day never rewrites what went out or is going out. A record
+ * seeded while posts were off stays seeded, so turning posts on never sends it (KTD20).
+ */
 export async function replacePosts(db: D1Database, day: string, records: readonly PassportPostRecord[], state: 'due' | 'seeded'): Promise<void> {
+  const { results: old } = await db.prepare('SELECT id, state FROM passport_posts WHERE day = ?').bind(day).all<{ id: string; state: string }>();
+  const seeded = new Set(old.filter((r) => r.state === 'seeded').map((r) => r.id));
+  const kept = await claimedPosts(db, old.map((r) => r.id));
+  const written = new Set(records.map((r) => r.id));
   const insert = db.prepare('INSERT INTO passport_posts (id, day, kind, group_id, facts, state) VALUES (?, ?, ?, ?, ?, ?)');
-  await db.batch([
-    db.prepare('DELETE FROM passport_posts WHERE day = ?').bind(day),
-    ...records.map((r) => insert.bind(r.id, r.day, r.kind, r.kind === 'token' ? r.groupId : null, JSON.stringify(r), state)),
-  ]);
+  const replaced = old.filter((r) => !kept.has(r.id));
+  const statements = [
+    ...replaced.map((r) => db.prepare('DELETE FROM passport_posts WHERE id = ?').bind(r.id)),
+    ...replaced.filter((r) => !written.has(r.id)).map((r) => db.prepare('DELETE FROM meta WHERE key = ?').bind(dueKey(r.id))),
+    ...records
+      .filter((r) => !kept.has(r.id))
+      .map((r) => insert.bind(r.id, r.day, r.kind, r.kind === 'token' ? r.groupId : null, JSON.stringify(r), seeded.has(r.id) ? 'seeded' : state)),
+  ];
+  if (statements.length > 0) await db.batch(statements);
+}
+
+/** Notes `at` as the time each due record of `day` became due, keeping the time of one noted before, so its 48 hours run from then. */
+export async function markDuePosts(db: D1Database, day: string, at: string): Promise<void> {
+  await db
+    .prepare(`INSERT INTO meta (key, value) SELECT 'passport:due:' || id, ? FROM passport_posts WHERE day = ? AND state = 'due' ON CONFLICT(key) DO NOTHING`)
+    .bind(at, day)
+    .run();
+}
+
+export interface DuePost {
+  record: PassportPostRecord;
+  /** When the record became due; its own day's start for a record noted by no evaluation. */
+  dueSince: string;
+}
+
+export const DUE_POSTS_SQL = `SELECT p.facts, m.value AS due_since FROM passport_posts p LEFT JOIN meta m ON m.key = 'passport:due:' || p.id
+  WHERE p.day >= ? AND p.state = 'due' ORDER BY p.day, p.id`;
+
+/** The due post records from `day` on, sent or not, by passport_posts_day. */
+export async function duePosts(db: D1Database, day: string): Promise<DuePost[]> {
+  const { results } = await db.prepare(DUE_POSTS_SQL).bind(day).all<{ facts: string; due_since: string | null }>();
+  return results.map((r) => {
+    const record = JSON.parse(r.facts) as PassportPostRecord;
+    return { record, dueSince: r.due_since ?? `${record.day}T00:00:00.000Z` };
+  });
 }
 
 /** Empties the five tables and every `passport:` meta key; the launch run starts from nothing (KTD20). */

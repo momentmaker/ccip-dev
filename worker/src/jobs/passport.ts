@@ -6,6 +6,7 @@ import {
   type WireChange, type WireOutcome, type WireUnitState,
 } from '@ccip-dev/core';
 import directory from '../../../config/ccip-directory.json';
+import { broadcastSafely } from '../broadcasts/run';
 import type { RunContext } from '../context';
 import { passportConfig, postState, type PassportConfig } from '../passport-config';
 import { publishPassport, type Publication, type PublishGroup, type PublishRow } from '../passport-publish';
@@ -40,11 +41,20 @@ const LANE_SETTINGS = ['remoteToken', 'remotePools', 'outbound', 'inbound', 'fas
 /**
  * KTD17: one reading per chain per day inside the hourly cron. From 01:00 UTC each run reads chains within its budget;
  * once every chain has been tried, or from 22:00 UTC, the day is evaluated once. KTD21: a later run that day whose
- * bundled statements and corrections differ from those last evaluated with evaluates the day again.
+ * bundled statements and corrections differ from those last evaluated with evaluates the day again. Every run then offers
+ * the due post records to the wire (KTD22), even one whose reading failed, so a post waiting for its card still goes out.
  */
 export async function runPassport(c: RunContext): Promise<void> {
   const config = passportConfig(c.env);
   if (config.mode === 'off') return;
+  try {
+    await recordDay(c, config);
+  } finally {
+    await broadcastSafely(c, { kind: 'passport' });
+  }
+}
+
+async function recordDay(c: RunContext, config: PassportConfig): Promise<void> {
   const db = c.env.DB;
   const now = c.deps.now();
   const today = dayOf(now);
@@ -404,6 +414,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
 
   const records = planPassportPosts({ day: day.today, changes: tally.changes, arrivals: tally.arrivals, names: tally.names });
   await passportStore.replacePosts(db, day.today, records, postState(day.config));
+  await passportStore.markDuePosts(db, day.today, c.deps.now().toISOString());
 
   if (tally.pending.length > 0) {
     await c.alert('passport-pending', `Passport results went pending on ${day.today} and post if the next successful reading agrees: ${tally.pending.join('; ')}`);

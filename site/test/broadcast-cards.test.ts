@@ -1,12 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { VNode } from '../worker/h';
+import { broadcastCardPath, passportSlug as corePassportSlug } from '@ccip-dev/core/broadcasts';
 import { trackedMilestones } from '@ccip-dev/core/records';
+import { passportSlug } from '../src/lib/card-paths';
 import { broadcastTree } from '../worker/cards/broadcast-cards';
 import { bigSize } from '../worker/cards/broadcast-frame';
 import { reserveSvg } from '../worker/cards/reserve-card';
 import { ctaFor } from '../worker/cards/cta';
 import { MISSING_GLYPHS } from '../worker/cards/glyphs';
-import { BASE, DAY, DEPOSIT_TX, HISTORY, LEADERS, loadFixture, MONDAY, OUTFLOW_TX, RECORD_DAY, SENDER, texts } from './fixtures/broadcast';
+import { handleOg, type OgDeps, type OgEnv } from '../worker/og';
+import { BASE, BROADCAST_FILES, DAY, DEPOSIT_TX, ETH, HISTORY, LEADERS, loadFixture, MONDAY, OUTFLOW_TX, RECORD_DAY, SENDER, texts } from './fixtures/broadcast';
 
 const inputs = { load: loadFixture, icon: async (selector: string) => (selector === BASE ? 'data:image/svg+xml;base64,AAAA' : null) };
 const tree = async (target: Parameters<typeof broadcastTree>[0]) => (await broadcastTree(target, inputs)) as VNode;
@@ -366,5 +369,103 @@ describe('reserveSvg', () => {
 
   it('has no NaN or Infinity for an empty series or one that added nothing', () => {
     expect([facts([]), facts([{ week: 'a', link: 0 }, { week: 'b', link: 0 }])].map((d) => /NaN|Infinity/.test(reserveSvg(d, 3)))).toEqual([false, false]);
+  });
+});
+
+describe('Token Passport broadcast cards', () => {
+  const GROUP = '0e5901c9-23ca-5cde-b023-63d82251fe7f';
+  const TOKEN = '0x4c1dab3be86347977f3dfc4b9688224ef2272939';
+  const DAY_OF_POST = '2026-11-26';
+  const TOKEN_ID = `${DAY_OF_POST}-${GROUP}`;
+  const SUMMARY_ID = `${DAY_OF_POST}-summary`;
+  const unit = (check: 'single-key' | 'rate-limit', remote: string | null) => ({
+    unit: `${check}/${ETH}:${TOKEN}${remote === null ? '' : `/${remote}`}`, check, chain: ETH, address: TOKEN, remote_chain: remote, remote_address: null,
+  });
+  const EVENTS = {
+    schema_version: 1,
+    updated_at: '2026-11-26T05:00:00.000Z',
+    attribution: 'Data: Chainlink CCIP API, DefiLlama',
+    from: '2026-09-27',
+    events: [
+      {
+        id: TOKEN_ID, day: DAY_OF_POST, kind: 'token', token_id: GROUP, name: 'BMT Token (BMT)', chains: [ETH],
+        changes: [{ ...unit('single-key', null), kind: 'raised', correction: false }, { ...unit('rate-limit', BASE), kind: 'cleared', correction: true }],
+        arrivals: [],
+      },
+      {
+        id: SUMMARY_ID, day: DAY_OF_POST, kind: 'summary',
+        tokens: [{ token_id: '3a000000-0000-5000-8000-000000000003', name: 'Clear Coin (CLR)' }, { token_id: `${ETH}:0xc1`, name: null }],
+        counts: { raised: 3, cleared: 1, new_token: 10, new_chain: 0 },
+      },
+    ],
+  };
+  const passportFiles = (files: Record<string, unknown>) => ({ ...inputs, loadPassport: async (name: string) => files[name] }) as never;
+  const passportInputs = passportFiles({ 'passport-events.json': EVENTS });
+  const card = async (id: string, using = passportInputs) => (await broadcastTree({ kind: 'passport', id }, using)) as VNode;
+
+  it('draws a token record\'s name and its changes in words, the correction marked, and links to the token\'s page', async () => {
+    // #when
+    const words = texts(await card(TOKEN_ID));
+    // #then
+    expect(words).toEqual(expect.arrayContaining([
+      'Token Passport · Thu, Nov 26, 2026', 'BMT Token (BMT)',
+      'Flag raised: one key can change the bridge settings on Ethereum',
+      'Flag cleared by a correction: transfers from Ethereum to Base have a rate limit',
+      `ccip.dev/passport/${GROUP}`,
+    ]));
+  });
+
+  it('draws a summary record\'s counts by kind of change and no token list', async () => {
+    // #when
+    const words = texts(await card(SUMMARY_ID));
+    // #then
+    expect({
+      counts: words.filter((w) => ['3 flags raised', '1 flag cleared', '10 new tokens', '2 more tokens'].includes(w)),
+      names: words.filter((w) => w.includes('Clear Coin')),
+    }).toEqual({ counts: ['2 more tokens', '3 flags raised', '1 flag cleared', '10 new tokens'], names: [] });
+  });
+
+  it('writes no glyph the card fonts lack on a token or summary record', async () => {
+    // #when
+    const words = [...texts(await card(TOKEN_ID)), ...texts(await card(SUMMARY_ID))];
+    // #then
+    expect(words.filter((w) => MISSING_GLYPHS.test(w))).toEqual([]);
+  });
+
+  it('has no card for a record passport-events.json does not hold', async () => {
+    expect(await broadcastTree({ kind: 'passport', id: `${DAY_OF_POST}-0aaaaaaa-0000-5000-8000-000000000000` }, passportInputs)).toBeNull();
+  });
+
+  it('draws the same card from a record after the token\'s current data changes', async () => {
+    // #given the token renamed and its results changed in the files a page is built from
+    const page = (name: string, value: 'flagged' | 'clear') => ({ id: GROUP, name, symbol: 'BMT', project: null, chains: [ETH], results: { 'single-key': value, 'rate-limit': value, 'pool-pointer': null } });
+    const before = passportFiles({ 'passport-events.json': EVENTS, 'passport.json': { tokens: [page('BMT Token', 'flagged')] }, 'passport/0.json': { tokens: [page('BMT Token', 'flagged')] } });
+    const after = passportFiles({ 'passport-events.json': EVENTS, 'passport.json': { tokens: [page('Renamed', 'clear')] }, 'passport/0.json': { tokens: [page('Renamed', 'clear')] } });
+    // #then
+    expect(await card(TOKEN_ID, after)).toEqual(await card(TOKEN_ID, before));
+  });
+
+  it('answers /og/broadcast/passport/<id>.png from passport-events.json, and 404 for an id it does not hold', async () => {
+    // #given the data host serving the events file and chains.json
+    const files: Record<string, unknown> = { 'passport-events.json': EVENTS, 'chains.json': BROADCAST_FILES['chains.json'] };
+    const fetchFn = (async (url: string) => {
+      const name = url.replace('https://data.ccip.dev/v1/', '');
+      return name in files ? new Response(JSON.stringify(files[name])) : new Response('missing', { status: 404 });
+    }) as unknown as typeof fetch;
+    const renderPng = vi.fn(async (_tree: VNode) => new Uint8Array([137, 80, 78, 71]));
+    const deps: OgDeps = { fetch: fetchFn, renderPng, cache: null };
+    const env: OgEnv = { ASSETS: { fetch: async () => new Response('missing', { status: 404 }) } };
+    const get = (id: string) => handleOg(new Request(`https://ccip.test/og/${broadcastCardPath({ kind: 'passport', id })}.png`), env, { waitUntil: () => undefined }, deps);
+    // #when
+    const statuses = [(await get(TOKEN_ID)).status, (await get(`${DAY_OF_POST}-0aaaaaaa-0000-5000-8000-000000000000`)).status];
+    // #then
+    expect({ statuses, drawn: texts(renderPng.mock.calls[0]?.[0]).includes('BMT Token (BMT)') }).toEqual({ statuses: [200, 404], drawn: true });
+  });
+
+  it('links to the page URL the site builds for the same token', () => {
+    // #given a registry group, an EVM row and a Canton row with no group
+    const ids = [GROUP, `${ETH}:${TOKEN}`, '9000:Amulet@DSO::1220ab'];
+    // #then
+    expect(ids.map(corePassportSlug)).toEqual(ids.map(passportSlug));
   });
 });

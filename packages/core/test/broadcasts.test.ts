@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  allTimeTotal, broadcastCardPath, broadcastKey, dayTotalsFacts, newcomerPathOk, parseBroadcastPath, recordDriver, recordValueText, reserveDepositFacts, weekTotalsFacts, type BroadcastTarget,
+  allTimeTotal, broadcastCardPath, broadcastKey, dayTotalsFacts, newcomerPathOk, parseBroadcastPath, passportArrivalLines, passportChangeText, passportIdFromSlug,
+  passportPlace, passportSlug, passportSummaryParts, recordDriver, recordValueText, reserveDepositFacts, weekTotalsFacts, type BroadcastTarget,
 } from '../src/broadcasts';
 import type { DayTotals, TransferView } from '../src/public';
 import type { RecordSet } from '../src/records';
@@ -211,6 +212,115 @@ describe('reserveDepositFacts', () => {
     const old = { ...reserve, transfers: reserve.transfers.map(({ deposit: _flag, ...rest }) => rest) };
     // #then
     expect(reserveDepositFacts(old, '0x05')?.depositCount).toBe(3);
+  });
+});
+
+describe('the passport target', () => {
+  const GROUP = '0e5901c9-23ca-5cde-b023-63d82251fe7f';
+
+  it.each([
+    [`2026-11-26-${GROUP}`, `broadcast/passport/2026-11-26-${GROUP}`],
+    ['2026-11-26-summary', 'broadcast/passport/2026-11-26-summary'],
+    ['2026-11-26-5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939', 'broadcast/passport/2026-11-26-5009297550715157269-0x4c1dab3be86347977f3dfc4b9688224ef2272939'],
+    ['2026-11-26-9000:Amulet@DSO::1220ab', 'broadcast/passport/2026-11-26-9000-Amulet_40DSO_3a_3a1220ab'],
+  ])('keys %s, prints its card path and parses it back', (id, path) => {
+    // #when
+    const target = { kind: 'passport', id } as const;
+    // #then
+    expect({ key: broadcastKey(target), path: broadcastCardPath(target), parsed: parseBroadcastPath(path.split('/')) }).toEqual({ key: `broadcast:passport:${id}`, path, parsed: target });
+  });
+
+  it.each([
+    'broadcast/passport/2026-11-26', 'broadcast/passport/2026-02-30-summary', 'broadcast/passport/2026-11-26-Summary', 'broadcast/passport/2026-11-26-nope',
+    'broadcast/passport/2026-11-26-summary/x', 'broadcast/passport/2026-11-26-9000-a_41', 'broadcast/passport/2026-11-26-9000-a_zz', `broadcast/passport/${GROUP}`,
+  ])('rejects %s', (path) => {
+    expect(parseBroadcastPath(path.split('/'))).toBeNull();
+  });
+
+  it('has no card path for an id that is not a day and a page id', () => {
+    expect(() => broadcastCardPath({ kind: 'passport', id: GROUP })).toThrow(/passport post id/);
+  });
+
+  it('writes a page slug the way the site does, and reads it back', () => {
+    // #when
+    const slugs = [GROUP, '5009297550715157269:0xabc', '9000:Amulet@DSO::1220ab'].map(passportSlug);
+    // #then
+    expect({ slugs, ids: slugs.map(passportIdFromSlug), bad: passportIdFromSlug('9000-a_41') }).toEqual({
+      slugs: [GROUP, '5009297550715157269-0xabc', '9000-Amulet_40DSO_3a_3a1220ab'],
+      ids: [GROUP, '5009297550715157269:0xabc', '9000:Amulet@DSO::1220ab'],
+      bad: null,
+    });
+  });
+});
+
+describe('passport wording', () => {
+  const ETH = '5009297550715157269';
+  const BASE = '15971525489660198786';
+  const NAMES = new Map([[ETH, 'Ethereum'], [BASE, 'Base']]);
+
+  it('takes a result key apart into its check and places', () => {
+    // #when
+    const places = [
+      `single-key/${ETH}:0xa`, `rate-limit/${ETH}:0xa/${BASE}`, `rate-limit/${ETH}:0xa/*`, `pool-pointer/${ETH}:0xa/${BASE}:0xb`, `pool-pointer/${ETH}:0xa/${BASE}:*`,
+    ].map(passportPlace);
+    // #then
+    expect(places).toEqual([
+      { check: 'single-key', chain: ETH, remote_chain: null },
+      { check: 'rate-limit', chain: ETH, remote_chain: BASE },
+      { check: 'rate-limit', chain: ETH, remote_chain: null },
+      { check: 'pool-pointer', chain: ETH, remote_chain: BASE },
+      { check: 'pool-pointer', chain: ETH, remote_chain: BASE },
+    ]);
+  });
+
+  it('rejects a result key with no known check', () => {
+    expect(() => passportPlace(`owner/${ETH}:0xa`)).toThrow(/result key/);
+  });
+
+  it('states each change in plain words, marking a correction', () => {
+    // #given
+    const single = { check: 'single-key', chain: ETH, remote_chain: null } as const;
+    const limit = { check: 'rate-limit', chain: ETH, remote_chain: BASE } as const;
+    const pointer = { check: 'pool-pointer', chain: ETH, remote_chain: BASE } as const;
+    // #when
+    const texts = [
+      passportChangeText({ ...single, kind: 'raised', correction: false }, NAMES),
+      passportChangeText({ ...single, kind: 'cleared', correction: true }, NAMES),
+      passportChangeText({ ...limit, kind: 'raised', correction: false }, NAMES),
+      passportChangeText({ ...limit, kind: 'cleared', correction: false }, NAMES),
+      passportChangeText({ ...pointer, kind: 'raised', correction: false }, NAMES),
+      passportChangeText({ ...pointer, kind: 'cleared', correction: false }, NAMES),
+    ];
+    // #then
+    expect(texts).toEqual([
+      'Flag raised: one key can change the bridge settings on Ethereum',
+      'Flag cleared by a correction: everyone who can change the bridge settings on Ethereum needs two or more signers',
+      'Flag raised: no rate limit on transfers from Ethereum to Base',
+      'Flag cleared: transfers from Ethereum to Base have a rate limit',
+      'Flag raised: the pools on Ethereum and Base do not point at each other',
+      'Flag cleared: the pools on Ethereum and Base point at each other',
+    ]);
+  });
+
+  it('names an arrival, its chains, its flags and those on its other chains', () => {
+    // #given
+    const limit = { check: 'rate-limit', chain: BASE, remote_chain: ETH } as const;
+    // #when
+    const lines = [
+      passportArrivalLines({ kind: 'new token', chains: [{ chain: ETH, readable: true, flags: [] }, { chain: BASE, readable: false, flags: [] }], otherChainFlags: 0 }, NAMES),
+      passportArrivalLines({ kind: 'new chain', chains: [{ chain: BASE, readable: true, flags: [limit] }], otherChainFlags: 1 }, NAMES),
+      passportArrivalLines({ kind: 'new chain', chains: [{ chain: BASE, readable: false, flags: [] }, { chain: ETH, readable: false, flags: [] }], otherChainFlags: 0 }, NAMES),
+    ];
+    // #then
+    expect(lines).toEqual([
+      ['New token on Ethereum and Base (not readable)', 'No flags'],
+      ['New chain: Base', 'Flagged: no rate limit on transfers from Base to Ethereum', 'It carries 1 flag on its other chains'],
+      ['New chains: Base (not readable) and Ethereum (not readable)'],
+    ]);
+  });
+
+  it('counts a summary by kind of change, leaving out the kinds it has none of', () => {
+    expect(passportSummaryParts({ raised: 3, cleared: 1, newToken: 10, newChain: 0 })).toEqual(['3 flags raised', '1 flag cleared', '10 new tokens']);
   });
 });
 

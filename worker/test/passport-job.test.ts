@@ -617,3 +617,41 @@ describe('runPassport statements and corrections', () => {
     expect({ value: (await singleKey()).value, log: await correctionLog() }).toEqual({ value: 'flagged', log: [] });
   });
 });
+
+describe('runPassport post records evaluated again', () => {
+  const basis = async () => (JSON.parse((await units()).find((u) => u.unit === SINGLE_KEY)!.result) as { basis: string }).basis;
+  const clearing = (b: string): PassportNotes => ({
+    statements: [],
+    corrections: [{ chain: ETHEREUM.name, token: BURN_MINT.token.toLowerCase(), check: 'single-key', remoteChain: null, remoteToken: null, basis: b, value: 'clear', reason: 'multi-signer', correctedOn: D3 }],
+  });
+
+  /** D3 confirms the single key D2 read, so it writes one post record; a correction later that day clears the result again. */
+  async function raisedThenCorrected(claim: (id: string) => Promise<void>) {
+    await seedBurnMint();
+    await burnMintDay(D1, SAFE);
+    await burnMintDay(D2, WALLET);
+    await burnMintDay(D3, WALLET);
+    const before = await posts();
+    await claim(before[0]!.id);
+    await run(at(D3, 2), () => [], ON, { passportNotes: clearing(await basis()) });
+    return { before, after: await posts() };
+  }
+
+  it.each([
+    ['sent', '', 'sent:2026-11-26T01:05:00.000Z'],
+    ['claimed', '', 'pending:2026-11-26T01:05:00.000Z'],
+    ['sent to one output only', '#telegram-preview', 'sent:2026-11-26T01:05:00.000Z'],
+  ])('keeps a record whose broadcast was %s exactly as it was', async (_case, suffix, value) => {
+    // #when
+    const { before, after } = await raisedThenCorrected((id) => store.setMeta(env.DB, `broadcast:passport:${id}${suffix}`, value));
+    // #then
+    expect({ count: before.length, after }).toEqual({ count: 1, after: before });
+  });
+
+  it('replaces a record whose broadcast nobody claimed', async () => {
+    // #when
+    const { before, after } = await raisedThenCorrected(async () => {});
+    // #then
+    expect({ count: before.length, after }).toEqual({ count: 1, after: [] });
+  });
+});

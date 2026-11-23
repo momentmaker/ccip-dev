@@ -1,4 +1,6 @@
 import { formatCount, formatFee, formatFeeTotal, formatShare, formatUsd } from './format';
+import { chainName, type ChainNames } from './names';
+import type { CheckKind } from './passport-checks';
 import type { DayTotals, LargestFee, ReserveFile, TransferView } from './public';
 import { MILESTONE_METRICS, RECORD_KINDS, type MilestoneMetric, type RecordKind, type RecordSet } from './records';
 import { depositStreak, isDeposit, nextMilestone } from './reserve-pace';
@@ -20,7 +22,9 @@ export type BroadcastTarget =
   | { kind: 'roundup'; monday: string }
   | { kind: 'staking'; monday: string }
   | { kind: 'operator'; address: string; at: number }
-  | { kind: 'peg'; episode: number; phase: 'open' | 'close' };
+  | { kind: 'peg'; episode: number; phase: 'open' | 'close' }
+  /** A Token Passport post record, by its id: `<day>-<page id>` for a token, `<day>-summary` for the day's summary. */
+  | { kind: 'passport'; id: string };
 
 /** The moments the daily budget counts, in the order they take its places. The poll is not among them: it always posts. */
 export const BUDGETED_MOMENTS = ['welcome', 'newcomer', 'countdown', 'movers', 'spotlight', 'project', 'roundup'] as const;
@@ -42,6 +46,8 @@ export function broadcastKey(t: PostTarget): string {
       return `broadcast:monthly:${t.month}`;
     case 'peg':
       return `broadcast:peg:${t.episode}:${t.phase}`;
+    case 'passport':
+      return `broadcast:passport:${t.id}`;
     case 'daily':
       return `broadcast:daily:${t.day}`;
     case 'weekly':
@@ -75,6 +81,8 @@ export function broadcastCardPath(t: BroadcastTarget): string {
   switch (t.kind) {
     case 'peg':
       return `broadcast/peg/${t.episode}/${t.phase}`;
+    case 'passport':
+      return `broadcast/passport/${passportPostSegment(t.id)}`;
     case 'daily':
       return `broadcast/daily/${t.day}`;
     case 'weekly':
@@ -130,7 +138,142 @@ export function parseBroadcastPath(parts: readonly string[]): BroadcastTarget | 
   if (kind === 'staking' && b === undefined && isDay(a) && weekStart(a) === a) return { kind: 'staking', monday: a };
   if (kind === 'peg' && /^[1-9]\d{0,9}$/.test(a) && (b === 'open' || b === 'close')) return { kind: 'peg', episode: Number(a), phase: b };
   if (kind === 'operator' && EVM_ADDRESS_RE.test(a) && b !== undefined && UNIX_RE.test(b)) return { kind: 'operator', address: a, at: Number(b) };
+  if (kind === 'passport' && b === undefined) {
+    const id = passportPostId(a);
+    return id === null ? null : { kind: 'passport', id };
+  }
   return null;
+}
+
+const GROUP_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ROW_ID_RE = /^(\d+):(.+)$/;
+const ROW_SLUG_RE = /^(\d+)-((?:[A-Za-z0-9]|_[0-9a-f]{2})+)$/;
+const PLAIN_RE = /^[A-Za-z0-9]$/;
+
+/**
+ * A Token Passport page id as a URL path segment: a registry group id as it is, and a row with no group,
+ * `<selector>:<address>`, as `<selector>-<address>` with every byte of the address outside [A-Za-z0-9] written `_xx`.
+ * The site writes its page URLs the same way (site/src/lib/card-paths.ts), and a site test holds the two together.
+ */
+export function passportSlug(id: string): string {
+  if (GROUP_ID_RE.test(id)) return id;
+  const row = ROW_ID_RE.exec(id);
+  if (row === null) throw new Error(`passport page id ${JSON.stringify(id)} is neither a registry group id nor <selector>:<address>`);
+  const address = [...row[2]!].map((c) => (PLAIN_RE.test(c) ? c : [...new TextEncoder().encode(c)].map((b) => `_${b.toString(16).padStart(2, '0')}`).join(''))).join('');
+  return `${row[1]}-${address}`;
+}
+
+/** The page id a passport slug names; null for anything passportSlug cannot have written. */
+export function passportIdFromSlug(slug: string): string | null {
+  if (GROUP_ID_RE.test(slug)) return slug;
+  const row = ROW_SLUG_RE.exec(slug);
+  if (row === null) return null;
+  const bytes = [...row[2]!.matchAll(/_([0-9a-f]{2})|([A-Za-z0-9])/g)].map((m) => (m[1] !== undefined ? parseInt(m[1], 16) : m[2]!.charCodeAt(0)));
+  let address: string;
+  try {
+    address = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(new Uint8Array(bytes));
+  } catch {
+    return null;
+  }
+  return passportSlug(`${row[1]}:${address}`) === slug ? `${row[1]}:${address}` : null;
+}
+
+const PASSPORT_SUMMARY = 'summary';
+
+/** A post record id, `<day>-<page id>` or `<day>-summary`, as one path segment: the page id goes in as its slug. */
+function passportPostSegment(id: string): string {
+  const day = id.slice(0, 10);
+  const rest = id.slice(11);
+  if (!isDay(day) || id[10] !== '-' || rest === '') throw new Error(`passport post id ${JSON.stringify(id)} is not <day>-<page id> or <day>-summary`);
+  return `${day}-${rest === PASSPORT_SUMMARY ? PASSPORT_SUMMARY : passportSlug(rest)}`;
+}
+
+function passportPostId(segment: string): string | null {
+  const day = segment.slice(0, 10);
+  const rest = segment.slice(11);
+  if (!isDay(day) || segment[10] !== '-') return null;
+  if (rest === PASSPORT_SUMMARY) return segment;
+  const page = passportIdFromSlug(rest);
+  return page === null ? null : `${day}-${page}`;
+}
+
+const PASSPORT_CHECKS: readonly CheckKind[] = ['single-key', 'rate-limit', 'pool-pointer'];
+
+/** Where a Passport result sits: its check, its row's chain, and the other chain of its lane or pair (null for none). */
+export interface PassportPlace {
+  check: CheckKind;
+  chain: string;
+  remote_chain: string | null;
+}
+
+/** A result key, `<check>/<chain>:<token>`, then `/<remote>` or `/*` for a lane, or `/<chain>:<token|*>` for a pair. */
+export function passportPlace(unit: string): PassportPlace {
+  const [check, row, remote] = unit.split('/');
+  const split = row?.indexOf(':') ?? -1;
+  if (!PASSPORT_CHECKS.includes(check as CheckKind) || row === undefined || split < 1) throw new Error(`result key "${unit}" names no check and row`);
+  const chain = row.slice(0, split);
+  if (check === 'single-key' || remote === undefined || remote === '*') return { check: check as CheckKind, chain, remote_chain: null };
+  const remoteSplit = remote.indexOf(':');
+  return { check: check as CheckKind, chain, remote_chain: remoteSplit < 0 ? remote : remote.slice(0, remoteSplit) };
+}
+
+const passportPlural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+
+/** What a check's flag says, and what its clearing says, in words a reader without contract knowledge can follow. */
+const PASSPORT_FLAG: Record<CheckKind, { raised: (on: string, to: string | null) => string; cleared: (on: string, to: string | null) => string }> = {
+  'single-key': {
+    raised: (on) => `one key can change the bridge settings on ${on}`,
+    cleared: (on) => `everyone who can change the bridge settings on ${on} needs two or more signers`,
+  },
+  'rate-limit': {
+    raised: (on, to) => `no rate limit on transfers from ${on}${to === null ? '' : ` to ${to}`}`,
+    cleared: (on, to) => `transfers from ${on}${to === null ? '' : ` to ${to}`} have a rate limit`,
+  },
+  'pool-pointer': {
+    raised: (on, to) => `the pools on ${on}${to === null ? '' : ` and ${to}`} do not point at each other`,
+    cleared: (on, to) => `the pools on ${on}${to === null ? '' : ` and ${to}`} point at each other`,
+  },
+};
+
+function flagWords(place: PassportPlace, names: ChainNames, kind: 'raised' | 'cleared'): string {
+  return PASSPORT_FLAG[place.check][kind](chainName(names, place.chain), place.remote_chain === null ? null : chainName(names, place.remote_chain));
+}
+
+/** R17 and R22: one flag raised or cleared, marked when a correction did it. */
+export function passportChangeText(change: PassportPlace & { kind: 'raised' | 'cleared'; correction: boolean }, names: ChainNames): string {
+  return `Flag ${change.kind}${change.correction ? ' by a correction' : ''}: ${flagWords(change, names, change.kind)}`;
+}
+
+const andList = (items: readonly string[]) => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
+
+/** R19 and R21: a new token, or a token on a new chain, with the chains it arrived on, then the flags it carries. */
+export interface PassportArrival {
+  kind: 'new token' | 'new chain';
+  chains: readonly { chain: string; readable: boolean; flags: readonly PassportPlace[] }[];
+  otherChainFlags: number;
+}
+
+/**
+ * An arrival's lines: what arrived and where, a chain that cannot be read marked so, each flag the new rows carry (or "No
+ * flags" when a readable row carries none), and the flags the token already carries on its other chains.
+ */
+export function passportArrivalLines(arrival: PassportArrival, names: ChainNames): string[] {
+  const chains = andList(arrival.chains.map((ch) => `${chainName(names, ch.chain)}${ch.readable ? '' : ' (not readable)'}`));
+  const head = arrival.kind === 'new token' ? `New token on ${chains}` : `${arrival.chains.length === 1 ? 'New chain' : 'New chains'}: ${chains}`;
+  const flags = arrival.chains.flatMap((ch) => ch.flags.map((f) => `Flagged: ${flagWords(f, names, 'raised')}`));
+  const none = flags.length === 0 && arrival.chains.some((ch) => ch.readable) ? ['No flags'] : [];
+  const other = arrival.otherChainFlags === 0 ? [] : [`It carries ${passportPlural(arrival.otherChainFlags, 'flag')} on its other chains`];
+  return [head, ...flags, ...none, ...other];
+}
+
+/** R35: the day's summary record by kind of change, each kind it has. */
+export function passportSummaryParts(counts: { raised: number; cleared: number; newToken: number; newChain: number }): string[] {
+  return [
+    counts.raised > 0 ? `${passportPlural(counts.raised, 'flag')} raised` : null,
+    counts.cleared > 0 ? `${passportPlural(counts.cleared, 'flag')} cleared` : null,
+    counts.newToken > 0 ? passportPlural(counts.newToken, 'new token') : null,
+    counts.newChain > 0 ? passportPlural(counts.newChain, 'new chain') : null,
+  ].filter((p): p is string => p !== null);
 }
 
 /** A newcomer can post only when its card path parses back to it. */

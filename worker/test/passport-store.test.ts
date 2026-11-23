@@ -89,10 +89,10 @@ describe('replacePosts', () => {
     await passportStore.replacePosts(env.DB, '2026-11-23', [tokenRecord('2026-11-23', 'g1')], 'seeded');
     await passportStore.replacePosts(env.DB, DAY, [tokenRecord(DAY, 'g1'), tokenRecord(DAY, 'g2')], 'seeded');
     // #when
-    await passportStore.replacePosts(env.DB, DAY, [tokenRecord(DAY, 'g2')], 'due');
+    await passportStore.replacePosts(env.DB, DAY, [tokenRecord(DAY, 'g2'), tokenRecord(DAY, 'g3')], 'due');
     // #then
     const { results } = await env.DB.prepare('SELECT id, state FROM passport_posts ORDER BY id').all();
-    expect(results).toEqual([{ id: '2026-11-23-g1', state: 'seeded' }, { id: `${DAY}-g2`, state: 'due' }]);
+    expect(results).toEqual([{ id: '2026-11-23-g1', state: 'seeded' }, { id: `${DAY}-g2`, state: 'seeded' }, { id: `${DAY}-g3`, state: 'due' }]);
   });
 });
 
