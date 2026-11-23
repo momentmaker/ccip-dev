@@ -2,6 +2,7 @@
 import { TAGLINE } from '../config';
 import StatusLight from './StatusLight';
 import { isCurrentPath } from '../lib/nav';
+import { passportNavItems, publishedPassportIndex } from '../lib/passport';
 import { TELEGRAM_ENLIST_URL, telegramOpen } from '../lib/telegram';
 
 const NAV = [
@@ -19,6 +20,7 @@ const MORE = [
   { href: '/flow/30d/', label: 'Flow' },
   { href: '/chains/', label: 'Chains' },
   { href: '/projects/', label: 'Projects' },
+  ...passportNavItems(await publishedPassportIndex()),
   { href: '/methodology/', label: 'Methodology' },
   { href: '/discord/', label: 'Discord bot' },
   ...(telegramOpen(process.env.TELEGRAM_BOT) ? [{ href: TELEGRAM_ENLIST_URL, label: 'Telegram app' }] : []),

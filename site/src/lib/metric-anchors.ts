@@ -14,6 +14,14 @@ export const METRIC_ANCHORS = {
   labels: 'senders-and-projects',
   status: 'data-sources',
   cre: 'cre-sent-messages',
+  passport: 'token-passport',
+  passport_single_key: 'single-key-check',
+  passport_rate_limit: 'rate-limit-check',
+  passport_pool_pointer: 'pool-pointer-check',
+  passport_verifiers: 'verifier-line',
+  passport_not_readable: 'not-readable',
+  passport_posts: 'what-posts-to-telegram',
+  passport_statements: 'corrections-and-statements',
 } as const;
 
 export type MetricKey = keyof typeof METRIC_ANCHORS;

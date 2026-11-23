@@ -1,0 +1,46 @@
+---
+import ChainIcons from './ChainIcons.astro';
+import PassportResult from './PassportResult.astro';
+import { methodologyHref } from '../lib/metric-anchors';
+import type { LaneView } from '../lib/passport';
+
+interface Props {
+  lanes: LaneView[];
+  chain: string;
+  chainName: string;
+}
+
+const { lanes, chain, chainName } = Astro.props;
+---
+<div class="table-wrap card lanes">
+  <table class="data">
+    <thead><tr><th>Lane</th><th>Rate limit</th><th>Most out per hour</th><th>Pool pointers</th><th>Verifiers</th></tr></thead>
+    <tbody>
+      {lanes.map((l) => (
+        <tr>
+          <td class="lane-name">{l.remoteChain && <ChainIcons selectors={[chain, l.remoteChain]} />}{chainName} to {l.remoteName}</td>
+          <td>{l.rateLimit ? <PassportResult result={l.rateLimit} detail /> : <span class="muted">—</span>}</td>
+          <td>
+            {l.perHour.length === 0 ? <span class="muted">—</span> : l.perHour.map((p) => <span class="per-hour mono">{p}</span>)}
+            {l.inboundNote && <span class="secondary">{l.inboundNote}</span>}
+          </td>
+          <td>{l.pointers.length === 0 ? <span class="muted">—</span> : l.pointers.map((p) => <div class="pointer"><span class="secondary">{p.other}</span><PassportResult result={p} detail /></div>)}</td>
+          <td>
+            {l.verifiers.length === 0 ? <span class="muted">—</span> : l.verifiers.map((v) => <span class="verifier">{v}</span>)}
+            {l.verifiers.length > 0 && <a class="secondary" href={methodologyHref('passport_verifiers')}>About verifiers</a>}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .lanes { margin-top: 12px; }
+  .lane-name { white-space: nowrap; }
+  .per-hour, .verifier { display: block; }
+  .per-hour { white-space: nowrap; }
+  .verifier { font-size: 13px; margin-bottom: 4px; }
+  .pointer + .pointer { margin-top: 8px; }
+  td { min-width: 140px; }
+</style>

@@ -296,6 +296,127 @@ its price on Curve's stLINK/LINK-ng pool (`0x7e13…1761`), the main market.
   timing, not cause.
 - Not financial advice.
 
+## Token Passport
+
+Token Passport (`/passport/`) gives every token in CCIP's token registry one page, however many chains it is on: the
+registry's group, or the row alone when it has no group. Each page runs the same five checks against a reading taken
+from chain once a day, and every result carries the date of its reading.
+
+- **The reading:** once a day from 01:00 UTC, every chain's TokenAdminRegistry, each token's pool and the parties
+  behind it are read with `eth_call` at one pinned block per chain, through keyless public RPC endpoints. The registry
+  and router addresses and the verifier names come from `config/ccip-directory.json`, rebuilt daily from Chainlink's
+  public directory; pool addresses come from each chain's TokenAdminRegistry. A chain's reading is rejected for the day
+  when its chain id is wrong, its block is older than the last one accepted or its block's timestamp is too old.
+- **Only settings are compared:** the pool, its type and version, the parties below and their signers, and each lane's
+  remote token, remote pools, limit switch, capacity, rate and verifier lists. How full a rate-limit bucket is changes
+  on every read and is never stored, and the dollar figure moves with the price and is never logged.
+- **Three results.** Three checks can raise a flag; each shows **flagged**, **clear** or **not readable**, always as a
+  word, never as a colour alone. The two others, the per-hour figure and the verifier line, are facts and never flag.
+  The index and the top of a page roll each check up across the token's chains and lanes: flagged over not readable
+  over clear. No page has an overall score, grade or rank.
+
+### Single-key check
+- **Flagged** when any one party who can change the token's bridge settings can act alone: a plain wallet, a wallet
+  with EIP-7702 delegated code (its key can still act alone), a Safe whose threshold is 1, an MCMS whose root group one
+  signer satisfies, or a timelock that one key can propose through or bypass.
+- **Clear** only when every party is identified as needing two or more signers, or holds no key at all.
+- **The parties:** the pool's owner, the token's administrator in the registry, the rate-limit admin, the owner of a
+  CCIP 2.0 pool's hooks contract, and the proxy admin when the pool is an EIP-1967 proxy. The registry's own owner is
+  left out, because the token's issuer does not choose it.
+- **How a party is read:** an address with no code is a wallet. A Safe counts its threshold, and is recognised only
+  when its `masterCopy()` is one of the Safe singletons pinned from safe-global's deployments; a Safe with a module
+  enabled is unidentified, because the module can act without the owners. An MCMS counts the fewest signers that
+  satisfy its root group. An RBACTimelock takes the weakest of its proposers, bypassers and admins, each read the same
+  way, to a depth of three. The zero address means the party is absent; the burn address means no key. Anything else
+  is a contract ccip.dev cannot identify.
+- **Not readable** when no party is a single key but one is unidentified, the pool did not answer whether it is a proxy,
+  or the pool is not one of the standard CCIP pool types. A non-standard pool may keep roles behind other functions,
+  so it is never clear: it is flagged when a known party is a single key, and otherwise not readable.
+
+### Rate-limit check
+- **The sending side decides.** Each lane is read from the chain the tokens leave: its outbound limit is on (clear) or
+  off (flagged). The receiving chain's inbound limit is shown as a note and raises no flag.
+- **Most out per hour** is the outbound bucket's capacity plus one hour of refill at its rate: the most that can leave
+  in an hour starting from a full bucket. It is shown in tokens, and in dollars where ccip.dev has a price for the
+  token (priced when the files are published). A lane whose limit is off reads "No limit".
+- **Fast transfers:** on a CCIP 2.0 pool the flag reads the standard limit only. A fast-transfer limit that is switched
+  off falls back to the standard limit, so it never reads "No limit". When the pool allows fast transfers and their
+  limit is on, its own per-hour figure is shown beside the standard one, because a fast transfer draws only from it.
+
+### Pool-pointer check
+- Two of the token's rows on different chains form a pair when either lists the other's chain. The pair is **flagged**
+  when one side fails to point at the other: its remote token for the other chain is not the other row's token, its
+  remote pools for that chain do not include the other row's pool, or it does not list the other chain at all.
+  Several remote pools on one lane are normal after an upgrade, so the test is "includes".
+- **Clear** when both sides point at each other. A pair where neither side lists the other is not a lane and has no
+  result.
+- **One result per pair**, shown on the lane of both chains, so one broken pointer is one flag. A pair is compared only
+  on a day both rows were read; on other days it keeps its last result and date.
+- **Not readable** when a side cannot be read, when the two rows have not yet been read on the same day, or when the
+  lane goes to a chain where the registry lists no token of this group, so there is no pool to compare with.
+
+### Verifier line
+- Each lane lists what the sending side requires: the lane's mandated verifiers plus the pool's own outbound list, or
+  the lane's default verifiers when the pool sets none, and "at or above this amount also …" when the pool adds
+  verifiers for large transfers. The pool's inbound list for the same chain is a second line. A lane on a CCIP 1.x
+  OnRamp reads "CCIP 1.x lane (no verifier set)".
+- Names come from Chainlink's directory; an address it does not name shows as a custom verifier. The verifier line
+  never raises a flag: every token uses the default verifier today, so a flag would land on all of them.
+
+### Not readable
+- **A check that cannot be read or classified shows "not readable", never "clear"**, with a one-line reason.
+- **By design, at launch:** every check on Solana, Aptos and Canton rows (ccip.dev reads EVM chains only so far), on
+  chains with no free endpoint or no directory entry, and the lane checks of USDC-style proxy pools. The single-key
+  check on a proxy pool still reads, because its `owner()` answers.
+- **The seven-day hold:** when a day's reading fails, every result keeps its last value and the date of that reading
+  for up to seven days, so an RPC outage cannot hide a real flag. After seven days without a successful reading it
+  shows "not readable".
+- **No longer listed:** a row the registry has not listed for more than seven days is marked "no longer listed" with
+  its last reading's date, is no longer read and posts nothing.
+
+### What posts to Telegram
+- **Only three things post**, to the Telegram channel @ccipdev and never to X: a flag raised or cleared, a new token in
+  the registry, and a token's arrival on a new chain. Nothing else posts, and a page shows each reading the day it is
+  taken whether it posts or not.
+- **Two readings:** a post waits until two consecutive successful readings agree, taken on different days no more than
+  seven days apart, so one bad RPC answer cannot post a false flag. A flag that flips back before it is confirmed posts
+  nothing, and both readings stay in the log.
+- **No baseline posts:** the first reading of each token at launch, and the first reading of a chain added later, set
+  the baseline and post nothing. A result that changes only because ccip.dev changed how it reads a setting is logged
+  as "re-classified" and does not post.
+- **New tokens and chains** post once their second reading agrees, and the post names any flags the token carries. A
+  row that cannot be read by design is announced at its second daily evaluation, and one with no successful reading
+  after seven days then; both are named as not readable.
+- **At most ten a day:** a token gets at most one post a day, carrying all of its confirmed changes. When more than ten
+  tokens have something to post, ten get their own post, flag changes first and then by name, and one summary post
+  covers the rest. A post goes out only once its card and the token's page answer, and is dropped after 48 hours.
+
+### Corrections and statements
+- **Corrections:** when a reading turns out to be wrong, ccip.dev corrects the result and the log marks it as a
+  correction, apart from a change in the token's settings. A correction is tied to the reading it corrects and lapses
+  when a later reading changes the result. A correction that changes what was announced posts after the next reading,
+  worded as a correction.
+- **Statements:** a team's statement is shown beside the result it answers, in the team's own words, with the day it was
+  said, the day it was attached and how ccip.dev verified it. It is attached only when it comes through the project's
+  X account or website, or is signed by an address that controls the token's pool. A statement never changes a
+  result: only a new reading or a correction does. Once the result moves on, the statement moves to the log.
+- **How a team reaches ccip.dev:** every page links the "Passport result" issue form on GitHub and names @ccipdev on X
+  for direct messages. Statements and corrections are entries in `labels/passport.toml`, reviewed in public, and show
+  on the pages within the hour after they are deployed.
+
+### What a daily reading cannot see
+- **A change undone within a day:** one reading a day, with no event scan, misses a setting changed and changed back
+  between two readings.
+- **Upgrade parties outside the EIP-1967 admin slot:** a pool upgradeable some other way is not detected as a proxy,
+  so its upgrade party is not counted.
+- **Unrecognised multisigs and timelocks:** a Safe whose singleton is not pinned, and a timelock or multisig of a kind
+  ccip.dev does not know, read as not readable, never as clear.
+- **What a party will do:** a check reads who can act and how many signers they need, not whether they would.
+
+### Method log
+- 2026-11-23: method 1. Five checks: single key, rate limit, most out per hour, pool pointers and verifier line. Pinned
+  Safe singletons from safe-global's deployments as of 2026-11-23; timelocks resolved to a depth of three.
+
 ## Cross-check
 @CCIPMetrics posts its "#CCIP today" totals just after midnight UTC. Each post is dated the day it is posted and
 covers the previous UTC day: on every day below, its transaction count equals our message count for the previous
