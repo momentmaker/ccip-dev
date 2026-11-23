@@ -21,6 +21,7 @@
     "endpoints:refresh": "tsx scripts/refresh-endpoints.ts",
     "directory:refresh": "tsx scripts/refresh-directory.ts",
     "passport:record": "tsx scripts/passport-record.ts",
+    "passport:sample": "tsx scripts/passport-sample.ts",
     "cre-keys:refresh": "tsx scripts/cre-keys/refresh.ts",
     "fee-groups:generate": "tsx scripts/fee-groups/generate.ts",
     "labels:build": "tsx scripts/build-labels.ts",

@@ -182,6 +182,139 @@ In `on` mode the Worker posts the card with the X text to X through the X API (p
 - **Stop X posting now:** `pnpm --filter @ccip-dev/worker exec wrangler secret delete X_ACCESS_TOKEN` stops it at once; `X_POSTS = "off"` needs a push. Either brings the X draft back.
 - **The first live post is the first real test** of OAuth 1.0a on X's v2 media upload. If it fails, it fails safe: `broadcast-x-post:<key>` alerts and nothing is posted to X. A duplicate-content refusal from X, or a post whose id could not be read, counts as sent, since the post is on X.
 
+## Token Passport
+
+The hourly cron reads each CCIP token's pool settings once a day with `eth_call` (from the first run at or after 01:00 UTC, within a four-minute budget per run, resuming in later hours), evaluates three checks per row (single key, rate limit, pool pointers), and publishes `passport.json`, the sixteen `passport/<0-f>.json` shards and `passport-events.json` to `data.ccip.dev/v1/`. The site builds `/passport/` and a page per token from them; confirmed flag changes post to the Telegram channel and never to X. The rule behind every check is in `docs/methodology.md`, "Token Passport". Plan: `docs/plans/2026-11-22-2139-feat-token-passport-plan.md`.
+
+- **Plan:** the account is on the Workers Paid plan, which the job needs: a run makes far more than the Free plan's 50 subrequests and uses more than its 10 ms of CPU. Do not switch it on under a Free plan.
+- **Ethereum is the long chain:** about 670 requests a day for its 222 rows. A chain's reading has a 3-minute limit inside the 4-minute run budget, and a chain past its limit fails for the day. Watch Ethereum in the dry run: if it fails or comes close to the limit, the endpoint in `config/endpoints.json` is too slow.
+
+### Switches
+
+Both live under `[vars]` in `worker/wrangler.toml` and ship `"off"`; change one and push (the deploy applies it). Any other value counts as `off`.
+
+| `PASSPORT` | `PASSPORT_PUBLIC` | Reads and stores | Publishes and builds pages | Posts to Telegram |
+|---|---|---|---|---|
+| `off` | either | no | no | no |
+| `dry` | either | yes | no, the files go to the `ccip-dev-archive` bucket under `passport-dry/v1/` | no |
+| `on` | `off` | yes | yes | no, post records are marked seeded and never sent |
+| `on` | `drafts` | yes | yes | to the owner's drafts chat only |
+| `on` | `on` | yes | yes | yes, to `@ccipdev` |
+
+`PASSPORT_PUBLIC` gates Passport posts only and is independent of `BROADCASTS`: other broadcasts are untouched in every row. The first run with `PASSPORT = "on"` clears the passport tables (the dry run's readings are discarded), sets `passport:since` in `meta` to that day and takes every reading as a baseline that posts nothing. Turning `on` off and on again later keeps the record and takes no new baseline.
+
+### Rollout (one time)
+
+1. Deploy with both switches `"off"` (the default).
+2. Set `PASSPORT = "dry"` for at least two daily runs, and no longer than the hand check needs. Pass the dry-run gate (below).
+3. Draw a sample and run the hand check (below) against the dry run's files. Record the outcome.
+4. Set `PASSPORT = "on"`. The next run is the baseline, and the section goes public after its site build.
+5. Set `PASSPORT_PUBLIC = "drafts"` and keep it there until one confirmed change has been previewed in the owner's chat: one preview for the token, nothing from Passport on the channel or on X, and no change to other broadcasts.
+6. Set `PASSPORT_PUBLIC = "on"`.
+
+### Dry run
+
+The dry run writes the same three kinds of file as `on`, to the archive bucket: `passport-dry/v1/passport.json`, `passport-dry/v1/passport/<0-f>.json` and `passport-dry/v1/passport-events.json`, rewritten at each day's evaluation.
+
+**Download them** (bash or zsh, from the repo root; `$HOME` is expanded before wrangler runs in `worker/`):
+
+```sh
+DRY="$HOME/passport-dry"; mkdir -p "$DRY/passport"
+for f in passport.json passport-events.json; do
+  pnpm --filter @ccip-dev/worker exec wrangler r2 object get "ccip-dev-archive/passport-dry/v1/$f" --file "$DRY/$f" --remote
+done
+for h in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
+  pnpm --filter @ccip-dev/worker exec wrangler r2 object get "ccip-dev-archive/passport-dry/v1/passport/$h.json" --file "$DRY/passport/$h.json" --remote
+done
+```
+
+**Gate.** Do not go on to the hand check until all of these hold for two consecutive days:
+
+- **Every chain with an endpoint was read on both days, or its failure is explained.** `passport_chains` holds one row per chain the job tries; `ok_day` is the last day it read:
+  `pnpm --filter @ccip-dev/worker exec wrangler d1 execute ccip-dev --remote --command "SELECT c.name, p.ok_day, p.tried_day, p.attempts, p.failures, p.transport FROM passport_chains p LEFT JOIN chains c ON c.selector = p.chain ORDER BY p.ok_day, c.name"`
+  A chain whose `ok_day` is not today failed both tries: read its `passport-chain` or `job-failed:passport` alert and the Worker logs, and fix or explain it (a dead endpoint, an `eth_chainId` that differs from the `chains` row, a block behind the last accepted one, a stale block).
+- **No `passport-incomplete` alert** on either day.
+- **Every pair flagged from one side only is listed, and each such row is confirmed to belong to its group.** The CCIP API's `groupId` is how the job decides two rows are the same token, and how it assigns them is not verified. A pool-pointer flag where one side points correctly (or has no lane, or could not be read) is what a row put in the wrong group looks like. `pnpm passport:sample` lists every such pair at the top of its output; for each, open both tokens on the explorer and confirm they are the same token from the same project. A row that is not belongs to another group: it is the CCIP API's grouping that is wrong, so the flag would be false; note it and stop the launch until it is handled.
+- **Note how many rows are "not readable" and why.** Count the single-key results by reason:
+  `jq -s '[.[].tokens[].rows[].single_key | select(. != null and .value == "not readable") | .reason] | group_by(.) | map({reason: .[0], rows: length})' "$HOME"/passport-dry/passport/*.json`
+  Expected at launch: Solana, Aptos and Canton rows (`non-evm-chain`), chains with no endpoint or no directory entry (`no-endpoint`, `no-registry`), and the lane checks of USDC-style proxy pools (`proxy-pool`). Known cases:
+  - **Chains in one list and not the other:** an endpoint comes from `config/endpoints.json` by chain name and a registry from `config/ccip-directory.json` by selector, and a chain needs both. On 2026-11-23 nine EVM chains had one and not the other: `mova-mainnet-2` and `nexon-mainnet-henesys` have a directory entry and no endpoint (`no-endpoint`); `ethereum-mainnet-blast-1`, `ethereum-mainnet-polygon-zkevm-1`, `fantom-mainnet`, `kusama-mainnet-moonriver`, `lisk-mainnet`, `tac-mainnet` and `tron-mainnet-evm` have an endpoint and no directory entry (`no-registry`). Their rows read "not readable" until both lists have them (see "Add a chain's endpoint").
+  - **LINK on Ethereum:** its single-key check reads "not readable" (`party-unidentified`): the admin timelock has a proposer that is a Safe on the singleton `0x2ed1a552c03f843a2db7de10ad390d24bb66cee0`, which is not in safe-global's safe-deployments, so the Safe is not recognised. Recognising it means adding the singleton to `SAFE_SINGLETONS` in `packages/core/src/passport-principals.ts` after a review of its bytecode, which is a method change (see "Change the reading method").
+
+### Hand check
+
+The hand check is the gate to `PASSPORT = "on"` (the first Success Criterion). It compares a sample of the dry run's readings with a block explorer.
+
+1. **Draw the sample:** `pnpm passport:sample "$HOME/passport-dry" --seed <n> > "$HOME/passport-dry/hand-check.md"`. Pick any seed and write it down; the same files and seed give the same sample. The script reads the sixteen shards, takes chain names from `https://data.ccip.dev/v1/chains.json` (or `--chains <file>`) and explorers from `config/endpoints.json` (or `--endpoints <file>`). The sample holds at least one token for every pool version, party kind, result of each check and reason code in the dry run; each token lists every row with its contract addresses as explorer links (a bare address where the chain has no explorer), its parties, lanes and results, each with a box to tick.
+2. **Check every token in the sample against the chain**, on the explorer's Read Contract tab (the getters for each pool version are in `docs/research/2026-11-22-ccip-pool-read-surface.md`, section 4):
+   - **Pool:** the TokenAdminRegistry's `getPool(token)` (or `getTokenConfig(token)`) is the listed pool, and its `typeAndVersion()` matches.
+   - **Every party** with its kind and signer count: the pool `owner()`, the registry administrator (`getTokenConfig(token)`), `getRateLimitAdmin()`, the owner of a 2.0 pool's hooks contract, and the proxy admin (the EIP-1967 admin slot) when the pool is a proxy. A wallet has no code (or EIP-7702 delegation code) and is one signer; a Safe's threshold and owner count come from `getThreshold()` and `getOwners()`; an MCMS counts the fewest signers its root group needs; a timelock takes the weakest of its proposers, bypassers and admins.
+   - **Each lane:** `getCurrentOutboundRateLimiterState(remote selector)` gives the limit switch, capacity and rate; the per-hour figure is capacity + rate × 3600 in raw units, divided by 10^decimals for tokens. A 2.0 pool that allows fast finality also has a fast-finality figure.
+   - **Remote token and remote pools:** `getRemoteToken(remote selector)` is the other row's token, and `getRemotePools(remote selector)` (`getRemotePool` on 1.5.0) contains the other row's pool. The sample prints what each lane should hold.
+   - **Verifier lists:** the outbound and inbound lines match the pool's and lane's verifiers (names from `config/ccip-directory.json`; an address not in it is a custom verifier).
+   - **The three results** (single key, rate limit, pool pointers) and their reasons follow from what you read, by the rules in `docs/methodology.md`.
+3. **One wrong reading stops the launch** until it is explained. Find the cause (a decoder, the classifier, an endpoint, the group); if the fix changes how readings are classified it is a method change. Then run the dry run again for the days the fix needs and draw a new sample.
+4. **Record the outcome:** open a GitHub issue titled `Passport hand check <dry-run day>` with the seed, the filled-in `hand-check.md` and the verdict ("no wrong reading", or each wrong reading and its explanation), and close it when the verdict is "no wrong reading". The commit that sets `PASSPORT = "on"` names the issue.
+
+### Alerts
+
+| Signature | What it means and what to do |
+|---|---|
+| `passport-chain:<selector>` | The chain's reading failed for three or more days in a row (each day gets two tries). Its rows keep their last results for seven days, then read "not readable" (`reading-too-old`). Read the error in the alert: an endpoint that stopped answering, an `eth_chainId` that differs from the `chains` row, a block lower than the last one accepted, or a stale block. Replace the endpoint in `config/endpoints.json` (or wait for the `endpoints` pull request) and deploy. |
+| `passport-calls:<selector>` | Some rows' calls failed on their own; those rows kept their stored reading, and the alert names each with its first failure. Once is usually a flaky endpoint. The same row every day is a pool variant the reader does not know: record it with `pnpm passport:record <chain> <token> <name>` and look at what it answers. |
+| `passport-incomplete` | At 22:00 UTC the day was evaluated with the named chains still unread. Usually one slow chain (Ethereum first) or many retries. Results of the unread chains keep their last reading. Repeated, find the slow endpoint and replace it. In the dry run this fails the gate. |
+| `passport-pending` | The named results changed and went pending; each posts after the next successful reading agrees (on a later day, within seven days). This is the day to check them: read each on the explorer before the next day's reading (from 01:00 UTC). If one is a wrong reading, add a correction (below) before then. |
+| `passport-cap` | More than ten tokens have posts today: ten get their own and one summary covers the rest. Many tokens changing at once can be a wrong reading across many tokens: check a few against the chain; if the reading is wrong, withdraw the section (below). |
+| `passport-post-dropped:<id>` | A post record did not go out within 48 hours of becoming due, because its token page or its card did not answer. It is never sent. Check the site build ran (`gh run list --workflow site`) and the page and card answer. |
+| `job-failed:passport` | The job threw. Read the message and the Worker logs (`wrangler tail`); the next hour retries. |
+| `site-dispatch` | The site build after a Passport publish could not be started (see "Incidents and alerts"). The scheduled builds pick the files up. |
+
+Passport posts use the broadcast dedup key `broadcast:passport:<record id>` in `meta`.
+
+### Statements and corrections
+
+Both are entries in `labels/passport.toml`; its header documents every field. Requests arrive through the "Passport result" issue form (`.github/ISSUE_TEMPLATE/passport.yml`) or a direct message to ccip.dev's X account. Run `pnpm labels:check`, push, and the deploy bundles the file; the hourly run evaluates again when the bundled entries change, so the entry shows within the hour. Close the issue with the commit.
+
+- **Add a statement** (a team's own words beside a result; it never changes the result, the announced state or a post). Attach it only when its source is tied to the project, and record how you verified it:
+  - `verified_via = "x"`: the post is on the project's own X account, a handle verified as in "Labels and handles" (linked from the project's own website). `verified_source` is the handle without the `@`.
+  - `verified_via = "website"`: the text is on an https page of the project's own site. `verified_source` is that page.
+  - `verified_via = "signature"`: the message is signed by an address that controls the token's pool; recover the signer with an EIP-191 verifier and check it is the pool's owner on the page. `verified_source` is that address.
+  - Anything else is declined. `answers` is the result value the statement answers; once the result moves away from it, the statement moves to the page's log.
+- **Add a correction** (a wrong reading). It names the result (`chain`, `token`, `check`, and `remote_chain` and `remote_token` for a lane), the corrected `value` and `reason`, and the `basis` of the result it corrects, copied from the published result. The shard is `passport/<first hex digit of the page id>.json` (a page id is the registry group id):
+  `curl -s https://data.ccip.dev/v1/passport/<h>.json | jq '.. | objects | select(.key? == "single-key/<selector>:<token address>") | {key, value, reason, basis}'`
+  (a rate-limit key is `rate-limit/<selector>:<token>/<remote selector>`; a pool-pointer key is `pool-pointer/<selector>:<token>/<remote selector>:<remote token>`). The correction applies only while the result's basis still matches, so a later real change shows through and the entry then does nothing. It is logged as a correction, and when it changes what was announced it posts, worded as a correction, after the next reading.
+
+### Add a chain's endpoint
+
+A chain is read only when it has both an RPC in `config/endpoints.json` (`rpc`, under the chain's CCIP name as in `labels/ccip-chains.json`) and an entry under its selector in `config/ccip-directory.json` (router and TokenAdminRegistry, from Chainlink's directory). The `endpoints` workflow refreshes both in its daily pull request; by hand, `pnpm endpoints:refresh` and `pnpm directory:refresh`. To add a missing endpoint, put a working keyless RPC under the chain's name, check it answers `eth_chainId` with the chain's id, review the directory entry's registry address (the reader checks its `typeAndVersion()` names a TokenAdminRegistry), and deploy. The next day's reading includes the chain; its rows' first reading is their baseline and posts no flag change.
+
+### Change the reading method
+
+Any change to how a reading is classified (a decoder, `SAFE_SINGLETONS`, the classifier's rules, a check's rule) is a method change and needs all three, in the same commit:
+
+1. Bump `METHOD_VERSION` in `packages/core/src/passport-principals.ts`.
+2. Update the golden files: `pnpm --filter @ccip-dev/core exec vitest run -u test/passport-principals.test.ts test/passport-checks.test.ts`, then review the diff of `packages/core/test/fixtures/passport/principals/golden.json` and `checks/golden.json`: every changed result should be one the change meant.
+3. Add a dated line to the method log at the end of `docs/methodology.md`'s Token Passport section, saying what changed.
+
+A result that differs only because of the new method is logged as "re-classified" and posts nothing; a real change on the same day still posts. Without the version bump the changed results would count as real changes and post, and the golden tests fail.
+
+Adding a Safe singleton to `SAFE_SINGLETONS` also needs a review of the singleton's bytecode against a known Safe release first.
+
+### Withdraw the section
+
+For a wrong reading across many tokens, or anything that must come down at once:
+
+1. Set `PASSPORT = "off"` in `worker/wrangler.toml`, push, and wait for the deploy. The job stops reading, publishing and posting.
+2. Delete the public files:
+   ```sh
+   for f in passport.json passport-events.json passport/0.json passport/1.json passport/2.json passport/3.json passport/4.json passport/5.json passport/6.json passport/7.json passport/8.json passport/9.json passport/a.json passport/b.json passport/c.json passport/d.json passport/e.json passport/f.json; do
+     pnpm --filter @ccip-dev/worker exec wrangler r2 object delete "ccip-dev-public/v1/$f" --remote
+   done
+   ```
+3. Run the site build: `gh workflow run site`. With no `passport.json` the build passes, builds no token page, `/passport/` says pages appear after the first reading is published, and the nav loses the Passport link.
+
+Turning it back on resumes from the stored record (no new baseline).
+
 ## Moments
 
 After the broadcasts of each 00:07 finalize, the Worker posts "moments": a welcome for each new chain, a post for each new sender, milestone countdowns, leaderboard movers, a weekly chain spotlight, a weekly project spotlight, a weekly "New on CCIP" roundup and a weekly Telegram poll. They come from `moments.json`, which the finalize publishes next to `history.json`; each post's card reads that file too. Spec: `docs/superpowers/specs/2026-10-12-moments-design.md`.
