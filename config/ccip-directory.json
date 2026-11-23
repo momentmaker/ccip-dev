@@ -1,0 +1,883 @@
+{
+  "source": "Built by pnpm directory:refresh from docs.chain.link/api/ccip/v1/chains (mainnet) and api.ccip.chain.link/v2/verifiers; reviewed in the endpoints pull request",
+  "chains": {
+    "11344663589394136015": {
+      "chainId": 56,
+      "name": "binance_smart_chain-mainnet",
+      "router": "0x34b03cb9086d7d758ac55af71584f81a598759fe",
+      "tokenAdminRegistry": "0x736fd8660c443547a85e4eaf70a49c1b7bb008fc"
+    },
+    "11964252391146578476": {
+      "chainId": 30,
+      "name": "rootstock-mainnet",
+      "router": "0xce7afb0bf5f73bfdb5e9e04976ebac2005746bd0",
+      "tokenAdminRegistry": "0xad71ac82acfcbdd27bbd3f3ed2fa24e26e49cbe2"
+    },
+    "1224752112135636129": {
+      "chainId": 1116,
+      "name": "core-mainnet",
+      "router": "0xf7cc8b0b5263a74afbb1a2ac87fff1cf7e62152f",
+      "tokenAdminRegistry": "0x4d2b43c60f3e476ee94637c4e3be844fc9a70012"
+    },
+    "12505351618335765396": {
+      "chainId": 1868,
+      "name": "soneium-mainnet",
+      "router": "0x8c8b88d827fe14df2bc6392947d513c86afd6977",
+      "tokenAdminRegistry": "0x5ba21f6824400b91f232952ca6d7c8875c1755a4"
+    },
+    "12657445206920369324": {
+      "chainId": 68414,
+      "name": "nexon-mainnet-henesys",
+      "router": "0x492641f648a4986844848e0befe66d14817bce34",
+      "tokenAdminRegistry": "0xa27056438ffa1f286ab197488808692f0db93f8b"
+    },
+    "1294465214383781161": {
+      "chainId": 80094,
+      "name": "berachain-mainnet",
+      "router": "0x71a275704c283486fba26dad3dd0db78804426ef",
+      "tokenAdminRegistry": "0x0944c3fb1db7d165336569221995b31cbe6c8a55"
+    },
+    "13204309965629103672": {
+      "chainId": 534352,
+      "name": "ethereum-mainnet-scroll-1",
+      "router": "0x9a55e8cab6564eb7bbd7124238932963b8af71dc",
+      "tokenAdminRegistry": "0x846dea1c1706fc35b4aa78b32d31f1599daa47b4"
+    },
+    "13447077090413146373": {
+      "chainId": 1750,
+      "name": "metal-mainnet",
+      "router": "0x020c61eceee0e5dc32f2503abb6e070fa0ebbfaa",
+      "tokenAdminRegistry": "0xc41640b959ca2a62b9293509202d8615dc293634"
+    },
+    "1346049177634351622": {
+      "chainId": 42220,
+      "name": "celo-mainnet",
+      "router": "0xfb48f15480926a4adf9116dca468bdd2ee6c5f62",
+      "tokenAdminRegistry": "0xf19e0555faa9051e277eed5a0dcdb13cdaca39a9"
+    },
+    "13624601974233774587": {
+      "chainId": 42793,
+      "name": "etherlink-mainnet",
+      "router": "0x1912c3cfafe8a76a32a92861d815ac2837f237ca",
+      "tokenAdminRegistry": "0x492641f648a4986844848e0befe66d14817bce34"
+    },
+    "1456215246176062136": {
+      "chainId": 25,
+      "name": "cronos-mainnet",
+      "router": "0xe26b0a098d861d5c7d9434ad471c0572ca6eaa67",
+      "tokenAdminRegistry": "0x32c4634338f1386fdd18e0bd6df51ca2fa56f762"
+    },
+    "1462016016387883143": {
+      "chainId": 252,
+      "name": "fraxtal-mainnet",
+      "router": "0x4bdf20477744ec5f9de738b5cc9acd01763905ee",
+      "tokenAdminRegistry": "0x6724621d8a560a84e4b6012c4baa0ea6ff47b9df"
+    },
+    "14894068710063348487": {
+      "chainId": 33139,
+      "name": "apechain-mainnet",
+      "router": "0xe9c6945281028cb6530d43f998ee539dfe2a9191",
+      "tokenAdminRegistry": "0xd3ed6fc9fd22412764ac2ef64fb664b9393df9f2"
+    },
+    "1523760397290643893": {
+      "chainId": 5734951,
+      "name": "jovay-mainnet",
+      "router": "0x492641f648a4986844848e0befe66d14817bce34",
+      "tokenAdminRegistry": "0xa27056438ffa1f286ab197488808692f0db93f8b"
+    },
+    "1556008542357238666": {
+      "chainId": 5000,
+      "name": "ethereum-mainnet-mantle-1",
+      "router": "0x670052635a9850bb45882cb2eccf66bcff0f41b7",
+      "tokenAdminRegistry": "0x000a744940eb5d857c0d61d97015dfc83107404f"
+    },
+    "1562403441176082196": {
+      "chainId": 324,
+      "name": "ethereum-mainnet-zksync-1",
+      "router": "0x748fd769d81f5d94752bf8b0875e9301d0ba71bb",
+      "tokenAdminRegistry": "0x100a47c9db342884e3314b91cec076bbac8e619c"
+    },
+    "15971525489660198786": {
+      "chainId": 8453,
+      "name": "ethereum-mainnet-base-1",
+      "router": "0x881e3a65b4d4a04dd529061dd0071cf975f58bcd",
+      "tokenAdminRegistry": "0x6f6c373d09c07425baae72317863d7f6bb731e37"
+    },
+    "16468599424800719238": {
+      "chainId": 167000,
+      "name": "ethereum-mainnet-taiko-1",
+      "router": "0xeb2502aed3cfd6e37e292c6b837a8fff9a042367",
+      "tokenAdminRegistry": "0x308a2a7d13b12ba26649f381c53f7e7c60d0d9c6"
+    },
+    "1673871237479749969": {
+      "chainId": 146,
+      "name": "sonic-mainnet",
+      "router": "0xb4e1ff7882474bb93042be9ad5e1fa387949b860",
+      "tokenAdminRegistry": "0x2961cb47b5111f38d75f415c21ceb4120ddd1b69"
+    },
+    "16978377838628290997": {
+      "chainId": 988,
+      "name": "stable-mainnet",
+      "router": "0xecff67559c0583027a5fbd85136e33bc4d66eea0",
+      "tokenAdminRegistry": "0x3c23e6fb09064e9a64829fa8fee27ad19a27bfa9"
+    },
+    "17198166215261833993": {
+      "chainId": 48900,
+      "name": "ethereum-mainnet-zircuit-1",
+      "router": "0x0a6436b56378d305729713ac332ccdcd367f3918",
+      "tokenAdminRegistry": "0x47d2d93eedb694bf445e7f6458f17669459612c7"
+    },
+    "17673274061779414707": {
+      "chainId": 50,
+      "name": "xdc-mainnet",
+      "router": "0x2a9f896660e802c59a3178b2e8cb7fbaccc04e86",
+      "tokenAdminRegistry": "0xec1276ca704c612a28cb2c873dedceba97f65ced"
+    },
+    "17912061998839310979": {
+      "chainId": 98866,
+      "name": "plume-mainnet",
+      "router": "0x5c4f4622ad0ec4a47e04840db7e9eca8354109af",
+      "tokenAdminRegistry": "0x01e5b2fac7156c54f034e1767f2799fdd41b8285"
+    },
+    "1804312132722180201": {
+      "chainId": 43111,
+      "name": "hemi-mainnet",
+      "router": "0x5e48912cfdd14417d6856872341f894ae0ef07dd",
+      "tokenAdminRegistry": "0x81e81f9b2c0b79c00f38357068ae049090f2dade"
+    },
+    "18164309074156128038": {
+      "chainId": 2818,
+      "name": "morph-mainnet",
+      "router": "0x3201a20d2a33820c0dac8bc93c4819755c2a8c7f",
+      "tokenAdminRegistry": "0xefd5fefede55b5c41b8fa0d171a79ba5beadd2aa"
+    },
+    "18240105181246962294": {
+      "chainId": 102030,
+      "name": "creditcoin-mainnet",
+      "router": "0x1badbe95bee68d3a74ec08621256dddbe6ead3f9",
+      "tokenAdminRegistry": "0xd941fbecd2b971d0f54b4c34286c95fab52b60b8"
+    },
+    "1923510103922296319": {
+      "chainId": 130,
+      "name": "ethereum-mainnet-unichain-1",
+      "router": "0x68891f5f96695ecd7dedbe2289d1b73426ae7864",
+      "tokenAdminRegistry": "0xab3ee2e897cf23c10e76d26ab4674fefa376bc0d"
+    },
+    "2049429975587534727": {
+      "chainId": 480,
+      "name": "ethereum-mainnet-worldchain-1",
+      "router": "0x5fd9e4986187c56826a3064954cfa2cf250cfa0f",
+      "tokenAdminRegistry": "0x02fe6ab4fb0943f58d9d925d1d2cba9474997ed0"
+    },
+    "2135107236357186872": {
+      "chainId": 964,
+      "name": "bittensor-mainnet",
+      "router": "0xd941fbecd2b971d0f54b4c34286c95fab52b60b8",
+      "tokenAdminRegistry": "0xe72d25add538e8ef9cef85622ea8912a6cb98be6"
+    },
+    "241851231317828981": {
+      "chainId": 4200,
+      "name": "bitcoin-merlin-mainnet",
+      "router": "0x8be462d21b05eeef81a3aa384b7c6cf18597232a",
+      "tokenAdminRegistry": "0xa51cdb9154bb0c9bc3ce25dbf7de3331b3a1c8e7"
+    },
+    "2442541497099098535": {
+      "chainId": 999,
+      "name": "hyperliquid-mainnet",
+      "router": "0x13b3332b66389b1467ca6ebd6fa79775ccef65ec",
+      "tokenAdminRegistry": "0xce44363496abc3a9e53b3f404a740f992d977bdf"
+    },
+    "2459028469735686113": {
+      "chainId": 747474,
+      "name": "polygon-mainnet-katana",
+      "router": "0x7c19b79d2a054114ab36ad758a36e92376e267da",
+      "tokenAdminRegistry": "0x048b911a1ae5dd4f0aee5241a30d3deda3501d54"
+    },
+    "2988178761202034333": {
+      "chainId": 127001,
+      "name": "gravity-mainnet",
+      "router": "0x492641f648a4986844848e0befe66d14817bce34",
+      "tokenAdminRegistry": "0xa27056438ffa1f286ab197488808692f0db93f8b"
+    },
+    "3016212468291539606": {
+      "chainId": 196,
+      "name": "ethereum-mainnet-xlayer-1",
+      "router": "0xf2b6cb7867eb5502c3249dd37d7bc1cc148e5232",
+      "tokenAdminRegistry": "0xecf1eaee01e82f3388decd7f4c3792374f3f72f3"
+    },
+    "3229138320728879060": {
+      "chainId": 295,
+      "name": "hedera-mainnet",
+      "router": "0x87b400b4d4f5fe2fdb6fbea66c38003ced565b76",
+      "tokenAdminRegistry": "0xc9efbd4f73c37ae1573806030a4146e1e72eadc1"
+    },
+    "3461204551265785888": {
+      "chainId": 57073,
+      "name": "ethereum-mainnet-ink-1",
+      "router": "0xca7c90a52b44e301ac01cb5eb99b2fd99339433a",
+      "tokenAdminRegistry": "0xeb062d21c713a3d940bb0faecfdc387d6ea23697"
+    },
+    "3555797439612589184": {
+      "chainId": 7777777,
+      "name": "zora-mainnet",
+      "router": "0x65b40941fa86fc444043257cd677a7f0bd034f79",
+      "tokenAdminRegistry": "0x791ba3010a5bfea773d2cfd6ea4d0ce9627856eb"
+    },
+    "3577778157919314504": {
+      "chainId": 2741,
+      "name": "abstract-mainnet",
+      "router": "0x09521b0b5bb2d4406124c0207cf551829b45f84d",
+      "tokenAdminRegistry": "0x7eedf2dbc74924cb1f23fc8845cd35bf18b697de"
+    },
+    "3734403246176062136": {
+      "chainId": 10,
+      "name": "ethereum-mainnet-optimism-1",
+      "router": "0x3206695cae29952f4b0c22a169725a865bc8ce0f",
+      "tokenAdminRegistry": "0x657c42abe4cd8aa731aec322f871b5b90cf6274f"
+    },
+    "3849287863852499584": {
+      "chainId": 60808,
+      "name": "bitcoin-mainnet-bob-1",
+      "router": "0x827716e74f769ab7b6bb374a29235d9c2156932c",
+      "tokenAdminRegistry": "0xa57d04119aff4884f8602213e58d8aaad18229cb"
+    },
+    "3993510008929295315": {
+      "chainId": 109,
+      "name": "shibarium-mainnet",
+      "router": "0xc2ca5d5c17911e4b838194b51585ddf8fe5116c1",
+      "tokenAdminRegistry": "0x995d2aa233abeaca2a64edf898ae9f4e01be15b9"
+    },
+    "4051577828743386545": {
+      "chainId": 137,
+      "name": "polygon-mainnet",
+      "router": "0x849c5ed5a80f5b408dd4969b78c2c8fdf0565bfe",
+      "tokenAdminRegistry": "0x00f027ea6d0fb03256a15e9182b2b9227a4931d8"
+    },
+    "4059281736450291836": {
+      "chainId": 36900,
+      "name": "adi-mainnet",
+      "router": "0x010771998a1f4736bd844939d0bf01ac5ca0f8fa",
+      "tokenAdminRegistry": "0x5fa6f142eac511df12325776386ab92b0f4d1eba"
+    },
+    "4215185756725900654": {
+      "chainId": 61901,
+      "name": "mova-mainnet-2",
+      "router": "0x492641f648a4986844848e0befe66d14817bce34",
+      "tokenAdminRegistry": "0xa27056438ffa1f286ab197488808692f0db93f8b"
+    },
+    "4426351306075016396": {
+      "chainId": 16661,
+      "name": "0g-mainnet",
+      "router": "0x0aa145a62153190b8f0d3ca00c441e451529f755",
+      "tokenAdminRegistry": "0x051665f2455116e929b9972c36d23070f5054ce0"
+    },
+    "4627098889531055414": {
+      "chainId": 59144,
+      "name": "ethereum-mainnet-linea-1",
+      "router": "0x549feb73f2348f6cd99b9fc8c69252034897f06c",
+      "tokenAdminRegistry": "0xbc933cee67d2b1c08490ee8c51e2df653a713534"
+    },
+    "465200170687744372": {
+      "chainId": 100,
+      "name": "gnosis_chain-mainnet",
+      "router": "0x4aad6071085df840abd9baf1697d5d5992bdadce",
+      "tokenAdminRegistry": "0x73bc11423cbf14914998c23b0afc9be0cb5b2229"
+    },
+    "465944652040885897": {
+      "chainId": 204,
+      "name": "binance_smart_chain-mainnet-opbnb-1",
+      "router": "0xa3ca4306b9256aab177c47a18b43593f03378976",
+      "tokenAdminRegistry": "0xeff5d2147f9cacdedf80c2ee1f5320b01c664be5"
+    },
+    "4829375610284793157": {
+      "chainId": 36888,
+      "name": "ab-mainnet",
+      "router": "0x492641f648a4986844848e0befe66d14817bce34",
+      "tokenAdminRegistry": "0xa27056438ffa1f286ab197488808692f0db93f8b"
+    },
+    "4949039107694359620": {
+      "chainId": 42161,
+      "name": "ethereum-mainnet-arbitrum-1",
+      "router": "0x141fa059441e0ca23ce184b6a78bafd2a517dde8",
+      "tokenAdminRegistry": "0x39ae1032cf4b334a1ed41cdd0833bdd7c7e7751e"
+    },
+    "5009297550715157269": {
+      "chainId": 1,
+      "name": "ethereum-mainnet",
+      "router": "0x80226fc0ee2b096224eeac085bb9a8cba1146f7d",
+      "tokenAdminRegistry": "0xb22764f98dd05c789929716d677382df22c05cb6"
+    },
+    "5142893604156789321": {
+      "chainId": 1111,
+      "name": "wemix-mainnet",
+      "router": "0x7798b795fde864f4cd1b124a38ba9619b7f8a442",
+      "tokenAdminRegistry": "0xe993e046ac50659800a91bab0bd2dabf59cbd171"
+    },
+    "5406759801798337480": {
+      "chainId": 223,
+      "name": "bitcoin-mainnet-bsquared-1",
+      "router": "0x9c34e9a192d7a4c2cf054668c1122c028c43026c",
+      "tokenAdminRegistry": "0x2e1543255119cfb9d3501e32d7f5b244e59a06f4"
+    },
+    "5608378062013572713": {
+      "chainId": 232,
+      "name": "lens-mainnet",
+      "router": "0x498f3febad3ff75e05b7847b37a301fc2da6fdc0",
+      "tokenAdminRegistry": "0xdd98482ec0cfeffe14eab750a9c484f9d5d07380"
+    },
+    "6093540873831549674": {
+      "chainId": 4326,
+      "name": "megaeth-mainnet",
+      "router": "0xfa546248c54939aa6c48279cdc1eaf9a1125c411",
+      "tokenAdminRegistry": "0xf4a170a36d4c656f614d44453f73308bdb275196"
+    },
+    "6180753054346818345": {
+      "chainId": 4663,
+      "name": "robinhood-mainnet",
+      "router": "0x06fc836cf9839b1cd891c440a0a45242da6ae1c9",
+      "tokenAdminRegistry": "0x1912c3cfafe8a76a32a92861d815ac2837f237ca"
+    },
+    "6325494908023253251": {
+      "chainId": 3343,
+      "name": "edge-mainnet",
+      "router": "0x0aa145a62153190b8f0d3ca00c441e451529f755",
+      "tokenAdminRegistry": "0x051665f2455116e929b9972c36d23070f5054ce0"
+    },
+    "6370580034781731079": {
+      "chainId": 5042,
+      "name": "arc-mainnet",
+      "router": "0xb79791184973589c38e114d43eb8e4588c283a18",
+      "tokenAdminRegistry": "0x51e2a24742db77604b881d6781ee16b5b8fcbe29"
+    },
+    "6422105447186081193": {
+      "chainId": 592,
+      "name": "polkadot-mainnet-astar",
+      "router": "0x8d5c5cb8ec58285b424c93436189fb865e437fef",
+      "tokenAdminRegistry": "0xb98eed70e3ce8e342b0f770589769e3a6bc20a09"
+    },
+    "6433500567565415381": {
+      "chainId": 43114,
+      "name": "avalanche-mainnet",
+      "router": "0xf4c7e640eda248ef95972845a62bdc74237805db",
+      "tokenAdminRegistry": "0xc8df5d618c6a59cc6a311e96a39450381001464f"
+    },
+    "6916147374840168594": {
+      "chainId": 2020,
+      "name": "ronin-mainnet",
+      "router": "0x46527571d5d1b68ee7eb60b18a32e6c60dceaf99",
+      "tokenAdminRegistry": "0x90e83d532a4ad13940139c8ace0b93b0ddbd323a"
+    },
+    "7222032299962346917": {
+      "chainId": 47763,
+      "name": "neox-mainnet",
+      "router": "0xd18b6b2306920d8ae13b4a2d06b55ad36a6fa2c7",
+      "tokenAdminRegistry": "0x344fcbb30ec9ecf58c8399ede0430592e6703bc1"
+    },
+    "7264351850409363825": {
+      "chainId": 34443,
+      "name": "ethereum-mainnet-mode-1",
+      "router": "0x24c40f13e77de2aff37c280ba06c333531589bf1",
+      "tokenAdminRegistry": "0xb4b40c010a547dff6a22d94bc2c1c1e745b62ab2"
+    },
+    "7281642695469137430": {
+      "chainId": 4217,
+      "name": "tempo-mainnet",
+      "router": "0xa132f089492cce5f1d79483a9e4552f37266ed01",
+      "tokenAdminRegistry": "0x60a97bd9acf755954ff0fe85837224f2920a57f3"
+    },
+    "7613811247471741961": {
+      "chainId": 177,
+      "name": "ethereum-mainnet-hashkey-1",
+      "router": "0xf2fd62c083f3bf324e99ce157d1a42d7eba77f1d",
+      "tokenAdminRegistry": "0x4b238f757f842280fea88a1c2b4186b71ef8bc5e"
+    },
+    "7801139999541420232": {
+      "chainId": 1672,
+      "name": "pharos-mainnet",
+      "router": "0x4e52dd94e9bcfefe3c78153bdfb0ab1d30687297",
+      "tokenAdminRegistry": "0xb79791184973589c38e114d43eb8e4588c283a18"
+    },
+    "7937294810946806131": {
+      "chainId": 200901,
+      "name": "bitcoin-mainnet-bitlayer-1",
+      "router": "0x6c0aa29330c58dda07fad577ff5a0280823a910c",
+      "tokenAdminRegistry": "0xd999758aeb04bda755ae78344fff5534947620cd"
+    },
+    "8481857512324358265": {
+      "chainId": 143,
+      "name": "monad-mainnet",
+      "router": "0x33566fe5976aaa420f3d5c64996641fc3858cadb",
+      "tokenAdminRegistry": "0x11acd984dd680363117b310f6ebdf78fd6c0195f"
+    },
+    "8788096068760390840": {
+      "chainId": 388,
+      "name": "cronos-zkevm-mainnet",
+      "router": "0x17b828df8679d68318f0849c1221ad1760699ecb",
+      "tokenAdminRegistry": "0x94fa8b263deb66fa3e160d408cd200be8b030609"
+    },
+    "8805746078405598895": {
+      "chainId": 1088,
+      "name": "ethereum-mainnet-metis-1",
+      "router": "0x7b9fb8717d306e2e08ce2e1efa81f026bf9ad13c",
+      "tokenAdminRegistry": "0x3af897541eb03927c7431bf68884a6c2c23b683f"
+    },
+    "9027416829622342829": {
+      "chainId": 1329,
+      "name": "sei-mainnet",
+      "router": "0xaba60da7e88f7e8f5868c2b6de06cb759d693af0",
+      "tokenAdminRegistry": "0x910a46ca93e8086bf1d7d65190ee6aee5256bd61"
+    },
+    "9335212494177455608": {
+      "chainId": 9745,
+      "name": "plasma-mainnet",
+      "router": "0xcdca5d374e46a6dddab50bd2d9acb8c796ec35c3",
+      "tokenAdminRegistry": "0xc23071a8ae83671f37bda1dadbc745a9780f632a"
+    },
+    "9813823125703490621": {
+      "chainId": 8217,
+      "name": "kaia-mainnet",
+      "router": "0x4eb2a60af37bc6bb05500f581c00e8ea3075f6e9",
+      "tokenAdminRegistry": "0x75b48579fb886c04e54b53038970a2ba19b75e09"
+    }
+  },
+  "verifiers": {
+    "10212741611335999305": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "10344971235874465080": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xb55bca19c48074a7fa693b8350785fd04034545a": "Lombard Verifier",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "10380998176179737091": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "1064004874793747259": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "1091131740251125869": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "11344663589394136015": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "11964252391146578476": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1216300075444106652": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "1224752112135636129": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "124615329519749607": {
+      "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ": "CCTP Verifier"
+    },
+    "12505351618335765396": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "12657445206920369324": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1294465214383781161": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "13204309965629103672": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "13264668187771770619": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xb55bca19c48074a7fa693b8350785fd04034545a": "Lombard Verifier"
+    },
+    "13274425992935471758": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "1346049177634351622": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "13624601974233774587": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "13874588925447303949": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "14135854469784514356": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "1456215246176062136": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "1462016016387883143": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "14767482510784806043": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xb55bca19c48074a7fa693b8350785fd04034545a": "Lombard Verifier",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "14894068710063348487": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1523760397290643893": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1556008542357238666": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1562403441176082196": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "15971525489660198786": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "16015286601757825753": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xb55bca19c48074a7fa693b8350785fd04034545a": "Lombard Verifier",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "16098325658947243212": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "16126893759944359622": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "16235373811196386733": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "16281711391670634445": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "16423721717087811551": {
+      "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ": "CCTP Verifier",
+      "CV2s8jsYhx9th8pyZ4pN7apLELAB42e5j4XqWhqTdWCm": "Committee Verifier (Default)"
+    },
+    "16468599424800719238": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1673871237479749969": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "16960985330067274105": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "16978377838628290997": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "17198166215261833993": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "1763698235108410440": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "17673274061779414707": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "17833296867764334567": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "17912061998839310979": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "1804312132722180201": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "18164309074156128038": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "18240105181246962294": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "18241817625092392675": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "1923510103922296319": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "2032988798112970440": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "2049429975587534727": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "2135107236357186872": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "2183018362218727504": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "2217764097022649312": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "222782988166878823": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "2308837218439511688": {
+      "0x427111c826ffde67e298f89743fb9a95b1bf88eb897235706593a6a393fff8e2": "Committee Verifier (Default)"
+    },
+    "2442541497099098535": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "2459028469735686113": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "2624132734533621656": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "2988178761202034333": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "2995292832068775165": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "3016212468291539606": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "3017758115101368649": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "3034092155422581607": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "3229138320728879060": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "3461204551265785888": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "3478487238524512106": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "3577778157919314504": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "3734403246176062136": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "3761762704474186180": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "3777822886988675105": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "3849287863852499584": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "3967220077692964309": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "3993510008929295315": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "4051577828743386545": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "4059281736450291836": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "4215185756725900654": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "4264732132125536123": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "4286062357653186312": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "4356164186791070119": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "4426351306075016396": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "4627098889531055414": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "465200170687744372": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "465944652040885897": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "4829375610284793157": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "4949039107694359620": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "5009297550715157269": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "5142893604156789321": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "5224473277236331295": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "5299555114858065850": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "5406759801798337480": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "5535534526963509396": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "5608378062013572713": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "5719461335882077547": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "5936861837188149645": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "6093540873831549674": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "6180753054346818345": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "6325494908023253251": {
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "6370580034781731079": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "6422105447186081193": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "6433500567565415381": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "6827576821754315911": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "686603546605904534": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "6892437333620424805": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "6898391096552792247": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "6916147374840168594": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "6955638871347136141": {
+      "0xab1e148adfc5f73a0debcb6dc6053e50ebec59ae": "Committee Verifier (Default)"
+    },
+    "7051849327615092843": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "7222032299962346917": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "7254999290874773717": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "7264351850409363825": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "7281642695469137430": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "7613811247471741961": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "7728255861635209484": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "7801139999541420232": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "7937294810946806131": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "8236463271206331221": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "829525985033418733": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "8457817439310187923": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "8481857512324358265": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "8805746078405598895": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "8871595565390010547": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "8953668971247136127": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "9027416829622342829": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "9181335567442030426": {
+      "0x37a0a487efe72bc3f31563e74196fa495da1465f": "Committee Verifier (Default)"
+    },
+    "9211758560309513668": {
+      "0x0f35abaf580d61263713b3bdcd7649cef0112122": "Committee Verifier (Default)"
+    },
+    "9268731218649498074": {
+      "0x5b92820da106d238d043eedd1556487af175ec1eacd2bfa10c2962f257958dbc": "Committee Verifier (Default)"
+    },
+    "9284632837123596123": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "9335212494177455608": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+    },
+    "9418205736192840573": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "945045181441419236": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "9488606126177218005": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    },
+    "9763904284804119144": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
+      "0xe57c834a439fdfe8196b95f4fd24daf1e05eabb8": "CCTP Verifier"
+    },
+    "9813823125703490621": {
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+    },
+    "9900119385908781505": {
+      "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
+    }
+  }
+}
