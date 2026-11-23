@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { normalizeAddress } from '@ccip-dev/core';
+import { getJson } from './lib/http';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIRECTORY_FILE = path.join(ROOT, 'config/ccip-directory.json');
@@ -77,16 +78,10 @@ export function buildDirectory(answer: DirectoryAnswer, verifierAnswer: Verifier
   };
 }
 
-async function getJson<T>(fetchFn: typeof fetch, url: string): Promise<T> {
-  const res = await fetchFn(url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`GET ${url} failed with HTTP ${res.status}`);
-  return (await res.json()) as T;
-}
-
 /** Fetches both answers before writing, so a failed fetch leaves the current file as it was. */
 export async function refreshDirectoryFile(input: { fetch: typeof fetch; file: string }): Promise<{ directory: CcipDirectory; omitted: string[] }> {
-  const answer = await getJson<DirectoryAnswer>(input.fetch, CHAINS_URL);
-  const verifierAnswer = await getJson<VerifiersAnswer>(input.fetch, VERIFIERS_URL);
+  const answer = await getJson<DirectoryAnswer>(CHAINS_URL, input.fetch);
+  const verifierAnswer = await getJson<VerifiersAnswer>(VERIFIERS_URL, input.fetch);
   const built = buildDirectory(answer, verifierAnswer);
   await writeFile(input.file, `${JSON.stringify(built.directory, null, 2)}\n`);
   return built;

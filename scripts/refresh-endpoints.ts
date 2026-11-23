@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { LINK_RESERVE, LINK_TOKEN, LOG_RPC_URLS } from '@ccip-dev/core';
+import { getJson } from './lib/http';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const ENDPOINTS_FILE = path.join(ROOT, 'config/endpoints.json');
@@ -270,12 +271,6 @@ export function changesMarkdown(changes: Change[]): string {
   if (changes.length === 0) return 'No changes\n';
   const rows = changes.map((c) => `| ${c.kind} | ${c.chain ?? ''} | ${c.change} | ${c.url ?? ''} |`);
   return ['| Kind | Chain | Change | URL |', '| --- | --- | --- | --- |', ...rows].join('\n') + '\n';
-}
-
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`GET ${url} failed with HTTP ${res.status}`);
-  return (await res.json()) as T;
 }
 
 async function readCurrent(): Promise<Endpoints> {

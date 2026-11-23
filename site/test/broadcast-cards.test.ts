@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { VNode } from '../worker/h';
-import { broadcastCardPath, passportSlug as corePassportSlug } from '@ccip-dev/core/broadcasts';
+import { broadcastCardPath } from '@ccip-dev/core/broadcasts';
 import { trackedMilestones } from '@ccip-dev/core/records';
-import { passportSlug } from '../src/lib/card-paths';
 import { broadcastTree } from '../worker/cards/broadcast-cards';
 import { bigSize } from '../worker/cards/broadcast-frame';
 import { reserveSvg } from '../worker/cards/reserve-card';
@@ -460,12 +459,5 @@ describe('Token Passport broadcast cards', () => {
     const statuses = [(await get(TOKEN_ID)).status, (await get(`${DAY_OF_POST}-0aaaaaaa-0000-5000-8000-000000000000`)).status];
     // #then
     expect({ statuses, drawn: texts(renderPng.mock.calls[0]?.[0]).includes('BMT Token (BMT)') }).toEqual({ statuses: [200, 404], drawn: true });
-  });
-
-  it('links to the page URL the site builds for the same token', () => {
-    // #given a registry group, an EVM row and a Canton row with no group
-    const ids = [GROUP, `${ETH}:${TOKEN}`, '9000:Amulet@DSO::1220ab'];
-    // #then
-    expect(ids.map(corePassportSlug)).toEqual(ids.map(passportSlug));
   });
 });

@@ -1,8 +1,9 @@
+import type { CheckValue } from '@ccip-dev/core';
 import { formatUtcDay } from '@ccip-dev/core/format';
 import { chainName, chainNameMap } from '@ccip-dev/core/names';
 import { passportShard, type PassportFile, type PassportFileName, type PassportToken } from '@ccip-dev/core/public-passport';
 import { passportSlug } from '../../src/lib/card-paths';
-import { CHECK_LABEL, RESULT_LABEL, type CheckKind, type CheckValue } from '../../src/lib/passport';
+import { rollup, type ResultChip } from '../../src/lib/passport';
 import { h, type VNode } from '../h';
 import { bigText, bold, broadcastFrame, cardDay, COLORS, columnLine, momentColumn, nameSize, pill, PILLS, row, type BroadcastInputs } from './broadcast-frame';
 
@@ -11,14 +12,7 @@ export interface PassportInputs extends BroadcastInputs {
   loadPassport: <N extends PassportFileName>(name: N) => Promise<PassportFile<N>>;
 }
 
-const CHECKS: readonly CheckKind[] = ['single-key', 'rate-limit', 'pool-pointer'];
-const CHIP: Record<CheckValue | 'none', { color: string; label: string }> = {
-  flagged: { color: COLORS.down, label: RESULT_LABEL.flagged },
-  'not readable': { color: COLORS.soft, label: RESULT_LABEL['not readable'] },
-  clear: { color: COLORS.up, label: RESULT_LABEL.clear },
-  none: { color: COLORS.muted, label: 'No result' },
-};
-const ORDER: Record<CheckValue | 'none', number> = { flagged: 0, 'not readable': 1, clear: 2, none: 3 };
+const CHIP_COLOR: Record<CheckValue | 'none', string> = { flagged: COLORS.down, 'not readable': COLORS.soft, clear: COLORS.up, none: COLORS.muted };
 const SHOWN_CHAINS = 4;
 
 function chainsText(token: PassportToken, names: Map<string, string>): string {
@@ -26,12 +20,11 @@ function chainsText(token: PassportToken, names: Map<string, string>): string {
   return all.length <= SHOWN_CHAINS ? all.join(' · ') : `${all.slice(0, SHOWN_CHAINS - 1).join(' · ')} +${all.length - SHOWN_CHAINS + 1} more`;
 }
 
-function resultRow(check: CheckKind, value: CheckValue | 'none'): VNode {
-  const chip = CHIP[value];
+function resultRow(chip: ResultChip): VNode {
   return row(
     [
-      h('div', { style: { display: 'flex', justifyContent: 'center', width: 200, fontSize: 22, fontWeight: 800, letterSpacing: 1, color: '#070a10', backgroundColor: chip.color, borderRadius: 6, padding: '6px 0', marginRight: 18 } }, chip.label),
-      h('div', { style: { display: 'flex', fontSize: 30, fontWeight: 700, color: COLORS.strong } }, CHECK_LABEL[check]),
+      h('div', { style: { display: 'flex', justifyContent: 'center', width: 200, fontSize: 22, fontWeight: 800, letterSpacing: 1, color: '#070a10', backgroundColor: CHIP_COLOR[chip.value ?? 'none'], borderRadius: 6, padding: '6px 0', marginRight: 18 } }, chip.label),
+      h('div', { style: { display: 'flex', fontSize: 30, fontWeight: 700, color: COLORS.strong } }, chip.checkLabel),
     ],
     { marginTop: 16 },
   );
@@ -43,7 +36,6 @@ export async function passportTree(id: string, inputs: PassportInputs): Promise<
   const token = shard.tokens.find((t) => t.id === id);
   if (token === undefined) return null;
   const names = chainNameMap(chains.chains);
-  const results = CHECKS.map((check) => ({ check, value: token.results[check] ?? ('none' as const) })).sort((a, b) => ORDER[a.value] - ORDER[b.value]);
   return broadcastFrame({
     background: [],
     eyebrow: `Token Passport · read ${cardDay(shard.day)}`,
@@ -51,7 +43,7 @@ export async function passportTree(id: string, inputs: PassportInputs): Promise<
       pill('TOKEN PASSPORT', PILLS.welcome),
       bigText(token.name, nameSize(token.name)),
       columnLine([...(token.symbol ? [bold(token.symbol), '  on  '] : ['On ']), chainsText(token, names)], { fontSize: 24, color: COLORS.soft }),
-      h('div', { style: { display: 'flex', flexDirection: 'column', marginTop: 14 } }, ...results.map((r) => resultRow(r.check, r.value))),
+      h('div', { style: { display: 'flex', flexDirection: 'column', marginTop: 14 } }, ...rollup(token.results).map(resultRow)),
     ),
     insight: ['Recording since ', bold(formatUtcDay(shard.since))],
     cta: { lead: '', path: `ccip.dev/passport/${passportSlug(id)}` },

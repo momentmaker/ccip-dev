@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isRevert, MULTICALL3, openChain, readPassportChain, type HttpDeps, type RowReading } from '@ccip-dev/core';
+import { getJson } from './lib/http';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FIXTURE_DIR = path.join(ROOT, 'packages/core/test/fixtures/passport/pools');
@@ -55,12 +56,6 @@ function recordingFetch(): { fetch: typeof fetch; calls: Map<string, RecordedAns
 
 async function readJson<T>(file: string): Promise<T> {
   return JSON.parse(await readFile(path.join(ROOT, file), 'utf8')) as T;
-}
-
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`GET ${url} failed with HTTP ${res.status}`);
-  return (await res.json()) as T;
 }
 
 const laneSelectors = (row: RowReading) => (row.status === 'read' && 'value' in row.settings.lanes ? row.settings.lanes.value.map((l) => l.remoteChainSelector) : []);

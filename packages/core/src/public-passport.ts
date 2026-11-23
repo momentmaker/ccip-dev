@@ -1,12 +1,11 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { z } from 'zod';
-import { CHECK_KINDS, DESIGN_REASONS, REASON_CODES, type CheckValue, type PartyFact, type PartyRole, type PointerState } from './passport-checks';
+import { CHECK_KINDS, DESIGN_REASONS, PARTY_ROLES, REASON_CODES, type CheckValue, type PartyFact, type PointerState } from './passport-checks';
 import type { VerifiedVia } from './passport-notes';
 import { envelope, STAKER_SHARDS } from './public';
 
 const CheckValueSchema = z.enum(['flagged', 'clear', 'not readable'] as const satisfies readonly CheckValue[]);
-const PARTY_ROLES = ['poolOwner', 'registryAdministrator', 'rateLimitAdmin', 'hooksOwner', 'proxyAdmin'] as const satisfies readonly PartyRole[];
 const PARTY_KINDS = ['wallet', 'delegated-wallet', 'safe', 'mcms', 'timelock', 'absent', 'no-key', 'unidentified', 'unanswered'] as const satisfies readonly PartyFact['kind'][];
 const POINTER_STATES = ['points', 'no-lane', 'wrong-token', 'pool-not-listed', 'not readable'] as const satisfies readonly PointerState[];
 const PartyRoleSchema = z.enum(PARTY_ROLES);

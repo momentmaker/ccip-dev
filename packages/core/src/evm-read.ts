@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { decodeAggregate3, decodeValue, encodeAggregate3, MULTICALL3, type EvmCall } from './evm-abi';
+import { decodeAggregate3, decodeValue, encodeAggregate3, HEX_DATA, MULTICALL3, type EvmCall } from './evm-abi';
 import { ethRpc, HEX_QUANTITY, isRevert, NO_RESULT, toHex, type Fetcher } from './eth-rpc';
 import type { HttpDeps } from './http';
 
@@ -38,7 +38,6 @@ export interface PinnedChain {
 
 export type CallResult = { status: 'answered'; data: string } | { status: 'reverted' } | { status: 'failed'; reason: string };
 
-const HEX_DATA = /^0x(?:[0-9a-fA-F]{2})*$/;
 const BlockHeader = z.object({ hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/), timestamp: z.string().regex(HEX_QUANTITY) });
 /** Errors that say nothing about the call itself: rate limits, server errors and a node that does not hold the block yet. */
 const RETRYABLE = /^HTTP (429|5\d\d)$|rate limit|too many requests|limit exceeded|header not found|block not found|unknown block|missing trie node|timeout|timed out/i;

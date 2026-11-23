@@ -152,8 +152,8 @@ const PLAIN_RE = /^[A-Za-z0-9]$/;
 
 /**
  * A Token Passport page id as a URL path segment: a registry group id as it is, and a row with no group,
- * `<selector>:<address>`, as `<selector>-<address>` with every byte of the address outside [A-Za-z0-9] written `_xx`.
- * The site writes its page URLs the same way (site/src/lib/card-paths.ts), and a site test holds the two together.
+ * `<selector>:<address>`, as `<selector>-<address>` with every byte of the address outside [A-Za-z0-9] written `_xx`,
+ * so Canton's `Amulet@DSO::…` and Sui's `0x…::coin::COIN` stay one safe, reversible segment.
  */
 export function passportSlug(id: string): string {
   if (GROUP_ID_RE.test(id)) return id;
@@ -217,7 +217,10 @@ export function passportPlace(unit: string): PassportPlace {
   return { check: check as CheckKind, chain, remote_chain: remoteSplit < 0 ? remote : remote.slice(0, remoteSplit) };
 }
 
-const passportPlural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+export const passportPlural = (n: number, word: string): string => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+
+/** The line that stands for the changes a token's post or card has no room for. */
+export const passportMoreText = (rest: number): string => `And ${formatCount(rest)} more on the token's page`;
 
 /** What a check's flag says, and what its clearing says, in words a reader without contract knowledge can follow. */
 const PASSPORT_FLAG: Record<CheckKind, { raised: (on: string, to: string | null) => string; cleared: (on: string, to: string | null) => string }> = {

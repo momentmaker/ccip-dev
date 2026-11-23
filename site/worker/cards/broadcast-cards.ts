@@ -1,5 +1,5 @@
 import {
-  allTimeTotal, dayTotalsFacts, passportArrivalLines, passportChangeText, passportSlug, passportSummaryParts, RECORD_TOTAL, recordDriver, recordValueText,
+  allTimeTotal, dayTotalsFacts, passportArrivalLines, passportChangeText, passportMoreText, passportPlural, passportSlug, passportSummaryParts, RECORD_TOTAL, recordDriver, recordValueText,
   weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
 } from '@ccip-dev/core/broadcasts';
 import { dataSharePct, formatCompactCount, formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
@@ -281,7 +281,7 @@ function passportTokenLines(event: Extract<PassportEvent, { kind: 'token' }>, na
 function passportBody(event: PassportEvent, names: ChainNames): VNode {
   const line = (text: string) => h('div', { style: { display: 'flex', maxWidth: MOMENT_COLUMN_WIDTH, marginTop: 10, fontSize: 22, lineHeight: 1.3, color: COLORS.soft } }, text);
   if (event.kind === 'summary') {
-    const tokens = `${formatCount(event.tokens.length)} more token${event.tokens.length === 1 ? '' : 's'}`;
+    const tokens = passportPlural(event.tokens.length, 'more token');
     const { raised, cleared, new_token: newToken, new_chain: newChain } = event.counts;
     return momentColumn(pill('TOKEN PASSPORT', PILLS.welcome), bigText(tokens, nameSize(tokens)), ...passportSummaryParts({ raised, cleared, newToken, newChain }).map(line));
   }
@@ -291,7 +291,7 @@ function passportBody(event: PassportEvent, names: ChainNames): VNode {
     pill('TOKEN PASSPORT', PILLS.welcome),
     bigText(event.name, nameSize(event.name)),
     ...lines.slice(0, PASSPORT_LINES_SHOWN).map(line),
-    rest > 0 ? line(`And ${formatCount(rest)} more on the token's page`) : null,
+    rest > 0 ? line(passportMoreText(rest)) : null,
   );
 }
 

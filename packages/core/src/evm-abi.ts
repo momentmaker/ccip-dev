@@ -20,7 +20,7 @@ export type StaticType = 'address' | 'bool' | `uint${number}` | `int${number}`;
 export type StaticValue<T extends StaticType> = T extends 'address' ? string : T extends 'bool' ? boolean : bigint;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const HEX_DATA = /^0x(?:[0-9a-fA-F]{2})*$/;
+export const HEX_DATA = /^0x(?:[0-9a-fA-F]{2})*$/;
 const WORD_LIMIT = 2n ** 256n;
 
 export function uintWord(n: bigint): string {

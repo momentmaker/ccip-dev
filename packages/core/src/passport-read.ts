@@ -1,5 +1,6 @@
 import { ABI_CAPS, addressWord, boolWord, decodeArray, decodeBytes, decodeBytesArray, decodeString, decodeTuple, decodeValue, encodeCall, uintWord, type EvmCall } from './evm-abi';
 import { readCalls, readStorage, type CallResult, type PinnedChain } from './evm-read';
+import { bySelector } from './passport-checks';
 import type { HttpDeps } from './http';
 import { sanitize } from './normalize';
 
@@ -226,7 +227,6 @@ function parseTypeAndVersion(answer: string | null): Omit<PoolType, 'standard'> 
 
 const majorOf = (line: string | null) => (line === null ? null : Number(line.split('.')[0]));
 
-const byNumber = (a: string, b: string) => (BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0);
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** A 32-byte value whose first 12 bytes are zero is a left-padded EVM address. */
@@ -332,7 +332,7 @@ function poolStage(answers: Answers, pool: string): PoolStage {
   const proxy = type !== null && PROXY_POOL_TYPES.has(type.name);
   const chains = proxy ? null : decodeArray(row.data(calls.supportedChains), 'uint64');
   const hooks = decodeValue(row.data(calls.hooks), 'address');
-  return { type, proxy, supportedChains: chains?.map(String).sort(byNumber) ?? null, hooks: hooks === ZERO_ADDRESS ? null : hooks };
+  return { type, proxy, supportedChains: chains?.map(String).sort(bySelector) ?? null, hooks: hooks === ZERO_ADDRESS ? null : hooks };
 }
 
 /** The OnRamp's generation: 1 and 2 are the CCIP lines; null when its typeAndVersion() gave no version. */

@@ -1,6 +1,6 @@
 import type { PassportPostRecord, PassportSummaryRecord, PassportTokenRecord } from '@ccip-dev/core';
-import { passportArrivalLines, passportChangeText, passportPlace, passportSlug, passportSummaryParts } from '@ccip-dev/core/broadcasts';
-import { formatCount, formatUtcDay } from '@ccip-dev/core/format';
+import { passportArrivalLines, passportChangeText, passportMoreText, passportPlace, passportPlural, passportSlug, passportSummaryParts } from '@ccip-dev/core/broadcasts';
+import { formatUtcDay } from '@ccip-dev/core/format';
 import type { ChainNames } from '@ccip-dev/core/names';
 import { bold, TELEGRAM_CAPTION_MAX, tgText, type Copy } from './broadcasts/copy';
 import type { PassportFacts } from './broadcasts/facts';
@@ -23,7 +23,7 @@ function tokenItems(record: PassportTokenRecord, names: ChainNames): string[] {
 }
 
 const summaryHead = (record: PassportSummaryRecord) =>
-  `Token Passport · ${formatCount(record.groupIds.length)} more token${record.groupIds.length === 1 ? '' : 's'} on ${formatUtcDay(record.day)}`;
+  `Token Passport · ${passportPlural(record.groupIds.length, 'more token')} on ${formatUtcDay(record.day)}`;
 
 /**
  * The head, as many items as fit, a count of the rest when some are cut, and the link. Telegram counts its 1,024 after
@@ -49,7 +49,7 @@ export function composePassportCopy(facts: PassportFacts): Copy {
   const link = passportPostUrl(record);
   const telegramHtml =
     record.kind === 'token'
-      ? fitList(bold(tgText(`Token Passport · ${record.name}`)), tokenItems(record, names).map(tgText), link, (rest) => `And ${formatCount(rest)} more on the token's page`)
+      ? fitList(bold(tgText(`Token Passport · ${record.name}`)), tokenItems(record, names).map(tgText), link, passportMoreText)
       : fitList(bold(tgText(summaryHead(record))), [tgText(passportSummaryParts(record.counts).join(', '))], link, () => '');
   return { xText: '', telegramHtml };
 }

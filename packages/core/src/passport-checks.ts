@@ -200,13 +200,14 @@ interface Outcome {
   basis: unknown;
 }
 
-const ROLES: readonly PartyRole[] = ['poolOwner', 'registryAdministrator', 'rateLimitAdmin', 'hooksOwner', 'proxyAdmin'];
+export const PARTY_ROLES = ['poolOwner', 'registryAdministrator', 'rateLimitAdmin', 'hooksOwner', 'proxyAdmin'] as const satisfies readonly PartyRole[];
 
 const hash = (value: unknown) => bytesToHex(sha256(utf8ToBytes(JSON.stringify(value)))).slice(0, BASIS_HEX);
 const ageDays = (day: string, today: string) => (Date.parse(today) - Date.parse(day)) / DAY_MS;
 const rowKey = (ref: RowRef) => `${ref.chain}:${ref.token}`;
-const byChain = (a: string, b: string) => (BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0);
-const byRef = (a: RowRef, b: RowRef) => byChain(a.chain, b.chain) || (a.token < b.token ? -1 : a.token > b.token ? 1 : 0);
+/** Chain selectors in numeric order. */
+export const bySelector = (a: string, b: string): number => (BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0);
+const byRef = (a: RowRef, b: RowRef) => bySelector(a.chain, b.chain) || (a.token < b.token ? -1 : a.token > b.token ? 1 : 0);
 const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 function rowState(row: PassportRow, today: string): RowState {
@@ -250,7 +251,7 @@ function perHour(finality: 'standard' | 'fast', limit: RateLimit, row: PassportR
 
 function partyFacts(reading: StoredReading): PartyFact[] {
   const { settings, parties } = reading;
-  return ROLES.flatMap((role): PartyFact[] => {
+  return PARTY_ROLES.flatMap((role): PartyFact[] => {
     const party = settings.parties[role];
     if (party.state === 'missing') return [];
     if (party.state === 'absent') return [{ role, address: null, kind: 'absent', signers: null, keys: null }];
@@ -452,7 +453,7 @@ function rowResults(rows: readonly Row[], row: Row, input: EvaluateInput): Check
 
 /** The group's other chains, for keying the lane results of a row whose lanes are unknown; [null] when there are none. */
 function otherChains(rows: readonly Row[], row: Row): (string | null)[] {
-  const chains = [...new Set(rows.map((r) => r.ref.chain).filter((c) => c !== row.ref.chain))].sort(byChain);
+  const chains = [...new Set(rows.map((r) => r.ref.chain).filter((c) => c !== row.ref.chain))].sort(bySelector);
   return chains.length > 0 ? chains : [null];
 }
 
@@ -554,7 +555,7 @@ export interface GroupName {
 
 /** KTD2: the most common non-blank symbol and name; a tie goes to the Ethereum row, then to the lowest chain selector. */
 export function groupName(rows: readonly NamedRow[]): GroupName {
-  const preferred = [...rows].sort((a, b) => Number(b.chain === ETHEREUM_SELECTOR) - Number(a.chain === ETHEREUM_SELECTOR) || byChain(a.chain, b.chain));
+  const preferred = [...rows].sort((a, b) => Number(b.chain === ETHEREUM_SELECTOR) - Number(a.chain === ETHEREUM_SELECTOR) || bySelector(a.chain, b.chain));
   const first = preferred[0];
   if (first === undefined) throw new Error('a group has at least one row');
   const mostCommon = (pick: (r: NamedRow) => string | null): string | null => {

@@ -1,3 +1,4 @@
+import type { CheckKind, CheckValue, ReasonCode } from '@ccip-dev/core';
 import {
   passportShard, type PassportChainRow, type PassportEvent, type PassportIndexFile, type PassportLane, type PassportLogEntry, type PassportShardFile, type PassportShardName,
   type PassportStatementView, type PassportToken,
@@ -11,14 +12,11 @@ import { chainName, shortAddress, type ChainNames } from './names';
 import type { PassportFilterRow } from './passport-filter';
 import { addressExplorerUrl, xProfileUrl } from './projects';
 
-export type CheckKind = 'single-key' | 'rate-limit' | 'pool-pointer';
-export type CheckValue = 'flagged' | 'clear' | 'not readable';
 type SingleKey = NonNullable<PassportChainRow['single_key']>;
 type RateLimit = NonNullable<PassportLane['rate_limit']>;
 type Pointer = PassportLane['pointers'][number];
 type Party = SingleKey['parties'][number];
 type Result = SingleKey | RateLimit | Pointer;
-export type ReasonCode = SingleKey['reason'];
 
 const CHECKS: readonly CheckKind[] = ['single-key', 'rate-limit', 'pool-pointer'];
 export const CHECK_LABEL: Record<CheckKind, string> = { 'single-key': 'Single key', 'rate-limit': 'Rate limit', 'pool-pointer': 'Pool pointers' };
@@ -132,7 +130,7 @@ export function resultChip(check: CheckKind, value: CheckValue | null): ResultCh
 
 const rank = (value: CheckValue | null) => (value === null ? 3 : RANK[value]);
 
-function rollup(results: PassportToken['results']): ResultChip[] {
+export function rollup(results: PassportToken['results']): ResultChip[] {
   return CHECKS.map((c) => resultChip(c, results[c])).sort((a, b) => rank(a.value) - rank(b.value));
 }
 
