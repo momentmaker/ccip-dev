@@ -145,29 +145,37 @@ async function chainsToRead(c: RunContext, today: string): Promise<ReadableChain
  */
 async function readChains(c: RunContext, chains: readonly ReadableChain[], today: string): Promise<ReadableChain[]> {
   const deadline = c.deps.now().getTime() + RUN_BUDGET_MS;
-  let onRamps: LaneOnRamps | null = null;
+  let onRamps: LaneOnRamps | null | undefined;
   const untried: ReadableChain[] = [];
   for (const chain of chains) {
     if (deadline - c.deps.now().getTime() < CHAIN_TIME_LIMIT_MS) {
       untried.push(chain);
       continue;
     }
-    onRamps ??= await laneOnRamps(c, today);
-    if ((await readChain(c, chain, onRamps[chain.ref.selector] ?? {}, today)) === 'retry') untried.push(chain);
+    if (onRamps === undefined) onRamps = await laneOnRamps(c, today);
+    if (onRamps === null || (await readChain(c, chain, onRamps[chain.ref.selector] ?? {}, today)) === 'retry') untried.push(chain);
   }
   return untried;
 }
 
-/** Each lane's OnRamp from the keyless lanes endpoint, fetched once a day; a failed fetch fails the run, which retries next hour. */
-async function laneOnRamps(c: RunContext, today: string): Promise<LaneOnRamps> {
+/**
+ * Each lane's OnRamp from the keyless lanes endpoint, fetched once a day. When the endpoint fails, the last stored list
+ * stands in (lanes rarely change in a day); with none stored, null leaves the chains untried, so the run that closes the
+ * day still evaluates and reports them instead of failing on every try.
+ */
+async function laneOnRamps(c: RunContext, today: string): Promise<LaneOnRamps | null> {
   const stored = await store.getMeta(c.env.DB, META.onRamps);
-  if (stored !== null) {
-    const kept = JSON.parse(stored) as { day: string; onRamps: LaneOnRamps };
-    if (kept.day === today) return kept.onRamps;
+  const kept = stored === null ? null : (JSON.parse(stored) as { day: string; onRamps: LaneOnRamps });
+  if (kept?.day === today) return kept.onRamps;
+  try {
+    const onRamps = await listLaneOnRamps(c.deps, c.env.CCIP_API_BASE);
+    await store.setMeta(c.env.DB, META.onRamps, JSON.stringify({ day: today, onRamps }));
+    return onRamps;
+  } catch (err) {
+    const fallback = kept === null ? 'no stored lane list, so no chain is read this run' : `reading with the lane list from ${kept.day}`;
+    await c.alert('passport-lanes', `The CCIP lanes endpoint failed (${messageOf(err)}); ${fallback}`);
+    return kept?.onRamps ?? null;
   }
-  const onRamps = await listLaneOnRamps(c.deps, c.env.CCIP_API_BASE);
-  await store.setMeta(c.env.DB, META.onRamps, JSON.stringify({ day: today, onRamps }));
-  return onRamps;
 }
 
 type ReadRow = Extract<RowReading, { status: 'read' }>;

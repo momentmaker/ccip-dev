@@ -153,6 +153,7 @@ const seedBurnMint = () => seed([ETHEREUM], [{ chain: ETHEREUM, address: BURN_MI
 /** The no-pool fixture on another chain: its registry calls moved to that chain's registry. */
 const noPoolOn = (chain: NetworkInfo, extra: Partial<ChainSpec> = {}): ChainSpec => ({ chain, calls: recorded(NO_POOL, REGISTRY[chain.chainSelector]!.tokenAdminRegistry), ...extra });
 const NO_LANES = lanesRoute({});
+const LANES_DOWN: FakeRoute = (url) => (url === LANES_URL ? new Response('', { status: 503 }) : undefined);
 
 const all = async <T>(sql: string, ...params: unknown[]) => (await env.DB.prepare(sql).bind(...params).all<T>()).results;
 const meta = (key: string) => store.getMeta(env.DB, key);
@@ -463,6 +464,30 @@ describe('runPassport across hourly runs', () => {
     // #then
     const incomplete = alerts.filter((a) => a.signature === 'passport-incomplete');
     expect({ evaluated: await meta('passport:evaluated'), alerts: incomplete.length, named: incomplete[0]?.text.includes(BASE.name) }).toEqual({ evaluated: D1, alerts: 1, named: true });
+  });
+
+  it('still evaluates at 22:00 UTC when the lanes endpoint is down and no lane list is stored', async () => {
+    // #given
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token }]);
+    // #when
+    const { alerts } = await run(at(D1, 22), () => [LANES_DOWN, chainRoute(noPoolOn(ETHEREUM), D1)]);
+    // #then
+    const incomplete = alerts.filter((a) => a.signature === 'passport-incomplete');
+    expect({
+      evaluated: await meta('passport:evaluated'),
+      incompleteNamesEthereum: incomplete[0]?.text.includes(ETHEREUM.name),
+      lanesAlert: alerts.some((a) => a.signature === 'passport-lanes'),
+    }).toEqual({ evaluated: D1, incompleteNamesEthereum: true, lanesAlert: true });
+  });
+
+  it('reads with the last stored lane list when the lanes endpoint is down', async () => {
+    // #given
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token }]);
+    await run(at(D1), () => [NO_LANES, chainRoute(noPoolOn(ETHEREUM), D1)]);
+    // #when
+    const { alerts } = await run(at(D2), () => [LANES_DOWN, chainRoute(noPoolOn(ETHEREUM), D2)]);
+    // #then
+    expect({ okDay: (await chainState(ETHEREUM))?.ok_day, lanesAlert: alerts.some((a) => a.signature === 'passport-lanes') }).toEqual({ okDay: D2, lanesAlert: true });
   });
 });
 
