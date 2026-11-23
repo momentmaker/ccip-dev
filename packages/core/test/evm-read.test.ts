@@ -2,7 +2,7 @@ import { keccak_256 } from '@noble/hashes/sha3.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import { encodeCall, MULTICALL3, uintWord, type EvmCall } from '../src/evm-abi';
-import { openChain, readCalls, type CallResult } from '../src/evm-read';
+import { openChain, readCalls, readCode, readStorage, type CallResult } from '../src/evm-read';
 import type { HttpDeps } from '../src/http';
 import { evmCallKey, fakeEvmChain, fakeFetch, type FakeEvmChain, type FakeEvmChainOptions, type RecordedCall } from '../src/testing';
 import recorded from './fixtures/evm/ethereum-link-pool.json';
@@ -165,5 +165,42 @@ describe('readCalls', () => {
       { status: 'failed', reason: expect.stringMatching(/out of gas/) },
       ANSWERED_TOKEN,
     ]);
+  });
+});
+
+describe('readCode and readStorage', () => {
+  const OWNER_EOA = '0x00000000000000000000000000000000000000e0';
+  const ADMIN_SLOT = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
+  const ADMIN_WORD = `0x${'0'.repeat(24)}${'ad'.repeat(20)}`;
+
+  it('reads the code at an address at the pinned block, and an address with none answers 0x', async () => {
+    const fake = chain({ code: { [LINK_POOL]: '0x6080ABCD' } });
+    const deps = depsFor(fake);
+    const pinned = await openChain(deps, RPC, { chainId: 1 });
+    expect(await readCode(deps, pinned, LINK_POOL)).toEqual({ status: 'answered', data: '0x6080abcd' });
+    expect(await readCode(deps, pinned, OWNER_EOA)).toEqual({ status: 'answered', data: '0x' });
+    expect(fake.requests.filter((r) => r.method === 'eth_getCode').at(-1)?.params).toEqual([OWNER_EOA, PINNED]);
+  });
+
+  it('reads one storage slot at the pinned block', async () => {
+    const fake = chain({ storage: { [`${LINK_POOL}:${ADMIN_SLOT}`]: ADMIN_WORD } });
+    const deps = depsFor(fake);
+    const pinned = await openChain(deps, RPC, { chainId: 1 });
+    expect(await readStorage(deps, pinned, LINK_POOL, ADMIN_SLOT)).toEqual({ status: 'answered', data: ADMIN_WORD });
+    expect(fake.requests.at(-1)).toEqual({ method: 'eth_getStorageAt', params: [LINK_POOL, ADMIN_SLOT, PINNED] });
+  });
+
+  it('fails only the read when the node refuses eth_getStorageAt', async () => {
+    const deps = depsFor(chain({ storage: 'unsupported' }));
+    const pinned = await openChain(deps, RPC, { chainId: 1 });
+    expect(await readStorage(deps, pinned, LINK_POOL, ADMIN_SLOT)).toEqual({ status: 'failed', reason: expect.stringMatching(/does not exist/) });
+  });
+
+  it('retries eth_getCode on a rate limit and answers once the endpoint does', async () => {
+    const fake = chain({ code: { [LINK_POOL]: '0x60' }, hiccups: { eth_getCode: [429] } });
+    const deps = depsFor(fake);
+    const pinned = await openChain(deps, RPC, { chainId: 1, });
+    fake.requests.length = 0;
+    expect(await readCode(deps, pinned, LINK_POOL)).toEqual({ status: 'answered', data: '0x60' });
   });
 });

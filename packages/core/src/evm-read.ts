@@ -108,9 +108,9 @@ export async function openChain(deps: HttpDeps, rpcUrl: string, options: OpenCha
   return { rpcUrl, chainId, block, blockHash: header.hash.toLowerCase(), timestamp, multicall3 };
 }
 
-async function readOne(deps: HttpDeps, chain: PinnedChain, call: EvmCall): Promise<CallResult> {
+async function nodeRead(deps: HttpDeps, chain: PinnedChain, method: string, params: unknown[]): Promise<CallResult> {
   try {
-    const data = await request(deps, chain.rpcUrl, 'eth_call', [{ to: call.to, data: call.data }, toHex(chain.block)]);
+    const data = await request(deps, chain.rpcUrl, method, params);
     if (typeof data !== 'string' || !HEX_DATA.test(data)) return { status: 'failed', reason: 'malformed answer' };
     return { status: 'answered', data: data.toLowerCase() };
   } catch (err) {
@@ -118,6 +118,19 @@ async function readOne(deps: HttpDeps, chain: PinnedChain, call: EvmCall): Promi
     const message = messageOf(err);
     return isRevert(message) ? { status: 'reverted' } : { status: 'failed', reason: message };
   }
+}
+
+const readOne = (deps: HttpDeps, chain: PinnedChain, call: EvmCall): Promise<CallResult> =>
+  nodeRead(deps, chain, 'eth_call', [{ to: call.to, data: call.data }, toHex(chain.block)]);
+
+/** The code at an address at the pinned block; `0x` when it has none. */
+export function readCode(deps: HttpDeps, chain: PinnedChain, address: string): Promise<CallResult> {
+  return nodeRead(deps, chain, 'eth_getCode', [address, toHex(chain.block)]);
+}
+
+/** One storage word at the pinned block. A node that refuses eth_getStorageAt fails this read alone. */
+export function readStorage(deps: HttpDeps, chain: PinnedChain, address: string, slot: string): Promise<CallResult> {
+  return nodeRead(deps, chain, 'eth_getStorageAt', [address, slot, toHex(chain.block)]);
 }
 
 /** One aggregate3 request; a batch it cannot answer is halved until each call stands alone. */

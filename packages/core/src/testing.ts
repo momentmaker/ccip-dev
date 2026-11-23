@@ -413,6 +413,10 @@ export interface FakeEvmChainOptions {
   multicall3?: 'absent' | { chainId: number };
   /** Failures for a method's requests, first to last, before it answers normally. */
   hiccups?: Partial<Record<string, EvmHiccup[]>>;
+  /** Code by address; any other address has none, except Multicall3. */
+  code?: Record<string, string>;
+  /** Storage words by `${address}:${slot}`, an unset slot reading zero; or a node that refuses eth_getStorageAt. */
+  storage?: Record<string, string> | 'unsupported';
 }
 
 export type FakeEvmChain = FakeRoute & { requests: { method: string; params: unknown[] }[] };
@@ -479,8 +483,15 @@ export function fakeEvmChain(opts: FakeEvmChainOptions): FakeEvmChain {
         const n = Number(BigInt(String(body.params[0])));
         return result(n > opts.latest ? null : { number: `0x${n.toString(16)}`, hash: `0x${abiWord(n)}`, timestamp: `0x${opts.timestamp.toString(16)}` });
       }
-      case 'eth_getCode':
-        return result(String(body.params[0]).toLowerCase() === MULTICALL3.address && multicallId !== null ? '0x6080604052' : '0x');
+      case 'eth_getCode': {
+        const address = String(body.params[0]).toLowerCase();
+        if (address === MULTICALL3.address) return result(multicallId !== null ? '0x6080604052' : '0x');
+        return result(opts.code?.[address] ?? '0x');
+      }
+      case 'eth_getStorageAt': {
+        if (opts.storage === 'unsupported') return error(-32601, 'the method eth_getStorageAt does not exist/is not available');
+        return result(opts.storage?.[`${String(body.params[0]).toLowerCase()}:${String(body.params[1]).toLowerCase()}`] ?? `0x${abiWord(0)}`);
+      }
       case 'eth_call': {
         const { to, data } = body.params[0] as { to: string; data: string };
         if (to.toLowerCase() === MULTICALL3.address && multicallId !== null) {
