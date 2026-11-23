@@ -1,5 +1,5 @@
 import {
-  bySelector, ChainReadError, classifyParties, confirmArrivals, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, PARTY_ROLES, passportCorrections,
+  bySelector, ChainReadError, classifyParties, confirmArrivals, createThrottle, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, PARTY_ROLES, passportCorrections,
   passportNotesHash, planPassportPosts, readPassportChain, stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
   type ArrivalItem, type ArrivalReading, type ArrivingRow, type ChainRef, type CheckResult, type CheckValue, type Correction, type DesignReason, type HttpDeps, type LaneOnRamps,
   type PartyClassification, type PassportRow, type RawLane, type RawSettings, type Readable, type RateLimit, type RowReading, type StoredReading,
@@ -26,6 +26,8 @@ export const RUN_BUDGET_MS = 4 * 60_000;
  * 150-250 ms a keyless endpoint takes is two to three minutes.
  */
 export const CHAIN_TIME_LIMIT_MS = 3 * 60_000;
+/** Start-to-start spacing of one chain's requests: back-to-back reads drew HTTP 429 from public endpoints. */
+const REQUEST_INTERVAL_MS = 150;
 const LISTED_WITHIN_DAYS = 7;
 const TRIES_PER_DAY = 2;
 const CHAIN_ALERT_AFTER = 3;
@@ -198,10 +200,15 @@ async function readChain(c: RunContext, chain: ReadableChain, onRamps: Readonly<
   const limitAt = c.deps.now().getTime() + CHAIN_TIME_LIMIT_MS;
   const pastLimit = () => c.deps.now().getTime() >= limitAt;
   const overLimit = () => new ChainReadError('endpoint', `${ref.name}: the reading passed its ${CHAIN_TIME_LIMIT_MS / 1000} s time limit`);
+  const paced = createThrottle(c.deps, REQUEST_INTERVAL_MS);
   const deps: HttpDeps = {
     sleep: c.deps.sleep,
     clock: c.deps.clock,
-    fetch: (input, init) => (pastLimit() ? Promise.reject(overLimit()) : c.deps.fetch(input, init)),
+    fetch: async (input, init) => {
+      await paced();
+      if (pastLimit()) throw overLimit();
+      return c.deps.fetch(input, init);
+    },
   };
   const tries = (state?.triedDay === today ? state.attempts : 0) + 1;
   try {

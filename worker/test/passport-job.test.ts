@@ -125,6 +125,8 @@ interface Run {
 interface RunOptions {
   passportNotes?: PassportNotes;
   db?: D1Database;
+  sleep?: (ms: number) => Promise<void>;
+  clock?: () => number;
 }
 
 /** One hourly run at `iso`; `advance` moves the run's clock, as a slow endpoint would. */
@@ -364,6 +366,21 @@ describe('runPassport across hourly runs', () => {
       second: rpcHosts(second.urls),
       evaluated: await meta('passport:evaluated'),
     }).toEqual({ first: 2, second: THREE.map((c) => RPC[c.name]!).filter((u) => !firstHosts.includes(u)), evaluated: D1 });
+  });
+
+  it("leaves at least 150 ms between the starts of two requests to a chain's endpoint", async () => {
+    // #given
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token }]);
+    let clockMs = 0;
+    const starts: number[] = [];
+    const sleep = async (ms: number) => {
+      clockMs += ms;
+    };
+    // #when
+    await run(at(D1), () => [NO_LANES, chainRoute(noPoolOn(ETHEREUM, { onRequest: () => starts.push(clockMs) }), D1)], ON, { sleep, clock: () => clockMs });
+    // #then
+    const gaps = starts.slice(1).map((start, i) => start - starts[i]!);
+    expect({ read: (await chainState(ETHEREUM))?.ok_day, requests: starts.length > 5, closest: Math.min(...gaps) }).toEqual({ read: D1, requests: true, closest: 150 });
   });
 
   it('does no reading in a run after the day was evaluated', async () => {

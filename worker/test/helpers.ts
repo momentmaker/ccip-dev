@@ -43,6 +43,8 @@ export function harness(opts: {
   creKeys?: CreKeySet;
   passportNotes?: PassportNotes;
   fetch?: typeof fetch;
+  sleep?: Deps['sleep'];
+  clock?: Deps['clock'];
   db?: D1Database;
   env?: Partial<Env>;
 }): Harness {
@@ -53,8 +55,8 @@ export function harness(opts: {
   };
   const deps: Deps = {
     fetch: opts.fetch ?? ((async () => { throw new Error('unexpected network call in test'); }) as unknown as typeof fetch),
-    sleep: async () => {},
-    clock: () => 0,
+    sleep: opts.sleep ?? (async () => {}),
+    clock: opts.clock ?? (() => 0),
     now: () => now,
   };
   const c = createRunContext({ ...env, ...(opts.db ? { DB: opts.db } : {}), ...opts.env }, deps, {
