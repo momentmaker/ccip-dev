@@ -749,4 +749,29 @@ describe('runPassport post records evaluated again', () => {
     // #then
     expect({ count: before.length, after: await posts() }).toEqual({ count: 11, after: before });
   });
+
+  it('keeps the post cap and names no token twice when a correction re-evaluates a day whose summary and flag post went out', async () => {
+    // #given a flag raise on BMT and eleven unreadable arrivals on D3: BMT and nine arrivals get records, two share the summary
+    await seedBurnMint();
+    await burnMintDay(D1, SAFE);
+    const late = Array.from({ length: 11 }, (_, i) => ({ chain: NOWHERE, address: `0x${(i + 1).toString(16).padStart(40, '0')}`, group: `group-${String(i).padStart(2, '0')}`, symbol: `T${i}`, seenAt: `${D2}T00:30:00.000Z` }));
+    await seed([ETHEREUM, NOWHERE], late);
+    await burnMintDay(D2, WALLET);
+    await burnMintDay(D3, WALLET);
+    const before = await posts();
+    const sent = before.filter((p) => p.kind === 'summary' || p.group_id === GROUP);
+    for (const p of sent) await store.setMeta(env.DB, `broadcast:passport:${p.id}`, 'sent:2026-11-26T01:05:00.000Z');
+    // #when the correction clears BMT's raise, so the day's planning changes
+    await run(at(D3, 2), () => [], ON, { passportNotes: clearing(await basis()) });
+    // #then
+    const after = await posts();
+    const groups = after.flatMap((p) => (p.kind === 'token' ? [p.group_id!] : (JSON.parse(p.facts) as { groupIds: string[] }).groupIds));
+    expect({
+      sentBefore: sent.map((p) => p.kind),
+      tokenRecords: after.filter((p) => p.kind === 'token').length,
+      summaries: after.filter((p) => p.kind === 'summary').length,
+      namedTwice: groups.filter((g, i) => groups.indexOf(g) !== i),
+      sentAfter: after.filter((p) => sent.some((s) => s.id === p.id)),
+    }).toEqual({ sentBefore: ['token', 'summary'], tokenRecords: 10, summaries: 1, namedTwice: [], sentAfter: sent });
+  });
 });

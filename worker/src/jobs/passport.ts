@@ -428,7 +428,7 @@ async function evaluateDay(c: RunContext, input: DayInput): Promise<Publication>
   await store.runBatch(db, queue.splice(0));
   await passportStore.replaceCorrectionLog(db, day.today, tally.corrections);
 
-  const records = planPassportPosts({ day: day.today, changes: tally.changes, arrivals: tally.arrivals, names: tally.names });
+  const records = planPassportPosts({ day: day.today, changes: tally.changes, arrivals: tally.arrivals, names: tally.names, kept: await passportStore.keptPosts(db, day.today) });
   await passportStore.replacePosts(db, day.today, records, postState(day.config));
   await passportStore.markDuePosts(db, day.today, c.deps.now().toISOString());
 

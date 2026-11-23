@@ -202,17 +202,26 @@ export type PassportPostRecord = PassportTokenRecord | PassportSummaryRecord;
 
 const compareChange = (a: WireChange, b: WireChange) => a.unit.localeCompare(b.unit) || a.kind.localeCompare(b.kind);
 
+const groupsOf = (r: PassportPostRecord): string[] => (r.kind === 'token' ? [r.groupId] : r.groupIds);
+
 /**
  * KTD16, R34 and R35: one record per token for the first ten, flag changes ahead of arrivals and then by name, and
  * one summary record for the rest. Ids derive from the day, so a second evaluation that day replaces the records.
+ * `kept` are the day's records already claimed or sent, which never change: their tokens keep their slots and are not
+ * planned again, new token records fill only the slots left, and beside a kept summary a token that no longer fits
+ * gets no record.
  */
 export function planPassportPosts(input: {
   day: string;
   changes: readonly WireChange[];
   arrivals: readonly ArrivalItem[];
   names: Readonly<Record<string, string>>;
+  kept: readonly PassportPostRecord[];
 }): PassportPostRecord[] {
-  const groupIds = new Set([...input.changes.map((c) => c.groupId), ...input.arrivals.map((a) => a.groupId)]);
+  const covered = new Set(input.kept.flatMap(groupsOf));
+  const keptTokens = input.kept.filter((r): r is PassportTokenRecord => r.kind === 'token').sort((a, b) => a.id.localeCompare(b.id));
+  const keptSummary = input.kept.find((r): r is PassportSummaryRecord => r.kind === 'summary');
+  const groupIds = new Set([...input.changes.map((c) => c.groupId), ...input.arrivals.map((a) => a.groupId)].filter((g) => !covered.has(g)));
   const tokens: PassportTokenRecord[] = [...groupIds].map((groupId) => {
     const name = input.names[groupId];
     if (name === undefined) throw new Error(`planPassportPosts: no name for token group ${groupId}`);
@@ -228,8 +237,10 @@ export function planPassportPosts(input: {
   });
   tokens.sort((a, b) => Number(b.changes.length > 0) - Number(a.changes.length > 0) || a.name.localeCompare(b.name) || a.groupId.localeCompare(b.groupId));
 
-  const posted = tokens.slice(0, WIRE_TOKEN_POSTS);
-  const rest = tokens.slice(WIRE_TOKEN_POSTS);
+  const slots = Math.max(0, WIRE_TOKEN_POSTS - keptTokens.length);
+  const posted = [...keptTokens, ...tokens.slice(0, slots)];
+  const rest = tokens.slice(slots);
+  if (keptSummary !== undefined) return [...posted, keptSummary];
   if (rest.length === 0) return posted;
 
   const changes = rest.flatMap((t) => t.changes);

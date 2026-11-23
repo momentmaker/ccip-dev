@@ -338,6 +338,13 @@ async function claimedPosts(db: D1Database, day: string, ids: readonly string[])
   }));
 }
 
+/** The day's post records already claimed or sent, which stay as they are (KTD16), so planning the day again counts them in. */
+export async function keptPosts(db: D1Database, day: string): Promise<PassportPostRecord[]> {
+  const { results } = await db.prepare('SELECT id, facts FROM passport_posts WHERE day = ? ORDER BY id').bind(day).all<{ id: string; facts: string }>();
+  const claimed = await claimedPosts(db, day, results.map((r) => r.id));
+  return results.filter((r) => claimed.has(r.id)).map((r) => JSON.parse(r.facts) as PassportPostRecord);
+}
+
 /**
  * One day's post records replace that day's earlier ones in one batch, but KTD16 holds for a record already claimed or sent:
  * it stays exactly as it was, so a second evaluation that day never rewrites what went out or is going out. A record

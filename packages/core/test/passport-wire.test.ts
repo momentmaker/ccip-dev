@@ -6,6 +6,8 @@ import {
   WIRE_UNREAD,
   type ArrivalItem,
   type ArrivingRow,
+  type PassportPostRecord,
+  type PassportSummaryRecord,
   type SettledRow,
   type WireChange,
   type WireEvent,
@@ -417,24 +419,25 @@ const arrival = (groupId: string, kind: ArrivalItem['kind'] = 'new token'): Arri
 });
 const tokenName = (n: number) => `Token ${String(n).padStart(2, '0')}`;
 
+/** 25 tokens, 3 with flag changes and the rest arriving, with nothing claimed or sent yet. */
+function busyDay() {
+  const names: Record<string, string> = {};
+  for (let n = 1; n <= 25; n++) names[`g${n}`] = tokenName(n);
+  const flagged = [20, 22, 24];
+  const changes = flagged.map((n) => raise(`g${n}`));
+  const arrivals = Array.from({ length: 25 }, (_, i) => i + 1)
+    .filter((n) => !flagged.includes(n))
+    .map((n) => arrival(`g${n}`, n % 2 === 0 ? 'new chain' : 'new token'));
+  return { day: D(3), changes, arrivals, names, kept: [] as PassportPostRecord[] };
+}
+
 describe('planPassportPosts', () => {
   it('gives a token with a flag raise and a new chain on one day one record carrying both', () => {
-    const records = planPassportPosts({ day: D(3), changes: [raise('g1')], arrivals: [arrival('g1', 'new chain')], names: { g1: 'Alpha' } });
+    const records = planPassportPosts({ day: D(3), changes: [raise('g1')], arrivals: [arrival('g1', 'new chain')], names: { g1: 'Alpha' }, kept: [] });
     expect(records).toEqual([
       { id: `${D(3)}-g1`, day: D(3), kind: 'token', groupId: 'g1', name: 'Alpha', changes: [raise('g1')], arrivals: [arrival('g1', 'new chain')] },
     ]);
   });
-
-  const busyDay = () => {
-    const names: Record<string, string> = {};
-    for (let n = 1; n <= 25; n++) names[`g${n}`] = tokenName(n);
-    const flagged = [20, 22, 24];
-    const changes = flagged.map((n) => raise(`g${n}`));
-    const arrivals = Array.from({ length: 25 }, (_, i) => i + 1)
-      .filter((n) => !flagged.includes(n))
-      .map((n) => arrival(`g${n}`, n % 2 === 0 ? 'new chain' : 'new token'));
-    return { day: D(3), changes, arrivals, names };
-  };
 
   it('AE12: 25 tokens, 3 with flag changes, give ten token records with the flag changes first and one summary of fifteen', () => {
     const records = planPassportPosts(busyDay());
@@ -454,7 +457,7 @@ describe('planPassportPosts', () => {
   it('gives exactly ten tokens ten token records and no summary', () => {
     const groups = Array.from({ length: 10 }, (_, i) => `g${i + 1}`);
     const names = Object.fromEntries(groups.map((g, i) => [g, tokenName(i + 1)]));
-    const records = planPassportPosts({ day: D(3), changes: [], arrivals: groups.map((g) => arrival(g)), names });
+    const records = planPassportPosts({ day: D(3), changes: [], arrivals: groups.map((g) => arrival(g)), names, kept: [] });
     expect(records).toHaveLength(10);
     expect(records.every((r) => r.kind === 'token')).toBe(true);
   });
@@ -471,7 +474,52 @@ describe('planPassportPosts', () => {
   });
 
   it('orders tokens with the same name by group id', () => {
-    const records = planPassportPosts({ day: D(3), changes: [], arrivals: [arrival('gb'), arrival('ga')], names: { ga: 'EARNM', gb: 'EARNM' } });
+    const records = planPassportPosts({ day: D(3), changes: [], arrivals: [arrival('gb'), arrival('ga')], names: { ga: 'EARNM', gb: 'EARNM' }, kept: [] });
     expect(records.map((r) => r.id)).toEqual([`${D(3)}-ga`, `${D(3)}-gb`]);
+  });
+});
+
+describe('planPassportPosts with records already claimed or sent that day', () => {
+  const ids = (...groups: string[]) => groups.map((g) => `${D(3)}-${g}`);
+  const morning = () => planPassportPosts(busyDay());
+  const recordOf = (records: readonly PassportPostRecord[], id: string) => records.find((r) => r.id === id)!;
+
+  it('keeps a sent token record in its slot when a new flag change pushes its token past the tenth', () => {
+    // #given g7, tenth in the morning, went out; a correction then raises a flag on g8
+    const sent = recordOf(morning(), `${D(3)}-g7`);
+    const evening = busyDay();
+    // #when
+    const records = planPassportPosts({ ...evening, changes: [...evening.changes, raise('g8')], kept: [sent] });
+    // #then
+    const summary = records.at(-1) as PassportSummaryRecord;
+    expect({ ids: records.map((r) => r.id), kept: recordOf(records, sent.id), summary: summary.groupIds }).toEqual({
+      ids: [...ids('g7', 'g8', 'g20', 'g22', 'g24', 'g1', 'g2', 'g3', 'g4', 'g5'), `${D(3)}-summary`],
+      kept: sent,
+      summary: ['g6', 'g9', 'g10', 'g11', 'g12', 'g13', 'g14', 'g15', 'g16', 'g17', 'g18', 'g19', 'g21', 'g23', 'g25'],
+    });
+  });
+
+  it('gives no token named in a sent summary a record of its own', () => {
+    // #given the morning summary went out; a correction then raises a flag on g8, one of its tokens
+    const sent = recordOf(morning(), `${D(3)}-summary`);
+    const evening = busyDay();
+    // #when
+    const records = planPassportPosts({ ...evening, changes: [...evening.changes, raise('g8')], kept: [sent] });
+    // #then
+    expect({ ids: records.map((r) => r.id), summary: recordOf(records, sent.id) }).toEqual({
+      ids: [...ids('g20', 'g22', 'g24', 'g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7'), `${D(3)}-summary`],
+      summary: sent,
+    });
+  });
+
+  it('fills a free slot beside a sent summary and gives a token that no longer fits no record', () => {
+    // #given every morning record but g7 went out; a new token g26 then arrives
+    const sent = morning().filter((r) => r.id !== `${D(3)}-g7`);
+    const evening = busyDay();
+    // #when
+    const records = planPassportPosts({ ...evening, arrivals: [...evening.arrivals, arrival('g26')], names: { ...evening.names, g26: tokenName(26) }, kept: sent });
+    // #then
+    const summaryId = `${D(3)}-summary`;
+    expect({ ids: records.map((r) => r.id).sort(), summary: recordOf(records, summaryId) }).toEqual({ ids: morning().map((r) => r.id).sort(), summary: recordOf(sent, summaryId) });
   });
 });
