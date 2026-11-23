@@ -1,0 +1,241 @@
+{
+  "methodVersion": 1,
+  "results": {
+    "ethereum/0x44835bbba9d40deda9b64858095ecfb2693c9449": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "a timelock whose proposer 0xd6597750bf74dcaec57e0f9ad2ec998d837005bf is unidentified: it answers like a Safe, but its masterCopy 0x2ed1a552c03f843a2db7de10ad390d24bb66cee0 is not a pinned Safe singleton on chain 1"
+    },
+    "ethereum/0x59a0f98345f54bab245a043488ece7fcecd7b596": {
+      "kind": "safe",
+      "signers": 1,
+      "safe": {
+        "singleton": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552",
+        "release": "1.3.0",
+        "threshold": 1,
+        "owners": 1
+      }
+    },
+    "ethereum/0x4240d629511a849d0a641600a32bdc5611d43b56": {
+      "kind": "safe",
+      "signers": 1,
+      "safe": {
+        "singleton": "0x41675c099f32341bf84bfc5382af534df5c7461a",
+        "release": "1.4.1",
+        "threshold": 1,
+        "owners": 1
+      }
+    },
+    "ethereum/0x62c212084ed4d2c1451c2e778f8ea9a15a47616b": {
+      "kind": "safe",
+      "signers": 2,
+      "safe": {
+        "singleton": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552",
+        "release": "1.3.0",
+        "threshold": 2,
+        "owners": 3
+      }
+    },
+    "ethereum/0xa75c21c5be284122a87a37a76cc6c4dd3e55a1d4": {
+      "kind": "safe",
+      "signers": 2,
+      "safe": {
+        "singleton": "0x41675c099f32341bf84bfc5382af534df5c7461a",
+        "release": "1.4.1",
+        "threshold": 2,
+        "owners": 3
+      }
+    },
+    "ethereum/0xf433c2a2d6facecdd9edd7b8ce9ceaab96f41866": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "a Safe 1.3.0 L2 with an enabled module 0xed5bd8416d59b05dd643f334dc9c858abe67b973, which can act without the owners"
+    },
+    "ethereum/0xd48ea6df9d3cdb6e3a68fb12fa6c62f66e2d9a38": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "it answers getMinDelay() but does not list its role members"
+    },
+    "ethereum/0x5300a1a15135ea4dc7ad5a167152c01efc9b192a": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "its code matches no known type"
+    },
+    "ethereum/0xd4d23209aae8630bf386b7393763a5b7865e57cb": {
+      "kind": "wallet",
+      "signers": 1
+    },
+    "ethereum/0xe72f448995db2a003a1d0d28b10291ef07af814f": {
+      "kind": "delegated-wallet",
+      "signers": 1,
+      "delegate": "0xda98669de7f4c4d5c2e41baf12574a67ecc25619"
+    },
+    "ethereum/0xe53289f32c8e690b7173aa33affe9b6b0cb0012f": {
+      "kind": "mcms",
+      "signers": 4,
+      "mcms": {
+        "rootQuorum": 2,
+        "signers": 42
+      }
+    },
+    "ethereum/0xd6597750bf74dcaec57e0f9ad2ec998d837005bf": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "it answers like a Safe, but its masterCopy 0x2ed1a552c03f843a2db7de10ad390d24bb66cee0 is not a pinned Safe singleton on chain 1"
+    },
+    "ethereum/0xd9757aa52907798d1af2fda7a6c0cc733e5acf7e": {
+      "kind": "mcms",
+      "signers": 4,
+      "mcms": {
+        "rootQuorum": 2,
+        "signers": 41
+      }
+    },
+    "ethereum/0x117ec8ad107976e1dbcc21717ff78407bc36aadc": {
+      "kind": "mcms",
+      "signers": 8,
+      "mcms": {
+        "rootQuorum": 3,
+        "signers": 68
+      }
+    },
+    "zksync/0xabb7f1aac7099a9643850a28522ebfc877f5cdc6": {
+      "kind": "timelock",
+      "signers": 4,
+      "timelock": {
+        "minDelay": "10800",
+        "members": [
+          {
+            "address": "0x846687300606559d46d95152f677701e63fbca60",
+            "roles": [
+              "proposer"
+            ],
+            "kind": "mcms",
+            "signers": 4
+          },
+          {
+            "address": "0x0a8aef9a058930e6e4e68f5f892cea8da0941eb0",
+            "roles": [
+              "proposer"
+            ],
+            "kind": "mcms",
+            "signers": 4
+          },
+          {
+            "address": "0x7b05365d4ca5e9af38fd27808c92594090b827e5",
+            "roles": [
+              "bypasser"
+            ],
+            "kind": "mcms",
+            "signers": 8
+          },
+          {
+            "address": "0x87fd1317a7d44ea623e9166092d6905e7c1a0a9b",
+            "roles": [
+              "bypasser"
+            ],
+            "kind": "mcms",
+            "signers": 8
+          }
+        ],
+        "decidedBy": [
+          "0x846687300606559d46d95152f677701e63fbca60",
+          "0x0a8aef9a058930e6e4e68f5f892cea8da0941eb0"
+        ]
+      }
+    },
+    "zksync/0x846687300606559d46d95152f677701e63fbca60": {
+      "kind": "mcms",
+      "signers": 4,
+      "mcms": {
+        "rootQuorum": 2,
+        "signers": 43
+      }
+    },
+    "zksync/0x0a8aef9a058930e6e4e68f5f892cea8da0941eb0": {
+      "kind": "mcms",
+      "signers": 4,
+      "mcms": {
+        "rootQuorum": 2,
+        "signers": 41
+      }
+    },
+    "zksync/0x7b05365d4ca5e9af38fd27808c92594090b827e5": {
+      "kind": "mcms",
+      "signers": 8,
+      "mcms": {
+        "rootQuorum": 3,
+        "signers": 72
+      }
+    },
+    "zksync/0x87fd1317a7d44ea623e9166092d6905e7c1a0a9b": {
+      "kind": "mcms",
+      "signers": 8,
+      "mcms": {
+        "rootQuorum": 3,
+        "signers": 68
+      }
+    },
+    "hand/safe-1-of-3": {
+      "kind": "safe",
+      "signers": 1,
+      "safe": {
+        "singleton": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552",
+        "release": "1.3.0",
+        "threshold": 1,
+        "owners": 3
+      }
+    },
+    "hand/safe-owners-over-cap": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "a Safe 1.4.1 whose owners or threshold do not read within bounds"
+    },
+    "hand/mcms-2-of-3": {
+      "kind": "mcms",
+      "signers": 2,
+      "mcms": {
+        "rootQuorum": 2,
+        "signers": 3
+      }
+    },
+    "hand/mcms-root-met-by-one-signer-group": {
+      "kind": "mcms",
+      "signers": 1,
+      "mcms": {
+        "rootQuorum": 1,
+        "signers": 5
+      }
+    },
+    "hand/mcms-config-without-op-count": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "getConfig() answers like an MCMS but getOpCount() does not"
+    },
+    "hand/timelocks-nested-four-deep": {
+      "kind": "unidentified",
+      "signers": null,
+      "reason": "a timelock whose proposer 0x00000000000000000000000000000000000000a7 is unidentified: a timelock whose proposer 0x00000000000000000000000000000000000000a8 is unidentified: a timelock 3 levels deep, whose members would sit deeper than 3"
+    },
+    "hand/timelocks-nested-three-deep": {
+      "kind": "timelock",
+      "signers": 1,
+      "timelock": {
+        "minDelay": "7200",
+        "members": [
+          {
+            "address": "0x00000000000000000000000000000000000000a8",
+            "roles": [
+              "proposer"
+            ],
+            "kind": "timelock",
+            "signers": 1
+          }
+        ],
+        "decidedBy": [
+          "0x00000000000000000000000000000000000000a8"
+        ]
+      }
+    }
+  }
+}
