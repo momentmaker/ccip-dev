@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-26T01:00:00.000Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "day": "2026-11-26",
+  "since": "2026-11-24",
+  "tokens": [
+    {
+      "id": "3a000000-0000-5000-8000-000000000003",
+      "name": "Clear Coin",
+      "symbol": "CLR",
+      "project": null,
+      "chains": ["5009297550715157269", "4949039107694359620"],
+      "results": { "single-key": "clear", "rate-limit": "clear", "pool-pointer": "clear" },
+      "rows": [
+        {
+          "chain": "5009297550715157269",
+          "address": "0x00000000000000000000000000000000000000c1",
+          "pool": "0x00000000000000000000000000000000000000d1",
+          "read_on": "2026-11-26",
+          "delisted_on": null,
+          "unreadable": null,
+          "single_key": {
+            "key": "single-key/5009297550715157269:0x00000000000000000000000000000000000000c1",
+            "value": "clear",
+            "reason": "multi-signer",
+            "read_on": "2026-11-26",
+            "basis": "a1a1a1a1a1a1a1a1",
+            "corrected": false,
+            "statements": [],
+            "pool_type": "BurnMintTokenPool 1.6.1",
+            "parties": [
+              { "role": "poolOwner", "address": "0x00000000000000000000000000000000000000e1", "kind": "safe", "signers": 2, "keys": 3 },
+              { "role": "registryAdministrator", "address": "0x00000000000000000000000000000000000000e2", "kind": "timelock", "signers": 4, "keys": null },
+              { "role": "rateLimitAdmin", "address": null, "kind": "absent", "signers": null, "keys": null },
+              { "role": "proxyAdmin", "address": null, "kind": "absent", "signers": null, "keys": null }
+            ],
+            "decided_by": []
+          },
+          "lanes": [
+            {
+              "remote_chain": "4949039107694359620",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x00000000000000000000000000000000000000c1/4949039107694359620",
+                "value": "clear",
+                "reason": "limit-on",
+                "read_on": "2026-11-26",
+                "basis": "b1b1b1b1b1b1b1b1",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [
+                  { "finality": "standard", "limit": "on", "units": "250000000000000000000000", "tokens": "250000", "usd": 250000 },
+                  { "finality": "fast", "limit": "on", "units": "20000000000000000000000", "tokens": "20000", "usd": 20000 }
+                ],
+                "receiving_inbound": "off",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [{ "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b", "name": "Committee Verifier (Default)" }],
+                    "threshold": { "units": "100000000000000000000000", "tokens": "100000", "verifiers": [{ "address": "0x00000000000000000000000000000000000000f1", "name": null }] }
+                  },
+                  {
+                    "direction": "inbound",
+                    "state": "listed",
+                    "verifiers": [{ "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b", "name": "Committee Verifier (Default)" }],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x00000000000000000000000000000000000000c1/4949039107694359620:0x00000000000000000000000000000000000000c2",
+                  "value": "clear",
+                  "reason": "pools-point-at-each-other",
+                  "read_on": "2026-11-26",
+                  "basis": "c1c1c1c1c1c1c1c1",
+                  "corrected": false,
+                  "statements": [],
+                  "other": { "chain": "4949039107694359620", "address": "0x00000000000000000000000000000000000000c2" },
+                  "sides": [
+                    { "from": { "chain": "5009297550715157269", "address": "0x00000000000000000000000000000000000000c1" }, "to": "4949039107694359620", "state": "points" },
+                    { "from": { "chain": "4949039107694359620", "address": "0x00000000000000000000000000000000000000c2" }, "to": "5009297550715157269", "state": "points" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "chain": "4949039107694359620",
+          "address": "0x00000000000000000000000000000000000000c2",
+          "pool": "0x00000000000000000000000000000000000000d2",
+          "read_on": "2026-11-26",
+          "delisted_on": null,
+          "unreadable": null,
+          "single_key": {
+            "key": "single-key/4949039107694359620:0x00000000000000000000000000000000000000c2",
+            "value": "clear",
+            "reason": "multi-signer",
+            "read_on": "2026-11-26",
+            "basis": "d1d1d1d1d1d1d1d1",
+            "corrected": false,
+            "statements": [],
+            "pool_type": "BurnMintTokenPool 1.6.1",
+            "parties": [
+              { "role": "poolOwner", "address": "0x00000000000000000000000000000000000000e3", "kind": "mcms", "signers": 3, "keys": 5 },
+              { "role": "registryAdministrator", "address": "0x00000000000000000000000000000000000000e3", "kind": "mcms", "signers": 3, "keys": 5 },
+              { "role": "rateLimitAdmin", "address": "0x000000000000000000000000000000000000dead", "kind": "no-key", "signers": null, "keys": null },
+              { "role": "proxyAdmin", "address": null, "kind": "absent", "signers": null, "keys": null }
+            ],
+            "decided_by": []
+          },
+          "lanes": [
+            {
+              "remote_chain": "5009297550715157269",
+              "rate_limit": {
+                "key": "rate-limit/4949039107694359620:0x00000000000000000000000000000000000000c2/5009297550715157269",
+                "value": "clear",
+                "reason": "limit-on",
+                "read_on": "2026-11-26",
+                "basis": "e1e1e1e1e1e1e1e1",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [{ "finality": "standard", "limit": "on", "units": "250000000000000000000000", "tokens": "250000", "usd": 250000 }],
+                "receiving_inbound": "on",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [{ "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b", "name": "Committee Verifier (Default)" }],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x00000000000000000000000000000000000000c1/4949039107694359620:0x00000000000000000000000000000000000000c2",
+                  "value": "clear",
+                  "reason": "pools-point-at-each-other",
+                  "read_on": "2026-11-26",
+                  "basis": "c1c1c1c1c1c1c1c1",
+                  "corrected": false,
+                  "statements": [],
+                  "other": { "chain": "5009297550715157269", "address": "0x00000000000000000000000000000000000000c1" },
+                  "sides": [
+                    { "from": { "chain": "5009297550715157269", "address": "0x00000000000000000000000000000000000000c1" }, "to": "4949039107694359620", "state": "points" },
+                    { "from": { "chain": "4949039107694359620", "address": "0x00000000000000000000000000000000000000c2" }, "to": "5009297550715157269", "state": "points" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "log": [
+        { "day": "2026-11-24", "chain": "5009297550715157269", "address": "0x00000000000000000000000000000000000000c1", "kind": "first-reading" },
+        { "day": "2026-11-24", "chain": "4949039107694359620", "address": "0x00000000000000000000000000000000000000c2", "kind": "first-reading" }
+      ]
+    }
+  ]
+}

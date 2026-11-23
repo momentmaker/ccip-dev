@@ -1,0 +1,154 @@
+---
+import ChainIcons from '../../components/ChainIcons.astro';
+import PassportLanes from '../../components/PassportLanes.astro';
+import PassportResult from '../../components/PassportResult.astro';
+import ShareButton from '../../components/ShareButton';
+import Base from '../../layouts/Base.astro';
+import { SITE_URL } from '../../config';
+import { buildData, buildDataIfPublished, buildPassportData } from '../../lib/build-data';
+import { formatUtcDay } from '../../lib/format';
+import { methodologyHref } from '../../lib/metric-anchors';
+import { chainNameMap, shortAddress } from '../../lib/names';
+import { passportPage, passportPaths, passportShardNames, publishedPassportIndex, type PassportPath } from '../../lib/passport';
+import { projectHref, projectSlugs } from '../../lib/projects';
+
+export async function getStaticPaths() {
+  const index = await publishedPassportIndex();
+  const shards = await Promise.all(passportShardNames(index).map((name) => buildPassportData(name)));
+  return passportPaths(index, shards);
+}
+
+const { token, title, day, since } = Astro.props as PassportPath['props'];
+const slug = Astro.params.id!;
+const [chains, projects] = await Promise.all([buildData('chains.json'), buildDataIfPublished('projects.json')]);
+const pageUrl = `${SITE_URL}/passport/${slug}/`;
+const view = passportPage(token, { names: chainNameMap(chains.chains), day, pageUrl });
+const projectPage = view.project !== null && projectSlugs(projects).has(view.project) ? projectHref(view.project) : null;
+const cardPath = `passport/${slug}`;
+const description = `${view.name}${view.symbol ? ` (${view.symbol})` : ''} on Chainlink CCIP: who can change its bridge settings, its rate limits, its pools and verifiers on ${view.chains.length === 1 ? '1 chain' : `${view.chains.length} chains`}, read from chain daily.`;
+---
+<Base title={title} description={description} cardPath={cardPath}>
+  <div class="page-head">
+    <div>
+      <p class="label"><a href="/passport/">Token Passport</a></p>
+      <h1>{view.name}</h1>
+      <p class="muted">
+        {view.symbol && <span class="mono">{view.symbol}</span>}
+        {view.project && <> · {projectPage ? <a href={projectPage}>its project page</a> : `project ${view.project}`}</>}
+        {' · '}read {formatUtcDay(day)} · recording since {formatUtcDay(since)}
+      </p>
+      <p class="passport-chains">{view.chains.map((c, i) => <>{i > 0 && ' · '}<ChainIcons selectors={[c.selector]} />{c.name}</>)}</p>
+    </div>
+    <ShareButton client:load view={cardPath} headline={`${view.name} on CCIP: its Token Passport`} url={pageUrl} cardUrl={`/og/${cardPath}.png`} />
+  </div>
+
+  <section class="tiles passport-rollup" aria-label="Results across every chain">
+    {view.rollup.map((r) => (
+      <div class="tile">
+        <span class="label">{r.checkLabel}</span>
+        <p class="rollup-value"><PassportResult result={r} /></p>
+        <a class="secondary" href={r.href}>How this is checked</a>
+      </div>
+    ))}
+  </section>
+  <p class="muted">Each result is the worst one across the token's chains and lanes; the sections below give each chain and lane. Required verifiers are listed and never flagged. There is no overall score.</p>
+
+  {view.sections.map((s) => (
+    <section class="passport-chain" aria-label={s.chainName}>
+      <h2><ChainIcons selectors={[s.chain]} size={20} />{s.chainName}</h2>
+      {s.delisted && (
+        <p class="card delisted"><strong class="delisted-label">{s.delisted.label}</strong> since {s.delisted.since} · {s.delisted.lastRead}. The registry no longer lists this token here, so it is no longer read.</p>
+      )}
+      <p class="muted chain-facts">
+        Token <a class="mono" href={s.addressHref} rel="noopener">{shortAddress(s.address)}</a>
+        {s.pool && <> · pool <a class="mono" href={s.poolHref!} rel="noopener">{shortAddress(s.pool)}</a></>}
+        {s.singleKey?.poolType && <> · {s.singleKey.poolType}</>}
+      </p>
+      {s.unreadableNote && <p class="muted">{s.unreadableNote}</p>}
+      {s.singleKey && (
+        <div class="card single-key">
+          <h3>Single key</h3>
+          <PassportResult result={s.singleKey} detail />
+          {s.singleKey.parties.length > 0 && (
+            <div class="table-wrap">
+              <table class="data">
+                <thead><tr><th>Who can change the settings</th><th>What it is</th><th>Address</th></tr></thead>
+                <tbody>
+                  {s.singleKey.parties.map((p) => (
+                    <tr>
+                      <td>{p.role}{p.decides && <span class="decides">decides the result</span>}</td>
+                      <td>{p.kind}</td>
+                      <td class="mono">{p.href ? <a href={p.href} rel="noopener">{shortAddress(p.address!)}</a> : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+      {s.lanes.length > 0 && <PassportLanes lanes={s.lanes} chain={s.chain} chainName={s.chainName} />}
+      {s.folded.length > 0 && (
+        <details class="lanes-folded">
+          <summary>{s.foldedLabel}</summary>
+          <PassportLanes lanes={s.folded} chain={s.chain} chainName={s.chainName} />
+        </details>
+      )}
+    </section>
+  ))}
+
+  <h2>Log</h2>
+  {view.log.length === 0 ? (
+    <p class="muted">Nothing logged yet.</p>
+  ) : (
+    <div class="table-wrap card">
+      <table class="data passport-log">
+        <thead><tr><th>Date</th><th>Entry</th><th>What</th></tr></thead>
+        <tbody>
+          {view.log.map((e) => (
+            <tr>
+              <td class="mono log-date">{e.date}</td>
+              <td><span class:list={['log-kind', `log-${e.kind}`]}>{e.label}</span></td>
+              <td>
+                {e.text}
+                {e.statement && (
+                  <span class="log-quote"><q>{e.statement.text}</q><span class="secondary">{e.statement.dates} · {e.statement.how}{e.statement.source.href ? <>: <a href={e.statement.source.href} rel="noopener nofollow">{e.statement.source.text}</a></> : `: ${e.statement.source.text}`}</span></span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+  <p class="muted">A correction means the reading was wrong; re-classified means ccip.dev changed how it reads a setting, not that the token changed. <a href={methodologyHref('passport_statements')}>Corrections and statements</a>.</p>
+
+  <section class="card contact" aria-labelledby="passport-contact">
+    <h2 id="passport-contact">Is a result wrong? Are you the team?</h2>
+    <p>Open a <a href={view.contact.issueUrl} rel="noopener">"{view.contact.issueForm}" issue</a> on GitHub, or send a direct message to <a href={view.contact.xUrl} rel="noopener">{view.contact.xHandle}</a> on X. A wrong reading is corrected and logged as a correction. A team's statement is shown beside its result, in its own words and dated, once it is tied to the project through its X account, its website or a message signed by the address that controls the pool. A statement does not clear a flag: only a new reading does.</p>
+  </section>
+</Base>
+
+<style>
+  .passport-chains { margin: 4px 0 0; }
+  .passport-rollup { margin-top: 12px; }
+  .rollup-value { margin: 8px 0 6px; font-size: 16px; }
+  .rollup-value :global(.result) { font-size: 14px; padding: 3px 12px; }
+  .passport-chain h2 { display: flex; align-items: center; gap: 2px; margin-top: 40px; }
+  .chain-facts { margin: 0 0 12px; }
+  .delisted { margin: 0 0 12px; }
+  .single-key h3 { margin: 0 0 8px; font-size: 15px; }
+  .single-key .table-wrap { margin-top: 12px; }
+  .decides { margin-left: 6px; padding: 0 6px; border: 1px solid var(--down); border-radius: 999px; color: var(--down); font-size: 11px; white-space: nowrap; }
+  .delisted-label { padding: 1px 9px; border: 1px dotted var(--muted); border-radius: 999px; font-size: 12px; }
+  .lanes-folded { margin-top: 12px; }
+  .lanes-folded summary { cursor: pointer; color: var(--blue-2); margin-bottom: 8px; }
+  .log-kind { display: inline-block; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; white-space: nowrap; }
+  .log-correction { border-color: var(--warn); color: var(--warn); }
+  .log-re-classified { border-style: dashed; color: var(--muted); }
+  .log-date { white-space: nowrap; }
+  .log-quote { display: grid; gap: 2px; margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--blue-2); }
+  .contact { margin-top: 32px; }
+  .contact h2 { margin: 0 0 8px; font-size: 18px; }
+  .contact p { margin: 0; }
+</style>

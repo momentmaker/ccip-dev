@@ -1,6 +1,6 @@
 import type { Env } from '../src/env';
 import {
-  firstCheckAt, LINK_RESERVE, RESERVE_FIRST_BLOCK, normalizeList, normalizeRegistryToken, toMessageRow, NO_CRE_KEYS, type CreKeySet, type Handles, type LabelIndex, type MessageRow, type NetworkInfo, type ProjectRegistry, type RegistryToken, type TokenLabels,
+  firstCheckAt, LINK_RESERVE, RESERVE_FIRST_BLOCK, normalizeList, normalizeRegistryToken, toMessageRow, NO_CRE_KEYS, NO_PASSPORT_NOTES, type CreKeySet, type Handles, type LabelIndex, type MessageRow, type NetworkInfo, type PassportNotes, type ProjectRegistry, type RegistryToken, type TokenLabels,
 } from '@ccip-dev/core';
 import {
   fakeCcip, fakeCoingecko, fakeFetch, fakePrices, jsonResponse, listMessage, type FakeCcip, type FakeFetch, type FakeCoingecko, type FakePrices, type ListMessageSpec,
@@ -14,6 +14,7 @@ import * as store from '../src/store';
 const TABLES = [
   'messages', 'message_tokens', 'daily_totals', 'daily_breakdown', 'chains', 'tokens', 'arrivals',
   'reserve_snapshots', 'prices_latest', 'meta', 'coingecko_ids', 'reserve_transfers', 'staking_events', 'staking_holders', 'day_leaders', 'monthly_breakdown', 'peg_hours', 'peg_episodes', 'peg_markers',
+  'passport_chains', 'passport_rows', 'passport_units', 'passport_changes', 'passport_posts',
 ];
 
 export async function resetStorage(): Promise<void> {
@@ -40,6 +41,7 @@ export function harness(opts: {
   projects?: ProjectRegistry;
   labelTokens?: TokenLabels;
   creKeys?: CreKeySet;
+  passportNotes?: PassportNotes;
   fetch?: typeof fetch;
   db?: D1Database;
   env?: Partial<Env>;
@@ -65,6 +67,7 @@ export function harness(opts: {
     projects: opts.projects ?? {},
     labelTokens: opts.labelTokens ?? {},
     creKeys: opts.creKeys ?? NO_CRE_KEYS,
+    passportNotes: opts.passportNotes ?? NO_PASSPORT_NOTES,
   });
   return { c, alerts, setNow: (iso) => { now = new Date(iso); } };
 }

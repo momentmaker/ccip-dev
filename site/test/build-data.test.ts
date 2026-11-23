@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import passportIndex from './fixtures/passport/passport.json';
 import status from './fixtures/status.json';
 
 afterEach(() => {
@@ -56,6 +57,39 @@ describe('buildData', { timeout: COLD_IMPORT_TIMEOUT_MS }, () => {
     );
     const { buildData } = await import('../src/lib/build-data');
     await expect(buildData('status.json')).rejects.toThrow('status.json: request failed');
+  });
+
+  it('fetches a passport file once from CCIP_DATA_BASE and parses it with the passport schema', async () => {
+    // #given
+    vi.stubEnv('CCIP_DATA_BASE', 'https://fixtures.test/v1');
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      urls.push(url);
+      return new Response(JSON.stringify(passportIndex));
+    });
+    const { buildPassportData } = await import('../src/lib/build-data');
+    // #when
+    const [a, b] = await Promise.all([buildPassportData('passport.json'), buildPassportData('passport.json')]);
+    // #then
+    expect({ same: a === b, since: a.since, urls }).toEqual({ same: true, since: passportIndex.since, urls: ['https://fixtures.test/v1/passport.json'] });
+  });
+
+  it('fails the build when a passport file does not match its schema', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ ...passportIndex, tokens: 'none' })));
+    const { buildPassportData } = await import('../src/lib/build-data');
+    await expect(buildPassportData('passport.json')).rejects.toThrow('passport.json: unexpected shape at tokens');
+  });
+
+  it('returns null while the Worker has not published a passport file yet', async () => {
+    // #given
+    vi.stubGlobal('fetch', async () => new Response('missing', { status: 404 }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { buildPassportDataIfPublished } = await import('../src/lib/build-data');
+    // #when
+    const index = await buildPassportDataIfPublished('passport.json');
+    warn.mockRestore();
+    // #then
+    expect(index).toBeNull();
   });
 
   it('dates the build in UTC', async () => {

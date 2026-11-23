@@ -6,6 +6,7 @@ import { runDetails } from './jobs/details';
 import { runFinalize } from './jobs/finalize';
 import { runHourly } from './jobs/hourly';
 import { runIngest } from './jobs/ingest';
+import { runPassport } from './jobs/passport';
 import { runPeg } from './jobs/peg';
 import { runPegHistory } from './jobs/peg-history';
 import { runPrices } from './jobs/prices';
@@ -24,6 +25,7 @@ export const JOBS: Readonly<Record<string, Job[]>> = {
     ['hourly', runHourly],
     ['staking', runStaking],
     ['peg-history', runPegHistory],
+    ['passport', runPassport],
   ],
   '7 0 * * *': [['finalize', (c) => runFinalize(c, 'early')]],
   [`0 ${LATE_FINALIZE_HOUR_UTC} * * *`]: [['finalize', (c) => runFinalize(c, 'late')]],

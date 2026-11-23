@@ -1,11 +1,17 @@
 import { PUBLIC_SCHEMAS, type PublicFile, type PublicFileName } from '@ccip-dev/core/public';
+import type { z } from 'zod';
 
 export const DATA_BASE = 'https://data.ccip.dev/v1';
 export const POLL_DELAYS_MS = [30_000, 60_000, 120_000, 300_000] as const;
 
+export interface FetchOptions {
+  fetch?: typeof fetch;
+  base?: string;
+}
+
 export class DataError extends Error {
   constructor(
-    readonly file: PublicFileName,
+    readonly file: string,
     reason: string,
     readonly status: number | null = null,
   ) {
@@ -14,10 +20,7 @@ export class DataError extends Error {
   }
 }
 
-export async function fetchPublic<N extends PublicFileName>(
-  name: N,
-  opts: { fetch?: typeof fetch; base?: string } = {},
-): Promise<PublicFile<N>> {
+export async function fetchParsed<S extends z.ZodType>(name: string, schema: S, opts: FetchOptions = {}): Promise<z.infer<S>> {
   const doFetch = opts.fetch ?? fetch;
   let res: Response;
   try {
@@ -32,12 +35,16 @@ export async function fetchPublic<N extends PublicFileName>(
   } catch {
     throw new DataError(name, 'body is not JSON');
   }
-  const parsed = PUBLIC_SCHEMAS[name].safeParse(body);
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     throw new DataError(name, `unexpected shape at ${issue?.path.join('.') || '(root)'}: ${issue?.message ?? 'invalid'}`);
   }
-  return parsed.data as PublicFile<N>;
+  return parsed.data;
+}
+
+export function fetchPublic<N extends PublicFileName>(name: N, opts: FetchOptions = {}): Promise<PublicFile<N>> {
+  return fetchParsed(name, PUBLIC_SCHEMAS[name], opts) as Promise<PublicFile<N>>;
 }
 
 export function pollDelay(failures: number): number {

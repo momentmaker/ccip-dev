@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { MILESTONE_METRICS } from './records';
 
-const envelope = {
+export const envelope = {
   schema_version: z.literal(1),
   updated_at: z.string(),
   attribution: z.string(),

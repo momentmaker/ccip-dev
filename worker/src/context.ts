@@ -1,11 +1,11 @@
 import {
-  createCcipClient, createCoingeckoClient, createPricesClient, type CcipClient, type CoingeckoClient, type CreKeySet, type Handles, type LabelIndex, type PricesClient, type ProjectRegistry, type TokenLabels,
+  createCcipClient, createCoingeckoClient, createPricesClient, type CcipClient, type CoingeckoClient, type CreKeySet, type Handles, type LabelIndex, type PassportNotes, type PricesClient, type ProjectRegistry, type TokenLabels,
 } from '@ccip-dev/core';
 import { createAlerter, type Alert } from './alerts';
 import type { Deps } from './deps';
 import type { Env } from './env';
 import { bundledHandles } from './handles';
-import { bundledCreKeys, bundledLabels, bundledLabelTokens, bundledProjects } from './labels';
+import { bundledCreKeys, bundledLabels, bundledLabelTokens, bundledPassportNotes, bundledProjects } from './labels';
 
 export interface RunContext {
   env: Env;
@@ -19,12 +19,14 @@ export interface RunContext {
   projects: ProjectRegistry;
   labelTokens: TokenLabels;
   creKeys: CreKeySet;
+  /** labels/passport.toml: statements and corrections (KTD21). */
+  passportNotes: PassportNotes;
 }
 
 export function createRunContext(
   env: Env,
   deps: Deps,
-  overrides: Partial<Pick<RunContext, 'ccip' | 'prices' | 'coingecko' | 'alert' | 'labels' | 'handles' | 'projects' | 'labelTokens' | 'creKeys'>> = {},
+  overrides: Partial<Pick<RunContext, 'ccip' | 'prices' | 'coingecko' | 'alert' | 'labels' | 'handles' | 'projects' | 'labelTokens' | 'creKeys' | 'passportNotes'>> = {},
 ): RunContext {
   return {
     env,
@@ -38,5 +40,6 @@ export function createRunContext(
     projects: overrides.projects ?? bundledProjects,
     labelTokens: overrides.labelTokens ?? bundledLabelTokens,
     creKeys: overrides.creKeys ?? bundledCreKeys,
+    passportNotes: overrides.passportNotes ?? bundledPassportNotes,
   };
 }

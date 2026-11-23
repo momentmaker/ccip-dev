@@ -1,0 +1,724 @@
+{
+  "verifiers": [
+    {
+      "addresses": [
+        {
+          "chainSelector": "124615329519749607",
+          "address": "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ"
+        },
+        {
+          "chainSelector": "1456215246176062136",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "15971525489660198786",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "1673871237479749969",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "17673274061779414707",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "17912061998839310979",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "18164309074156128038",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "1923510103922296319",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "2049429975587534727",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "2442541497099098535",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "3016212468291539606",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "3461204551265785888",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "3734403246176062136",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "4051577828743386545",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "4949039107694359620",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "5009297550715157269",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "6325494908023253251",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "6370580034781731079",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "6433500567565415381",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "7801139999541420232",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "8481857512324358265",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        },
+        {
+          "chainSelector": "9335212494177455608",
+          "address": "0xBfD2109d3ff5b6f09281BDb52ca6b56D7Bb1ff12"
+        }
+      ],
+      "metadata": {
+        "name": "CCTP Verifier",
+        "logoUrl": "https://d2f70xi62kby8n.cloudfront.net/verifiers/cctp.svg"
+      }
+    },
+    {
+      "addresses": [
+        {
+          "chainSelector": "10344971235874465080",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "14135854469784514356",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "14767482510784806043",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "16015286601757825753",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "16098325658947243212",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "16281711391670634445",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "16423721717087811551",
+          "address": "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ"
+        },
+        {
+          "chainSelector": "2183018362218727504",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "3478487238524512106",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "4286062357653186312",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "5224473277236331295",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        },
+        {
+          "chainSelector": "9763904284804119144",
+          "address": "0xE57C834a439fDfE8196b95f4Fd24Daf1e05eAbB8"
+        }
+      ],
+      "metadata": {
+        "name": "CCTP Verifier",
+        "logoUrl": "https://d2f70xi62kby8n.cloudfront.net/verifiers/cctp.svg"
+      }
+    },
+    {
+      "addresses": [
+        {
+          "chainSelector": "11344663589394136015",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "11964252391146578476",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1224752112135636129",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "12505351618335765396",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "12657445206920369324",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1294465214383781161",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "13204309965629103672",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1346049177634351622",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "13624601974233774587",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1456215246176062136",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1462016016387883143",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "14894068710063348487",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1523760397290643893",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1556008542357238666",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1562403441176082196",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "15971525489660198786",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "16468599424800719238",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1673871237479749969",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "16978377838628290997",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "17198166215261833993",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "17673274061779414707",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "17912061998839310979",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1804312132722180201",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "18164309074156128038",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "18240105181246962294",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "1923510103922296319",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "2049429975587534727",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "2135107236357186872",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "2308837218439511688",
+          "address": "0x427111c826ffde67e298f89743fb9a95b1bf88eb897235706593a6a393fff8e2"
+        },
+        {
+          "chainSelector": "2442541497099098535",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "2459028469735686113",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "2988178761202034333",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3016212468291539606",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3229138320728879060",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3461204551265785888",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3577778157919314504",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3734403246176062136",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3849287863852499584",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "3993510008929295315",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4051577828743386545",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4059281736450291836",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4215185756725900654",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4426351306075016396",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4627098889531055414",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "465200170687744372",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "465944652040885897",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4829375610284793157",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "4949039107694359620",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "5009297550715157269",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "5142893604156789321",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "5406759801798337480",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "5608378062013572713",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "5936861837188149645",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "6093540873831549674",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "6180753054346818345",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "6370580034781731079",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "6422105447186081193",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "6433500567565415381",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "6916147374840168594",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "7222032299962346917",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "7264351850409363825",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "7281642695469137430",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "7613811247471741961",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "7801139999541420232",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "7937294810946806131",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "8481857512324358265",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "8805746078405598895",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "9027416829622342829",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "9335212494177455608",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        },
+        {
+          "chainSelector": "9813823125703490621",
+          "address": "0x2CaAfd3B4Cf606220580c885Bd2B448FB93dC03b"
+        }
+      ],
+      "metadata": {
+        "name": "Committee Verifier (Default)",
+        "logoUrl": "https://d2f70xi62kby8n.cloudfront.net/verifiers/chainlink.svg"
+      }
+    },
+    {
+      "addresses": [
+        {
+          "chainSelector": "10212741611335999305",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "10344971235874465080",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "10380998176179737091",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "1064004874793747259",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "1091131740251125869",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "1216300075444106652",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "13264668187771770619",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "13274425992935471758",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "13874588925447303949",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "14135854469784514356",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "14767482510784806043",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "16015286601757825753",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "16098325658947243212",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "16126893759944359622",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "16235373811196386733",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "16281711391670634445",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "16423721717087811551",
+          "address": "CV2s8jsYhx9th8pyZ4pN7apLELAB42e5j4XqWhqTdWCm"
+        },
+        {
+          "chainSelector": "16960985330067274105",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "1763698235108410440",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "17833296867764334567",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "18241817625092392675",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "2032988798112970440",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "2183018362218727504",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "2217764097022649312",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "222782988166878823",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "2624132734533621656",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "2995292832068775165",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "3017758115101368649",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "3034092155422581607",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "3478487238524512106",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "3761762704474186180",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "3777822886988675105",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "3967220077692964309",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "4264732132125536123",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "4286062357653186312",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "4356164186791070119",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "5224473277236331295",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "5299555114858065850",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "5535534526963509396",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "5719461335882077547",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "6827576821754315911",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "686603546605904534",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "6892437333620424805",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "6898391096552792247",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "6955638871347136141",
+          "address": "0xAb1E148adFC5f73A0DEbcb6DC6053E50EBeC59ae"
+        },
+        {
+          "chainSelector": "7051849327615092843",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "7254999290874773717",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "7728255861635209484",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "8236463271206331221",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "829525985033418733",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "8457817439310187923",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "8871595565390010547",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "8953668971247136127",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "9181335567442030426",
+          "address": "0x37A0A487efE72bc3F31563E74196fA495da1465F"
+        },
+        {
+          "chainSelector": "9211758560309513668",
+          "address": "0x0f35abAF580D61263713B3BdCd7649cEf0112122"
+        },
+        {
+          "chainSelector": "9268731218649498074",
+          "address": "0x5b92820da106d238d043eedd1556487af175ec1eacd2bfa10c2962f257958dbc"
+        },
+        {
+          "chainSelector": "9284632837123596123",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "9418205736192840573",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "945045181441419236",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "9488606126177218005",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "9763904284804119144",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        },
+        {
+          "chainSelector": "9900119385908781505",
+          "address": "0x8f3ee3c77D2B27c32306a89D367654F959Db223D"
+        }
+      ],
+      "metadata": {
+        "name": "Committee Verifier (Default)",
+        "logoUrl": "https://d2f70xi62kby8n.cloudfront.net/verifiers/chainlink.svg"
+      }
+    },
+    {
+      "addresses": [
+        {
+          "chainSelector": "10344971235874465080",
+          "address": "0xB55bCa19C48074a7FA693b8350785fd04034545a"
+        },
+        {
+          "chainSelector": "13264668187771770619",
+          "address": "0xB55bCa19C48074a7FA693b8350785fd04034545a"
+        },
+        {
+          "chainSelector": "14767482510784806043",
+          "address": "0xB55bCa19C48074a7FA693b8350785fd04034545a"
+        },
+        {
+          "chainSelector": "16015286601757825753",
+          "address": "0xB55bCa19C48074a7FA693b8350785fd04034545a"
+        }
+      ],
+      "metadata": {
+        "name": "Lombard Verifier",
+        "logoUrl": "https://d2f70xi62kby8n.cloudfront.net/verifiers/lombard.svg"
+      }
+    }
+  ]
+}

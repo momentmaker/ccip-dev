@@ -29,6 +29,8 @@ X_POSTS = "on"
 PEG_ALERT_PRIVATE_PCT = "0.3"
 PEG_ALERT_PUBLIC_PCT = "0.75"
 PEG_PUBLIC = "on"
+PASSPORT = "off"
+PASSPORT_PUBLIC = "off"
 
 [observability]
 enabled = true

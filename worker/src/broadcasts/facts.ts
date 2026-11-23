@@ -1,10 +1,10 @@
-import { addDays, feeClassifier, mostlyViaToken, rankIdentities, senderKeyAddress, type PegLiveBody } from '@ccip-dev/core';
+import { addDays, feeClassifier, mostlyViaToken, rankIdentities, senderKeyAddress, type PassportPostRecord, type PegLiveBody } from '@ccip-dev/core';
 import type { PegEpisodeView } from '@ccip-dev/core/public';
 import {
   allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, reserveDepositFacts, weekTotalsFacts,
   type DayTotalsFacts, type RecordDriver, type ReserveDepositFacts, type WeekTotalsFacts,
 } from '@ccip-dev/core/broadcasts';
-import { shortAddress } from '@ccip-dev/core/names';
+import { shortAddress, type ChainNames } from '@ccip-dev/core/names';
 import type { OperatorMomentFacts, StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { DayLeaders, DayTotals, LargestFee, Leader, ReserveFile } from '@ccip-dev/core/public';
 import { recordsSetOn, type MilestoneSet, type RecordSet } from '@ccip-dev/core/records';
@@ -120,7 +120,14 @@ export interface PegFacts {
   now: Date;
 }
 
-export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts | StakingFacts | OperatorFacts | PegFacts;
+/** A Token Passport post record as stored when its day was evaluated (KTD16), and the chains' names for its caption. */
+export interface PassportFacts {
+  kind: 'passport';
+  record: PassportPostRecord;
+  names: ChainNames;
+}
+
+export type BroadcastFacts = DailyFacts | WeeklyFacts | RecordFacts | MilestoneFacts | ReserveFacts | StakingFacts | OperatorFacts | PegFacts | PassportFacts;
 
 export interface FactsSource {
   history: DayTotals[];

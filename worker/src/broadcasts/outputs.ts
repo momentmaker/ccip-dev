@@ -2,6 +2,7 @@ import type { PostTarget } from '@ccip-dev/core/broadcasts';
 import { clip, parsePollRecord, POLL_OPTION_MAX, POLL_QUESTION_MAX, pollRecordKey, type PollRecord } from '@ccip-dev/core/moments';
 import type { RunContext } from '../context';
 import type { Env } from '../env';
+import { passportConfig } from '../passport-config';
 import * as store from '../store';
 import { sendTelegramPhoto, sendTelegramPoll, sendTelegramVideo, type TelegramConfig } from '../telegram';
 import { createPost, uploadImage, uploadVideo, type XCredentials } from '../x';
@@ -51,12 +52,20 @@ export function broadcastMode(env: Pick<Env, 'BROADCASTS'>): BroadcastMode {
   return env.BROADCASTS === 'drafts' || env.BROADCASTS === 'on' ? env.BROADCASTS : 'off';
 }
 
+function bothAllow(a: BroadcastMode, b: BroadcastMode): BroadcastMode {
+  if (a === 'off' || b === 'off') return 'off';
+  return a === 'drafts' || b === 'drafts' ? 'drafts' : 'on';
+}
+
 /** Moments post only as far as both switches allow: off in either is off, and drafts in either is drafts. */
 export function momentMode(env: Pick<Env, 'BROADCASTS' | 'MOMENTS'>): BroadcastMode {
-  const broadcasts = broadcastMode(env);
-  const moments = broadcastMode({ BROADCASTS: env.MOMENTS });
-  if (broadcasts === 'off' || moments === 'off') return 'off';
-  return broadcasts === 'drafts' || moments === 'drafts' ? 'drafts' : 'on';
+  return bothAllow(broadcastMode(env), broadcastMode({ BROADCASTS: env.MOMENTS }));
+}
+
+/** KTD20: Passport posts need PASSPORT on, then go as far as BROADCASTS and PASSPORT_PUBLIC both allow, as moments do. */
+export function passportMode(env: Pick<Env, 'BROADCASTS' | 'PASSPORT' | 'PASSPORT_PUBLIC'>): BroadcastMode {
+  const config = passportConfig(env);
+  return config.mode === 'on' ? bothAllow(broadcastMode(env), config.publicPosts) : 'off';
 }
 
 export function selectOutputs(set: OutputSet, mode: Exclude<BroadcastMode, 'off'>): BroadcastOutput[] {

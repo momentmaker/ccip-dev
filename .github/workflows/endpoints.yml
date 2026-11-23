@@ -19,21 +19,26 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm endpoints:refresh
+      - name: Refresh the CCIP directory
+        run: |
+          set -euo pipefail
+          printf '\n' >> endpoints-pr.md
+          pnpm --silent directory:refresh | tee -a endpoints-pr.md
       - name: Open or update the endpoints PR
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -z "$(git status --porcelain config/endpoints.json)" ]; then
-            echo "No endpoint changes"
+          if [ -z "$(git status --porcelain config/endpoints.json config/ccip-directory.json)" ]; then
+            echo "No endpoint or directory changes"
             exit 0
           fi
           day=$(date -u +%F)
           git config user.name "ccip.dev bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B endpoints/refresh
-          git add config/endpoints.json
-          git commit -m "chore(endpoints): refresh the RPC and explorer maps for ${day}"
+          git add config/endpoints.json config/ccip-directory.json
+          git commit -m "chore(endpoints): refresh the RPC, explorer and directory maps for ${day}"
           git push --force origin endpoints/refresh
           pr=$(gh pr list --head endpoints/refresh --state open --json number --jq '.[0].number // empty')
           if [ -n "${pr}" ]; then

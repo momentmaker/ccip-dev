@@ -67,6 +67,9 @@ The JSON behind every page is public at `https://data.ccip.dev/v1/`. Main files:
 | `reserve.json` | the Chainlink Reserve |
 | `staking.json` | Chainlink staking v0.2: both pools, the exit queue, refills, rewards and the operators |
 | `stakers/<0-f>.json` | every current staker, filed by the first hex digit of its address |
+| `passport.json` | Token Passport: one line per token with its three results, and the latest changes |
+| `passport/<0-f>.json` | each token's Passport page: its rows, parties, lanes, results and dated log, filed by the first hex digit of its page id |
+| `passport-events.json` | the Token Passport post records of the last 60 days |
 | `chains.json`, `tokens.json` | the chain and token registries |
 | `replay.json` | the data behind the replay |
 

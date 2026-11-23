@@ -1,5 +1,7 @@
-import { broadcastCardPath, parseBroadcastPath, type BroadcastTarget } from '@ccip-dev/core/broadcasts';
+import { broadcastCardPath, parseBroadcastPath, passportIdFromSlug, passportSlug, type BroadcastTarget } from '@ccip-dev/core/broadcasts';
 import { isDay } from './days';
+
+export { passportIdFromSlug, passportSlug };
 
 export const HISTORY_RANGES = ['30d', '90d', '1y', 'all'] as const;
 export const TOP_DIMS = ['lane', 'token', 'sender', 'chain', 'cre'] as const;
@@ -24,6 +26,7 @@ export type CardRoute =
   | { kind: 'project'; slug: string }
   | { kind: 'staker'; address: string }
   | { kind: 'peg' }
+  | { kind: 'passport'; id: string }
   | { kind: 'broadcast'; target: BroadcastTarget };
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -33,6 +36,11 @@ const OG_RE = /^https:\/\/ccip\.dev\/og\/(.+)\.png\?v=(\d{4}-\d{2}-\d{2})$/;
 
 const oneOf = <T extends string>(list: readonly T[], value: string | undefined): value is T =>
   value !== undefined && (list as readonly string[]).includes(value);
+
+function parsePassport(slug: string | undefined): CardRoute | null {
+  const id = slug === undefined ? null : passportIdFromSlug(slug);
+  return id === null ? null : { kind: 'passport', id };
+}
 
 export function topOrders(dim: TopDim): readonly TopOrder[] {
   return oneOf(FEE_TOP_DIMS, dim) ? TOP_ORDERS : ['value'];
@@ -51,6 +59,7 @@ export function parseCardPath(path: string): CardRoute | null {
   if (head === 'replay' && parts.length === 2) return a !== undefined && SLUG.test(a) ? { kind: 'replay-chain', slug: a } : null;
   if (head === 'project' && parts.length === 2) return a !== undefined && SLUG.test(a) ? { kind: 'project', slug: a } : null;
   if (head === 'staker' && parts.length === 2) return a !== undefined && STAKER_ADDRESS.test(a) ? { kind: 'staker', address: a } : null;
+  if (head === 'passport') return parts.length === 2 ? parsePassport(a) : null;
   if (head === 'peg') return parts.length === 1 ? { kind: 'peg' } : null;
   if (oneOf(SIMPLE, head)) return parts.length === 1 ? { kind: head } : null;
   if (head === 'day') return parts.length === 2 && a !== undefined && isDay(a) ? { kind: 'day', day: a } : null;
@@ -80,6 +89,8 @@ export function cardPathOf(route: CardRoute): string {
       return `project/${route.slug}`;
     case 'staker':
       return `staker/${route.address}`;
+    case 'passport':
+      return `passport/${passportSlug(route.id)}`;
     case 'broadcast':
       return broadcastCardPath(route.target);
     default:

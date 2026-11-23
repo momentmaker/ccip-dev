@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-26T01:00:00.000Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "day": "2026-11-26",
+  "since": "2026-11-24",
+  "tokens": [
+    {
+      "id": "0e5901c9-23ca-5cde-b023-63d82251fe7f",
+      "name": "BMT Token",
+      "symbol": "BMT",
+      "project": "bmt",
+      "chains": [
+        "124615329519749607",
+        "5009297550715157269",
+        "15971525489660198786"
+      ],
+      "results": {
+        "single-key": "flagged",
+        "rate-limit": "flagged",
+        "pool-pointer": "not readable"
+      },
+      "addresses": [
+        "BMTso1anaMint1111111111111111111111111111111",
+        "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+        "0x00000000000000000000000000000000000000b5"
+      ]
+    },
+    {
+      "id": "0f000000-0000-5000-8000-000000000002",
+      "name": "BMT Token",
+      "symbol": "BMT",
+      "project": null,
+      "chains": [
+        "124615329519749607"
+      ],
+      "results": {
+        "single-key": "not readable",
+        "rate-limit": "not readable",
+        "pool-pointer": null
+      },
+      "addresses": [
+        "Unrelated1111111111111111111111111111111111"
+      ]
+    },
+    {
+      "id": "3a000000-0000-5000-8000-000000000003",
+      "name": "Clear Coin",
+      "symbol": "CLR",
+      "project": null,
+      "chains": [
+        "5009297550715157269",
+        "4949039107694359620"
+      ],
+      "results": {
+        "single-key": "clear",
+        "rate-limit": "clear",
+        "pool-pointer": "clear"
+      },
+      "addresses": [
+        "0x00000000000000000000000000000000000000c1",
+        "0x00000000000000000000000000000000000000c2"
+      ]
+    }
+  ],
+  "latest": [
+    {
+      "id": "2026-11-26-0e5901c9-23ca-5cde-b023-63d82251fe7f",
+      "day": "2026-11-26",
+      "kind": "token",
+      "token_id": "0e5901c9-23ca-5cde-b023-63d82251fe7f",
+      "name": "BMT Token (BMT)",
+      "chains": [
+        "124615329519749607",
+        "5009297550715157269",
+        "15971525489660198786"
+      ],
+      "changes": [
+        {
+          "unit": "single-key/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "check": "single-key",
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "remote_chain": null,
+          "remote_address": null,
+          "kind": "raised",
+          "correction": false
+        }
+      ],
+      "arrivals": []
+    },
+    {
+      "id": "2026-11-25-0f000000-0000-5000-8000-000000000002",
+      "day": "2026-11-25",
+      "kind": "token",
+      "token_id": "0f000000-0000-5000-8000-000000000002",
+      "name": "BMT Token (BMT)",
+      "chains": [
+        "124615329519749607"
+      ],
+      "changes": [],
+      "arrivals": [
+        {
+          "kind": "new token",
+          "chains": [
+            {
+              "chain": "124615329519749607",
+              "address": "Unrelated1111111111111111111111111111111111",
+              "readable": false,
+              "flags": []
+            }
+          ],
+          "other_chain_flags": 0
+        }
+      ]
+    },
+    {
+      "id": "2026-11-20-summary",
+      "day": "2026-11-20",
+      "kind": "summary",
+      "tokens": [
+        {
+          "token_id": "3a000000-0000-5000-8000-000000000003",
+          "name": "Clear Coin (CLR)"
+        },
+        {
+          "token_id": "5009297550715157269:0x00000000000000000000000000000000000000c1",
+          "name": null
+        }
+      ],
+      "counts": {
+        "raised": 1,
+        "cleared": 0,
+        "new_token": 1,
+        "new_chain": 0
+      }
+    }
+  ]
+}

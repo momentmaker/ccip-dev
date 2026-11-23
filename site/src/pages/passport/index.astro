@@ -1,0 +1,90 @@
+---
+import ChainIcons from '../../components/ChainIcons.astro';
+import PassportResult from '../../components/PassportResult.astro';
+import Base from '../../layouts/Base.astro';
+import { buildData } from '../../lib/build-data';
+import { formatCount, formatUtcDay } from '../../lib/format';
+import { methodologyHref } from '../../lib/metric-anchors';
+import { chainNameMap } from '../../lib/names';
+import { CHECK_LABEL, passportIndexView, publishedPassportIndex } from '../../lib/passport';
+
+const [index, chains] = await Promise.all([publishedPassportIndex(), buildData('chains.json')]);
+const view = passportIndexView(index, chainNameMap(chains.chains));
+---
+<Base title="Token Passport" description="Every token that moves over Chainlink CCIP: who can change its bridge settings, its rate limits, whether its pools point at each other and which verifiers it requires, read from chain every day.">
+  <h1>Token Passport</h1>
+  <p class="muted">Every token in CCIP's token registry, one page per token. Each page runs the same checks against a reading taken from chain once a day: who can change the token's bridge settings, whether each lane has a rate limit and how much can leave per hour, whether its pools on different chains point at each other, and which verifiers each lane requires. A result is flagged, clear or not readable, with the date of its reading. There is no overall score. <a href={methodologyHref('passport')}>How each check works</a>.</p>
+  {!view.published ? (
+    <p class="card muted">Token Passport pages appear after the first daily reading is published.</p>
+  ) : (
+    <>
+      <p class="muted">Read {formatUtcDay(view.day)} · recording since {formatUtcDay(view.since)} · {formatCount(view.rows.length)} tokens.</p>
+      {view.latest.length > 0 && (
+        <section class="card passport-latest" aria-labelledby="passport-latest">
+          <h2 id="passport-latest">Latest changes</h2>
+          <ul>
+            {view.latest.map((l) => (
+              <li>
+                <span class="mono muted">{l.date}</span> {l.text}
+                {l.links.length > 0 && <span class="secondary">{l.links.map((x, i) => <>{i > 0 && ' · '}<a href={x.href}>{x.text}</a></>)}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <h2>Tokens</h2>
+      <div class="passport-filters">
+        <label class="passport-search"><span class="visually-hidden">Search tokens</span><input id="passport-search" type="search" placeholder="Symbol, name or address" autocomplete="off" spellcheck="false" /></label>
+        <label class="passport-flag"><input id="passport-flagged" type="checkbox" /> Only tokens with a flag</label>
+      </div>
+      <div class="table-wrap card">
+        <table class="data">
+          <thead><tr><th>Token</th><th>Chains</th><th>{CHECK_LABEL['single-key']}</th><th>{CHECK_LABEL['rate-limit']}</th><th>{CHECK_LABEL['pool-pointer']}</th></tr></thead>
+          <tbody>
+            {view.rows.map((r) => (
+              <tr data-search={r.search} data-flagged={String(r.flagged)}>
+                <td><a href={r.href}>{r.name}</a>{r.symbol && <span class="secondary">{r.symbol}</span>}</td>
+                <td><ChainIcons selectors={r.chains} /><span class="muted">{r.chains.length}</span></td>
+                {r.results.map((res) => <td><PassportResult result={res} /></td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p id="passport-none" class="muted passport-none" hidden>No tokens match.</p>
+      </div>
+    </>
+  )}
+</Base>
+
+<script>
+  import { matchesPassportFilter } from '../../lib/passport-filter';
+
+  const search = document.querySelector<HTMLInputElement>('#passport-search');
+  const flagged = document.querySelector<HTMLInputElement>('#passport-flagged');
+  const none = document.querySelector<HTMLElement>('#passport-none');
+  const rows = [...document.querySelectorAll<HTMLTableRowElement>('tr[data-search]')];
+  const apply = () => {
+    const filter = { query: search?.value ?? '', flaggedOnly: flagged?.checked ?? false };
+    let shown = 0;
+    for (const row of rows) {
+      const match = matchesPassportFilter({ search: row.dataset.search ?? '', flagged: row.dataset.flagged === 'true' }, filter);
+      row.hidden = !match;
+      if (match) shown += 1;
+    }
+    if (none) none.hidden = shown > 0;
+  };
+  search?.addEventListener('input', apply);
+  flagged?.addEventListener('change', apply);
+  if (rows.length > 0) apply();
+</script>
+
+<style>
+  .passport-latest h2 { margin: 0 0 8px; font-size: 16px; }
+  .passport-latest ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .passport-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 12px; }
+  .passport-search input { width: min(320px, 80vw); padding: 8px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); color: var(--fg); font: inherit; }
+  .passport-search input:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 1px; }
+  .passport-flag { display: inline-flex; gap: 8px; align-items: center; color: var(--fg); cursor: pointer; }
+  .passport-none { margin: 12px 10px 4px; }
+  tbody tr { content-visibility: auto; contain-intrinsic-size: auto 48px; }
+</style>

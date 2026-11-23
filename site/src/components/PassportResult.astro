@@ -1,0 +1,40 @@
+---
+import type { ResultChip, ResultView } from '../lib/passport';
+
+interface Props {
+  result: ResultChip | ResultView;
+  /** Shows the note, the reading's date and any team statement under the label. */
+  detail?: boolean;
+}
+
+const { result, detail = false } = Astro.props;
+const full = detail && 'note' in result ? result : null;
+---
+<span class:list={['result', `result-${result.tone}`]}>{result.label}</span>
+{full && (
+  <span class="result-detail">
+    <span class="result-note">{full.note} <a href={full.href}>How this is checked</a></span>
+    <span class="result-date">{full.date}{full.corrected && ' · corrected'}</span>
+    {full.statements.map((s) => (
+      <span class="statement">
+        <span class="label">Team statement</span>
+        <q>{s.text}</q>
+        <span class="result-date">{s.dates} · {s.how}{s.source.href ? <>: <a href={s.source.href} rel="noopener nofollow">{s.source.text}</a></> : `: ${s.source.text}`}</span>
+      </span>
+    ))}
+  </span>
+)}
+
+<style>
+  .result { display: inline-block; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
+  .result-flagged { color: var(--down); border-color: var(--down); background: rgba(240, 106, 106, 0.12); }
+  .result-clear { color: var(--up); border-color: rgba(60, 207, 142, 0.6); }
+  .result-unread { color: var(--fg); border-style: dashed; border-color: var(--muted); }
+  .result-none { color: var(--muted); border-style: dotted; }
+  .result-detail { display: grid; gap: 4px; margin-top: 6px; }
+  .result-note { font-size: 13px; }
+  .result-note a { font-size: 12px; white-space: nowrap; }
+  .result-date { color: var(--muted); font-size: 12px; }
+  .statement { display: grid; gap: 2px; margin-top: 4px; padding: 8px 10px; border-left: 2px solid var(--blue-2); background: var(--card-2); border-radius: 0 6px 6px 0; }
+  .statement q { font-style: italic; }
+</style>

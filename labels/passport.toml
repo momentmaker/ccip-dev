@@ -1,0 +1,48 @@
+# Token Passport statements and corrections.
+#
+# `pnpm labels:check` validates this file in CI; `pnpm labels:build` bundles it into the Worker as
+# worker/src/generated/passport-notes.json on deploy. Once the day's reading has been evaluated, the hourly
+# run evaluates it again when the bundled entries change, so an entry shows within the hour of its deploy;
+# an entry deployed before that applies at the day's evaluation. Requests arrive through the
+# "Passport result" issue form or a direct message to ccip.dev's X account.
+#
+# Every entry names one published result:
+#   chain         CCIP chain name of the row, as in labels/ccip-chains.json
+#   token         the row's token address
+#   check         "single-key", "rate-limit" or "pool-pointer"
+#   remote_chain  the lane's remote chain name; required for "rate-limit" and "pool-pointer", absent for "single-key"
+#   remote_token  "pool-pointer" only: the token address of the pair's other row; leave it out when the group has
+#                 no row on the remote chain
+# Dates are quoted strings written "YYYY-MM-DD".
+#
+# A statement is a team's own words, shown beside the result with its dates. It never changes the
+# result, the announced state or a post (R28). Attach one only when it came from a channel tied to the
+# project or was signed by an address that controls the token's pool (R38), and record which:
+#   verified_via = "x"          verified_source = the project's X handle, without the @
+#   verified_via = "website"    verified_source = the https page on the project's own site that carries it
+#   verified_via = "signature"  verified_source = the address that signed the message and controls the pool
+#
+#   [[statements]]
+#   chain = "ethereum-mainnet"
+#   token = "0x..."
+#   check = "single-key"
+#   answers = "flagged"           # the result it answers: "flagged", "clear" or "not readable"
+#   text = "The deployer key moves to a 3-of-5 Safe on 1 December."   # at most 500 characters
+#   said_on = "2026-11-20"        # the day the team said it
+#   attached_on = "2026-11-21"    # the day it was added here
+#   verified_via = "x"
+#   verified_source = "example"
+#
+# A correction fixes a wrong reading (R17). Copy `basis` from the published result it corrects: the
+# correction applies only while the result's basis still matches, so a later real change shows through
+# (KTD15). A correction that changes the result is logged as a correction, and posts as one once a later
+# reading confirms it.
+#
+#   [[corrections]]
+#   chain = "ethereum-mainnet"
+#   token = "0x..."
+#   check = "single-key"
+#   basis = "0123456789abcdef"    # 16 hex digits, copied from the published result
+#   value = "clear"               # the corrected result: "flagged", "clear" or "not readable"
+#   reason = "multi-signer"       # the corrected result's reason code (REASON_CODES in packages/core/src/passport-checks.ts)
+#   corrected_on = "2026-11-22"

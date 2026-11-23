@@ -74,6 +74,20 @@ describe('card paths', () => {
     expect(parseCardPath('replay')).toEqual({ kind: 'replay' });
   });
 
+  it.each([
+    ['passport/0e5901c9-23ca-5cde-b023-63d82251fe7f', '0e5901c9-23ca-5cde-b023-63d82251fe7f'],
+    ['passport/5009297550715157269-0x00000000000000000000000000000000000000c1', '5009297550715157269:0x00000000000000000000000000000000000000c1'],
+    ['passport/124615329519749607-BMTso1anaMint1111111111111111111111111111111', '124615329519749607:BMTso1anaMint1111111111111111111111111111111'],
+    ['passport/2308837218439511688-Amulet_40DSO_3a_3a1220b1', '2308837218439511688:Amulet@DSO::1220b1'],
+  ])('parses the passport card %s to the page id %s and prints it back', (path, id) => {
+    expect(parseCardPath(path)).toEqual({ kind: 'passport', id });
+    expect(cardPathOf({ kind: 'passport', id })).toBe(path);
+  });
+
+  it.each(['passport', 'passport/', 'passport/abc', 'passport/0e5901c9-23ca', 'passport/0e5901c9-23ca-5cde-b023-63d82251fe7f/x', 'passport/5009297550715157269-', 'passport/5009297550715157269-0x_zz', 'passport/5009297550715157269-a-b', 'passport/x1-0xab', 'passport/1-_ff', 'passport/1-_41', 'passport/..'])('rejects the malformed passport card %j', (path) => {
+    expect(parseCardPath(path)).toBeNull();
+  });
+
   it('offers a fee ranking for lanes, senders and chains, but not tokens or CRE senders', () => {
     expect([topOrders('lane'), topOrders('sender'), topOrders('chain'), topOrders('token'), topOrders('cre')]).toEqual([['value', 'fees'], ['value', 'fees'], ['value', 'fees'], ['value'], ['value']]);
   });

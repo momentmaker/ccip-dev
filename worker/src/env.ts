@@ -20,4 +20,6 @@ export interface Env {
   PEG_ALERT_PRIVATE_PCT?: string;
   PEG_ALERT_PUBLIC_PCT?: string;
   PEG_PUBLIC?: string;
+  PASSPORT?: string;
+  PASSPORT_PUBLIC?: string;
 }

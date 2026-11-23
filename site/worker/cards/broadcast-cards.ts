@@ -1,23 +1,26 @@
 import {
-  allTimeTotal, dayTotalsFacts, RECORD_TOTAL, recordDriver, recordValueText, weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
+  allTimeTotal, dayTotalsFacts, passportArrivalLines, passportChangeText, passportMoreText, passportPlural, passportSlug, passportSummaryParts, RECORD_TOTAL, recordDriver, recordValueText,
+  weekTotalsFacts, type BroadcastTarget, type RecordDriver, type TotalMetric,
 } from '@ccip-dev/core/broadcasts';
 import { dataSharePct, formatCompactCount, formatCount, formatFeeTotal, formatLink, formatLinkAmount, formatShare, formatUsd, formatUtcDay } from '@ccip-dev/core/format';
-import { chainName, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
+import { chainName, chainNameMap, laneLabel, shortAddress, type ChainNames } from '@ccip-dev/core/names';
 import type { DayLeaders, Leader } from '@ccip-dev/core/public';
+import type { PassportEvent } from '@ccip-dev/core/public-passport';
 import { formatThresholdUsd, recordsSetOn, trackedMilestones, type MilestoneMetric, type RecordKind, type RecordSet } from '@ccip-dev/core/records';
 import { addDays } from '@ccip-dev/core/time';
 import { viaTokenMark } from '../../src/lib/senders';
 import { h, type Child, type VNode } from '../h';
 import { moversTree, spotlightTree } from './board-cards';
 import {
-  bigSize, bold, boldArrows, broadcastFrame, cardDay, cardWeek, COLORS, deltaStat, eyebrow, feeBars, hasReplayDay, iconsFor, MILESTONE_TITLES, mutedStat, namesOf, row,
-  skyFor, statsPanel, TEXT_COLUMN, type BroadcastInputs,
+  bigSize, bigText, bold, boldArrows, broadcastFrame, cardDay, cardWeek, COLORS, deltaStat, eyebrow, feeBars, hasReplayDay, iconsFor, MILESTONE_TITLES, MOMENT_COLUMN_WIDTH,
+  momentColumn, mutedStat, namesOf, nameSize, pill, PILLS, row, skyFor, statsPanel, TEXT_COLUMN, type BroadcastInputs,
 } from './broadcast-frame';
 import { messageCount } from './content';
 import { ctaFor, RECORDS_CTA } from './cta';
 import { glyph, withArrows } from './glyphs';
 import { countdownTree, welcomeTree } from './moment-cards';
 import { skyNodes } from './orbit-sky';
+import type { PassportInputs } from './passport-card';
 import { pegTree } from './peg-card';
 import { newcomerTree, projectSpotlightTree } from './project-cards';
 import { reserveTree } from './reserve-card';
@@ -265,8 +268,56 @@ async function milestoneTree(metric: MilestoneMetric, threshold: number, inputs:
   });
 }
 
+/** A token record shows this many of its lines and counts the rest, so the column never runs into the strip. */
+const PASSPORT_LINES_SHOWN = 3;
+
+function passportTokenLines(event: Extract<PassportEvent, { kind: 'token' }>, names: ChainNames): string[] {
+  return [
+    ...event.changes.map((ch) => passportChangeText(ch, names)),
+    ...event.arrivals.flatMap((a) => passportArrivalLines({ kind: a.kind, chains: a.chains, otherChainFlags: a.other_chain_flags }, names)),
+  ];
+}
+
+function passportBody(event: PassportEvent, names: ChainNames): VNode {
+  const line = (text: string) => h('div', { style: { display: 'flex', maxWidth: MOMENT_COLUMN_WIDTH, marginTop: 10, fontSize: 22, lineHeight: 1.3, color: COLORS.soft } }, text);
+  if (event.kind === 'summary') {
+    const tokens = passportPlural(event.tokens.length, 'more token');
+    const { raised, cleared, new_token: newToken, new_chain: newChain } = event.counts;
+    return momentColumn(pill('TOKEN PASSPORT', PILLS.welcome), bigText(tokens, nameSize(tokens)), ...passportSummaryParts({ raised, cleared, newToken, newChain }).map(line));
+  }
+  const lines = passportTokenLines(event, names);
+  const rest = lines.length - PASSPORT_LINES_SHOWN;
+  return momentColumn(
+    pill('TOKEN PASSPORT', PILLS.welcome),
+    bigText(event.name, nameSize(event.name)),
+    ...lines.slice(0, PASSPORT_LINES_SHOWN).map(line),
+    rest > 0 ? line(passportMoreText(rest)) : null,
+  );
+}
+
+/**
+ * KTD22: a post record's card, drawn from the record as passport-events.json holds it and never from the token's current
+ * page, so a sent post's card does not change. null for an id the file does not hold.
+ */
+async function passportPostTree(id: string, inputs: PassportInputs): Promise<VNode | null> {
+  const [file, chains] = await Promise.all([inputs.loadPassport('passport-events.json'), inputs.load('chains.json')]);
+  const event = file.events.find((e) => e.id === id);
+  if (event === undefined) return null;
+  const names = chainNameMap(chains.chains);
+  return broadcastFrame({
+    background: [],
+    eyebrow: `Token Passport · ${cardDay(event.day)}`,
+    body: passportBody(event, names),
+    insight: event.kind === 'token' ? ['On ', bold(event.chains.map((c) => chainName(names, c)).join(' · '))] : ['Each token is listed under Latest changes'],
+    cta: event.kind === 'token' ? { lead: '', path: `ccip.dev/passport/${passportSlug(event.token_id)}` } : { lead: 'Latest changes:', path: 'ccip.dev/passport' },
+  });
+}
+
+/** Only a Passport post's card reads the passport files, so only it needs their loader. */
+type BroadcastTreeInputs = BroadcastInputs & Partial<Pick<PassportInputs, 'loadPassport'>>;
+
 /** null when the published data has no such card: the route answers 404 and nothing is posted. */
-export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastInputs): Promise<VNode | null> {
+export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastTreeInputs): Promise<VNode | null> {
   switch (target.kind) {
     case 'daily':
       return dailyTree(target.day, inputs);
@@ -300,5 +351,10 @@ export async function broadcastTree(target: BroadcastTarget, inputs: BroadcastIn
       return operatorTree(target.address, target.at, inputs);
     case 'peg':
       return pegTree({ episode: target.episode, phase: target.phase }, inputs);
+    case 'passport': {
+      const { loadPassport } = inputs;
+      if (loadPassport === undefined) throw new Error('a Token Passport post card needs the passport file loader');
+      return passportPostTree(target.id, { ...inputs, loadPassport });
+    }
   }
 }

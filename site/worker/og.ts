@@ -2,13 +2,15 @@ import type { PublicFileName } from '@ccip-dev/core/public';
 import sponsor from '../sponsor.json';
 import { parseCardPath, type CardRoute } from '../src/lib/card-paths';
 import { fetchPublic } from '../src/lib/data';
+import { fetchPassport } from '../src/lib/passport-data';
 import { chainNameMap } from '../src/lib/names';
 import { TOP_FILE } from '../src/lib/top';
 import { sponsorView } from '../src/lib/sponsor';
 import type { CardCoin } from '../src/sky/card-coins';
 import { cardMaxAge } from './cache';
 import { broadcastTree } from './cards/broadcast-cards';
-import { BROADCAST_SIZE, type BroadcastInputs } from './cards/broadcast-frame';
+import { BROADCAST_SIZE } from './cards/broadcast-frame';
+import { passportTree, type PassportInputs } from './cards/passport-card';
 import { pegTree } from './cards/peg-card';
 import { stakerTree } from './cards/staking-cards';
 import { reservePageTree } from './cards/reserve-page-card';
@@ -101,7 +103,7 @@ function replayCardEntries(env: OgEnv, origin: string): Promise<Record<string, u
   return pending;
 }
 
-async function build(route: Exclude<CardRoute, { kind: 'broadcast' | 'staker' | 'peg' }>, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
+async function build(route: Exclude<CardRoute, { kind: 'broadcast' | 'staker' | 'peg' | 'passport' }>, deps: OgDeps, env: OgEnv, origin: string): Promise<Built | null> {
   const load = <N extends PublicFileName>(name: N) => fetchPublic(name, { fetch: deps.fetch });
   switch (route.kind) {
     case 'home':
@@ -147,7 +149,7 @@ async function build(route: Exclude<CardRoute, { kind: 'broadcast' | 'staker' | 
  * Broadcast and staker cards read fresh data (a just-published file may still sit stale in the edge cache) and never fall
  * back to the default card: a broadcast posts only a card that rendered from its own data.
  */
-async function drawnCard(draw: (inputs: BroadcastInputs) => Promise<VNode | null>, route: CardRoute, url: URL, env: OgEnv, ctx: { waitUntil(p: Promise<unknown>): void }, deps: OgDeps): Promise<Response> {
+async function drawnCard(draw: (inputs: PassportInputs) => Promise<VNode | null>, route: CardRoute, url: URL, env: OgEnv, ctx: { waitUntil(p: Promise<unknown>): void }, deps: OgDeps): Promise<Response> {
   const cacheKey = new Request(`${url.origin}${url.pathname}`);
   const uncached = { 'cache-control': 'no-store' };
   try {
@@ -156,6 +158,7 @@ async function drawnCard(draw: (inputs: BroadcastInputs) => Promise<VNode | null
     const fresh = ((input: RequestInfo | URL, init?: RequestInit) => deps.fetch(input, { ...init, cache: 'no-store' })) as typeof fetch;
     const tree = await draw({
       load: (name) => fetchPublic(name, { fetch: fresh }),
+      loadPassport: (name) => fetchPassport(name, { fetch: fresh }),
       icon: (selector) => coinIcon(env.ASSETS, url.origin, selector),
     });
     if (!tree) return new Response('Not found', { status: 404, headers: uncached });
@@ -218,6 +221,7 @@ export async function handleOg(request: Request, env: OgEnv, ctx: { waitUntil(p:
   if (route.kind === 'broadcast') return drawnCard((inputs) => broadcastTree(route.target, inputs), route, url, env, ctx, deps);
   if (route.kind === 'staker') return drawnCard((inputs) => stakerTree(route.address, inputs), route, url, env, ctx, deps);
   if (route.kind === 'peg') return drawnCard((inputs) => pegTree(null, inputs), route, url, env, ctx, deps);
+  if (route.kind === 'passport') return drawnCard((inputs) => passportTree(route.id, inputs), route, url, env, ctx, deps);
 
   const cacheKey = new Request(`${url.origin}${url.pathname}`);
 

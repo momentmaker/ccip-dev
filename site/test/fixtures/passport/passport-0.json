@@ -1,0 +1,548 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-26T01:00:00.000Z",
+  "attribution": "Data: Chainlink CCIP API, DefiLlama",
+  "day": "2026-11-26",
+  "since": "2026-11-24",
+  "tokens": [
+    {
+      "id": "0e5901c9-23ca-5cde-b023-63d82251fe7f",
+      "name": "BMT Token",
+      "symbol": "BMT",
+      "project": "bmt",
+      "chains": [
+        "124615329519749607",
+        "5009297550715157269",
+        "15971525489660198786"
+      ],
+      "results": {
+        "single-key": "flagged",
+        "rate-limit": "flagged",
+        "pool-pointer": "not readable"
+      },
+      "rows": [
+        {
+          "chain": "124615329519749607",
+          "address": "BMTso1anaMint1111111111111111111111111111111",
+          "pool": null,
+          "read_on": null,
+          "delisted_on": null,
+          "unreadable": "non-evm-chain",
+          "single_key": {
+            "key": "single-key/124615329519749607:BMTso1anaMint1111111111111111111111111111111",
+            "value": "not readable",
+            "reason": "non-evm-chain",
+            "read_on": null,
+            "basis": "24ad9c5645e1ec16",
+            "corrected": false,
+            "statements": [],
+            "pool_type": null,
+            "parties": [],
+            "decided_by": []
+          },
+          "lanes": [
+            {
+              "remote_chain": "5009297550715157269",
+              "rate_limit": {
+                "key": "rate-limit/124615329519749607:BMTso1anaMint1111111111111111111111111111111/5009297550715157269",
+                "value": "not readable",
+                "reason": "non-evm-chain",
+                "read_on": null,
+                "basis": "9caa533a13e5f62e",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [],
+                "receiving_inbound": null,
+                "verifiers": []
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/124615329519749607:BMTso1anaMint1111111111111111111111111111111/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+                  "value": "not readable",
+                  "reason": "non-evm-chain",
+                  "read_on": null,
+                  "basis": "1f738b148e2f7cb2",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "5009297550715157269",
+                    "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939"
+                  },
+                  "sides": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "pool": "0xe25a97e9e2f1eeee81d4a7986a018ac3ae8d857b",
+          "read_on": "2026-11-26",
+          "delisted_on": null,
+          "unreadable": null,
+          "single_key": {
+            "key": "single-key/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+            "value": "flagged",
+            "reason": "single-key",
+            "read_on": "2026-11-26",
+            "basis": "c710ede029c098cc",
+            "corrected": false,
+            "statements": [
+              {
+                "answers": "flagged",
+                "text": "The deployer key moves to a Safe next week.",
+                "said_on": "2026-11-25",
+                "attached_on": "2026-11-25",
+                "verified_via": "x",
+                "verified_source": "bmt_token"
+              }
+            ],
+            "pool_type": "BurnMintTokenPool 1.5.1",
+            "parties": [
+              {
+                "role": "poolOwner",
+                "address": "0xd4d23209aae8630bf386b7393763a5b7865e57cb",
+                "kind": "wallet",
+                "signers": 1,
+                "keys": null
+              },
+              {
+                "role": "registryAdministrator",
+                "address": "0x62c212084ed4d2c1451c2e778f8ea9a15a47616b",
+                "kind": "safe",
+                "signers": 2,
+                "keys": 3
+              },
+              {
+                "role": "rateLimitAdmin",
+                "address": null,
+                "kind": "absent",
+                "signers": null,
+                "keys": null
+              },
+              {
+                "role": "proxyAdmin",
+                "address": null,
+                "kind": "absent",
+                "signers": null,
+                "keys": null
+              }
+            ],
+            "decided_by": [
+              "poolOwner"
+            ]
+          },
+          "lanes": [
+            {
+              "remote_chain": "124615329519749607",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/124615329519749607",
+                "value": "flagged",
+                "reason": "limit-off",
+                "read_on": "2026-11-26",
+                "basis": "ca1a34120bad6c57",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [
+                  {
+                    "finality": "standard",
+                    "limit": "off"
+                  }
+                ],
+                "receiving_inbound": "not readable",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "ccip-1x"
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/124615329519749607:BMTso1anaMint1111111111111111111111111111111/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+                  "value": "not readable",
+                  "reason": "non-evm-chain",
+                  "read_on": null,
+                  "basis": "1f738b148e2f7cb2",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "124615329519749607",
+                    "address": "BMTso1anaMint1111111111111111111111111111111"
+                  },
+                  "sides": []
+                }
+              ]
+            },
+            {
+              "remote_chain": "4426351306075016396",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4426351306075016396",
+                "value": "clear",
+                "reason": "limit-on",
+                "read_on": "2026-11-26",
+                "basis": "ca1a34120bad6c57",
+                "corrected": true,
+                "statements": [],
+                "per_hour": [
+                  {
+                    "finality": "standard",
+                    "limit": "off"
+                  }
+                ],
+                "receiving_inbound": "not readable",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [
+                      {
+                        "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                        "name": "Committee Verifier (Default)"
+                      }
+                    ],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4426351306075016396:*",
+                  "value": "not readable",
+                  "reason": "remote-chain-not-in-group",
+                  "read_on": "2026-11-26",
+                  "basis": "ebbc7d7395ec15b6",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "4426351306075016396",
+                    "address": null
+                  },
+                  "sides": []
+                }
+              ]
+            },
+            {
+              "remote_chain": "4949039107694359620",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4949039107694359620",
+                "value": "clear",
+                "reason": "limit-on",
+                "read_on": "2026-11-26",
+                "basis": "4b4234c621599316",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [
+                  {
+                    "finality": "standard",
+                    "limit": "on",
+                    "units": "136000000000000000000000",
+                    "tokens": "136000",
+                    "usd": 340000
+                  }
+                ],
+                "receiving_inbound": "not readable",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [
+                      {
+                        "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                        "name": "Committee Verifier (Default)"
+                      }
+                    ],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4949039107694359620:*",
+                  "value": "not readable",
+                  "reason": "remote-chain-not-in-group",
+                  "read_on": "2026-11-26",
+                  "basis": "ebbc7d7395ec15b6",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "4949039107694359620",
+                    "address": null
+                  },
+                  "sides": []
+                }
+              ]
+            },
+            {
+              "remote_chain": "8481857512324358265",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/8481857512324358265",
+                "value": "flagged",
+                "reason": "limit-off",
+                "read_on": "2026-11-26",
+                "basis": "ca1a34120bad6c57",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [
+                  {
+                    "finality": "standard",
+                    "limit": "off"
+                  }
+                ],
+                "receiving_inbound": "not readable",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [
+                      {
+                        "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                        "name": "Committee Verifier (Default)"
+                      }
+                    ],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/8481857512324358265:*",
+                  "value": "not readable",
+                  "reason": "remote-chain-not-in-group",
+                  "read_on": "2026-11-26",
+                  "basis": "ebbc7d7395ec15b6",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "8481857512324358265",
+                    "address": null
+                  },
+                  "sides": []
+                }
+              ]
+            },
+            {
+              "remote_chain": "11344663589394136015",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/11344663589394136015",
+                "value": "flagged",
+                "reason": "limit-off",
+                "read_on": "2026-11-26",
+                "basis": "ca1a34120bad6c57",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [
+                  {
+                    "finality": "standard",
+                    "limit": "off"
+                  }
+                ],
+                "receiving_inbound": "not readable",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [
+                      {
+                        "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                        "name": "Committee Verifier (Default)"
+                      }
+                    ],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/11344663589394136015:*",
+                  "value": "not readable",
+                  "reason": "remote-chain-not-in-group",
+                  "read_on": "2026-11-26",
+                  "basis": "ebbc7d7395ec15b6",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "11344663589394136015",
+                    "address": null
+                  },
+                  "sides": []
+                }
+              ]
+            },
+            {
+              "remote_chain": "15971525489660198786",
+              "rate_limit": {
+                "key": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/15971525489660198786",
+                "value": "flagged",
+                "reason": "limit-off",
+                "read_on": "2026-11-26",
+                "basis": "ca1a34120bad6c57",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [
+                  {
+                    "finality": "standard",
+                    "limit": "off"
+                  }
+                ],
+                "receiving_inbound": "not readable",
+                "verifiers": [
+                  {
+                    "direction": "outbound",
+                    "state": "listed",
+                    "verifiers": [
+                      {
+                        "address": "0x2caafd3b4cf606220580c885bd2b448fb93dc03b",
+                        "name": "Committee Verifier (Default)"
+                      }
+                    ],
+                    "threshold": null
+                  }
+                ]
+              },
+              "pointers": [
+                {
+                  "key": "pool-pointer/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/15971525489660198786:*",
+                  "value": "not readable",
+                  "reason": "remote-chain-not-in-group",
+                  "read_on": "2026-11-26",
+                  "basis": "ebbc7d7395ec15b6",
+                  "corrected": false,
+                  "statements": [],
+                  "other": {
+                    "chain": "15971525489660198786",
+                    "address": null
+                  },
+                  "sides": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "chain": "15971525489660198786",
+          "address": "0x00000000000000000000000000000000000000b5",
+          "pool": null,
+          "read_on": null,
+          "delisted_on": "2026-11-24",
+          "unreadable": null,
+          "single_key": null,
+          "lanes": []
+        }
+      ],
+      "log": [
+        {
+          "day": "2026-11-24",
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "kind": "first-reading"
+        },
+        {
+          "kind": "statement",
+          "day": "2026-11-24",
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "unit": "single-key/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "statement": {
+            "answers": "clear",
+            "text": "Our pool is owned by a 2-of-3 Safe.",
+            "said_on": "2026-11-24",
+            "attached_on": "2026-11-24",
+            "verified_via": "website",
+            "verified_source": "https://bmt.example/security"
+          }
+        },
+        {
+          "day": "2026-11-25",
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "kind": "setting",
+          "setting": "parties.poolOwner",
+          "from": {
+            "state": "address",
+            "address": "0x62c212084ed4d2c1451c2e778f8ea9a15a47616b"
+          },
+          "to": {
+            "state": "address",
+            "address": "0xd4d23209aae8630bf386b7393763a5b7865e57cb"
+          }
+        },
+        {
+          "day": "2026-11-25",
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "kind": "re-classified",
+          "unit": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/8481857512324358265",
+          "from": "not readable",
+          "to": "flagged"
+        },
+        {
+          "day": "2026-11-26",
+          "chain": "5009297550715157269",
+          "address": "0x4c1dab3be86347977f3dfc4b9688224ef2272939",
+          "kind": "correction",
+          "unit": "rate-limit/5009297550715157269:0x4c1dab3be86347977f3dfc4b9688224ef2272939/4426351306075016396",
+          "from": "flagged",
+          "to": "clear",
+          "basis": "ca1a34120bad6c57"
+        }
+      ]
+    },
+    {
+      "id": "0f000000-0000-5000-8000-000000000002",
+      "name": "BMT Token",
+      "symbol": "BMT",
+      "project": null,
+      "chains": [
+        "124615329519749607"
+      ],
+      "results": {
+        "single-key": "not readable",
+        "rate-limit": "not readable",
+        "pool-pointer": null
+      },
+      "rows": [
+        {
+          "chain": "124615329519749607",
+          "address": "Unrelated1111111111111111111111111111111111",
+          "pool": null,
+          "read_on": null,
+          "delisted_on": null,
+          "unreadable": "non-evm-chain",
+          "single_key": {
+            "key": "single-key/124615329519749607:Unrelated1111111111111111111111111111111111",
+            "value": "not readable",
+            "reason": "non-evm-chain",
+            "read_on": null,
+            "basis": "24ad9c5645e1ec16",
+            "corrected": false,
+            "statements": [],
+            "pool_type": null,
+            "parties": [],
+            "decided_by": []
+          },
+          "lanes": [
+            {
+              "remote_chain": null,
+              "rate_limit": {
+                "key": "rate-limit/124615329519749607:Unrelated1111111111111111111111111111111111/*",
+                "value": "not readable",
+                "reason": "non-evm-chain",
+                "read_on": null,
+                "basis": "9caa533a13e5f62e",
+                "corrected": false,
+                "statements": [],
+                "per_hour": [],
+                "receiving_inbound": null,
+                "verifiers": []
+              },
+              "pointers": []
+            }
+          ]
+        }
+      ],
+      "log": []
+    }
+  ]
+}

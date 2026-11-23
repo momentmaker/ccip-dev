@@ -4,7 +4,7 @@ import { formatCompactCount, formatCount, formatDuration, formatFeeTotal, format
 import { shortAddress } from '@ccip-dev/core/names';
 import { HUNTER_MIN_GRABS, type OperatorMomentFacts, type StakingWeekFacts } from '@ccip-dev/core/staking-broadcasts';
 import type { RecordKind } from '@ccip-dev/core/records';
-import type { BroadcastFacts, CreFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, PegFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
+import type { BroadcastFacts, CreFacts, PassportFacts, DailyFacts, LeaderFacts, MilestoneFacts, OperatorFacts, PegFacts, RecordFacts, ReserveFacts, SenderFacts, StakingFacts, WeeklyFacts } from './facts';
 import { linkAmount, utcStamp } from '@ccip-dev/core/peg-format';
 import { pctText, pegCurveLine, pegRouteLine } from '../peg-copy';
 import type { Player } from './tags';
@@ -399,7 +399,10 @@ function pegX(f: PegFacts): Line[] {
   return [...pegLines(f, noLinks), { text: 'Not financial advice.' }];
 }
 
-function xLines(f: BroadcastFacts): Line[] {
+/** A Passport post cuts its own list to fit (passport-copy.ts), so its lines never go through fitLines. */
+type CaptionedFacts = Exclude<BroadcastFacts, PassportFacts>;
+
+function xLines(f: CaptionedFacts): Line[] {
   switch (f.kind) {
     case 'daily':
       return dailyX(f);
@@ -420,7 +423,7 @@ function xLines(f: BroadcastFacts): Line[] {
   }
 }
 
-function telegramLines(f: BroadcastFacts): Line[] {
+function telegramLines(f: CaptionedFacts): Line[] {
   switch (f.kind) {
     case 'daily':
       return dailyTg(f);
@@ -447,7 +450,7 @@ export interface Copy {
 }
 
 /** Telegram counts its 1,024 after removing tags; measuring the raw HTML is stricter, so a caption that passes here always fits. */
-export function composeCopy(facts: BroadcastFacts): Copy {
+export function composeCopy(facts: CaptionedFacts): Copy {
   return {
     xText: oneCashtag(fitLines(xLines(facts), (t) => xLength(t) <= X_MAX)),
     telegramHtml: escapeStrayLt(fitLines(telegramLines(facts), (t) => t.length <= TELEGRAM_CAPTION_MAX)),
