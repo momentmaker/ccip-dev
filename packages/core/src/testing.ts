@@ -400,7 +400,7 @@ export function pegRpc(over: Partial<Record<number, string>> = {}): FakeRoute {
 
 /** A recorded call's answer: its return data, a revert, or an out-of-gas error that also fails any aggregate3 batch holding it. */
 export type RecordedCall = `0x${string}` | 'revert' | 'burn';
-export type EvmHiccup = 429 | 500 | 503 | { status: 429 | 503; retryAfter: string } | 'timeout' | 'header not found';
+export type EvmHiccup = 403 | 429 | 500 | 503 | { status: 429 | 503; retryAfter: string } | 'timeout' | 'header not found' | 'unknown state';
 
 export interface FakeEvmChainOptions {
   chainId: number;
@@ -475,6 +475,7 @@ export function fakeEvmChain(opts: FakeEvmChainOptions): FakeEvmChain {
     const result = (value: unknown) => jsonResponse({ jsonrpc: '2.0', id: body.id, result: value });
     const error = (code: number, message: string) => jsonResponse({ jsonrpc: '2.0', id: body.id, error: { code, message } });
     if (hiccup === 'header not found') return error(-32000, hiccup);
+    if (hiccup === 'unknown state') return error(-32000, 'Unknown state: the block state is not available');
     switch (body.method) {
       case 'eth_chainId':
         return result(`0x${opts.chainId.toString(16)}`);

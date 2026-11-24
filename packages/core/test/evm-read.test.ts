@@ -100,6 +100,14 @@ describe('openChain', () => {
 });
 
 describe('readCalls', () => {
+  it('fails the chain instead of one call when the endpoint refuses state with HTTP 403', async () => {
+    await expect(readAtBlock(chain({ multicall3: 'absent', hiccups: { eth_call: [403] } }), [OWNER, TOKEN], false)).rejects.toMatchObject({ name: 'ChainReadError', kind: 'endpoint' });
+  });
+
+  it('fails the chain instead of one call when the endpoint no longer holds the pinned block state', async () => {
+    await expect(readAtBlock(chain({ multicall3: 'absent', hiccups: { eth_call: ['unknown state'] } }), [OWNER, TOKEN], false)).rejects.toMatchObject({ name: 'ChainReadError', kind: 'endpoint' });
+  });
+
   it('answers three calls through one Multicall3 batch at the pinned block, the reverted second one included', async () => {
     const fake = chain();
     expect(await read(fake, [OWNER, REMOTE_POOL_V150, TOKEN])).toEqual([ANSWERED_OWNER, { status: 'reverted' }, ANSWERED_TOKEN]);

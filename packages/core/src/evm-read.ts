@@ -45,6 +45,8 @@ const BlockHeader = z.object({ hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/), ti
 /** Errors that say nothing about the call itself: rate limits, server errors and a node that does not hold the block yet. */
 const RETRYABLE = /^HTTP (429|5\d\d)$|rate limit|too many requests|limit exceeded|header not found|block not found|unknown block|missing trie node|timeout|timed out/i;
 const RATE_LIMITED = /^HTTP (429|503)$/;
+/** An endpoint that refuses access or no longer holds the pinned block's state says nothing about the call, so the whole chain's reading fails rather than one call. */
+const REFUSED_STATE = /^HTTP 40[13]$|archive|unknown state|historical state|state (is )?not available|pruned/i;
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -71,7 +73,10 @@ async function request(deps: HttpDeps, rpcUrl: string, method: string, params: u
     try {
       return await ethRpc(timed, rpcUrl, method, params);
     } catch (err) {
-      if (!isRetryable(err)) throw err;
+      if (!isRetryable(err)) {
+        if (REFUSED_STATE.test(messageOf(err))) throw new ChainReadError('endpoint', `${rpcUrl}: ${method} refused: ${messageOf(err)}`);
+        throw err;
+      }
       const limited = RATE_LIMITED.test(messageOf(err));
       if (attempt >= (limited ? RATE_LIMITED_ATTEMPTS : ATTEMPTS)) throw new ChainReadError('endpoint', `${rpcUrl}: ${method} failed ${attempt} times, last with ${messageOf(err)}`);
       const backoff = (limited ? RATE_LIMITED_BACKOFF_MS : BACKOFF_MS) * 2 ** (attempt - 1);
