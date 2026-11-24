@@ -63,7 +63,7 @@
     "plasma-mainnet": "https://rpc.plasma.to",
     "plume-mainnet": "https://plume.drpc.org",
     "polkadot-mainnet-astar": "https://evm.astar.network",
-    "polygon-mainnet": "https://xrpc.cl/polygon",
+    "polygon-mainnet": "https://polygon-bor-rpc.publicnode.com",
     "polygon-mainnet-katana": "https://katana.drpc.org",
     "robinhood-mainnet": "https://rpc.mainnet.chain.robinhood.com",
     "ronin-mainnet": "https://api.roninchain.com/rpc",
