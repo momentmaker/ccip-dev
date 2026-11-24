@@ -19,13 +19,14 @@ import * as store from '../store';
 export const START_HOUR_UTC = 1;
 /** From the 22:00 UTC run the day is evaluated with whatever was read. */
 export const CLOSE_HOUR_UTC = 22;
-export const RUN_BUDGET_MS = 4 * 60_000;
+export const RUN_BUDGET_MS = 6 * 60_000;
 /**
  * A chain starts only while this much of the run's budget remains, and fails for the day past it. The recorded fixtures
- * cost 12 requests for one row and 15 for two; Ethereum, the largest chain at 222 rows, comes to about 670, which at the
- * 150-250 ms a keyless endpoint takes is two to three minutes.
+ * cost 12 requests for one row and 15 for two; Ethereum, the largest chain at 222 rows, comes to about 670 and Base to
+ * about 320. Paced 150 ms apart they took 72 s and 51 s from a home connection, but Ethereum passed a 3-minute limit
+ * from Cloudflare's egress.
  */
-export const CHAIN_TIME_LIMIT_MS = 3 * 60_000;
+export const CHAIN_TIME_LIMIT_MS = 5 * 60_000;
 /**
  * Passport runs last in the hourly cron, whose invocation ends at 15 minutes of wall clock. The Reserve and staking scans
  * before it may each take 4 minutes when behind, so chain readings end this far into the invocation, leaving the
