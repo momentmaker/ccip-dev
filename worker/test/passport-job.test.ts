@@ -8,7 +8,7 @@ import burnMint151 from '../../packages/core/test/fixtures/passport/pools/ethere
 import noHooks200 from '../../packages/core/test/fixtures/passport/pools/ethereum-lock-release-2.0.0-no-hooks.json';
 import noPool from '../../packages/core/test/fixtures/passport/pools/ethereum-no-pool.json';
 import principals from '../../packages/core/test/fixtures/passport/principals/ethereum.json';
-import { CHAIN_TIME_LIMIT_MS, RUN_BUDGET_MS, runPassport } from '../src/jobs/passport';
+import { CHAIN_TIME_LIMIT_MS, INVOCATION_READ_WINDOW_MS, RUN_BUDGET_MS, runPassport } from '../src/jobs/passport';
 import * as store from '../src/store';
 import { harness, resetStorage, watchedDb, type Harness } from './helpers';
 
@@ -127,6 +127,8 @@ interface RunOptions {
   db?: D1Database;
   sleep?: (ms: number) => Promise<void>;
   clock?: () => number;
+  /** How long the cron invocation's earlier jobs ran before Passport starts. */
+  startsAfter?: number;
 }
 
 /** One hourly run at `iso`; `advance` moves the run's clock, as a slow endpoint would. */
@@ -138,7 +140,9 @@ async function run(iso: string, routes: (advance: (ms: number) => void) => FakeR
     h?.setNow(new Date(now).toISOString());
   };
   const f = fakeFetch(...routes(advance));
-  h = harness({ now: iso, fetch: f, env: switches, ...options });
+  const { startsAfter = 0, ...harnessOptions } = options;
+  h = harness({ now: iso, fetch: f, env: switches, ...harnessOptions });
+  advance(startsAfter);
   await runPassport(h.c);
   return { alerts: h.alerts, urls: f.calls.map((c) => c.url) };
 }
@@ -410,6 +414,24 @@ describe('runPassport across hourly runs', () => {
       failures: (await chainState(ETHEREUM))?.failures,
       row: await passportRow(ETHEREUM, NO_POOL.token),
     }).toEqual({ afterFirst: 0, retried: [RPC[ETHEREUM.name]], failures: 1, row: stored });
+  });
+
+  it('starts no chain once less than its time limit remains of the invocation\'s reading window', async () => {
+    // #given
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token }]);
+    // #when
+    const late = await run(at(D1), () => [NO_LANES, chainRoute(noPoolOn(ETHEREUM), D1)], ON, { startsAfter: INVOCATION_READ_WINDOW_MS - CHAIN_TIME_LIMIT_MS + 1_000 });
+    // #then
+    expect({ hosts: rpcHosts(late.urls), state: await chainState(ETHEREUM) }).toEqual({ hosts: [], state: null });
+  });
+
+  it('starts a chain when a whole time limit remains of the invocation\'s reading window', async () => {
+    // #given
+    await seed([ETHEREUM], [{ chain: ETHEREUM, address: NO_POOL.token }]);
+    // #when
+    const late = await run(at(D1), () => [NO_LANES, chainRoute(noPoolOn(ETHEREUM), D1)], ON, { startsAfter: INVOCATION_READ_WINDOW_MS - CHAIN_TIME_LIMIT_MS });
+    // #then
+    expect(rpcHosts(late.urls)).toEqual([RPC[ETHEREUM.name]]);
   });
 
   it('fails a chain for the day when its reading runs past its time limit, and moves on to the next chain', async () => {

@@ -26,6 +26,12 @@ export const RUN_BUDGET_MS = 4 * 60_000;
  * 150-250 ms a keyless endpoint takes is two to three minutes.
  */
 export const CHAIN_TIME_LIMIT_MS = 3 * 60_000;
+/**
+ * Passport runs last in the hourly cron, whose invocation ends at 15 minutes of wall clock. The Reserve and staking scans
+ * before it may each take 4 minutes when behind, so chain readings end this far into the invocation, leaving the
+ * evaluation, publish and wire a margin.
+ */
+export const INVOCATION_READ_WINDOW_MS = 11 * 60_000;
 /** Start-to-start spacing of one chain's requests: back-to-back reads drew HTTP 429 from public endpoints. */
 const REQUEST_INTERVAL_MS = 150;
 const LISTED_WITHIN_DAYS = 7;
@@ -146,7 +152,7 @@ async function chainsToRead(c: RunContext, today: string): Promise<ReadableChain
  * a block from today included.
  */
 async function readChains(c: RunContext, chains: readonly ReadableChain[], today: string): Promise<ReadableChain[]> {
-  const deadline = c.deps.now().getTime() + RUN_BUDGET_MS;
+  const deadline = Math.min(c.deps.now().getTime() + RUN_BUDGET_MS, c.invokedAt.getTime() + INVOCATION_READ_WINDOW_MS);
   let onRamps: LaneOnRamps | null | undefined;
   const untried: ReadableChain[] = [];
   for (const chain of chains) {

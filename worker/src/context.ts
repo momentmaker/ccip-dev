@@ -21,6 +21,8 @@ export interface RunContext {
   creKeys: CreKeySet;
   /** labels/passport.toml: statements and corrections (KTD21). */
   passportNotes: PassportNotes;
+  /** When the cron invocation began; the jobs of one cron run one after another inside its wall-clock limit. */
+  invokedAt: Date;
 }
 
 export function createRunContext(
@@ -41,5 +43,6 @@ export function createRunContext(
     labelTokens: overrides.labelTokens ?? bundledLabelTokens,
     creKeys: overrides.creKeys ?? bundledCreKeys,
     passportNotes: overrides.passportNotes ?? bundledPassportNotes,
+    invokedAt: deps.now(),
   };
 }
