@@ -15,7 +15,7 @@
     "bitcoin-mainnet-bob-1": "https://rpc.gobob.xyz",
     "bitcoin-mainnet-bsquared-1": "https://rpc.bsquared.network",
     "bitcoin-merlin-mainnet": "https://rpc.merlinchain.io",
-    "bittensor-mainnet": "https://rpc.blockmachine.io",
+    "bittensor-mainnet": "https://lite.chain.opentensor.ai",
     "celo-mainnet": "https://forno.celo.org",
     "core-mainnet": "https://rpc.coredao.org",
     "creditcoin-mainnet": "https://creditcoin.drpc.org",
