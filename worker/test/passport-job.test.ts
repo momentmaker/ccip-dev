@@ -632,6 +632,84 @@ describe('runPassport evaluation', () => {
   });
 });
 
+describe('runPassport pool pairs', () => {
+  const BASE_WORD = word(`0x${BigInt(BASE.chainSelector).toString(16)}`);
+  const SUPPORTED_CHAINS = evmCallKey(BURN_MINT.pool!, '0xc4bffe2b');
+  /** The Ethereum BurnMint pool, which lists Base, and the 2.0.0 pool on Base, which does not list Ethereum. */
+  const ethereumSide = (calls = burnMintCalls(SAFE)): ChainSpec => ({ chain: ETHEREUM, calls, storage: BURN_MINT.storage });
+  const baseSide: ChainSpec = { chain: BASE, calls: recorded(NO_HOOKS, REGISTRY[BASE.chainSelector]!.tokenAdminRegistry), storage: NO_HOOKS.storage };
+  const LANES = lanesRoute({ [ETHEREUM.chainSelector]: BURN_MINT.onRamps, [BASE.chainSelector]: NO_HOOKS.onRamps });
+  const readDay = (day: string, sides: ChainSpec[], hour = 1) => run(at(day, hour), () => [LANES, ...sides.map((s) => chainRoute(s, day))]);
+  const seedPair = () => seed([ETHEREUM, BASE], [{ chain: ETHEREUM, address: BURN_MINT.token }, { chain: BASE, address: NO_HOOKS.token }]);
+  const pairUnit = async () => (await units()).find((u) => u.unit.startsWith('pool-pointer/') && !u.unit.endsWith(':*'))!;
+  const pairState = async () => {
+    const u = await pairUnit();
+    return { value: JSON.parse(u.result).value, announced: u.announced, pending: u.pending };
+  };
+  const pairPosts = async () => {
+    const key = (await pairUnit()).unit;
+    return (await posts()).filter((p) => p.facts.includes(key)).map((p) => ({ day: p.day, changes: JSON.parse(p.facts).changes.filter((c: { unit: string }) => c.unit === key) }));
+  };
+
+  /** Ethereum is read alone on D1 and Base alone on D2, so the pair's first reading together is on D3. */
+  const readSidesApartThenTogether = async () => {
+    await seedPair();
+    await readDay(D1, [ethereumSide()], 22);
+    await readDay(D2, [baseSide], 22);
+    await readDay(D3, [ethereumSide(), baseSide]);
+  };
+
+  it('sets the baseline of a pair whose rows were first read on different days on the first day they read together, and never posts it', async () => {
+    // #given
+    await readSidesApartThenTogether();
+    const onD3 = await pairState();
+    // #when
+    await readDay(D4, [ethereumSide(), baseSide]);
+    // #then
+    expect({ onD3, posts: await pairPosts() }).toEqual({ onD3: { value: 'flagged', announced: 'flagged', pending: null }, posts: [] });
+  });
+
+  it('keeps the baseline of such a pair when the notes change and the day is evaluated again', async () => {
+    // #given
+    await readSidesApartThenTogether();
+    const notes: PassportNotes = {
+      statements: [],
+      corrections: [{ chain: ETHEREUM.name, token: BURN_MINT.token.toLowerCase(), check: 'single-key', remoteChain: null, remoteToken: null, basis: 'ffffffffffffffff', value: 'clear', reason: 'multi-signer', correctedOn: D3 }],
+    };
+    // #when
+    await run(at(D3, 2), () => [], ON, { passportNotes: notes });
+    const again = await pairState();
+    const evaluatedWith = await meta('passport:notes');
+    await readDay(D4, [ethereumSide(), baseSide]);
+    // #then
+    expect({ notes: evaluatedWith, again, posts: await pairPosts() }).toEqual({
+      notes: passportNotesHash(notes),
+      again: { value: 'flagged', announced: 'flagged', pending: null },
+      posts: [],
+    });
+  });
+
+  it('covers AE13: a new lane between rows read before goes pending when its pair is flagged, and raises on the next agreeing reading', async () => {
+    // #given both rows read on D1, Ethereum's pool not yet listing Base
+    await seedPair();
+    const calls = burnMintCalls(SAFE);
+    const withoutBase = calls[SUPPORTED_CHAINS]!.replace(BASE_WORD, '').replace(`${'0'.repeat(63)}6`, `${'0'.repeat(63)}5`) as RecordedCall;
+    await readDay(D1, [ethereumSide({ ...calls, [SUPPORTED_CHAINS]: withoutBase }), baseSide]);
+    const pairsOnD1 = (await units()).filter((u) => u.unit.startsWith('pool-pointer/') && !u.unit.endsWith(':*'));
+    await readDay(D2, [ethereumSide(), baseSide]);
+    const onD2 = await pairState();
+    // #when
+    await readDay(D3, [ethereumSide(), baseSide]);
+    // #then
+    const key = (await pairUnit()).unit;
+    expect({ pairsOnD1, onD2, posts: await pairPosts() }).toEqual({
+      pairsOnD1: [],
+      onD2: { value: 'flagged', announced: null, pending: 'flagged' },
+      posts: [{ day: D3, changes: [{ kind: 'raised', day: D3, correction: false, groupId: GROUP, unit: key }] }],
+    });
+  });
+});
+
 describe('runPassport statements and corrections', () => {
   const singleKey = async () => JSON.parse((await units()).find((u) => u.unit === SINGLE_KEY)!.result) as { value: string; reason: string; basis: string; corrected: boolean };
   const announced = async () => (await units()).find((u) => u.unit === SINGLE_KEY)!.announced;

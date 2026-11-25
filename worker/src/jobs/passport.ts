@@ -479,6 +479,12 @@ function valuesChanged(result: CheckResult, members: readonly Member[], changedO
   });
 }
 
+/** R33 for a unit stored before its rows ever read together: no result of it was ever announced or pending (KTD12). */
+function neverSucceeded(wire: WireUnitState, today: string): boolean {
+  const ahead = wire.day === today && wire.before ? wire.before : wire;
+  return ahead.announced === null && ahead.pending === null && (ahead.result === null || ahead.result === 'not readable');
+}
+
 function evaluateGroup(db: D1Database, groupId: string, members: readonly Member[], unitsByRow: ReadonlyMap<string, readonly passportStore.StoredUnit[]>, day: Evaluation, tally: DayTally): D1PreparedStatement[] {
   const { today, since } = day;
   const statements: D1PreparedStatement[] = [];
@@ -547,7 +553,7 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
             read: true,
             result: result.value,
             method: result.methodVersion,
-            baseline: unitMembers.some((m) => m.stored?.first_read_day === today || confirming.has(m.key)),
+            baseline: unitMembers.some((m) => m.stored?.first_read_day === today || confirming.has(m.key)) || (previous !== undefined && neverSucceeded(wire, today)),
             chainValuesChanged: valuesChanged(result, unitMembers, changedOf),
             corrected: result.corrected,
           }
