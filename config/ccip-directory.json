@@ -459,7 +459,8 @@
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
     },
     "11344663589394136015": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "11964252391146578476": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
@@ -471,7 +472,8 @@
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
     },
     "124615329519749607": {
-      "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ": "CCTP Verifier"
+      "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ": "CCTP Verifier",
+      "CV2s8jsYhx9th8pyZ4pN7apLELAB42e5j4XqWhqTdWCm": "Committee Verifier (Default)"
     },
     "12505351618335765396": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
@@ -480,7 +482,8 @@
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
     },
     "1294465214383781161": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "13204309965629103672": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
@@ -496,7 +499,8 @@
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
     },
     "13624601974233774587": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "13874588925447303949": {
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
@@ -531,7 +535,8 @@
     },
     "15971525489660198786": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
-      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "16015286601757825753": {
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)",
@@ -561,13 +566,15 @@
     },
     "1673871237479749969": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
-      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "16960985330067274105": {
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
     },
     "16978377838628290997": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "17198166215261833993": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
@@ -631,7 +638,8 @@
       "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
     },
     "2459028469735686113": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "2624132734533621656": {
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
@@ -726,7 +734,8 @@
     },
     "5009297550715157269": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
-      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "5142893604156789321": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
@@ -751,10 +760,12 @@
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
     },
     "5936861837188149645": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "6093540873831549674": {
-      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
+      "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "6180753054346818345": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
@@ -771,7 +782,8 @@
     },
     "6433500567565415381": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
-      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "6827576821754315911": {
       "0x8f3ee3c77d2b27c32306a89d367654f959db223d": "Committee Verifier (Default)"
@@ -830,7 +842,8 @@
     },
     "8481857512324358265": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)",
-      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier"
+      "0xbfd2109d3ff5b6f09281bdb52ca6b56d7bb1ff12": "CCTP Verifier",
+      "0xd314336866369adf98edc14f95ed05ed87cc74a8": "Lombard Verifier"
     },
     "8805746078405598895": {
       "0x2caafd3b4cf606220580c885bd2b448fb93dc03b": "Committee Verifier (Default)"
