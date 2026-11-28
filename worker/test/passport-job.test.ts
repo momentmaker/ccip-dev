@@ -542,6 +542,16 @@ describe('runPassport evaluation', () => {
     expect({ alerts: pending.length, token: pending[0]?.text.includes('BMT'), change: pending[0]?.text.includes(`${SINGLE_KEY}: clear → flagged`) }).toEqual({ alerts: 1, token: true, change: true });
   });
 
+  it('sends no pending alert for a result that would confirm without a post', async () => {
+    // #given an owner the reader does not identify, so the single key is announced "not readable"
+    await seedBurnMint();
+    await burnMintDay(D1, '0xf433c2a2d6facecdd9edd7b8ce9ceaab96f41866');
+    // #when the owner becomes a Safe and the result goes pending as clear
+    const { alerts } = await burnMintDay(D2, SAFE);
+    // #then
+    expect(alerts.filter((a) => a.signature === 'passport-pending')).toEqual([]);
+  });
+
   it('covers AE2: a single key on two days shows the flag on the first and raises it in one post record on the second', async () => {
     // #given
     await seedBurnMint();

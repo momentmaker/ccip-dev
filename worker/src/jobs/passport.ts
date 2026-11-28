@@ -1,6 +1,6 @@
 import {
   bySelector, ChainReadError, classifyParties, confirmArrivals, createThrottle, dayOf, evaluateChecks, groupName, listLaneOnRamps, METHOD_VERSION, openChain, PARTY_ROLES, passportCorrections,
-  passportNotesHash, planPassportPosts, readPassportChain, stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
+  passportNotesHash, planPassportPosts, postsOnConfirm, readPassportChain, stepWireUnit, WIRE_TOKEN_POSTS, WIRE_UNREAD,
   type ArrivalItem, type ArrivalReading, type ArrivingRow, type ChainRef, type CheckResult, type CheckValue, type Correction, type DesignReason, type HttpDeps, type LaneOnRamps,
   type PartyClassification, type PassportRow, type RawLane, type RawSettings, type Readable, type RateLimit, type RowReading, type StoredReading,
   type WireChange, type WireOutcome, type WireUnitState,
@@ -564,7 +564,7 @@ function evaluateGroup(db: D1Database, groupId: string, members: readonly Member
       if (step.log !== null) {
         statements.push(passportStore.logStatement(db, { chain: first!.registry.chain, address: first!.registry.address, day: today, kind: step.log, detail: { unit: result.key, from: step.state.before?.result ?? null, to: result.value } }));
       }
-      if (wire.pending !== null && wire.pending.day === today) tally.pending.push(`${name} ${result.key}: ${wire.announced ?? 'unannounced'} → ${wire.pending.result}`);
+      if (wire.pending !== null && wire.pending.day === today && postsOnConfirm(wire.announced, wire.pending.result)) tally.pending.push(`${name} ${result.key}: ${wire.announced ?? 'unannounced'} → ${wire.pending.result}`);
     }
     if (previous?.result !== JSON.stringify(result) || previous.wire !== JSON.stringify(wire)) {
       statements.push(passportStore.unitStatement(db, { unit: result.key, chain: first!.registry.chain, address: first!.registry.address, result, wire }));

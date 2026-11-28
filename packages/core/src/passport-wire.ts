@@ -63,6 +63,11 @@ function eventFor(was: WireResult | null, now: WireVerdict, day: string, correct
   return null;
 }
 
+/** Whether a pending result posts once it confirms: a flag raised or cleared does, an arrival at clear from nothing readable does not. */
+export function postsOnConfirm(announced: WireResult | null, pending: WireVerdict): boolean {
+  return eventFor(announced, pending, '', false) !== null;
+}
+
 function settle(base: WireSettled, outcome: WireOutcome, today: string): { settled: WireSettled; event: WireEvent | null; log: WireLog | null } {
   if (!outcome.read) {
     const pending = base.pending && withinWindow(base.pending.day, today) ? base.pending : null;

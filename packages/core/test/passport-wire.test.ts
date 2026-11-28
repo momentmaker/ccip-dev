@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   confirmArrivals,
   planPassportPosts,
+  postsOnConfirm,
   stepWireUnit,
   WIRE_UNREAD,
   type ArrivalItem,
@@ -343,6 +344,23 @@ const row = (over: Partial<ArrivingRow> & Pick<ArrivingRow, 'row' | 'groupId'>):
   readableByDesign: true,
   readings: [],
   ...over,
+});
+
+describe('postsOnConfirm', () => {
+  it.each([
+    [null, 'flagged', true],
+    ['not readable', 'flagged', true],
+    ['clear', 'flagged', true],
+    ['flagged', 'clear', true],
+    [null, 'clear', false],
+    ['not readable', 'clear', false],
+  ] as const)('from %s to %s posts: %s', (announced, pending, posts) => {
+    // #given an announced result and a pending one
+    // #when
+    const result = postsOnConfirm(announced, pending);
+    // #then
+    expect(result).toBe(posts);
+  });
 });
 
 describe('confirmArrivals', () => {
